@@ -4,6 +4,15 @@
 
 ## Git 协作
 
+### 版本控制范围
+
+哪些文件应提交、哪些必须忽略，以及 **IntelliJ IDEA 打开方式**，见 **[`docs/dev/git-and-idea.md`](docs/dev/git-and-idea.md)**。
+
+要点：
+
+- **提交**：源码、`pom.xml`、Maven Wrapper（含 `maven-wrapper.jar`）、OpenSpec、共享 `.idea/` 配置、`.editorconfig`
+- **不提交**：`target/`、`*.iml`、`.idea/workspace.xml`、`.env`、`node_modules/`、构建 JAR（Wrapper JAR 除外）
+
 ### 分支
 
 | 分支 | 用途 |

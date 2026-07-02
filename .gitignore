@@ -1,52 +1,71 @@
-# Environment
+# =============================================================================
+# RelayFlow .gitignore
+# 策略说明见 docs/dev/git-and-idea.md
+# =============================================================================
+
+# --- 密钥与环境（切勿提交） ---
 .env
 .env.*
 !.env.example
 
-# OS / IDE (non-shared)
+# --- 操作系统 ---
 .DS_Store
-.idea/
-*.swp
-*.swo
+Thumbs.db
 
-# Cursor — keep rules/commands/skills, ignore local state
+# --- IntelliJ IDEA ---
+# 共享配置在 .idea/ 下提交；个人状态由 .idea/.gitignore 排除
+*.iml
+*.ipr
+*.iws
+out/
+
+# --- Eclipse / VS Code（本仓库主用 IDEA，仍忽略以免误提交） ---
+.classpath
+.project
+.settings/
+.factorypath
+.vscode/*
+!.vscode/extensions.json
+
+# --- Cursor：共享 rules/skills，忽略本地会话状态 ---
 .cursor/*
 !.cursor/rules/
 !.cursor/commands/
 !.cursor/skills/
 
-# Claude / other AI tool local runtime
+# --- 其他 AI 工具本地目录 ---
 .claude/
 .codex/
 .windsurf/
 .opencode/
 
-# Personal agent overrides
+# --- 个人本地覆盖 ---
 CLAUDE.local.md
 **/*.local.md
 
-# OpenSpec obsolete files
+# --- OpenSpec 废弃路径 ---
 openspec/AGENTS.md
 openspec/project.md
 
-# Java / Maven (backend at repo root)
+# --- Java / Maven ---
 target/
 *.class
-*.jar
 *.war
 *.ear
-*.iml
 .flattened-pom.xml
 hs_err_pid*
 replay_pid*
+# 业务 JAR/WAR 不提交；Maven Wrapper JAR 例外（见下方 !）
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
 
-# Frontend (web/)
+# --- 前端 web/ ---
 web/node_modules/
 web/dist/
 web/.vite/
 web/*.tsbuildinfo
 .pnpm-store/
 
-# Docker / local data
+# --- Docker / 本地运行数据 ---
 data/
 *.log

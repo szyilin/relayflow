@@ -84,7 +84,7 @@ cd web && pnpm install && pnpm dev
 | 读者 | 文档 |
 |------|------|
 | 使用者 / 运维 | [`docs/user/`](docs/user/) |
-| 贡献者 | [`CONTRIBUTING.md`](CONTRIBUTING.md)、[`docs/dev/`](docs/dev/)（含 [架构演进](docs/dev/architecture.md)） |
+| 贡献者 | [`CONTRIBUTING.md`](CONTRIBUTING.md)、[`docs/dev/`](docs/dev/)（含 [Git/IDEA](docs/dev/git-and-idea.md)） |
 | 架构与需求规格 | [`openspec/specs/`](openspec/specs/)、[V1 架构设计](openspec/changes/archive/2026-06-30-bootstrap-v1-foundation/design.md) |
 
 本项目使用 [OpenSpec](https://openspec.dev/) 管理需求变更；日常开发流程见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。

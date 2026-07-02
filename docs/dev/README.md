@@ -8,5 +8,6 @@
 | [api.md](api.md) | 统一响应、错误码、分页、HTTP 状态；与前端路由对齐 |
 | [database.md](database.md) | 表前缀、V1 单库分域、公共字段、雪花 ID、Flyway 命名 |
 | [code-style.md](code-style.md) | Java 分层、跨域 `*-api`、VO/DTO、JWT/RBAC、前端路由 |
+| [git-and-idea.md](git-and-idea.md) | **Git 纳入/忽略清单**、IntelliJ IDEA 导入与 Maven Wrapper |
 
-协作与 Git 见根目录 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
+协作与 Git 流程见根目录 [CONTRIBUTING.md](../../CONTRIBUTING.md)。

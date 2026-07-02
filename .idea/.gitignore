@@ -1,0 +1,12 @@
+# Default ignored files (JetBrains template — personal IDE state)
+/shelf/
+/workspace.xml
+/tasks.xml
+/usage.statistics.xml
+/contentModel.xml
+/dataSources/
+/dataSources.local.xml
+/httpRequests/
+/db-forest-config.xml
+# modules.xml 由 Maven 导入生成，各开发者可能略有差异，不强制共享
+/modules.xml
