@@ -14,6 +14,7 @@
 
     <modules>
         <module>relayflow-dependencies</module>
+        <module>relayflow-framework</module>
         <module>relayflow-module-system</module>
         <module>relayflow-module-infra</module>
         <module>relayflow-module-im</module>
