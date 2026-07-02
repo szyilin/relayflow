@@ -6,14 +6,14 @@
 
 ### 版本控制范围
 
-哪些文件应提交、哪些必须忽略，以及 **IntelliJ IDEA 打开方式**，见 **[`docs/dev/git-and-idea.md`](docs/dev/git-and-idea.md)**。
+哪些文件应提交、哪些必须忽略，以及 **IntelliJ IDEA 打开方式**（含 **为何不提交 `.idea/`**），见 **[`docs/dev/git-and-idea.md`](docs/dev/git-and-idea.md)**。
 
 要点：
 
-- **提交**：源码、`pom.xml`、Maven Wrapper（含 `maven-wrapper.jar`）、OpenSpec、共享 `.idea/` 配置、`.editorconfig`
-- **不提交**：`target/`、`*.iml`、`.idea/workspace.xml`、`.env`、`node_modules/`、构建 JAR（Wrapper JAR 除外）
+- **提交**：源码、`pom.xml`、Maven Wrapper、OpenSpec、`.editorconfig`、将来 `.run/` 运行配置
+- **不提交**：**整个 `.idea/`**、`*.iml`、`target/`、`.env`、`node_modules/`（Maven 导入可重建 IDE 工程）
 
-### 分支
+详见 **[`docs/dev/git-and-idea.md`](docs/dev/git-and-idea.md)**（含 JetBrains / GitHub 官方依据说明）。
 
 | 分支 | 用途 |
 |------|------|

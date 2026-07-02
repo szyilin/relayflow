@@ -12,8 +12,13 @@
 .DS_Store
 Thumbs.db
 
-# --- IntelliJ IDEA ---
-# 共享配置在 .idea/ 下提交；个人状态由 .idea/.gitignore 排除
+# --- IntelliJ IDEA / JetBrains ---
+# Maven 多模块：整体忽略 .idea/（pom.xml 为真源，导入时 IDE 自动重建）
+# 参考：
+#   JetBrains KB https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+#   （Maven 项目可不提交任何 .idea 文件）
+#   GitHub Global/JetBrains.gitignore
+.idea/
 *.iml
 *.ipr
 *.iws
