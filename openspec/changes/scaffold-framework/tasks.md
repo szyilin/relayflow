@@ -4,10 +4,10 @@
 
 ## 1. 聚合与 common
 
-- [ ] 1.1 根 `pom.xml` 增加 `relayflow-framework` module
-- [ ] 1.2 创建 `relayflow-framework/pom.xml` 聚合 POM
-- [ ] 1.3 创建 `relayflow-common` POM + `package-info.java`
-- [ ] 1.4 验证：`./mvnw -pl relayflow-framework/relayflow-common -am compile`
+- [x] 1.1 根 `pom.xml` 增加 `relayflow-framework` module
+- [x] 1.2 创建 `relayflow-framework/pom.xml` 聚合 POM
+- [x] 1.3 创建 `relayflow-common` POM + `package-info.java`
+- [x] 1.4 验证：`./mvnw -pl relayflow-framework/relayflow-common -am compile`
 
 ## 2. starter-web
 
