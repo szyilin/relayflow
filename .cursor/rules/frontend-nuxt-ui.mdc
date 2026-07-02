@@ -1,0 +1,38 @@
+---
+description: 前端 UI 栈 — web/ 下 Vue 3 + Vite + Nuxt UI v4
+alwaysApply: true
+---
+
+# 前端 UI：Nuxt UI
+
+RelayFlow 前端（`web/`）以 **Nuxt UI v4** 为主 UI 框架。
+
+## 技术栈
+
+| 层级 | 选型 |
+|-------|--------|
+| 框架 | Vue 3 + TypeScript + Vite（独立 Vue，**非** Nuxt 框架） |
+| UI | **Nuxt UI v4**（`@nuxt/ui` Vite 插件） |
+| 样式 | Tailwind CSS v4（随 Nuxt UI 集成） |
+| 原语 | Reka UI（经 Nuxt UI 提供；勿另加 Radix/shadcn-vue 作为主层） |
+| 状态 / 路由 | Pinia、Vue Router |
+
+## 应当
+
+- 优先使用 Nuxt UI 组件（`UButton`、`UCard`、`UDropdownMenu`、`UModal` 等）
+- 遵循 [Nuxt UI Vue 安装指南](https://ui.nuxt.com/docs/getting-started/installation/vue)
+- 搭建管理端壳层时参考 [dashboard-vue 官方模板](https://github.com/nuxt-ui-templates/dashboard-vue)
+- 使用 `<script setup lang="ts">` 与 TypeScript 严格模式
+- **管理端路由必须以 `/admin` 开头**；页面在 `views/admin/`；详情见 [`docs/dev/code-style.md`](../../docs/dev/code-style.md)
+
+## 禁止
+
+- 以 **Element Plus**、Semi Design、daisyUI、shadcn-vue 作为主 UI 层
+- 在 `web/` 外放置前端代码，或使用 React
+- 在已有等价 Nuxt UI 组件时，仍手写 Reka UI + 大量自定义样式
+- 管理端路由不使用 `/admin` 前缀（用户端路由命名 V1 暂不限）
+
+## 参考
+
+- 文档：https://ui.nuxt.com
+- 在线演示：https://dashboard-vue-template.nuxt.dev

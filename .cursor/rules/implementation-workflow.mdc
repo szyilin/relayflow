@@ -1,0 +1,100 @@
+---
+description: 实现工作流 — 脚手架优先、小步变更、CLI 生成、验证门禁
+alwaysApply: true
+---
+
+# 实现工作流（必读）
+
+RelayFlow 当前处于 **「规格已定型、代码骨架未搭建」** 阶段。禁止根据归档 design 一次性生成整套项目。
+
+## 核心原则
+
+1. **能 CLI/模板生成的，禁止 AI 从零手写**（构建配置、目录树、官方脚手架）
+2. **一次只做一个 OpenSpec change 中的一组 tasks**（通常 ≤10 条），不得跨 change 实现
+3. **行为以 `openspec/specs/` 为真源**；archive 中的 design 仅作背景，不是本次实现清单
+4. **声称完成前必须运行验证命令**并依据输出判断，不得仅凭「看起来对」
+
+## 文档阅读顺序（实现时）
+
+1. `openspec/changes/<当前 change>/tasks.md` — **本次唯一工作范围**
+2. `openspec/changes/<当前 change>/specs/` — 本变更的规格增量
+3. `openspec/specs/<相关域>/spec.md` — 已归档的行为真源
+4. `docs/dev/` — API、数据库、代码分层等实现约定
+5. `AGENTS.md`、`.cursor/rules/*.mdc` — 入口导引与 Cursor 规则
+6. `openspec/changes/archive/*/design.md` — 仅当 tasks 要求查架构细节时
+
+## 必须用 CLI / 官方模板（禁止手写替代）
+
+| 产物 | 做法 |
+|------|------|
+| OpenSpec 变更 | `openspec new change <name>` |
+| Vue 前端 `web/` | 基于 [dashboard-vue 模板](https://github.com/nuxt-ui-templates/dashboard-vue) 初始化，再按 [Nuxt UI Vue 安装](https://ui.nuxt.com/docs/getting-started/installation/vue) 集成 |
+| Maven 多模块 | 复制/扩展仓库内已验证的 parent pom 模式；版本仅来自 `relayflow-dependencies` BOM |
+| Flyway 迁移 | AI 只写 **SQL 内容与业务含义**；文件名 `V{major}.{minor}.{patch}.{seq}__{description}.sql`（前三段=产品 SemVer，第四段=同版本序号） |
+| 依赖版本 | 只写入 BOM，子模块 pom 不写死版本号（除 BOM import） |
+
+## 禁止行为
+
+- 单次会话实现「整个 V1」「全部模块」「前后端一起搭完」
+- 未读 `tasks.md` 就根据 README/archive design 大量生成代码
+- 手写完整 `pom.xml` 树、`vite.config.ts`、`nuxt.config` 而不参考官方模板
+- 引入 Element Plus、React、未在 BOM/spec 中的依赖
+- 跨域调用走 `*-api`，禁止 `*-biz` 互依赖、禁止跨域 Mapper 访问他域表（见 `docs/dev/architecture.md`）
+- V1 禁止引入 Gateway、Nacos、独立 `*-server`（Phase 2 再做）
+
+## 推荐实施阶段（按顺序，每阶段独立 change）
+
+### V1（当前 — 微服务就绪单体）
+
+```text
+1. scaffold-maven-parent      — 父 pom + dependencies BOM + 三域 api/biz 空模块
+2. scaffold-framework         — framework 空 Starter 模块
+3. scaffold-server            — relayflow-server 可 spring-boot:run（加载各 *-biz）
+4. scaffold-deploy-compose    — PostgreSQL / Redis / MinIO
+5. scaffold-web-nuxt-ui       — web/ 从官方模板初始化
+6. tenant-ready-foundation    — 租户 Starter + Flyway V1.0.0.x
+7. system-auth-minimal        — 仅登录 + JWT
+8. infra-* / im-*             — 按域逐个 change
+```
+
+### Phase 2（以后 — 分布式部署，满足触发条件后再做）
+
+```text
+9. distributed-backend-v1 第二章节 — Gateway + Nacos + *-server + 分库 + Feign
+```
+
+**V1 禁止**：提前创建 `relayflow-gateway`、`relayflow-*-server`、引入 Nacos。  
+**V1 必须**：`*-api` 边界、禁止 `*-biz → *-biz`、表前缀分域、跨域不直连他域表。
+
+## 单次实现会话的检查清单
+
+开始：
+- [ ] 确认当前 active change 名称与 `tasks.md` 章节
+- [ ] 确认脚手架是否已存在（无 pom 则不做业务代码）
+
+结束：
+- [ ] 仅完成 tasks 中勾选项对应范围
+- [ ] 运行本 change 适用的验证命令（见 AGENTS.md）
+- [ ] 未请求则不 git commit / push
+
+## 验证命令（按场景选用）
+
+```bash
+openspec validate <change-name> --strict
+./mvnw -pl relayflow-server -am compile    # 后端骨架/业务
+./mvnw test                                 # 有测试时
+cd web && pnpm install && pnpm build        # 前端
+docker compose -f deploy/compose.yml config # Compose 语法
+```
+
+## 封闭变量（不得擅自更改）
+
+- 包名：`com.relayflow`
+- API：`/admin-api/`、`/app-api/`、`/infra/ws`；响应 `code=0` 成功（见 `docs/dev/api.md`）
+- 前端：管理端路由必须以 `/admin` 开头（见 `docs/dev/code-style.md`）
+- 表前缀：`sys_`、`infra_`、`im_`、`bpm_`；主键雪花 ID；时间字段 `create_time`（见 `docs/dev/database.md`）
+- Flyway：`V{major}.{minor}.{patch}.{seq}__{description}.sql`（见 `docs/dev/database.md`）
+- 租户：V1 `relayflow.tenant.enabled=false`，默认 `tenant_id=1`
+- 前端 UI：Nuxt UI v4（见 `frontend-nuxt-ui.mdc`）
+- Commit：中文 + Conventional Commits（见 `CONTRIBUTING.md`）
+- 模块：跨域仅 `*-api`；禁止 `*-biz → *-biz`（见 `docs/dev/architecture.md`）

@@ -1,0 +1,94 @@
+schema: spec-driven
+
+context: |
+  产品：RelayFlow — 自部署企业协作平台（即时通讯 + 文档 + 工作流）。
+  目标用户：50–2000 人规模、需私有化 / 离线部署的组织。
+
+  仓库布局：
+  - 根目录 = Java Maven 父工程（非扁平单 src/ 结构）
+  - web/ = 前端子工程（Vue 3 + TypeScript + Vite + Nuxt UI v4）
+  - deploy/ = Docker Compose
+  - db/ = 初始化 SQL
+  - openspec/ = 规格与变更
+
+  V1 后端技术栈：
+  - Java 21、Spring Boot 3.4.x、Maven 多模块
+  - PostgreSQL、Redis、MinIO、Flyway、MyBatis-Plus
+  - Spring Security 6 + JWT、Spring WebSocket
+  V1 后端运行时：
+  - 微服务就绪的模块化单体：单一 relayflow-server 加载 system/infra/im 的 *-biz
+  - Maven：各域 *-api + *-biz；跨域仅 *-api；禁止 *-biz → *-biz
+  - 数据库 V1：单 PostgreSQL 库，表前缀 sys_/infra_/im_ 逻辑分域
+  - Phase 2（以后）：Gateway + Nacos + *-server + 分库；详见 distributed-backend-v1
+  - 不引入 V1：Gateway、Nacos、独立 *-server
+
+  Maven 模块（V1 启用）：
+  - relayflow-dependencies（BOM）
+  - relayflow-framework/*（Starter）
+  - relayflow-module-system（api + biz）
+  - relayflow-module-infra（api + biz）
+  - relayflow-module-im（api + biz）
+  - relayflow-server（入口）
+  - relayflow-module-bpm — V1.1 前暂不启用
+
+  模块规则：
+  - 各业务域拆分为 *-api（契约）与 *-biz（实现）
+  - *-biz 仅可依赖其他 *-api，不得依赖其他 *-biz
+  - 表前缀：sys_、infra_、im_、bpm_
+
+  API 约定：
+  - 管理端 REST：/admin-api/{module}/
+  - 用户端 REST：/app-api/{module}/
+  - WebSocket：/infra/ws
+  - 统一响应：code=0 表示成功，HTTP 200；详见 docs/dev/api.md
+
+  前端路由（web/）：
+  - 管理端页面路由必须以 /admin 开头，对应 views/admin/ 与 /admin-api
+  - 用户端页面路由 V1 暂不限前缀，对应 /app-api
+  - 详见 docs/dev/code-style.md
+
+  数据库约定：
+  - 主键：雪花 ID（非数据库自增）
+  - 公共字段：create_time / update_time / deleted（0=未删，1=已删）
+  - Flyway 命名：V{major}.{minor}.{patch}.{seq}__{description}.sql，前三段跟产品 SemVer，第四段同版本内序号；详见 docs/dev/database.md
+
+  协作约定：
+  - Commit 中文 + Conventional Commits；现阶段允许直接 push main
+  - 详见 CONTRIBUTING.md
+
+  前端（web/）：Vue 3、TypeScript、Vite、Nuxt UI v4、Pinia、Vue Router
+  前端 UI 规则：.cursor/rules/frontend-nuxt-ui.mdc
+  前端设计：openspec/changes/archive/2026-06-30-adopt-vue-frontend/design.md
+  领域规格：deployment/、system/、infra/、im/、workflow/（后续）
+  架构详情：docs/dev/architecture.md
+  Phase 2 微服务：openspec/changes/distributed-backend-v1/design.md
+  开发约定：docs/dev/（api.md、database.md、code-style.md）
+  AI 编码入口：根目录 AGENTS.md（导引，非全文）
+  实现工作流（必读）：.cursor/rules/implementation-workflow.mdc
+
+  当前阶段：Maven 父工程与三域 api/biz 空模块已 scaffold（scaffold-maven-parent）；framework/server/web/compose 待后续 change。实现须小步 OpenSpec change + CLI/模板脚手架，禁止一次性生成整套 V1。
+
+rules:
+  proposal:
+    - 说明影响的领域与 Maven 模块
+    - 明确变更是否涉及 Java 根目录、web/ 或 deploy/
+    - 说明自部署场景下的回滚 / 迁移影响
+  specs:
+    - 使用「需求 + 场景（给定/当/那么）」结构
+    - 规范性表述使用「应 / 必须」
+    - 新增行为前先查阅 openspec/specs/
+  design:
+    - 遵循 Maven 多模块布局；前端仅位于 web/
+    - 记录端口、环境变量、Flyway 迁移
+    - 说明离线 / 内网部署影响
+  tasks:
+    - 按 Maven 模块或 web/ 或 deploy/ 分组
+    - 明确标注 Flyway 迁移类任务
+    - 单次 change 任务控制在可一会话完成（建议 ≤10 条 checkbox）
+    - 脚手架类任务须注明使用的 CLI/官方模板，不得要求 AI 从零生成完整构建配置
+    - 每项任务须可验证（如 mvn compile、pnpm build、openspec validate）
+  apply:
+    - 实现前读取 openspec/changes/<change>/tasks.md，仅完成其中未勾选项
+    - 实现前读取 .cursor/rules/implementation-workflow.mdc 与 docs/dev/ 相关约定
+    - 完成前运行 tasks 对应的验证命令，无输出证据不得声称完成
+    - 骨架未就绪时不得编写业务域代码

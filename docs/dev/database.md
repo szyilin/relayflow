@@ -1,0 +1,113 @@
+# 数据库约定
+
+PostgreSQL + Flyway + MyBatis-Plus 的表结构、迁移与公共字段规范。
+
+## 表命名
+
+| 前缀 | 模块 | 示例 |
+|------|------|------|
+| `sys_` | system | `sys_user` |
+| `infra_` | infra | `infra_file` |
+| `im_` | im | `im_message` |
+| `bpm_` | bpm（V1.1） | `bpm_process` |
+
+租户元数据表（`sys_tenant`、`sys_tenant_user`）不带业务表通用的 `tenant_id` 约束，详见 `tenant-ready-foundation` design。
+
+## V1 单库与 Phase 2 分库
+
+| 阶段 | 数据库 | Flyway 位置 |
+|------|--------|-------------|
+| **V1** | 单一 PostgreSQL（如 `relayflow`） | `relayflow-server/.../db/migration/` |
+| **Phase 2** | 按域分库（`relayflow_system` 等） | 各 `*-server` 独立迁移 |
+
+V1 用 **表前缀** 做逻辑分域，不建多库：
+
+- `sys_*` 仅 system 域 Mapper 访问
+- `infra_*` 仅 infra 域 Mapper 访问
+- `im_*` 仅 im 域 Mapper 访问
+
+**禁止** im-biz 的 SQL 出现 `sys_` 表；跨域读数据须走 `*-api`（如 `AdminUserApi`），不直连他域表。
+
+## 公共字段
+
+业务表（除租户元数据等全局表外）应包含：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `BIGINT` | 主键，**雪花 ID**（应用层生成，非数据库自增） |
+| `tenant_id` | `BIGINT NOT NULL` | 租户 ID；V1 默认 `1` |
+| `creator` | `BIGINT` | 创建人 user id |
+| `create_time` | `TIMESTAMPTZ NOT NULL` | 创建时间 |
+| `updater` | `BIGINT` | 最后更新人 user id |
+| `update_time` | `TIMESTAMPTZ NOT NULL` | 最后更新时间 |
+| `deleted` | `SMALLINT NOT NULL DEFAULT 0` | 逻辑删除：`0` 未删除，`1` 已删除 |
+
+### 命名
+
+- 列名统一 **snake_case**，时间字段使用 `create_time` / `update_time`（不使用 `created_at`）。
+- Java DO 字段与之对应：`createTime`、`updateTime`（MyBatis-Plus 驼峰映射）。
+
+### 主键：雪花 ID
+
+- 由框架层统一发号（如 MyBatis-Plus `IdType.ASSIGN_ID` 或自定义 `IdGenerator`）。
+- 禁止使用 PostgreSQL `SERIAL` / `IDENTITY` 作为业务主键。
+- 利于多实例部署与 IM 等高写入场景。
+
+### 逻辑删除
+
+- `deleted` 使用 `SMALLINT`，默认值 `0`，与 MyBatis-Plus `@TableLogic` 默认行为一致。
+- 查询默认过滤 `deleted = 0`；物理删除仅用于运维/合规等特殊场景。
+
+### 索引
+
+- 租户内唯一约束：`UNIQUE (tenant_id, username)` 等。
+- 查询索引以 `tenant_id` 为 leading column：`(tenant_id, …)`。
+
+## Flyway 迁移
+
+| 项 | 规则 |
+|----|------|
+| 位置 | `relayflow-server/src/main/resources/db/migration/` |
+| 文件名 | `V{major}.{minor}.{patch}.{seq}__{description}.sql` |
+| 前三段 | 与 **产品 SemVer** 对齐，表示该脚本随哪个版本发布 |
+| 第四段 `seq` | 同一产品版本内从 `1` 递增，区分同版本多次 SQL |
+| 内容 | 只增不改历史脚本；破坏性变更用新迁移 + 数据迁移步骤 |
+
+### 命名示例
+
+产品版本 **1.0.0** 首次发版，含 3 个迁移脚本：
+
+```text
+V1.0.0.1__init_tenant.sql
+V1.0.0.2__init_system.sql
+V1.0.0.3__init_infra.sql
+```
+
+产品版本 **1.1.0** 新增 IM 表：
+
+```text
+V1.1.0.1__add_im_message.sql
+```
+
+### 纪律
+
+- 前三段必须与该脚本所属 **Release 的 SemVer 一致**；换版本时 `seq` 从 `1` 重新起。
+- 同一 Release 需要多条 SQL 时，只递增第四段：`V1.0.0.1` → `V1.0.0.2`，不要跳到其他产品版本段。
+- 某次发版无数据库变更：不新增文件即可，不要凑空迁移。
+- 生产热修仍挂在对应产品版本下，例如 `V1.0.0.4__hotfix_index.sql`，或随 patch 发版 `V1.0.1.1__...`（团队择一后保持一致）。
+- `{description}` 使用 **snake_case** 英文短描述。
+
+### 新装与升级
+
+Flyway 对 **空库首次部署** 与 **老库升级** 行为一致：按版本号 **从小到大依次执行** 所有尚未记录在 `flyway_schema_history` 中的脚本。  
+因此新用户安装最新包时，仍会执行从 `V1.0.0.1` 到当前版本的 **完整迁移链**，最终 schema 与从首版一路升级上来的环境一致。这是预期行为，不是重复执行错误。
+
+## SQL 编写
+
+- 参数占位使用 `#{}`，禁止字符串拼接 SQL。
+- 迁移脚本须可重复执行的安全写法（`IF NOT EXISTS` 等）或依赖 Flyway 版本保证只执行一次。
+- 种子数据（如默认租户 `id=1`）写在首版相关迁移中。
+
+## 与 OpenSpec 的关系
+
+表结构、租户字段等行为要求以 `openspec/specs/` 及 active change 的 spec delta 为准；本文档约定 **如何实现** 的字段形态与迁移纪律。

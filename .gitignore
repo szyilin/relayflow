@@ -1,0 +1,52 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS / IDE (non-shared)
+.DS_Store
+.idea/
+*.swp
+*.swo
+
+# Cursor — keep rules/commands/skills, ignore local state
+.cursor/*
+!.cursor/rules/
+!.cursor/commands/
+!.cursor/skills/
+
+# Claude / other AI tool local runtime
+.claude/
+.codex/
+.windsurf/
+.opencode/
+
+# Personal agent overrides
+CLAUDE.local.md
+**/*.local.md
+
+# OpenSpec obsolete files
+openspec/AGENTS.md
+openspec/project.md
+
+# Java / Maven (backend at repo root)
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+.flattened-pom.xml
+hs_err_pid*
+replay_pid*
+
+# Frontend (web/)
+web/node_modules/
+web/dist/
+web/.vite/
+web/*.tsbuildinfo
+.pnpm-store/
+
+# Docker / local data
+data/
+*.log
