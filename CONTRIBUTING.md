@@ -20,7 +20,7 @@
 | `main` | 主分支，当前可部署/可集成的代码 |
 | `feature/<change-name>` | 可选：对应一个 OpenSpec change 的功能分支 |
 
-**现阶段**：允许直接向 `main` push（小团队快速迭代）。后续若引入 PR review，再收紧为「仅通过 PR 合并」。
+**现阶段**：允许直接向 `main` push（便于早期快速迭代）。后续若引入 PR review，再收紧为「仅通过 PR 合并」。
 
 ### 与 OpenSpec 的关系
 
