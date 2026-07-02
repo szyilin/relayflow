@@ -56,7 +56,7 @@ relayflow-server/                     # 唯一运行时入口
 
 ### 产品模块 vs 部署单元
 
-飞书侧边栏每一项 **≠** 一个微服务。官方能力 → 新 `relayflow-module-*`；是否独立 `*-server` 见 Phase 2 触发条件。第三方工作台应用 → **开放平台 API**，不新增 JVM。
+工作台导航中的每一项 **≠** 一个微服务。官方能力 → 新 `relayflow-module-*`；是否独立 `*-server` 见 Phase 2 触发条件。第三方集成应用 → **开放平台 API**，不新增 JVM。
 
 ## Phase 2：分布式微服务（目标态）
 
