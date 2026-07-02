@@ -18,5 +18,10 @@
     <modules>
         <module>relayflow-common</module>
         <module>relayflow-spring-boot-starter-web</module>
+        <module>relayflow-spring-boot-starter-security</module>
+        <module>relayflow-spring-boot-starter-mybatis</module>
+        <module>relayflow-spring-boot-starter-redis</module>
+        <module>relayflow-spring-boot-starter-websocket</module>
+        <module>relayflow-spring-boot-starter-oss</module>
     </modules>
 </project>
