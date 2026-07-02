@@ -11,9 +11,9 @@
 
 ## 2. starter-web
 
-- [ ] 2.1 创建 `relayflow-spring-boot-starter-web` POM（依赖 common + spring-boot-starter-web）
-- [ ] 2.2 添加 `package-info.java`
-- [ ] 2.3 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-web -am compile`
+- [x] 2.1 创建 `relayflow-spring-boot-starter-web` POM（依赖 common + spring-boot-starter-web）
+- [x] 2.2 添加 `package-info.java`
+- [x] 2.3 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-web -am compile`
 
 ## 3. starter-security
 

@@ -17,5 +17,6 @@
 
     <modules>
         <module>relayflow-common</module>
+        <module>relayflow-spring-boot-starter-web</module>
     </modules>
 </project>
