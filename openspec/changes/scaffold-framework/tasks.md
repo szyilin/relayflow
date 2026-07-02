@@ -17,30 +17,30 @@
 
 ## 3. starter-security
 
-- [ ] 3.1 创建 starter-security POM + `package-info.java`
-- [ ] 3.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-security -am compile`
+- [x] 3.1 创建 starter-security POM + `package-info.java`
+- [x] 3.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-security -am compile`
 
 ## 4. starter-mybatis
 
-- [ ] 4.1 创建 starter-mybatis POM + `package-info.java`
-- [ ] 4.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-mybatis -am compile`
+- [x] 4.1 创建 starter-mybatis POM + `package-info.java`
+- [x] 4.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-mybatis -am compile`
 
 ## 5. starter-redis
 
-- [ ] 5.1 创建 starter-redis POM + `package-info.java`
-- [ ] 5.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-redis -am compile`
+- [x] 5.1 创建 starter-redis POM + `package-info.java`
+- [x] 5.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-redis -am compile`
 
 ## 6. starter-websocket
 
-- [ ] 6.1 创建 starter-websocket POM + `package-info.java`
-- [ ] 6.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-websocket -am compile`
+- [x] 6.1 创建 starter-websocket POM + `package-info.java`
+- [x] 6.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-websocket -am compile`
 
 ## 7. starter-oss
 
-- [ ] 7.1 创建 starter-oss POM + `package-info.java`
-- [ ] 7.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-oss -am compile`
+- [x] 7.1 创建 starter-oss POM + `package-info.java`
+- [x] 7.2 验证：`./mvnw -pl relayflow-framework/relayflow-spring-boot-starter-oss -am compile`
 
 ## 8. 全量门禁
 
-- [ ] 8.1 `./mvnw compile`
-- [ ] 8.2 `openspec validate scaffold-framework --strict`
+- [x] 8.1 `./mvnw compile`
+- [x] 8.2 `openspec validate scaffold-framework --strict`
