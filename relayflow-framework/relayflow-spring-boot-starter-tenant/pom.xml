@@ -10,9 +10,9 @@
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>relayflow-spring-boot-starter-mybatis</artifactId>
-    <name>relayflow-spring-boot-starter-mybatis</name>
-    <description>MyBatis starter (MyBatis-Plus, pagination, tenant line handler)</description>
+    <artifactId>relayflow-spring-boot-starter-tenant</artifactId>
+    <name>relayflow-spring-boot-starter-tenant</name>
+    <description>Tenant context, web filter, and MyBatis-Plus tenant line handler</description>
 
     <dependencies>
         <dependency>
@@ -20,16 +20,16 @@
             <artifactId>relayflow-common</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
         </dependency>
     </dependencies>
 </project>

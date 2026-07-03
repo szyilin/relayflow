@@ -2,5 +2,20 @@ spring:
   application:
     name: relayflow-server
 
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/relayflow}
+    username: ${POSTGRES_USER:relayflow}
+    password: ${POSTGRES_PASSWORD:relayflow}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
 server:
   port: 8080
+
+relayflow:
+  tenant:
+    enabled: false
+    default-id: 1
+    header-name: X-Tenant-Id
