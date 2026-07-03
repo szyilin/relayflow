@@ -1,0 +1,41 @@
+package com.relayflow.framework.tenant.core;
+
+import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
+import com.relayflow.framework.tenant.config.TenantProperties;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.LongValue;
+
+import java.util.Set;
+
+public class RelayflowTenantLineHandler implements TenantLineHandler {
+
+    private static final Set<String> IGNORED_TABLES = Set.of(
+            "sys_tenant",
+            "sys_tenant_user"
+    );
+
+    private final TenantProperties properties;
+
+    public RelayflowTenantLineHandler(TenantProperties properties) {
+        this.properties = properties;
+    }
+
+    @Override
+    public Expression getTenantId() {
+        Long tenantId = TenantContextHolder.get();
+        if (tenantId == null) {
+            tenantId = properties.getDefaultId();
+        }
+        return new LongValue(tenantId);
+    }
+
+    @Override
+    public String getTenantIdColumn() {
+        return "tenant_id";
+    }
+
+    @Override
+    public boolean ignoreTable(String tableName) {
+        return IGNORED_TABLES.contains(tableName.toLowerCase());
+    }
+}

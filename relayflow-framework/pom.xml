@@ -23,5 +23,6 @@
         <module>relayflow-spring-boot-starter-redis</module>
         <module>relayflow-spring-boot-starter-websocket</module>
         <module>relayflow-spring-boot-starter-oss</module>
+        <module>relayflow-spring-boot-starter-tenant</module>
     </modules>
 </project>
