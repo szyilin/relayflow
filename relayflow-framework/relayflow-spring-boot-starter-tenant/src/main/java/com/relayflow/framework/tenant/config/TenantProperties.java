@@ -1,7 +1,9 @@
 package com.relayflow.framework.tenant.config;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+@Data
 @ConfigurationProperties(prefix = "relayflow.tenant")
 public class TenantProperties {
 
@@ -19,28 +21,4 @@ public class TenantProperties {
      * HTTP header used when {@link #enabled} is true.
      */
     private String headerName = "X-Tenant-Id";
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public long getDefaultId() {
-        return defaultId;
-    }
-
-    public void setDefaultId(long defaultId) {
-        this.defaultId = defaultId;
-    }
-
-    public String getHeaderName() {
-        return headerName;
-    }
-
-    public void setHeaderName(String headerName) {
-        this.headerName = headerName;
-    }
 }

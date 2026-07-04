@@ -1,5 +1,8 @@
 package com.relayflow.common.exception;
 
+import lombok.Getter;
+
+@Getter
 public class ServiceException extends RuntimeException {
 
     private final Integer code;
@@ -12,9 +15,5 @@ public class ServiceException extends RuntimeException {
     public ServiceException(Integer code, String message) {
         super(message);
         this.code = code;
-    }
-
-    public Integer getCode() {
-        return code;
     }
 }

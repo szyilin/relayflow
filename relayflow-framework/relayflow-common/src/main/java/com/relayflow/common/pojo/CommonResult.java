@@ -2,7 +2,9 @@ package com.relayflow.common.pojo;
 
 import com.relayflow.common.exception.ErrorCode;
 import com.relayflow.common.exception.ServiceException;
+import lombok.Data;
 
+@Data
 public class CommonResult<T> {
 
     private Integer code;
@@ -30,29 +32,5 @@ public class CommonResult<T> {
 
     public static <T> CommonResult<T> error(ServiceException exception) {
         return error(exception.getCode(), exception.getMessage());
-    }
-
-    public Integer getCode() {
-        return code;
-    }
-
-    public void setCode(Integer code) {
-        this.code = code;
-    }
-
-    public String getMsg() {
-        return msg;
-    }
-
-    public void setMsg(String msg) {
-        this.msg = msg;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public void setData(T data) {
-        this.data = data;
     }
 }

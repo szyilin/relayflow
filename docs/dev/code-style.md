@@ -15,6 +15,7 @@ Java 后端与 Vue 前端的命名、分层、认证与日志习惯。
 | 异常 | 统一 `@ControllerAdvice`；禁止空 `catch` |
 | DTO 转换 | MapStruct |
 | 参数校验 | Jakarta Validation |
+| 样板代码 | **Lombok**（见下节）；禁止手写 getter/setter |
 
 ### 模块依赖与跨域
 
@@ -54,6 +55,26 @@ src/main/resources/mapper/                  # 手写：*ExtMapper.xml
 ```
 
 DO / 基础 Mapper **不得**放在 `src/` 下手写；须按 [codegen.md](codegen.md) 使用 CLI 生成到临时目录，diff 后合并至 `target/generated-sources/mybatis/`。
+
+### Lombok
+
+数据载体类 **必须** 使用 Lombok，**禁止** 手写 getter/setter（枚举、接口实现中的匿名类等除外）。
+
+| 类型 | 注解 | 示例 |
+|------|------|------|
+| DO / DTO / VO / ReqVO / RespVO | `@Data` | `UserRespVO`、`UserCreateReqDTO` |
+| 抽象 DO 基类 | `@Getter` `@Setter` | `BaseDO`、`TenantBaseDO` |
+| `@ConfigurationProperties` | `@Data` | `JwtProperties`、`TenantProperties` |
+| 仅构造注入 + 只读字段 | `@Getter` `@RequiredArgsConstructor` | `LoginUser` |
+| 异常（含 `code` 等 final 字段） | `@Getter` | `ServiceException` |
+| 枚举字段 | `@Getter` | `ErrorCodeConstants` |
+
+约定：
+
+- 依赖：`org.projectlombok:lombok`，`scope` 为 `provided`（版本由 BOM / Spring Boot 管理）
+- 生成 DO 由 codegen CLI 输出 Lombok 注解（见 [codegen.md](codegen.md)）；手写 POJO 同样遵循上表
+- MapStruct `Convert` 与 Lombok 共存；编译期需启用 Lombok 注解处理
+- **禁止** 为普通数据类手写 `getXxx` / `setXxx`；IDE 请安装 Lombok 插件（见 [git-and-idea.md](git-and-idea.md)）
 
 ### 对象命名
 
