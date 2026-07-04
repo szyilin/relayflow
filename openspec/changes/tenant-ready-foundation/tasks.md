@@ -1,5 +1,7 @@
 # 任务：tenant-ready-foundation
 
+> **工作流说明**：§4 后端已落地，但 **管理端登录页尚未对接**。剩余用户可见能力请按 [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md) 拆为独立切片 change（如 `admin-login-slice`），勿在本 change 内继续堆纯后端。
+
 ## 1. 文档与规格
 
 - [x] 1.1 审阅 proposal.md、design.md、spec delta
@@ -29,7 +31,7 @@
 - [x] 4.3 JWT 签发与校验写入 `tenant_id` claim
 - [x] 4.4 登录流程绑定 TenantContext
 
-## 5. 基础设施与 IM 模块
+## 5. 基础设施与 IM 模块 `[平台 — 无 UI，可独立 change：tenant-platform-slice]`
 
 - [ ] 5.1 infra 模块所有 DO 含 `tenantId` 字段
 - [ ] 5.2 im 模块所有 DO 含 `tenantId` 字段
@@ -42,8 +44,18 @@
 - [x] 6.1 `application.yml` 增加 `relayflow.tenant.*` 默认值
 - [x] 6.2 `deploy/.env.example` 增加 `RELAYFLOW_TENANT_ENABLED`、`RELAYFLOW_TENANT_DEFAULT_ID`
 
-## 7. 测试
+## 7. 测试 `[平台]`
 
 - [ ] 7.1 单租户模式：所有查询自动过滤 `tenant_id=1`
 - [ ] 7.2 集成测试：两租户数据互不可见（为将来 enabled=true 预留）
 - [ ] 7.3 默认租户 `id=1` 不可删除
+
+## 8. 后续纵向切片（不在本 change 完成 — 新建 OpenSpec change）
+
+以下须 **后端 + web/** 同批，见 `docs/dev/vertical-slice-workflow.md`：
+
+| 切片 change 名（建议） | 后端 | 前端 |
+|------------------------|------|------|
+| `admin-login-slice` | 登录 API ✅ 已有 | `/admin/login`、token、路由守卫 |
+| `admin-shell-slice` | 租户查询 API ✅ 已有 | 壳层展示企业名、退出 |
+| `admin-bootstrap-slice` | 用户创建 API ✅ 已有 | 首次管理员向导（可选） |

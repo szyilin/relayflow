@@ -62,11 +62,12 @@ context: |
   领域规格：deployment/、system/、infra/、im/、workflow/（后续）
   架构详情：docs/dev/architecture.md
   Phase 2 微服务：openspec/changes/distributed-backend-v1/design.md
-  开发约定：docs/dev/（api.md、database.md、code-style.md）
+  开发约定：docs/dev/（api.md、database.md、code-style.md、vertical-slice-workflow.md）
   AI 编码入口：根目录 AGENTS.md（导引，非全文）
   实现工作流（必读）：.cursor/rules/implementation-workflow.mdc
+  纵向切片（业务功能必读）：.cursor/rules/vertical-slice-workflow.mdc、docs/dev/vertical-slice-workflow.md
 
-  当前阶段：Maven 父工程与三域 api/biz 空模块已 scaffold（scaffold-maven-parent）；framework/server/web/compose 待后续 change。实现须小步 OpenSpec change + CLI/模板脚手架，禁止一次性生成整套 V1。
+  当前阶段：脚手架与 system 登录 API 已就绪；业务功能按纵向切片推进（后端+web/ 同批、界面可验证）。禁止一次实现整套 V1；禁止连续堆后端无前端（[平台] 任务除外）。
 
 rules:
   proposal:
@@ -82,13 +83,16 @@ rules:
     - 记录端口、环境变量、Flyway 迁移
     - 说明离线 / 内网部署影响
   tasks:
-    - 按 Maven 模块或 web/ 或 deploy/ 分组
+    - 按 **纵向切片** 或 Maven 模块 / web/ / deploy/ 分组；用户可见功能须含后端+前端 tasks（见 docs/dev/vertical-slice-workflow.md）
+    - 切片 tasks 建议结构：后端 → 前端（web/）→ 联调（浏览器路径）→ 文档
+    - 纯平台任务（无 UI）标题标注 [平台]
     - 明确标注 Flyway 迁移类任务
     - 单次 change 任务控制在可一会话完成（建议 ≤10 条 checkbox）
     - 脚手架类任务须注明使用的 CLI/官方模板，不得要求 AI 从零生成完整构建配置
-    - 每项任务须可验证（如 mvn compile、pnpm build、openspec validate）
+    - 每项任务须可验证（如 mvn compile、pnpm build、openspec validate、浏览器路径）
   apply:
     - 实现前读取 openspec/changes/<change>/tasks.md，仅完成其中未勾选项
-    - 实现前读取 .cursor/rules/implementation-workflow.mdc 与 docs/dev/ 相关约定
+    - 实现前读取 .cursor/rules/implementation-workflow.mdc、vertical-slice-workflow.mdc 与 docs/dev/vertical-slice-workflow.md
+    - 含 web/ 的切片完成前必须 pnpm build；有 UI 须说明浏览器验证路径
     - 完成前运行 tasks 对应的验证命令，无输出证据不得声称完成
     - 骨架未就绪时不得编写业务域代码
