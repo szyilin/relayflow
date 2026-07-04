@@ -115,6 +115,8 @@ Profile：`local` / `dev` / `prod`。JWT secret、MinIO 密钥等 **禁止** 写
 
 技术栈：Vue 3、TypeScript（严格模式）、Vite、**Nuxt UI v4**、Pinia、Vue Router。
 
+**业务功能**按 [vertical-slice-workflow.md](vertical-slice-workflow.md) 与后端同批交付；有 UI 的 change 必须包含 `web/` tasks 与 `pnpm build` 验证。
+
 ### 目录
 
 ```text
@@ -123,18 +125,15 @@ web/src/
 │   ├── admin/         # 封装 /admin-api/*
 │   └── app/           # 封装 /app-api/*
 ├── stores/
-├── views/
-│   ├── admin/         # 管理端页面（路由须 /admin/*）
-│   └── ...            # 用户端页面（路由命名暂不限）
+├── pages/             # 文件路由（管理端须在 pages/admin/，URL /admin/*）
 ├── layouts/
-│   ├── AdminLayout.vue
-│   └── ...
 ├── components/
 ├── composables/
-├── router/
 ├── utils/
 └── types/
 ```
+
+> 历史文档中的 `views/admin/` 已统一为 **`pages/admin/`**（与 dashboard-vue 模板一致）。
 
 ### 路由
 
@@ -147,8 +146,8 @@ web/src/
 
 管理端路由约定：
 
-- 所有管理后台页面挂在 `/admin` 下，使用嵌套路由 + `AdminLayout`
-- 页面文件放在 `views/admin/`，路径与 URL 对应（如 `views/admin/system/user/index.vue` → `/admin/system/user`）
+- 所有管理后台页面挂在 `/admin` 下，使用嵌套路由 + `admin` layout
+- 页面文件放在 `pages/admin/`，路径与 URL 对应（如 `pages/admin/system/user.vue` → `/admin/system/user`）
 - 管理端 API 调用走 `api/admin/`，**禁止**在 admin 页面直接请求 `/app-api`
 
 用户端路由约定（V1）：
