@@ -43,18 +43,24 @@ com.relayflow.module.{domain}/
 │   └── app/
 ├── service/
 ├── dal/
-│   ├── dataobject/      # DO
-│   ├── mysql/           # Mapper
+│   ├── mysql/           # 手写 ExtMapper（*ExtMapper.java）
 │   └── redis/
+├── enums/               # 手写业务枚举
 ├── convert/             # MapStruct
 └── framework/           # 模块内配置（可选）
+
+target/generated-sources/mybatis/.../dal/   # 生成：*DO、*Mapper（见 codegen.md）
+src/main/resources/mapper/                  # 手写：*ExtMapper.xml
 ```
+
+DO / 基础 Mapper **不得**放在 `src/` 下手写，须按 [codegen.md](codegen.md) 从数据库生成。
 
 ### 对象命名
 
 | 类型 | 命名 | 位置 | 用途 |
 |------|------|------|------|
-| DO | `UserDO` | biz / dal | 数据库实体 |
+| DO | `UserDO` | `target/generated-sources/.../dal/dataobject` | 数据库实体（生成） |
+| ExtMapper | `UserExtMapper` | biz / dal / mysql | 自定义 SQL 接口（手写） |
 | ReqVO | `UserCreateReqVO` | biz / controller | Controller 入参 |
 | RespVO | `UserRespVO` | biz / controller | Controller 出参 |
 | ReqDTO / RespDTO | `UserRespDTO` | api | 跨模块契约 |

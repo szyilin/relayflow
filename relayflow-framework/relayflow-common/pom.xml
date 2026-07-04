@@ -13,4 +13,11 @@
     <artifactId>relayflow-common</artifactId>
     <name>relayflow-common</name>
     <description>Shared types and utilities for RelayFlow framework</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-annotation</artifactId>
+        </dependency>
+    </dependencies>
 </project>

@@ -11,7 +11,8 @@ public class RelayflowTenantLineHandler implements TenantLineHandler {
 
     private static final Set<String> IGNORED_TABLES = Set.of(
             "sys_tenant",
-            "sys_tenant_user"
+            "sys_tenant_user",
+            "sys_user"
     );
 
     private final TenantProperties properties;
