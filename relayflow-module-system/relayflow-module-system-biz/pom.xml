@@ -21,11 +21,27 @@
         </dependency>
         <dependency>
             <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.relayflow</groupId>
             <artifactId>relayflow-spring-boot-starter-tenant</artifactId>
         </dependency>
         <dependency>
             <groupId>com.relayflow</groupId>
             <artifactId>relayflow-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

@@ -24,10 +24,10 @@
 
 ## 4. 系统模块（relayflow-module-system）
 
-- [ ] 4.1 租户 DO / Mapper / 只读 API（默认租户查询）
-- [ ] 4.2 用户创建时写入 `sys_tenant_user`（默认 tenant_id=1）
-- [ ] 4.3 JWT 签发与校验写入 `tenant_id` claim
-- [ ] 4.4 登录流程绑定 TenantContext
+- [x] 4.1 租户 DO / Mapper / 只读 API（默认租户查询）
+- [x] 4.2 用户创建时写入 `sys_tenant_user`（默认 tenant_id=1）
+- [x] 4.3 JWT 签发与校验写入 `tenant_id` claim
+- [x] 4.4 登录流程绑定 TenantContext
 
 ## 5. 基础设施与 IM 模块
 

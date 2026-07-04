@@ -19,3 +19,7 @@ relayflow:
     enabled: false
     default-id: 1
     header-name: X-Tenant-Id
+  security:
+    jwt:
+      secret: ${RELAYFLOW_JWT_SECRET:dev-only-change-me-in-production}
+      access-token-expire-seconds: 7200
