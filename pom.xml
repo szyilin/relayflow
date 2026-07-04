@@ -12,15 +12,6 @@
     <name>relayflow</name>
     <description>RelayFlow - Self-hosted enterprise collaboration platform</description>
 
-    <modules>
-        <module>relayflow-dependencies</module>
-        <module>relayflow-framework</module>
-        <module>relayflow-module-system</module>
-        <module>relayflow-module-infra</module>
-        <module>relayflow-module-im</module>
-        <module>relayflow-server</module>
-    </modules>
-
     <properties>
         <java.version>21</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -40,6 +31,34 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <!-- Default: full application reactor -->
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>relayflow-dependencies</module>
+                <module>relayflow-framework</module>
+                <module>relayflow-module-system</module>
+                <module>relayflow-module-infra</module>
+                <module>relayflow-module-im</module>
+                <module>relayflow-server</module>
+                <module>relayflow-tools</module>
+            </modules>
+        </profile>
+
+        <!-- Dev tools only: BOM + relayflow-codegen fat JAR (no server / *-biz) -->
+        <profile>
+            <id>codegen</id>
+            <modules>
+                <module>relayflow-dependencies</module>
+                <module>relayflow-tools</module>
+            </modules>
+        </profile>
+    </profiles>
 
     <build>
         <pluginManagement>

@@ -1,0 +1,34 @@
+# RelayFlow codegen defaults (NOT Spring Boot application config).
+# JDBC: environment variables override these values (see docs/dev/codegen.md).
+# Table names are passed via CLI --tables only (never listed here).
+
+jdbc:
+  url: jdbc:postgresql://localhost:5432/relayflow
+  username: relayflow
+  password: relayflow
+
+flyway:
+  locations: relayflow-server/src/main/resources/db/migration
+
+modules:
+  system:
+    package-parent: com.relayflow.module.system
+    entity-package: dal.dataobject
+    mapper-package: dal.mysql
+    enum-package: com.relayflow.module.system.enums
+  infra:
+    package-parent: com.relayflow.module.infra
+    entity-package: dal.dataobject
+    mapper-package: dal.mysql
+    enum-package: com.relayflow.module.infra.enums
+  im:
+    package-parent: com.relayflow.module.im
+    entity-package: dal.dataobject
+    mapper-package: dal.mysql
+    enum-package: com.relayflow.module.im.enums
+
+# Optional: table.column -> Enum simple name (under module enum-package)
+enum-columns:
+  sys_tenant_user.status: TenantUserStatus
+  sys_role.role_type: RoleType
+  sys_role.data_scope: DataScope

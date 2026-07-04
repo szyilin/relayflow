@@ -53,7 +53,7 @@ target/generated-sources/mybatis/.../dal/   # 生成：*DO、*Mapper（见 codeg
 src/main/resources/mapper/                  # 手写：*ExtMapper.xml
 ```
 
-DO / 基础 Mapper **不得**放在 `src/` 下手写，须按 [codegen.md](codegen.md) 从数据库生成。
+DO / 基础 Mapper **不得**放在 `src/` 下手写；须按 [codegen.md](codegen.md) 使用 CLI 生成到临时目录，diff 后合并至 `target/generated-sources/mybatis/`。
 
 ### 对象命名
 

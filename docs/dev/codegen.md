@@ -1,136 +1,158 @@
 # DO / Mapper 代码生成约定
 
-PostgreSQL 表结构以 **Flyway 迁移为唯一真源**；DO 与基础 Mapper **禁止 AI 或人工从零手写字段列表**，须通过 **MyBatis-Plus FastAutoGenerator** 连库生成。
+PostgreSQL 表结构以 **Flyway 迁移为唯一真源**。DO 与基础 Mapper **禁止 AI 或人工在 `src/` 手写字段列表**，须通过 **CLI 按需连库生成**。
 
-> 行为规格见 `openspec/specs/` 与 active change；本文描述 **如何生成与分层**。
+> 行为规格见 `openspec/specs/` 与 active change；本文描述 **如何构建、配置、生成、diff、合并**。
 
 ## 原则
 
 | 项 | 规则 |
 |----|------|
 | 表结构真源 | `relayflow-server/src/main/resources/db/migration/*.sql` |
-| 生成工具 | MyBatis-Plus `FastAutoGenerator`（`mybatis-plus-generator`） |
-| 生成物位置 | **`target/generated-sources/mybatis/`**（不进 Git） |
-| 禁止 | 在 `src/` 下手写 DO 字段、手写与表结构一一对应的 Mapper |
-| 禁止 | 编辑 `target/generated-sources/` 下任何文件 |
-| 允许手写 | 枚举、ExtMapper、ExtMapper XML、Service、Controller |
+| 生成工具 | MyBatis-Plus `FastAutoGenerator`（`relayflow-tools/relayflow-codegen`） |
+| 运行形态 | **独立 fat JAR**，不启动 `relayflow-server`、不解析 `application.yml` / Nacos |
+| 触发方式 | **命令行指定表名**（`--tables`）；禁止在 Java 或 YAML 中硬编码表清单 |
+| 生成物首站 | **临时目录**（默认 `.relayflow/codegen-out/<timestamp>/`），不进 Git |
+| 合并目标 | `relayflow-module-*-biz/target/generated-sources/mybatis/`（diff 后复制） |
+| 禁止 | `mvn compile` 自动全库生成；禁止直接改临时/生成目录后当最终真源 |
+| 允许手写 | 枚举、`ExtMapper`、ExtMapper XML、Service、Controller |
+
+## 构建 CLI
+
+仅构建 codegen 相关模块（跳过 server / *-biz，较快）：
+
+```bash
+./mvnw -Pcodegen package -DskipTests
+# 产物：relayflow-tools/relayflow-codegen/target/relayflow-codegen.jar
+```
+
+日常入口 `./scripts/codegen.sh` 会在 JAR 不存在时自动执行上述命令。
+
+## CLI 用法
+
+```bash
+# 帮助
+./scripts/codegen.sh --help
+
+# 只生成指定表（可多表，逗号分隔）
+./scripts/codegen.sh --module system --tables sys_user,sys_dept
+
+# 指定输出目录 + 生成前 Flyway migrate
+./scripts/codegen.sh -m system -t sys_role,sys_permission --migrate -o /tmp/rf-codegen
+
+# 等价：直接 java -jar
+java -jar relayflow-tools/relayflow-codegen/target/relayflow-codegen.jar \
+  --repo-root "$PWD" \
+  --module system --tables sys_user -o /tmp/rf-out
+```
+
+### 参数
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `--module` / `-m` | 是 | `system` / `infra` / `im`（包名见 `codegen.yml`） |
+| `--tables` / `-t` | 是 | 逗号分隔表名，**仅生成这些表** |
+| `--output` / `-o` | 否 | 输出目录；默认 `.relayflow/codegen-out/<timestamp>/` |
+| `--migrate` | 否 | 生成前对本地库执行 Flyway |
+| `--config` | 否 | 自定义 YAML 路径（见下方配置优先级） |
+| `--repo-root` | 否 | 仓库根目录（脚本自动传入） |
+
+## 配置（与 Spring 解耦）
+
+CLI **只读** 以下配置，**不** 加载 `application.yml`、不连 Nacos。
+
+### 文件优先级
+
+1. `--config <file>`（若指定）
+2. 仓库根目录 `codegen.local.yml`（gitignore，可复制 `codegen.local.yml.example`）
+3. classpath `relayflow-tools/relayflow-codegen/src/main/resources/codegen.yml`
+
+### JDBC 优先级
+
+| 用途 | 环境变量（优先） | 备选环境变量 | YAML 键 |
+|------|------------------|--------------|---------|
+| URL | `RELAYFLOW_CODEGEN_JDBC_URL` | `SPRING_DATASOURCE_URL` | `jdbc.url` |
+| 用户名 | `RELAYFLOW_CODEGEN_JDBC_USER` | `POSTGRES_USER` | `jdbc.username` |
+| 密码 | `RELAYFLOW_CODEGEN_JDBC_PASSWORD` | `POSTGRES_PASSWORD` | `jdbc.password` |
+
+与 [deploy/.env.example](../../deploy/.env.example) 对齐：本地 `docker compose up -d` 后，导出 `POSTGRES_*` / `SPRING_DATASOURCE_URL` 即可供 CLI 与 server 共用，**变量名相同、读取方式独立**。
+
+### YAML 内容（非表清单）
+
+`codegen.yml` 仅包含：
+
+- 各 **module** 的 `package-parent`、枚举包
+- **enum-columns**：`表.列 → 枚举类名`（可选）
+- **flyway.locations**：相对仓库根的迁移目录
+- **不含** 要生成的表名列表
+
+`BaseDO` / `TenantBaseDO` 由工具查询 `information_schema`：表含 `tenant_id` 列 → `TenantBaseDO`，否则 → `BaseDO`。
 
 ## 目录布局
 
-以 `relayflow-module-system-biz` 为例：
-
 ```text
 relayflow-module-system-biz/
-├── src/main/java/.../module/system/
-│   ├── dal/
-│   │   └── mysql/
-│   │       └── SysUserExtMapper.java      # 手写：自定义 SQL 接口
-│   ├── enums/
-│   │   └── TenantUserStatus.java          # 手写：业务枚举（非表反射生成）
-│   └── ...
-├── src/main/resources/mapper/
-│   └── SysUserExtMapper.xml               # 手写：复杂 SQL
-└── target/generated-sources/mybatis/      # 生成：不提交 Git
-    └── com/relayflow/module/system/dal/
-        ├── dataobject/SysUserDO.java
-        └── mysql/SysUserMapper.java
+├── src/main/java/.../dal/mysql/     # 手写 SysUserExtMapper.java
+├── src/main/resources/mapper/       # 手写 Ext XML
+└── target/generated-sources/mybatis/  # CLI diff 合并后的 DO/Mapper（不提交 Git）
+
+.relayflow/codegen-out/<ts>/         # CLI 临时输出（不提交 Git）
 ```
 
-框架基类（手写、供生成器模板引用）：
+## 推荐工作流（人 / AI 相同）
 
 ```text
-relayflow-common/.../dal/
-├── BaseDO.java          # id、审计字段、逻辑删除
-└── TenantBaseDO.java    # + tenantId
+1. 修改 Flyway 脚本
+2. （可选）docker compose -f deploy/compose.yml --env-file deploy/.env up -d
+3. ./scripts/codegen.sh -m system -t <变更涉及的表> [--migrate]
+4. diff 临时目录 vs target/generated-sources/mybatis/
+     diff -ru relayflow-module-system-biz/target/generated-sources/mybatis \
+              .relayflow/codegen-out/<ts> || true
+5. 确认后合并：
+     rsync -av .relayflow/codegen-out/<ts>/ \
+       relayflow-module-system-biz/target/generated-sources/mybatis/
+6. 首次合并后，在 *-biz/pom.xml 增加 compile 支持（见下节）
+7. ./mvnw -pl relayflow-server -am compile
+8. 提交：Flyway + 手写代码；不提交 target/ 与 .relayflow/
 ```
 
-代码生成入口（待 `scaffold-system-codegen` change 落地）：
+### 合并后 *-biz 编译配置
 
-```text
-relayflow-tools/codegen/                   # Generator 配置 + Freemarker 模板
-```
+生成 DO 使用 Lombok；合并至 `target/generated-sources/mybatis/` 后，需在对应 `*-biz/pom.xml` 增加：
 
-## 生成 vs 手写边界
+- `lombok` 依赖（`provided`）
+- `build-helper-maven-plugin` 将 `target/generated-sources/mybatis` 加入 compile source root
 
-### 生成（可覆盖，每次 regenerate）
+在首次 CLI 合并前，`*-biz` 保持精简 pom（无上述插件），避免空目录编译挂钩。
 
-- `*DO.java` — Lombok、`@TableName`、`BaseDO` / `TenantBaseDO` 继承
-- `*Mapper.java` — `extends BaseMapper<XxxDO>` + `@Mapper`，**仅** CRUD，无自定义方法
-- **不生成** Mapper XML（MyBatis-Plus `BaseMapper` 足够）
+## 生成 vs 手写
 
-### 手写（永不覆盖）
-
-| 类型 | 命名 | 说明 |
-|------|------|------|
-| 扩展 Mapper | `{Entity}ExtMapper` | `extends XxxMapper`，自定义方法 |
-| 扩展 XML | `{Entity}ExtMapper.xml` | 复杂 SQL、JOIN |
-| 业务枚举 | 如 `TenantUserStatus` | DB 存 VARCHAR/SMALLINT，Java 侧枚举映射在模板或类型转换中配置 |
-| 基类 | `BaseDO`、`TenantBaseDO` | 生成器 `superClass` 指向 |
-
-### 全局表（无 `tenant_id`）
-
-`sys_user`、`sys_tenant`、`sys_tenant_user` 等须在生成策略与 `RelayflowTenantLineHandler.IGNORED_TABLES` 中单独配置；对应 DO 继承 `BaseDO` 而非 `TenantBaseDO`。
-
-## 工作流
-
-### 日常（表结构变更）
-
-```text
-1. 新增/修改 Flyway 迁移脚本（只增不改历史脚本）
-2. 本地或 CI：PostgreSQL 执行 migrate
-3. ./mvnw -pl relayflow-module-system-biz -am compile   # generate-sources 阶段跑 Generator
-4. 审查 Flyway diff；必要时本地查看 generate 产物
-5. 提交：仅 Flyway + 手写代码（ExtMapper 等），不提交 target/
-```
-
-### 首次 clone
-
-```bash
-docker compose -f deploy/compose.yml up -d    # PostgreSQL
-./mvnw -pl relayflow-server -am compile       # Flyway + codegen + compile
-```
-
-生成物在 `target/generated-sources/`，IDEA 通过 `build-helper-maven-plugin` 识别为源码根。
-
-## 生成器配置要点（实现参考）
-
-实现 `scaffold-system-codegen` 时须满足：
-
-- **PostgreSQL** JDBC，连接与 `application.yml` 一致
-- **`enableLombok()`** — 禁止手写 getter/setter
-- **`entityBuilder().superClass(BaseDO.class)`** — 按表是否含 `tenant_id` 切换 `TenantBaseDO`
-- **`formatEntityFileName("%sDO")`** — 与 `code-style.md` 一致
-- **`mapperBuilder().enableMapperAnnotation()`** — `@Mapper`
-- **禁用** Service、Controller、Mapper XML 生成
-- **`enableFileOverride()`** — 仅对生成目录内文件生效（`target/` 每次可清空重建）
-- **表过滤**：`addInclude("sys_*")` 或按 change 指定；排除 `flyway_schema_history`
-- **枚举列**：Freemarker 模板或 `typeConvertHandler` / `columnOverride`（如 `status` → `TenantUserStatus`）
-
-## CI（推荐，随 codegen 模块一并接入）
-
-```text
-flyway migrate → codegen → mvn compile
-```
-
-可选：将 generate 后的 tree 与期望快照 diff，或仅依赖 compile 失败暴露不同步。
+| 生成（CLI） | 手写 |
+|-------------|------|
+| `*DO.java`（Lombok） | `{Entity}ExtMapper` |
+| `*Mapper.java`（BaseMapper） | `*ExtMapper.xml` |
+| | `enums/*` |
 
 ## AI 编码代理规则
 
-1. **不得**在 `src/.../dal/dataobject/` 创建或修改 `*DO.java`（该目录仅存在于 `target/generated-sources/`）。
-2. **不得**在 `src/.../dal/mysql/` 创建与表结构镜像的基础 `*Mapper.java`（无 `Ext` 后缀且仅 extends BaseMapper）。
-3. 表增删字段：**只改 Flyway**，然后提示运行 codegen compile。
-4. 自定义 SQL：只写 `{Entity}ExtMapper` + XML。
-5. 业务枚举：可手写于 `enums/`，并在 codegen 模板中引用。
+1. 表结构变更 → **只改 Flyway**，再 **CLI 指定表** 生成到临时目录。
+2. **不得**在 `src/` 创建 `*DO` 或基础 `*Mapper`。
+3. 合并前必须 **diff** 临时输出与 `target/generated-sources/mybatis/`。
+4. 自定义 SQL → 仅 `ExtMapper` + XML。
 
-## 与 OpenSpec change 的关系
+## OpenSpec change
 
-| Change | 范围 |
+| Change | 内容 |
 |--------|------|
-| `system-schema-v1` 等 | Flyway 表结构 + 种子 + **手写枚举** |
-| `scaffold-system-codegen`（待建） | Generator 模块、Maven 插件、模板、首跑验证 |
+| `scaffold-system-codegen` | CLI fat JAR、`-Pcodegen`、`scripts/codegen.sh`、`codegen.yml` |
+| `system-schema-v1` | Flyway + 枚举；DO/Mapper 经 CLI 合并 |
+
+## 后续（非 V1）
+
+- 管理端「选表生成」UI（infra 域，类似芋道/JeecgBoot）
+- CI：migrate + 对指定表 codegen + diff 检查
 
 ## 参考
 
-- [MyBatis-Plus 代码生成器（新）](https://baomidou.com/guides/new-code-generator/)
-- [MyBatis-Plus Generator 配置](https://baomidou.com/reference/new-code-generator-configuration/)
-- 本项目：[database.md](database.md)、[code-style.md](code-style.md)
+- [MyBatis-Plus 代码生成器](https://baomidou.com/guides/new-code-generator/)
+- [database.md](database.md)、[code-style.md](code-style.md)

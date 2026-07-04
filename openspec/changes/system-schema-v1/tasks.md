@@ -18,18 +18,18 @@
 
 ## 3. 系统模块 DO / Mapper（relayflow-module-system-biz）
 
-> **DO / 基础 Mapper 改由 `scaffold-system-codegen` 实现**（见 `docs/dev/codegen.md`）。此前 AI 手写 DO/Mapper 已回滚。
+> 使用 `scaffold-system-codegen` CLI：`./scripts/codegen.sh -m system -t <表名>` → diff → 合并至 `target/generated-sources/mybatis/`。
 
 - [x] 3.1 枚举：`TenantUserStatus`、`RoleType`、`DataScope`（手写，保留）
-- [ ] 3.2 DO + Mapper：`SysUser`、`SysTenantUser`（含 status）— codegen
-- [ ] 3.3 DO + Mapper：`SysDept`、`SysUserDept` — codegen
-- [ ] 3.4 DO + Mapper：`SysRole`、`SysUserRole`、`SysRolePermission`、`SysRoleDept` — codegen
-- [ ] 3.5 DO + Mapper：`SysPermission`、`SysMenu` — codegen
+- [x] 3.2 DO + Mapper：`SysUser`、`SysTenantUser`（含 status）— CLI + merge
+- [x] 3.3 DO + Mapper：`SysDept`、`SysUserDept` — CLI + merge
+- [x] 3.4 DO + Mapper：`SysRole`、`SysUserRole`、`SysRolePermission`、`SysRoleDept` — CLI + merge
+- [x] 3.5 DO + Mapper：`SysPermission`、`SysMenu` — CLI + merge
 
 ## 4. 验证
 
-- [ ] 4.1 `./mvnw -pl relayflow-server -am compile`（codegen 落地后）
-- [ ] 4.2 （可选）本地启动 Flyway 迁移，确认表与种子存在
+- [x] 4.1 `./mvnw -pl relayflow-server -am compile`（CLI 合并后）
+- [x] 4.2 （可选）本地启动 Flyway 迁移，确认表与种子存在
 
 ## 5. 归档（实现完成后）
 
