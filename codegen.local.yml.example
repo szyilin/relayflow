@@ -1,0 +1,11 @@
+# Copy to codegen.local.yml (gitignored) for local JDBC overrides.
+# Same variable names as deploy/.env.example — read from environment, NOT from Spring Boot config.
+
+jdbc:
+  url: jdbc:postgresql://localhost:5432/relayflow
+  username: relayflow
+  password: relayflow
+
+# Optional: override Flyway migration path (default in classpath codegen.yml)
+# flyway:
+#   locations: relayflow-server/src/main/resources/db/migration
