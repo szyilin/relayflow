@@ -1,7 +1,11 @@
 package com.relayflow.module.system.enums;
 
 import com.relayflow.common.exception.ErrorCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
+@Getter
+@RequiredArgsConstructor
 public enum ErrorCodeConstants implements ErrorCode {
 
     AUTH_LOGIN_BAD_CREDENTIALS(1_001_001_001, "用户名或密码错误"),
@@ -11,19 +15,4 @@ public enum ErrorCodeConstants implements ErrorCode {
 
     private final Integer code;
     private final String msg;
-
-    ErrorCodeConstants(Integer code, String msg) {
-        this.code = code;
-        this.msg = msg;
-    }
-
-    @Override
-    public Integer getCode() {
-        return code;
-    }
-
-    @Override
-    public String getMsg() {
-        return msg;
-    }
 }

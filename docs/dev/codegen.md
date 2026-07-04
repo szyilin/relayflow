@@ -139,6 +139,7 @@ relayflow-module-system-biz/
 2. **不得**在 `src/` 创建 `*DO` 或基础 `*Mapper`。
 3. 合并前必须 **diff** 临时输出与 `target/generated-sources/mybatis/`。
 4. 自定义 SQL → 仅 `ExtMapper` + XML。
+5. 手写 DTO / VO / Properties 等数据类 → **Lombok**（`@Data` 等），**禁止**手写 getter/setter（见 [code-style.md](code-style.md) § Lombok）。
 
 ## OpenSpec change
 

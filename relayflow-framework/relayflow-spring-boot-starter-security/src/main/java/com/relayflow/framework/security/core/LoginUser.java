@@ -1,11 +1,15 @@
 package com.relayflow.framework.security.core;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
 
+@Getter
+@RequiredArgsConstructor
 public class LoginUser implements UserDetails {
 
     public static final String CLAIM_TENANT_ID = "tenant_id";
@@ -16,25 +20,6 @@ public class LoginUser implements UserDetails {
     private final Long tenantId;
     private final String userType;
 
-    public LoginUser(Long userId, String username, Long tenantId, String userType) {
-        this.userId = userId;
-        this.username = username;
-        this.tenantId = tenantId;
-        this.userType = userType;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public Long getTenantId() {
-        return tenantId;
-    }
-
-    public String getUserType() {
-        return userType;
-    }
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.emptyList();
@@ -43,11 +28,6 @@ public class LoginUser implements UserDetails {
     @Override
     public String getPassword() {
         return null;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
     }
 
     @Override
