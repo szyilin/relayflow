@@ -10,7 +10,7 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="border-b border-[var(--ws-border)] px-4 py-3 font-semibold">
+      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         云文档
       </div>
       <div class="space-y-1 p-2 text-sm">

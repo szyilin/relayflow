@@ -39,7 +39,7 @@ meta:
 <template>
   <WorkspaceShell show-aside>
     <template #panel>
-      <div class="flex items-center justify-between border-b border-[var(--ws-border)] px-4 py-3">
+      <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
         <h2 class="font-semibold">
           消息
         </h2>
@@ -88,7 +88,7 @@ meta:
     </template>
 
     <div v-if="active()" class="flex h-full flex-col">
-      <header class="flex items-center gap-3 border-b border-[var(--ws-border)] px-5 py-3">
+      <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
         <UAvatar :text="active()!.avatarText" />
         <div class="min-w-0 flex-1">
           <h1 class="truncate font-semibold">
@@ -115,7 +115,7 @@ meta:
         </p>
       </div>
 
-      <footer class="border-t border-[var(--ws-border)] p-4">
+      <footer class="border-t border-[var(--ws-border-subtle)] p-4">
         <div class="workspace-input-bar flex items-center gap-2 px-3 py-2.5">
           <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" />
           <input
@@ -130,7 +130,7 @@ meta:
     </div>
 
     <template #aside>
-      <div class="border-b border-[var(--ws-border)] px-4 py-3 font-semibold">
+      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         活跃状态
       </div>
       <div class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">

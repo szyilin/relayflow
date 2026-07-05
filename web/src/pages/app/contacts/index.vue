@@ -14,7 +14,7 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="border-b border-[var(--ws-border)] px-4 py-3 font-semibold">
+      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         通讯录
       </div>
       <div class="p-3">
