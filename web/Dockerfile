@@ -1,12 +1,12 @@
-# syntax=docker/dockerfile:1
-
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
+ENV CI=true
+
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .

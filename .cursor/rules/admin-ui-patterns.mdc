@@ -1,0 +1,56 @@
+---
+description: 管理端 UI 页面模式与组件约定（摘自 admin-ui-prototype 验收版）
+globs: web/**/*
+alwaysApply: false
+---
+
+# 管理端 UI 模式
+
+RelayFlow 管理端 UI 已定调（B · Clean Enterprise）。**新增或修改 `web/` 管理端页面时必读**。
+
+## 文档真源
+
+| 文档 | 内容 |
+|------|------|
+| [admin-ui-tokens.md](../../docs/dev/admin-ui-tokens.md) | 色、字、圆角、主题 |
+| [admin-ui-patterns.md](../../docs/dev/admin-ui-patterns.md) | 登录、壳层、列表、表单等页面模式 |
+| [admin-ui-workflow.md](../../docs/dev/admin-ui-workflow.md) | 定调 → 规则 → 接 API 流程 |
+
+## 应当
+
+- 管理端路由 **`/admin` 前缀**；页面在 `web/src/pages/admin/`
+- 壳层用 `layouts/admin.vue`；登录用 `layouts/auth.vue`（`meta.layout: auth`）
+- 复用 `components/admin/`：`AdminNavbar`、`AdminUserMenu`、`AdminPageHeader`
+- Sidebar 导航单源：`composables/useAdminNav.ts`
+- 列表页：`AdminPageHeader` + 筛选 + `UTable` + `UPagination`
+- 表单页：分组 `UCard` + `UFormField`，`max-w-2xl` 居中
+- 主操作用 `UButton color="primary"`；反馈用 `useToast()`
+- 图标 Lucide（`i-lucide-*`）；语义色用 Nuxt UI class，**禁止**页面级 hex
+- 接 API 时 **只改 store / `api/admin/`**，保留 template 与壳层
+
+## 禁止
+
+- 在已有等价 Nuxt UI 组件时手写大量自定义样式
+- 原型/demo 路由（customers、inbox 等）进入产品 sidebar
+- 管理端页面直接 `fetch` 裸 URL（须走 `web/src/api/admin/`）
+- 接 API 时重写 login 页 layout 或整体壳层（除非新开 UI change）
+
+## 组件映射
+
+| 场景 | 组件 |
+|------|------|
+| 壳层 | `UDashboardGroup`、`UDashboardSidebar`、`UDashboardPanel`、`UDashboardNavbar` |
+| 表格 | `UTable` |
+| 表单 | `UFormField`、`UInput`、`USelectMenu` |
+| 空状态 | `UEmpty` |
+| 确认 | `UModal` |
+| 加载 | `USkeleton`、按钮 `loading` |
+
+## Store 替换约定
+
+| Store | 原型 | login-slice / shell-slice |
+|-------|------|---------------------------|
+| `stores/auth.ts` | `mocks/auth.ts` | `api/admin/auth.ts` + JWT |
+| `stores/tenant.ts` | `mocks/tenant.ts` | `api/admin/tenant.ts` |
+
+页面 **不得** import `mocks/`；仅 store 层封装。

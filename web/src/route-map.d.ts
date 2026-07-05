@@ -139,6 +139,48 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/': RouteRecordInfo<
+      '/app/',
+      '/app',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/contacts/': RouteRecordInfo<
+      '/app/contacts/',
+      '/app/contacts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/docs/': RouteRecordInfo<
+      '/app/docs/',
+      '/app/docs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/login': RouteRecordInfo<
+      '/app/login',
+      '/app/login',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/messages/': RouteRecordInfo<
+      '/app/messages/',
+      '/app/messages',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/tasks/': RouteRecordInfo<
+      '/app/tasks/',
+      '/app/tasks',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
   }
 
   /**
@@ -271,6 +313,54 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/system/user/create.vue': {
       routes:
         | '/admin/system/user/create'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/index.vue': {
+      routes:
+        | '/app/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/contacts/index.vue': {
+      routes:
+        | '/app/contacts/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/docs/index.vue': {
+      routes:
+        | '/app/docs/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/login.vue': {
+      routes:
+        | '/app/login'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/messages/index.vue': {
+      routes:
+        | '/app/messages/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/tasks/index.vue': {
+      routes:
+        | '/app/tasks/'
       views:
         | never
       pathParamNames:

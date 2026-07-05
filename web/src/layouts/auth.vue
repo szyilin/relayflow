@@ -1,5 +1,15 @@
+<script setup lang="ts">
+import AdminColorModeToggle from '../components/admin/AdminColorModeToggle.vue'
+import AdminThemeMenu from '../components/admin/AdminThemeMenu.vue'
+</script>
+
 <template>
-  <div class="min-h-svh grid lg:grid-cols-2">
+  <div class="relative min-h-svh grid lg:grid-cols-2">
+    <div class="absolute right-4 top-4 z-10 flex items-center gap-1 lg:right-auto lg:left-[calc(50%+1rem)]">
+      <AdminColorModeToggle />
+      <AdminThemeMenu />
+    </div>
+
     <div class="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-600 via-primary-600 to-primary-800 p-10 text-white">
       <div class="flex items-center gap-3">
         <UIcon name="i-lucide-workflow" class="size-8 shrink-0" />
@@ -20,8 +30,18 @@
       </p>
     </div>
 
-    <div class="flex items-center justify-center bg-muted/30 p-6 sm:p-10">
+    <div class="auth-panel flex items-center justify-center p-6 sm:p-10">
       <RouterView />
     </div>
   </div>
 </template>
+
+<style scoped>
+.auth-panel {
+  background-color: var(--admin-main-bg, #ffffff);
+}
+
+.dark .auth-panel {
+  background-color: var(--admin-main-bg, #141417);
+}
+</style>

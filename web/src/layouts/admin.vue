@@ -12,13 +12,13 @@ const {
 </script>
 
 <template>
-  <UDashboardGroup unit="rem" storage="local">
+  <UDashboardGroup unit="rem" storage="local" class="admin-shell">
     <UDashboardSidebar
       id="admin"
       v-model:open="open"
       collapsible
       resizable
-      class="bg-elevated/25"
+      class="admin-sidebar"
       :ui="{ footer: 'lg:border-t lg:border-default' }"
     >
       <template #header="{ collapsed }">
@@ -26,8 +26,10 @@ const {
           class="flex items-center gap-2 px-2 py-1 font-semibold"
           :class="collapsed ? 'justify-center' : ''"
         >
-          <UIcon name="i-lucide-workflow" class="size-5 shrink-0 text-primary" />
-          <span v-if="!collapsed">RelayFlow</span>
+          <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <UIcon name="i-lucide-workflow" class="size-5" />
+          </div>
+          <span v-if="!collapsed" class="text-highlighted">RelayFlow</span>
         </div>
       </template>
 
@@ -82,13 +84,8 @@ const {
       </template>
     </UDashboardSidebar>
 
-    <RouterView />
+    <div class="admin-main min-w-0 flex-1">
+      <RouterView />
+    </div>
   </UDashboardGroup>
 </template>
-
-<style scoped>
-.admin-nav-menu :deep([data-active="true"]) {
-  border-left: 2px solid var(--ui-primary);
-  background-color: color-mix(in oklab, var(--ui-primary) 12%, transparent);
-}
-</style>

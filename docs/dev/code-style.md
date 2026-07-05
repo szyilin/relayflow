@@ -209,6 +209,18 @@ web/src/
 - UI 以 Nuxt UI 组件为主；禁止 Element Plus 作为主 UI 层
 - 禁止 React；前端代码不得放在 `web/` 外
 
+### 管理端 UI（已定调）
+
+管理端页面须遵循 UI 定调文档（B · Clean Enterprise）：
+
+| 文档 | 用途 |
+|------|------|
+| [admin-ui-workflow.md](admin-ui-workflow.md) | 定调 → 规则 → 接 API 流程 |
+| [admin-ui-tokens.md](admin-ui-tokens.md) | 色、字、圆角、主题 |
+| [admin-ui-patterns.md](admin-ui-patterns.md) | 壳层、登录、列表、表单等页面模式 |
+
+Cursor 规则：`.cursor/rules/admin-ui-patterns.mdc`（编辑 `web/` 管理端时生效）。
+
 ### 环境变量
 
 | 变量 | 说明 |

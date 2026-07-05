@@ -1,4 +1,5 @@
 import './assets/css/main.css'
+import './assets/css/workspace.css'
 
 import { createApp } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'

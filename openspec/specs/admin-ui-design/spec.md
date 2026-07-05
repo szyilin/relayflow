@@ -1,20 +1,30 @@
-## ADDED Requirements
+# admin-ui-design Specification
 
+## Purpose
+TBD - created by archiving change admin-ui-design-direction. Update Purpose after archive.
+## Requirements
 ### Requirement: 管理端视觉方向文档化
 
 项目 MUST 在实现管理端业务页面前，通过 OpenSpec change 文档化一种选定的管理端视觉方向（三种候选：Slate Command、Clean Enterprise、Soft Glass），且该方向 MUST 涵盖色彩、字体、布局壳层与核心页面模式。
 
 #### Scenario: 方向选定前不开始 login 切片 UI 实现
 
-- **WHEN** 管理端视觉方向尚未在 change design 中经产品负责人确认
+- **WHEN** 管理端 UI 定调尚未完成（`admin-ui-prototype` 未人工签字，或规则文档未沉淀）
 - **THEN** `admin-login-slice` 的登录页 UI 实现 MUST NOT 作为正式交付开始
 - **AND** 可先进行与视觉无关的后端联调（CORS、curl）
 
-#### Scenario: 方向确认记录
+#### Scenario: 规则来自定稿原型
 
-- **WHEN** 产品负责人选定视觉方向（A/B/C 或 B 的变体）
-- **THEN** 选定结果 MUST 写入 `openspec/changes/admin-ui-design-direction/design.md` 的 Open Questions 关闭项或 Decision 表
-- **AND** 后续管理端页面 MUST 遵循该方向
+- **WHEN** 产品负责人在 `admin-ui-prototype` 浏览器走查后签字「UI 定调通过」
+- **THEN** 设计 token 与页面模式 MUST 从该原型定稿代码抽取并写入 `docs/dev/admin-ui-tokens.md` 与 `admin-ui-patterns.md`
+- **AND** 后续管理端页面 MUST 遵循上述文档，而非与实现脱节的 design 草案
+- **AND** Cursor 规则 `.cursor/rules/admin-ui-patterns.mdc` MUST 与上述文档一致
+
+#### Scenario: 规则文档已沉淀（2026-07-05）
+
+- **WHEN** 开发者实现 `admin-login-slice` 或后续管理端页面
+- **THEN** MUST 阅读 `docs/dev/admin-ui-tokens.md`、`admin-ui-patterns.md` 与 `admin-ui-workflow.md`
+- **AND** MUST 保留 `admin-ui-prototype` 中的页面 layout 与壳层，仅替换 store / `api/admin/` 数据层
 
 ---
 
@@ -99,3 +109,4 @@
 - **WHEN** 设计预览页存在
 - **THEN** 侧边栏导航 MUST NOT 链接至该页
 - **AND** 该页 MUST 仅用于开发期视觉验收
+

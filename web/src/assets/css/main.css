@@ -22,8 +22,74 @@
 
 :root {
   --ui-radius: var(--radius-md);
+
+  /* 飞书式分层：侧栏灰、工作区白 */
+  --admin-sidebar-bg: #e8eaef;
+  --admin-main-bg: #ffffff;
+  --admin-navbar-bg: #ffffff;
+  --admin-border: #dfe3ea;
+  --admin-card-border: #e8ebf0;
+  --admin-card-shadow: 0 1px 2px rgb(15 23 42 / 4%);
 }
 
 .dark {
-  --ui-primary: var(--ui-color-primary-500);
+  --ui-primary: var(--ui-color-primary-400);
+
+  --admin-sidebar-bg: #232428;
+  --admin-main-bg: #141417;
+  --admin-navbar-bg: #141417;
+  --admin-border: #2e3038;
+}
+
+/* 壳层 */
+.admin-shell {
+  background-color: var(--admin-main-bg);
+}
+
+.admin-sidebar {
+  background-color: var(--admin-sidebar-bg) !important;
+  border-right: 1px solid var(--admin-border);
+}
+
+.admin-main {
+  background-color: var(--admin-main-bg);
+}
+
+.admin-navbar {
+  background-color: var(--admin-navbar-bg) !important;
+  border-bottom: 1px solid var(--admin-border) !important;
+}
+
+.admin-main [data-slot="root"],
+.admin-main [data-slot="body"],
+.admin-main [data-slot="header"] {
+  background-color: transparent;
+}
+
+/* 浅色：选中项白色浮层（类似飞书） */
+:root:not(.dark) .admin-nav-menu [data-active="true"] {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  border-radius: 0.5rem;
+  color: var(--ui-text-highlighted);
+}
+
+/* 深色：选中项略亮 + 主题色强调 */
+.dark .admin-nav-menu [data-active="true"] {
+  background-color: color-mix(in oklab, var(--ui-primary) 16%, #2a2b31) !important;
+  border-radius: 0.5rem;
+  box-shadow: inset 2px 0 0 var(--ui-primary);
+}
+
+/* 浅色工作区卡片：白底 + 细边框（飞书列表/卡片感） */
+:root:not(.dark) .admin-main [data-slot="body"] .ring.ring-default {
+  border: 1px solid var(--admin-card-border);
+  box-shadow: var(--admin-card-shadow);
+  --tw-ring-shadow: 0 0 #0000;
+}
+
+:root:not(.dark) .admin-nav-menu a:hover,
+:root:not(.dark) .admin-nav-menu button:hover {
+  background-color: rgb(255 255 255 / 55%);
+  border-radius: 0.5rem;
 }
