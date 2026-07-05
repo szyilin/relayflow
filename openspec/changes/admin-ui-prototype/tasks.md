@@ -1,53 +1,70 @@
 # 任务：admin-ui-prototype
 
-> **性质**：UI 先行 — Mock 全壳层原型，**零后端**。视觉基调见 `admin-ui-design-direction`（B · Clean Enterprise，已确认）。  
-> 验收通过后再做 `admin-login-slice` 换真 API。
+> **性质**：管理端 UI **可点击原型**（阶段 2）— Mock 全壳层，**零后端**；目的是 **确认展示效果**，供下一阶段 **反抽工程化规则**。  
+> 全流程见 [`docs/dev/admin-ui-workflow.md`](../../docs/dev/admin-ui-workflow.md)。视觉大方向：B · Clean Enterprise（阶段 0 已确认）。
 
-## 切片：Mock 管理端全框架
+## 阶段 1：壳层骨架（web/）
 
-### 基础（web/）
+- [x] 1.1 新建 `layouts/auth.vue`（登录左右分栏，无 sidebar）
+- [x] 1.2 增强 `layouts/admin.vue`：sidebar 分组占位、navbar 右侧用户区占位、active 导航样式
+- [x] 1.3 新建 `composables/useAdminNav.ts`（sidebar 单源）
+- [x] 1.4 新建 `components/admin/`（AdminNavbar、AdminUserMenu、AdminPageHeader）
+- [x] 1.5 验证：浏览器打开 `/admin`（Mock 登录前可先临时跳过守卫查看壳层）
 
-- [ ] 1.1 确认/添加 Pinia；新建 `stores/auth.ts`、`stores/tenant.ts`（Mock 读写 `localStorage`）
-- [ ] 1.2 新建 `mocks/`（auth、tenant、dashboard、system/users）
-- [ ] 1.3 更新 `main.css` token（B 方向 teal + Inter）；color mode 跟随系统
-- [ ] 1.4 实现路由守卫（`router/guards.ts` 或 `main.ts` beforeEach）
+## 阶段 2：设计 token（web/）
 
-### 布局（web/）
+- [x] 2.1 更新 `web/src/assets/css/main.css`（B 方向 teal + Inter、`@theme`、圆角）
+- [x] 2.2 配置 color mode **跟随系统**（`app.config.ts` 或 Nuxt UI 等效）
+- [x] 2.3 验证：Light/Dark 切换；`cd web && pnpm build`
 
-- [ ] 2.1 新建 `layouts/auth.vue`（登录左右分栏）
-- [ ] 2.2 增强 `layouts/admin.vue`：`useAdminNav` 分组菜单、租户 badge、UserMenu 退出
-- [ ] 2.3 新建 `components/admin/`（AdminNavbar、AdminUserMenu、AdminPageHeader）
+## 阶段 3：组件板（web/）
 
-### 页面占位（web/）
+- [x] 3.1 新增 `pages/admin/design-preview.vue`：色板、按钮、表单、表格、空状态、Skeleton
+- [x] 3.2 验证：浏览器 `/admin/design-preview`（不进 sidebar 产品菜单，可 footer dev 链）
 
-- [ ] 3.1 `pages/admin/login.vue` — Mock 登录表单
-- [ ] 3.2 `pages/admin/index.vue` — 概览统计卡片 + 快捷入口
-- [ ] 3.3 `pages/admin/system/user/index.vue` — Mock 表格、筛选、分页
-- [ ] 3.4 `pages/admin/system/user/create.vue` — 表单占位 + toast
-- [ ] 3.5 `pages/admin/system/dept/index.vue` — 空状态/骨架树占位
-- [ ] 3.6 `pages/admin/infra/file/index.vue` — 表格占位
-- [ ] 3.7 `pages/admin/design-preview.vue` — 组件/token 板
+## 阶段 4：代表页占位（web/）
 
-### 清理（web/）
+- [x] 4.1 `pages/admin/login.vue` — Mock 登录表单（auth layout）
+- [x] 4.2 `pages/admin/index.vue` — 概览统计卡片 + 快捷入口
+- [x] 4.3 `pages/admin/system/user/index.vue` — Mock 表格、筛选、分页
+- [x] 4.4 `pages/admin/system/user/create.vue` — 表单占位 + toast
+- [x] 4.5 `pages/admin/system/dept/index.vue` — 空状态或骨架树
+- [x] 4.6 `pages/admin/infra/file/index.vue` — 表格占位
 
-- [ ] 4.1 移除或隔离模板 demo 页（customers、inbox、settings 等）
-- [ ] 4.2 根路径 `/` 重定向或引导至 `/admin/login`
+## 阶段 5：Mock 态与守卫（web/）
 
-### 验证
+- [x] 5.1 确认/添加 Pinia；`stores/auth.ts`、`stores/tenant.ts`（读写 `localStorage`，封装 mocks）
+- [x] 5.2 新建 `mocks/`（auth、tenant、dashboard、system/users）；字段名对齐未来 API VO
+- [x] 5.3 实现路由守卫（`router/guards.ts` 或 `main.ts` beforeEach）
+- [x] 5.4 验证：任意账号登录 → `/admin`；退出 → 登录；直访 `/admin/system/user` → 拦截
 
-- [ ] 5.1 `cd web && pnpm build`
-- [ ] 5.2 浏览器走查：登录 → 概览 → 各 sidebar 页 → 退出 → 未登录拦截（路径见 design.md）
-- [ ] 5.3 `openspec validate admin-ui-prototype --strict`
+## 阶段 6：清理（web/）
+
+- [x] 6.1 移除或隔离模板 demo 页（customers、inbox、settings 等）
+- [x] 6.2 根路径 `/` 重定向或引导至 `/admin/login`
+
+## 阶段 7：构建与浏览器走查
+
+- [x] 7.1 `cd web && pnpm build`
+- [x] 7.2 浏览器走查（路径见 `design.md`「验收标准」）：登录 → 概览 → sidebar 各页 → design-preview → 退出 → 拦截
+- [x] 7.3 `openspec validate admin-ui-prototype --strict`
+
+## 阶段 8：人工验收门（阻塞规则沉淀）
+
+- [x] 8.1 **你确认 UI 定调**：在 `admin-ui-design-direction/design.md`「验收记录」填写日期、commit、结论「UI 定调通过」
+- [ ] 8.2 若需迭代：在本 change 修正后重复 7.x，直至 8.1 通过
+
+> **本 change 完成标志 = 8.1 签字**，不是仅 build 通过。
 
 ## 不在本 change
 
 - `api/admin/*`、Vite proxy、`spring-boot:run`
-- `admin-login-slice`（下一阶段替换 Mock auth）
+- `docs/dev/admin-ui-tokens.md`、`admin-ui-patterns.md`、`.cursor/rules/admin-ui-patterns.mdc`（→ `admin-ui-design-direction` 阶段 2–4）
+- `admin-login-slice`（规则沉淀后再做）
 
 ## 后续衔接
 
-| Change | 说明 |
+| Change | 前置 |
 |--------|------|
-| `admin-login-slice` | 保留页面/壳层，store 改调真 API |
-| `admin-shell-slice` | tenant store 接 API |
-| `admin-user-list-slice` | 用户列表接分页 API |
+| `admin-ui-design-direction`（规则沉淀） | 本 change **8.1 签字** |
+| `admin-login-slice` | 规则文档 + spec 就绪；保留本 change 页面与壳层 |

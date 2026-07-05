@@ -2,18 +2,26 @@
 @import "@nuxt/ui";
 
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
-  --color-green-50: oklch(90.98% 0.04338 166.72);
-  --color-green-100: oklch(88.46% 0.05417 166.29);
-  --color-green-200: oklch(83.957% 0.07763 165.13);
-  --color-green-300: oklch(79.343% 0.09927 163.52);
-  --color-green-400: oklch(74.927% 0.11835 162.26);
-  --color-green-500: oklch(70.253% 0.13197 160.37);
-  --color-green-600: oklch(58.426% 0.10793 160.73);
-  --color-green-700: oklch(45.657% 0.08188 161.06);
-  --color-green-800: oklch(32.298% 0.05338 161.83);
-  --color-green-900: oklch(17.276% 0.02184 161.78);
+  --color-teal-50: oklch(96.5% 0.02 175);
+  --color-teal-100: oklch(92% 0.04 175);
+  --color-teal-200: oklch(85% 0.07 175);
+  --color-teal-300: oklch(78% 0.1 175);
+  --color-teal-400: oklch(70% 0.12 175);
+  --color-teal-500: oklch(65% 0.14 175);
+  --color-teal-600: oklch(55% 0.13 175);
+  --color-teal-700: oklch(45% 0.11 175);
+  --color-teal-800: oklch(35% 0.08 175);
+  --color-teal-900: oklch(25% 0.05 175);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+:root {
+  --ui-radius: var(--radius-md);
 }
 
 .dark {
