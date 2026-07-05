@@ -1,0 +1,27 @@
+# 任务：system-admin-v1
+
+> **性质**：规划型史诗 — **本 change 不写业务代码**。勾选表示子 change 文档/实施完成。
+
+## 1. 史诗文档
+
+- [x] 1.1 编写 `proposal.md`、`design.md`
+- [x] 1.2 编写 `specs/system/spec.md` 增量
+- [x] 1.3 `openspec validate system-admin-v1 --strict`
+
+## 2. 子 change 立项（按顺序 propose，不写代码）
+
+- [ ] 2.1 `openspec new change system-rbac-kernel` 并完成 proposal/design/tasks/spec
+- [ ] 2.2 `openspec new change admin-dept-slice` 并完成 proposal/design/tasks/spec
+- [ ] 2.3 `openspec new change admin-role-slice` 并完成 proposal/design/tasks/spec
+- [ ] 2.4 `openspec new change admin-user-mutate-slice` 并完成 proposal/design/tasks/spec
+
+## 3. 史诗归档（全部子 change 实施后）
+
+- [ ] 3.1 更新 `docs/dev/api-integration-board.md` 增加 system-admin 切片行
+- [ ] 3.2 更新 `AGENTS.md`「下一优先」指向 `system-rbac-kernel`
+- [ ] 3.3 `openspec archive system-admin-v1` 合并 spec 至主 specs
+
+## 不在本 change
+
+- Java / `web/` 实现（→ 各子 change）
+- `tenant-ready-foundation` §5/§7（→ `tenant-platform-slice`）
