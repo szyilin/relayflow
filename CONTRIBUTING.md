@@ -59,14 +59,22 @@ chore(deploy): 更新 compose 中 Redis 镜像版本
 
 ## 版本号
 
+**当前阶段**：产品尚未正式上线，Maven 版本为 **`0.x`**（当前 `0.1.0-SNAPSHOT`）。
+
 | 类型 | 规则 | 示例 |
 |------|------|------|
-| 产品 / Maven | SemVer | `1.0.0`、`1.0.0-SNAPSHOT` |
-| Git / Docker 镜像 tag | 与发布版本对齐 | `v1.0.0` → `relayflow:1.0.0` |
-| Flyway 迁移 | 前三段跟 **产品 SemVer**，第四段为同版本内序号 | `V1.0.0.1__init_tenant.sql`、`V1.1.0.1__add_im_message.sql` |
+| 产品 / Maven | SemVer；**开发期 major 固定为 `0`** | `0.1.0`、`0.1.0-SNAPSHOT` |
+| Git / Docker 镜像 tag | 与发布版本对齐 | `v0.1.0` → `relayflow:0.1.0` |
+| Flyway 迁移 | 前三段跟 **产品 SemVer**，第四段为同版本内序号 | `V0.1.0.1__init_tenant.sql`、`V0.2.0.1__add_im_message.sql` |
 
 Flyway 文件名格式：`V{major}.{minor}.{patch}.{seq}__{description}.sql`。  
-同一 Release 多条 SQL 时使用 `V1.0.0.1`、`V1.0.0.2`…；详细规则见 [`docs/dev/database.md`](docs/dev/database.md)。
+同一 Release 多条 SQL 时使用 `V0.1.0.1`、`V0.1.0.2`…；详细规则见 [`docs/dev/database.md`](docs/dev/database.md)。
+
+### 开发期版本纪律（AI 与人类贡献者必读）
+
+- **禁止** AI 或贡献者自行将 **major 从 `0` 升到 `1`**（即不得改为 `1.0.0` / `1.x`）。**只有产品负责人明确宣布「准备正式上线」后**，才允许切到 `1.0.0`。
+- **minor / patch** 可按开发进度自行调整（例如 `0.1.0` → `0.2.0` 或 `0.1.1`），须同步 Maven `pom.xml` 与 Flyway 文件名前三段。
+- 架构文档中的 **「V1 单体 / Phase 2 微服务」** 指部署形态代号，**不是**产品 SemVer 的 major；勿与 `0.x` / `1.x` 产品版本混淆。
 
 ## Pull Request（可选）
 

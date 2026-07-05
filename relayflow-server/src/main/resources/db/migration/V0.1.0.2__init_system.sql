@@ -1,5 +1,5 @@
 -- System domain: global user account, org structure, RBAC, menu.
--- Extends tenant metadata from V1.0.0.1.
+-- Extends tenant metadata from V0.1.0.1.
 
 -- 2.1 Member lifecycle status on tenant membership
 ALTER TABLE sys_tenant_user
