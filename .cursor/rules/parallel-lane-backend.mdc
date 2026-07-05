@@ -1,44 +1,35 @@
 ---
-description: 并行 Lane — 后端 OpenSpec（*-api change）实现约束；指派后端 AI 时启用
+description: 并行 Lane — 后端 OpenSpec（*-api change）**第二步**；按 contract 实现 API
 globs: relayflow-*/**/*
 alwaysApply: false
 ---
 
-# 并行 Lane · 后端（`*-api`）
+# 并行 Lane · 后端（`*-api`）— 第二步
 
 当用户指派 **后端 lane** 或 change 名以 **`-api`** 结尾时，遵循本规则。
 
 ## 必读
 
-1. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
-2. [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md) — archive 前更新 API 状态
-3. `openspec/changes/<slice>-api/tasks.md` — **本次唯一工作范围**
-4. `openspec/lanes/<slice>/contract.md` — 起草/维护 API 契约（永久目录）
-5. [`docs/dev/api.md`](../../docs/dev/api.md)、[`docs/dev/database.md`](../../docs/dev/database.md)
+1. [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) — **`-web` 应先于 `-api`**
+2. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
+3. [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md)
+4. `openspec/changes/<slice>-api/tasks.md`
+5. **`openspec/lanes/<slice>/contract.md`** — 通常由 **`-web` 起草**；本 lane **按 contract 实现**
+6. [`docs/dev/api.md`](../../docs/dev/api.md)、[`docs/dev/database.md`](../../docs/dev/database.md)
 
 ## 应当
 
-- 只编辑 **Java 模块**（`relayflow-module-*`、`relayflow-framework`、`relayflow-server`）、Flyway、`deploy/`（tasks 要求时）
-- 只勾选 **`*-api` tasks** 的 checkbox
-- 契约写入或同步 **`openspec/lanes/<slice>/contract.md`**
-- 完成前 **`./mvnw -pl relayflow-server -am compile`**；涉及接口时 curl 或 `.relayflow/api-tests/{slice}/`
-- **验收通过后立即 archive `-api`**（不必等 `-web`）；archive 前更新 **看板** `api → archived`
-- 与 `-web` 并行时使用 **独立 worktree/分支**
+- 只编辑 **Java**、Flyway、`deploy/`（tasks 要求时）
+- **前置**：`-web` 已 ui_ready 或 contract 已冻结（单人顺序：web 完成后才开 api）
+- 实现字段 **与 contract / 前端页面一致**；若需改字段，先改 contract 并通知 integrate
+- `mvn compile` + curl；看板 `api → archived`；archive `-api`
 
 ## 禁止
 
-- 修改 **`web/`**（**例外**：CORS、Security 白名单、联调必要配置，且 tasks 已写明）
-- 勾选 `-web` 或 `-integrate` change 的 tasks
-- 契约未冻结就实现 breaking API 变更
-- archive `-api` 却不更新看板
-
-## 跨界白名单（tasks 须点名）
-
-| 区域 | 允许原因 |
-|------|----------|
-| `SecurityAutoConfiguration` CORS/permitAll | 前端 dev 联调 |
-| `application*.yaml` 端口/CORS | 联调 |
+- **在无 `-web` contract 草案时擅自定 API 形状**（`[平台]` 除外）
+- 改 `web/`（CORS/Security 白名单除外）
+- 勾选 `-web` / `-integrate` tasks
 
 ## 会话开场白（建议）
 
-> Using change: `<slice>-api`（后端 lane）。只完成后端 tasks；契约于 `openspec/lanes/<slice>/contract.md`；archive 前更新看板。
+> Using change: `<slice>-api`（后端 lane · 第二步）。读 `-web` 起草的 contract.md 并实现。

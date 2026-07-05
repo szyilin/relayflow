@@ -1,33 +1,28 @@
 ---
-description: 业务功能按纵向切片交付 — 后端 API 与 web/ 同批对接，界面可验证
+description: 业务功能按纵向切片 · 前端优先交付 — web UI 先行，API 后行
 alwaysApply: true
 ---
 
 # 纵向切片工作流（业务功能必读）
 
-脚手架 change（`scaffold-*`）除外，**用户可感知功能**必须按 **纵向切片** 实现。
+脚手架 change（`scaffold-*`）除外，**用户可感知功能**必须按 **纵向切片 · 前端优先** 实现。
 
 ## 必须
 
-1. 每个切片：**后端 API + 前端对接**（有 UI 时）须可浏览器验证；**推荐**拆为 `{slice}-api` + `{slice}-web` + `{slice}-integrate` 并行（见 [`parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)）
-2. 单 change 模式：tasks 按后端 / 前端 / 联调 分组，结构见 [`vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)
-3. 完成前验证：`mvn compile`；含 `web/` 时 **`pnpm build`**；有 UI 时写明浏览器路径（如 `/admin/login`）
-4. 已有后端无前端的能力（如登录 API）→ 优先开切片 **补前端**，勿再堆纯后端 change
+1. 默认顺序：**`-web`（UI+Mock+contract 草案）→ `-api` → `-integrate`**（见 [`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)）
+2. **唯一登录页** `/app/login`；登录后进工作台；管理端 `/admin` 同一 JWT
+3. 完成前：`-web` 须 **`pnpm build`** + 浏览器路径；integrate 须联调
+4. 已有后端无 UI → 开 **`-web`** 补 UI，勿再堆纯 `-api`
 
 ## 禁止
 
-- 连续多会话只写后端、长期无对应 `web/` 页面（tasks 标 `[平台]` 的除外）
-- 单次会话实现整个 V1 / 全部模块
-- 前端页面直接 `fetch` 裸 URL，须走 `web/src/api/admin|app/`
+- **先开 `-api` 无对应 `-web` UI**（`[平台]` 除外）
+- 连续多会话只写后端
+- 页面直接 `import mocks/`（仅 store 内）
 
-## 下一优先（管理端）
+## 下一优先
 
-管理端须先 **UI 定调**（见 [`docs/dev/admin-ui-workflow.md`](../../docs/dev/admin-ui-workflow.md)），再纵向切片接 API：
+1. `admin-shell-web` + integrate — 壳层租户名
+2. `admin-user-list-web` — **用户列表 UI 先行**，再 `-api`
 
-1. `admin-ui-prototype` — Mock 全壳层 + 人工签字
-2. `admin-ui-design-direction` — 从定稿原型抽取规则
-3. `admin-login-slice` — 真 JWT（保留原型 UI）
-4. `admin-shell-web` + `admin-shell-integrate` — 租户名、退出（`-api` 已归档；看板 [`api-integration-board.md`](../../docs/dev/api-integration-board.md)）
-5. `[平台]` tenant §5 Redis/MinIO/WS — 无 UI，可独立 change
-
-全文：[`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)
+全文：[`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) · [`vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)

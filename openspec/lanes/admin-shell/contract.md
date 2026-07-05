@@ -49,7 +49,7 @@ curl -s http://localhost:8080/admin-api/system/tenant/default
 | API 模块 | `web/src/api/admin/tenant.ts` → `getDefaultTenant()` |
 | Store | `stores/tenant.ts`：登录后或壳层 mount 时拉取 `name` |
 | UI | `AdminNavbar` 展示 `tenantStore.tenantName`；**不改 layout** |
-| 退出 | `useAuthStore.logout()` + `router.push('/admin/login')`（已有，本切片仅确认行为） |
+| 退出 | `useAuthStore.logout()` + `router.push('/app/login')`（已有，本切片仅确认行为） |
 
 ## 错误处理
 

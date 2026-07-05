@@ -63,11 +63,7 @@ meta:
     </UCard>
 
     <p class="text-center text-xs text-muted">
-      请使用企业账号登录
-      ·
-      <RouterLink to="/admin/login" class="text-primary hover:underline">
-        管理员入口
-      </RouterLink>
+      使用企业账号登录；管理员与普通员工同一入口，权限由系统分配
     </p>
   </div>
 </template>

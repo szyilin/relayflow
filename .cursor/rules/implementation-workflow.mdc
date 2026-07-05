@@ -5,20 +5,21 @@ alwaysApply: true
 
 # 实现工作流（必读）
 
-RelayFlow 脚手架已就绪；**业务功能**按 **纵向切片**（后端 API + `web/` 同批交付）推进。禁止一次性生成整套 V1。
+RelayFlow 脚手架已就绪；**业务功能**按 **纵向切片 · 前端优先**（`-web` → `-api` → `-integrate`）推进。详见 [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)。
 
 ## 核心原则
 
 1. **能 CLI/模板生成的，禁止 AI 从零手写**（构建配置、目录树、官方脚手架）
 2. **一次只做一个 OpenSpec change 中的一组 tasks**（通常 ≤10 条），不得跨 change 实现
-3. **用户可感知功能走纵向切片**：同一功能的后端与前端须对接完成、浏览器可验证；**推荐**拆成 `{slice}-api` + `{slice}-web` 并行，经 `{slice}-integrate` 联调（见 [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)）
+3. **用户可感知功能 · 前端优先**：先 `-web`（UI + Mock + contract 草案），再 `-api`，最后 `-integrate` 去 Mock 联调（见 [`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)）
 4. **行为以 `openspec/specs/` 为真源**；archive 中的 design 仅作背景，不是本次实现清单
 5. **声称完成前必须运行验证命令**并依据输出判断，不得仅凭「看起来对」
 
 ## 文档阅读顺序（实现时）
 
 1. `openspec/changes/<当前 change>/tasks.md` — **本次唯一工作范围**
-2. [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md) — **业务功能切片结构（含 web 时必读）**
+2. [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) — **业务切片默认顺序（必读）**
+3. [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md) — 切片结构与验证
 3. `openspec/changes/<当前 change>/specs/` — 本变更的规格增量
 4. `openspec/specs/<相关域>/spec.md` — 已归档的行为真源
 5. `docs/dev/` — API、数据库、代码分层等实现约定
@@ -58,17 +59,16 @@ scaffold-maven-parent → scaffold-framework → scaffold-server
 → tenant-ready-foundation（框架+表）→ system-schema-v1 → scaffold-system-codegen
 ```
 
-### 业务功能 — 纵向切片（当前起）
+### 业务功能 — 纵向切片 · 前端优先（当前起）
 
-每项 = **后端 + 前端（有 UI 时）** 同 change 可演示。详见 `docs/dev/vertical-slice-workflow.md`。
+默认顺序 **`-web` → `-api` → `-integrate`**。详见 `frontend-first-workflow.md`。
 
 ```text
-1. admin-login-slice        — 管理端登录页 + token + 路由守卫（登录 API 已有）
-2. admin-shell-api + admin-shell-web  — 壳层租户名、退出（admin-shell-integrate 联调）
-3. admin-bootstrap-slice    — [可选] 首次创建管理员向导
-4. tenant-platform-slice    — [平台] Redis/MinIO/WS 租户隔离（无 UI）
-5. admin-user-list-slice    — 用户分页 API + /admin/system/user 列表
-6. infra-* / im-*           — 按域继续切片（文件、IM 会话等）
+1. unified-login-slice     — 唯一登录 /app/login → 工作台 ✅
+2. admin-shell-web         — 壳层租户名（-api 已有）
+3. admin-user-list-web     — 用户列表 UI 先行 → 再 -api 分页
+4. tenant-platform-slice   — [平台] Redis/MinIO/WS
+5. infra-* / im-*          — 按域继续
 ```
 
 ### Phase 2（以后 — 分布式部署，满足触发条件后再做）

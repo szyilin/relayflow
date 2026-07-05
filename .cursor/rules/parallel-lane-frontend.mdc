@@ -1,43 +1,35 @@
 ---
-description: 并行 Lane — 前端 OpenSpec（*-web change）实现约束；指派前端 AI 时启用
+description: 并行 Lane — 前端 OpenSpec（*-web change）**第一步**；UI 先行 + contract 草案
 globs: web/**/*
 alwaysApply: false
 ---
 
-# 并行 Lane · 前端（`*-web`）
+# 并行 Lane · 前端（`*-web`）— 第一步
 
 当用户指派 **前端 lane** 或 change 名以 **`-web`** 结尾时，遵循本规则。
 
 ## 必读
 
-1. [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md) — **第一入口**：哪些 API 已就绪、哪些文件待建
-2. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
-3. `openspec/changes/<slice>-web/tasks.md` — **本次唯一工作范围**
-4. `openspec/lanes/<slice>/contract.md` — API 契约（只读；发现错误在 integrate change 或 contract 中反馈）
-5. [`docs/dev/admin-ui-patterns.md`](../../docs/dev/admin-ui-patterns.md)（管理端页面）
+1. [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) — **默认 `-web` 先于 `-api`**
+2. [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md)
+3. `openspec/changes/<slice>-web/tasks.md`
+4. [`docs/dev/admin-ui-patterns.md`](../../docs/dev/admin-ui-patterns.md) / [`workspace-ui-patterns.md`](../../docs/dev/workspace-ui-patterns.md)
 
 ## 应当
 
-- 只编辑 **`web/`** 与当前 **`*-web`** change 下的 OpenSpec 文档
-- 只勾选 **`tasks.md` 中前端段** 的 checkbox
-- 仅对接看板 **`api: archived/ready`** 的端点；API 调用走 **`web/src/api/admin/`** 或 `app/`；页面 **不得** import `mocks/`
+- 只编辑 **`web/`** 与当前 **`*-web`** change 文档
+- 实现 **页面 + Store**；API 未就绪时 store 内 **Mock 回退**（`isApiUnavailable`）
+- **起草** `openspec/lanes/{slice}/contract.md`（路径、字段、鉴权、curl）
+- 更新看板 **`web → in_progress / ui_ready`**
 - 完成前 **`cd web && pnpm build`**
-- 与 `-api` 并行时使用 **独立 worktree/分支**，避免与后端 AI 改同一文件
+- API 调用走 `web/src/api/admin/` 或 `app/`；页面 **不得** import `mocks/`
 
 ## 禁止
 
-- 修改 `relayflow-module-*`、`relayflow-framework`、`relayflow-server`（**例外**：`web/vite.config.ts` 的 dev proxy、`web/.env*` 的 `VITE_*`，且 tasks 已写明）
-- 勾选 `-integrate` 或 `-api` change 的 tasks
-- 在 `-web` 未完成时 archive；联调归属 **`*-integrate`**
-- 不看看板直接猜后端是否就绪
-
-## 跨界白名单（tasks 须点名）
-
-| 文件 | 允许原因 |
-|------|----------|
-| `web/vite.config.ts` | dev proxy 指向后端 |
-| `web/.env.development` | `VITE_API_BASE_URL` |
+- 在 UI 未 `pnpm build` 通过前 archive `-web`
+- 未起草 contract 就要求 `-api` 实现（除非 tasks 写明沿用已有 API）
+- 修改 Java（`vite.config` proxy、`VITE_*` 除外）
 
 ## 会话开场白（建议）
 
-> Using change: `<slice>-web`（前端 lane）。先看 `api-integration-board.md`，再读 `openspec/lanes/<slice>/contract.md`。
+> Using change: `<slice>-web`（前端 lane · 第一步）。先做 UI + Mock + contract 草案。

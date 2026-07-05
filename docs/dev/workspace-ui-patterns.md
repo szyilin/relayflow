@@ -41,7 +41,7 @@ web/src/
 |----|------|
 | Layout | `meta.layout: workspace-auth` |
 | 表单 | 居中 `UCard`；提交走 `useAuthStore().login()` |
-| 跳转 | 成功 → `/app/messages` |
+| 跳转 | 成功 → `/app/messages`（产品唯一登录页 `/app/login`） |
 
 ## 消息页 `/app/messages`
 
