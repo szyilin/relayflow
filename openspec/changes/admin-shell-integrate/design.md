@@ -27,7 +27,7 @@
 |------|------|
 | CORS / 401 on /default | 回 `-api` 修 Security |
 | 前端未发请求 / 字段错 | 回 `-web` 修 store/api |
-| 契约与实现不符 | 更新 `_lanes/admin-shell/contract.md` 后两边同步 |
+| 契约与实现不符 | 更新 `openspec/lanes/admin-shell/contract.md` 后两边同步 |
 
 ## 归档顺序建议
 

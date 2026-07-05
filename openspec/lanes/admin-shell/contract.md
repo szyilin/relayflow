@@ -1,8 +1,9 @@
 # API 契约：admin-shell
 
 > **状态**：已冻结（2026-07-05）  
-> **`-web` lane**：只读；字段以本文为准实现 `web/src/api/admin/tenant.ts`  
-> **`-api` lane**：确保后端行为与本文一致
+> **API lane**：已归档（`admin-shell-api`，2026-07-05）  
+> **Web lane**：进行中（`admin-shell-web`）  
+> **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
 ## 背景
 

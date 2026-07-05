@@ -27,7 +27,7 @@ alwaysApply: true
 1. `admin-ui-prototype` — Mock 全壳层 + 人工签字
 2. `admin-ui-design-direction` — 从定稿原型抽取规则
 3. `admin-login-slice` — 真 JWT（保留原型 UI）
-4. `admin-shell-api` + `admin-shell-web` + `admin-shell-integrate` — 租户名、退出
+4. `admin-shell-web` + `admin-shell-integrate` — 租户名、退出（`-api` 已归档；看板 [`api-integration-board.md`](../../docs/dev/api-integration-board.md)）
 5. `[平台]` tenant §5 Redis/MinIO/WS — 无 UI，可独立 change
 
 全文：[`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)

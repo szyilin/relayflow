@@ -109,7 +109,7 @@ cd web && pnpm dev
 新建 change 时：
 
 1. `proposal.md` 写明 **是否含 web/** 与 **用户可见路径**（如 `/admin/login`）。
-2. **带 UI 的新切片**：拆为 `{slice}-api`、`{slice}-web`、`{slice}-integrate`，契约写 `_lanes/{slice}/contract.md`（见 [parallel-lane-workflow.md](parallel-lane-workflow.md)）。
+2. **带 UI 的新切片**：拆为 `{slice}-api`、`{slice}-web`、`{slice}-integrate`，契约写 `openspec/lanes/{slice}/contract.md`，看板维护于 [`api-integration-board.md`](api-integration-board.md)（见 [parallel-lane-workflow.md](parallel-lane-workflow.md)）。
 3. 单 change 模式：`tasks.md` 使用 **切片标准结构**；不要按「先全部 Controller、再全部 Vue」分组。
 4. `design.md` 增加 **「联调与演示」** 小节：本地端口、示例账号、浏览器路径。
 5. `openspec/config.yaml` 的 `tasks` 规则已引用本工作流；AI 实现前必读本文档。

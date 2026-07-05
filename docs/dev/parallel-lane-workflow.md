@@ -25,17 +25,15 @@
 
 **禁止** 再用单个 `{slice}` change 同时写前后端（新切片一律按上表拆分；已归档的单 change 如 `admin-login-slice` 保留历史）。
 
-## 共享契约
+## 三层信息（解耦归档）
 
-并行前必须先有 **API 契约**（字段、路径、鉴权、错误码）：
+| 层 | 路径 | 职责 |
+|----|------|------|
+| **行为真源** | `openspec/specs/` | 后端 `-api` **archive 时**合并 delta spec；系统保证什么 API |
+| **切片契约** | `openspec/lanes/{slice}/contract.md` | **永久保留**；路径、字段、鉴权、curl；不随 `-api` archive 删除 |
+| **对接看板** | [`api-integration-board.md`](api-integration-board.md) | **前端第一入口**；API/Web 就绪状态、待建 `web/` 文件 |
 
-| 文件 | 职责 |
-|------|------|
-| `openspec/changes/_lanes/{slice}/contract.md` | 前后端 **只读握手**；由 `-api` lane 起草，`-web` lane 确认 |
-| `{slice}-api/design.md` | 后端实现细节；须与 contract 一致 |
-| `{slice}-web/design.md` | 前端对接细节；须引用 contract |
-
-契约变更流程：**仅** `-api` 或人工修改 `contract.md` → 通知另一 lane 刷新 tasks。
+契约变更流程：**仅** `-api` 或人工修改 `contract.md` → 更新看板 → 通知 `-web` lane。
 
 ## 三 Lane 职责
 
@@ -43,7 +41,8 @@
 
 - **编辑范围**：`relayflow-module-*`、`relayflow-framework`、`relayflow-server`、Flyway、`deploy/`（若需要）
 - **禁止**：改 `web/`（CORS/Security 白名单等联调必要项除外，须在 tasks 写明）
-- **验证**：`./mvnw -pl relayflow-server -am compile`；涉及接口时 curl
+- **验证**：`./mvnw -pl relayflow-server -am compile`；涉及接口时 curl 或 `.relayflow/api-tests/{slice}/`
+- **归档**：验收通过后 **立即** archive **`-api`**（**不必等 `-web`**）；archive 前 **必须** 更新 [`api-integration-board.md`](api-integration-board.md) 的 `api` 状态
 - **Cursor 规则**：`.cursor/rules/parallel-lane-backend.mdc`
 
 ### `-web`（前端）
@@ -51,27 +50,29 @@
 - **编辑范围**：`web/`
 - **禁止**：改 Java 模块（`vite.config` proxy、`VITE_*` 除外）
 - **验证**：`cd web && pnpm build`
+- **必读**：[`api-integration-board.md`](api-integration-board.md) → `openspec/lanes/{slice}/contract.md` → `{slice}-web/tasks.md`
 - **Cursor 规则**：`.cursor/rules/parallel-lane-frontend.mdc`
-- **前置**：可读 `-api` 的 contract；API 未就绪时可暂用 mock，但 integrate 前必须接真 API
 
 ### `-integrate`（集成）
 
-- **前置**：`-api` 与 `-web` 的 **代码 tasks 均已完成**（checkbox 勾完）
+- **前置**：看板该切片 **`api: archived/ready`**；`-web` **代码 tasks 均已完成**
 - **职责**：本地联调、补跨端小改（CORS、proxy、env）、双端 validate、记录浏览器路径
 - **禁止**：大规模新功能；若发现契约错误，回写 `contract.md` 并打回对应 lane
-- **完成标志**：`openspec validate {slice}-integrate --strict` + 人工浏览器走查
+- **完成标志**：`openspec validate {slice}-integrate --strict` + 人工浏览器走查；看板 **`web` → `done`**
 
-## 并行执行方式
+## 并行执行与归档顺序
 
 ```text
-T0  人工或 -api：写入 _lanes/{slice}/contract.md
+T0  -api：写入 openspec/lanes/{slice}/contract.md + 看板加一行
     ↓
-T1  ┌─ Agent A：openspec apply {slice}-api  （worktree 可选）
-    └─ Agent B：openspec apply {slice}-web   （worktree 可选）
+T1  ┌─ Agent A：{slice}-api
+    └─ Agent B：{slice}-web（读看板 + contract；api 未 ready 时可 mock）
     ↓
-T2  Agent C：openspec apply {slice}-integrate
+T2  -api 验收 → 更新看板 api=archived → archive {slice}-api  → 后端 AI 释放
     ↓
-T3  依次 archive：-integrate → -web → -api（或 merge 后一次归档，见 OpenSpec 流程）
+T3  -web 继续 / 完成 → {slice}-integrate 联调
+    ↓
+T4  archive：-integrate → -web（-api 已在 T2 归档）
 ```
 
 **Git 建议**：两 lane 并行写代码时使用 **不同 worktree / 分支**（如 `feat/admin-shell-api`、`feat/admin-shell-web`），在 integrate 阶段 merge。
@@ -82,7 +83,7 @@ T3  依次 archive：-integrate → -web → -api（或 merge 后一次归档，
 
 ```markdown
 ## 前置
-- [ ] `_lanes/{slice}/contract.md` 已冻结
+- [ ] openspec/lanes/{slice}/contract.md 已冻结
 
 ## 后端
 - [ ] …
@@ -90,14 +91,17 @@ T3  依次 archive：-integrate → -web → -api（或 merge 后一次归档，
 ## 验证
 - [ ] mvn compile
 - [ ] curl …
+
+## 归档前
+- [ ] 更新 api-integration-board.md（api → archived）
 ```
 
 ### `-web`
 
 ```markdown
 ## 前置
-- [ ] `_lanes/{slice}/contract.md` 已冻结
-- [ ] （可选）`-api` 后端 tasks 已完成
+- [ ] api-integration-board.md 该切片 api 为 archived/ready
+- [ ] openspec/lanes/{slice}/contract.md 已读
 
 ## 前端（web/）
 - [ ] …
@@ -110,15 +114,15 @@ T3  依次 archive：-integrate → -web → -api（或 merge 后一次归档，
 
 ```markdown
 ## 前置
-- [ ] `-api` 全部 tasks 完成
-- [ ] `-web` 全部 tasks 完成
+- [ ] 看板 api: archived/ready
+- [ ] -web 全部 tasks 完成
 
 ## 联调
 - [ ] spring-boot:run + pnpm dev
 - [ ] 浏览器路径 …
 
 ## 门禁
-- [ ] validate 三个 change
+- [ ] validate -integrate；看板 web → done
 ```
 
 ## 与纵向切片的关系
@@ -128,30 +132,32 @@ T3  依次 archive：-integrate → -web → -api（或 merge 后一次归档，
 | 交付标准 | 浏览器可验证 | 相同（经 `-integrate`） |
 | OpenSpec 数量 | 1 | 2～3 |
 | 并行度 | 低 | 高 |
-| 契约 | design.md 内 | `_lanes/.../contract.md` |
+| 契约 | design.md 内 | `openspec/lanes/.../contract.md` |
+| 前端如何知 API 就绪 | — | **`api-integration-board.md`** |
 
-**仍禁止**：只有 `-api` 长期无 `-web`；`-integrate` 未通过就 archive `-web`。
+**仍禁止**：只有 `-api` 长期无 `-web`（看板长期 `web: pending`）；`-integrate` 未通过就 archive `-web`。
 
 ## 当前切片对照
 
-| 功能 | API change | Web change | Integrate |
-|------|------------|------------|-----------|
-| 管理端登录 | —（历史单 change `admin-login-slice`） | — | — |
-| 管理端壳层 | `admin-shell-api` | `admin-shell-web` | `admin-shell-integrate` |
-| 用户列表 | `admin-user-list-api`（待建） | `admin-user-list-web`（待建） | 待建 |
+| 功能 | API | Web | Integrate | 看板 |
+|------|-----|-----|-----------|------|
+| 管理端登录 | —（历史 `admin-login-slice`） | done | — | archived / done |
+| 管理端壳层 | **archived** | `admin-shell-web` | `admin-shell-integrate` | [看板](api-integration-board.md) |
+| 用户列表 | 待建 | 待建 | 待建 | planned |
 
 ## 验证命令
 
 ```bash
-openspec validate admin-shell-api --strict
 openspec validate admin-shell-web --strict
 openspec validate admin-shell-integrate --strict
 ./mvnw -pl relayflow-server -am compile
 cd web && pnpm build
+bash .relayflow/api-tests/admin-shell/run.sh   # 本地 API 验收（不提交 Git）
 ```
 
 ## 参考
 
+- [api-integration-board.md](api-integration-board.md)
 - [vertical-slice-workflow.md](vertical-slice-workflow.md)
 - [admin-ui-workflow.md](admin-ui-workflow.md)
 - `.cursor/rules/parallel-lane-frontend.mdc`

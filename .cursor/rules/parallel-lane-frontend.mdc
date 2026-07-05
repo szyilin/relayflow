@@ -10,16 +10,17 @@ alwaysApply: false
 
 ## 必读
 
-1. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
-2. `openspec/changes/<slice>-web/tasks.md` — **本次唯一工作范围**
-3. `openspec/changes/_lanes/<slice>/contract.md` — API 契约（只读；发现错误在 integrate change 或 contract 中反馈）
-4. [`docs/dev/admin-ui-patterns.md`](../../docs/dev/admin-ui-patterns.md)（管理端页面）
+1. [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md) — **第一入口**：哪些 API 已就绪、哪些文件待建
+2. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
+3. `openspec/changes/<slice>-web/tasks.md` — **本次唯一工作范围**
+4. `openspec/lanes/<slice>/contract.md` — API 契约（只读；发现错误在 integrate change 或 contract 中反馈）
+5. [`docs/dev/admin-ui-patterns.md`](../../docs/dev/admin-ui-patterns.md)（管理端页面）
 
 ## 应当
 
 - 只编辑 **`web/`** 与当前 **`*-web`** change 下的 OpenSpec 文档
 - 只勾选 **`tasks.md` 中前端段** 的 checkbox
-- API 调用走 **`web/src/api/admin/`** 或 `app/`；页面 **不得** import `mocks/`
+- 仅对接看板 **`api: archived/ready`** 的端点；API 调用走 **`web/src/api/admin/`** 或 `app/`；页面 **不得** import `mocks/`
 - 完成前 **`cd web && pnpm build`**
 - 与 `-api` 并行时使用 **独立 worktree/分支**，避免与后端 AI 改同一文件
 
@@ -28,6 +29,7 @@ alwaysApply: false
 - 修改 `relayflow-module-*`、`relayflow-framework`、`relayflow-server`（**例外**：`web/vite.config.ts` 的 dev proxy、`web/.env*` 的 `VITE_*`，且 tasks 已写明）
 - 勾选 `-integrate` 或 `-api` change 的 tasks
 - 在 `-web` 未完成时 archive；联调归属 **`*-integrate`**
+- 不看看板直接猜后端是否就绪
 
 ## 跨界白名单（tasks 须点名）
 
@@ -38,4 +40,4 @@ alwaysApply: false
 
 ## 会话开场白（建议）
 
-> Using change: `<slice>-web`（前端 lane）。只完成 web/ 与 tasks 前端段；契约见 `_lanes/<slice>/contract.md`。
+> Using change: `<slice>-web`（前端 lane）。先看 `api-integration-board.md`，再读 `openspec/lanes/<slice>/contract.md`。

@@ -60,6 +60,21 @@
 - 当 应用迁移脚本
 - 那么 表名以 `sys_` 开头
 
+### 需求：默认租户查询 API
+
+系统应提供匿名可访问的管理端接口，返回 V1 默认租户信息供壳层展示。
+
+#### 场景：查询默认租户成功
+
+- 当 客户端请求 `GET /admin-api/system/tenant/default`
+- 那么 响应 `code` 为 0
+- 并且 `data` 包含 `id`、`code`、`name`、`status`、`createTime`
+
+#### 场景：未携带 JWT 可访问
+
+- 当 请求未带 `Authorization` 头
+- 那么 仍返回成功结果（permitAll）
+
 ### 需求：API 模块拆分
 
 系统模块必须拆分为 `relayflow-module-system-api` 与 `relayflow-module-system-biz`。
