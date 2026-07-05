@@ -18,6 +18,8 @@
 - RBAC 菜单权限
 - 用户端 `/login`
 
+> **顺序说明**：在 `admin-ui-prototype`（Mock 全壳层）验收通过前，本 change **暂缓实现**。原型已包含登录页 UI 与 Mock 守卫；本 change 负责将 Mock 替换为真 JWT + `/admin-api`。
+
 ## 用户可见结果
 
 浏览器访问 `http://localhost:5173/admin/login`（或 dev 端口），输入账号密码后进入 `/admin`，刷新后仍保持登录态。
