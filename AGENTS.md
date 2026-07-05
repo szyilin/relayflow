@@ -41,8 +41,12 @@ openspec archive <change-name>
 | 分层命名、JWT、前端结构 | [docs/dev/code-style.md](docs/dev/code-style.md) | 写业务代码 |
 | Git / IDEA | [docs/dev/git-and-idea.md](docs/dev/git-and-idea.md) | 首次用 IDEA 打开、确认勿提交项 |
 | **纵向切片工作流** | [vertical-slice-workflow.md](docs/dev/vertical-slice-workflow.md) | **实现任何用户可见功能前（后端+前端同批）** |
+| **并行 Lane（前后端拆分）** | [parallel-lane-workflow.md](docs/dev/parallel-lane-workflow.md) | **`-api`/`-web` 双 Agent 并行时必读** |
+| **管理端 UI 定调工作流** | [admin-ui-workflow.md](docs/dev/admin-ui-workflow.md) | **管理端 Mock 原型、规则沉淀、接 API 前** |
 | 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |
+| 并行 Lane 前端 | [.cursor/rules/parallel-lane-frontend.mdc](.cursor/rules/parallel-lane-frontend.mdc) | **`*-web` change / 前端 AI** |
+| 并行 Lane 后端 | [.cursor/rules/parallel-lane-backend.mdc](.cursor/rules/parallel-lane-backend.mdc) | **`*-api` change / 后端 AI** |
 | 前端 UI（Nuxt UI v4） | [.cursor/rules/frontend-nuxt-ui.mdc](.cursor/rules/frontend-nuxt-ui.mdc) | 写 `web/` |
 | 系统行为规格 | [openspec/specs/](openspec/specs/) | 实现前对齐需求 |
 | 当前变更任务 | [openspec/changes/](openspec/changes/) | 本次工作范围 |
@@ -80,7 +84,7 @@ relayflow/
 4. 实现后验证：`mvn compile`；含 `web/` 时 **`pnpm build`**；有 UI 时写明浏览器路径
 5. 未经 change 文件夹，不得直接改 `openspec/specs/`
 
-**下一优先切片**：`admin-login-slice`（登录 API 已有 → 做 `/admin/login` + token + 路由守卫）。路线详见 vertical-slice-workflow.md。
+**下一优先（管理端 UI）**：按 [`docs/dev/admin-ui-workflow.md`](docs/dev/admin-ui-workflow.md) — `admin-ui-prototype`（Mock 定调）→ `admin-ui-design-direction`（规则沉淀）→ `admin-login-slice`（接真 API）。纵向切片路线详见 vertical-slice-workflow.md。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 此后走纵向切片。
 

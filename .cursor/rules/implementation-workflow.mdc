@@ -11,7 +11,7 @@ RelayFlow 脚手架已就绪；**业务功能**按 **纵向切片**（后端 API
 
 1. **能 CLI/模板生成的，禁止 AI 从零手写**（构建配置、目录树、官方脚手架）
 2. **一次只做一个 OpenSpec change 中的一组 tasks**（通常 ≤10 条），不得跨 change 实现
-3. **用户可感知功能走纵向切片**：同一 tasks 组内后端 API 与前端页面对接完成，浏览器可验证（见 [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)）
+3. **用户可感知功能走纵向切片**：同一功能的后端与前端须对接完成、浏览器可验证；**推荐**拆成 `{slice}-api` + `{slice}-web` 并行，经 `{slice}-integrate` 联调（见 [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)）
 4. **行为以 `openspec/specs/` 为真源**；archive 中的 design 仅作背景，不是本次实现清单
 5. **声称完成前必须运行验证命令**并依据输出判断，不得仅凭「看起来对」
 
@@ -64,7 +64,7 @@ scaffold-maven-parent → scaffold-framework → scaffold-server
 
 ```text
 1. admin-login-slice        — 管理端登录页 + token + 路由守卫（登录 API 已有）
-2. admin-shell-slice        — 壳层展示默认租户、退出
+2. admin-shell-api + admin-shell-web  — 壳层租户名、退出（admin-shell-integrate 联调）
 3. admin-bootstrap-slice    — [可选] 首次创建管理员向导
 4. tenant-platform-slice    — [平台] Redis/MinIO/WS 租户隔离（无 UI）
 5. admin-user-list-slice    — 用户分页 API + /admin/system/user 列表
