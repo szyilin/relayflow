@@ -1,0 +1,41 @@
+---
+description: 并行 Lane — 后端 OpenSpec（*-api change）实现约束；指派后端 AI 时启用
+globs: relayflow-*/**/*
+alwaysApply: false
+---
+
+# 并行 Lane · 后端（`*-api`）
+
+当用户指派 **后端 lane** 或 change 名以 **`-api`** 结尾时，遵循本规则。
+
+## 必读
+
+1. [`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
+2. `openspec/changes/<slice>-api/tasks.md` — **本次唯一工作范围**
+3. `openspec/changes/_lanes/<slice>/contract.md` — 起草/维护 API 契约
+4. [`docs/dev/api.md`](../../docs/dev/api.md)、[`docs/dev/database.md`](../../docs/dev/database.md)
+
+## 应当
+
+- 只编辑 **Java 模块**（`relayflow-module-*`、`relayflow-framework`、`relayflow-server`）、Flyway、`deploy/`（tasks 要求时）
+- 只勾选 **`*-api` tasks** 的 checkbox
+- 契约写入或同步 **`_lanes/<slice>/contract.md`**
+- 完成前 **`./mvnw -pl relayflow-server -am compile`**；涉及接口时 **curl** 验证
+- 与 `-web` 并行时使用 **独立 worktree/分支**
+
+## 禁止
+
+- 修改 **`web/`**（**例外**：CORS、Security 白名单、联调必要配置，且 tasks 已写明）
+- 勾选 `-web` 或 `-integrate` change 的 tasks
+- 契约未冻结就实现 breaking API 变更
+
+## 跨界白名单（tasks 须点名）
+
+| 区域 | 允许原因 |
+|------|----------|
+| `SecurityAutoConfiguration` CORS/permitAll | 前端 dev 联调 |
+| `application*.yaml` 端口/CORS | 联调 |
+
+## 会话开场白（建议）
+
+> Using change: `<slice>-api`（后端 lane）。只完成后端 tasks；契约维护于 `_lanes/<slice>/contract.md`。

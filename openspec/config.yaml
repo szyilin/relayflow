@@ -62,7 +62,7 @@ context: |
   领域规格：deployment/、system/、infra/、im/、workflow/（后续）
   架构详情：docs/dev/architecture.md
   Phase 2 微服务：openspec/changes/distributed-backend-v1/design.md
-  开发约定：docs/dev/（api.md、database.md、code-style.md、vertical-slice-workflow.md）
+  开发约定：docs/dev/（api.md、database.md、code-style.md、vertical-slice-workflow.md、parallel-lane-workflow.md、admin-ui-workflow.md）
   AI 编码入口：根目录 AGENTS.md（导引，非全文）
   实现工作流（必读）：.cursor/rules/implementation-workflow.mdc
   纵向切片（业务功能必读）：.cursor/rules/vertical-slice-workflow.mdc、docs/dev/vertical-slice-workflow.md
@@ -83,7 +83,10 @@ rules:
     - 记录端口、环境变量、Flyway 迁移
     - 说明离线 / 内网部署影响
   tasks:
-    - 按 **纵向切片** 或 Maven 模块 / web/ / deploy/ 分组；用户可见功能须含后端+前端 tasks（见 docs/dev/vertical-slice-workflow.md）
+    - 带 UI 的业务切片 **优先拆成并行 Lane**：`{slice}-api`（后端）、`{slice}-web`（前端）、`{slice}-integrate`（联调）；契约写入 `openspec/changes/_lanes/{slice}/contract.md`（见 docs/dev/parallel-lane-workflow.md）
+    - 单 change 纵向切片仍可用；新切片默认用 `-api`/`-web`/`-integrate` 命名
+    - 按 Maven 模块 / web/ / deploy/ 分组；`[平台]` 无 UI 任务保持单 change
+    - 管理端 UI 定调（Mock 原型 → 规则沉淀 → 接 API）须遵循 docs/dev/admin-ui-workflow.md；`admin-ui-prototype` 与 `admin-ui-design-direction` 为 UI 先行例外
     - 切片 tasks 建议结构：后端 → 前端（web/）→ 联调（浏览器路径）→ 文档
     - 纯平台任务（无 UI）标题标注 [平台]
     - 明确标注 Flyway 迁移类任务
@@ -92,7 +95,11 @@ rules:
     - 每项任务须可验证（如 mvn compile、pnpm build、openspec validate、浏览器路径）
   apply:
     - 实现前读取 openspec/changes/<change>/tasks.md，仅完成其中未勾选项
+    - change 名以 `-web` 结尾：读 parallel-lane-workflow.md 与 .cursor/rules/parallel-lane-frontend.mdc，禁止改 Java（tasks 白名单除外）
+    - change 名以 `-api` 结尾：读 parallel-lane-workflow.md 与 .cursor/rules/parallel-lane-backend.mdc，禁止改 web/（tasks 白名单除外）
+    - change 名以 `-integrate` 结尾：前置 `-api` 与 `-web` tasks 须已完成；负责联调与 validate
     - 实现前读取 .cursor/rules/implementation-workflow.mdc、vertical-slice-workflow.mdc 与 docs/dev/vertical-slice-workflow.md
+    - 管理端 UI change（admin-ui-prototype、admin-ui-design-direction、admin-login-slice）须先读 docs/dev/admin-ui-workflow.md
     - 含 web/ 的切片完成前必须 pnpm build；有 UI 须说明浏览器验证路径
     - 完成前运行 tasks 对应的验证命令，无输出证据不得声称完成
     - 骨架未就绪时不得编写业务域代码

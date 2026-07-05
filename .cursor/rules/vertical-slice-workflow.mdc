@@ -9,8 +9,8 @@ alwaysApply: true
 
 ## 必须
 
-1. 每个切片：**后端 API + 前端对接**（有 UI 时）在同一 change / 同一 tasks 组内完成
-2. tasks 按切片分组，结构见 [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)（后端 / 前端 / 联调）
+1. 每个切片：**后端 API + 前端对接**（有 UI 时）须可浏览器验证；**推荐**拆为 `{slice}-api` + `{slice}-web` + `{slice}-integrate` 并行（见 [`parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)）
+2. 单 change 模式：tasks 按后端 / 前端 / 联调 分组，结构见 [`vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)
 3. 完成前验证：`mvn compile`；含 `web/` 时 **`pnpm build`**；有 UI 时写明浏览器路径（如 `/admin/login`）
 4. 已有后端无前端的能力（如登录 API）→ 优先开切片 **补前端**，勿再堆纯后端 change
 
@@ -20,10 +20,14 @@ alwaysApply: true
 - 单次会话实现整个 V1 / 全部模块
 - 前端页面直接 `fetch` 裸 URL，须走 `web/src/api/admin|app/`
 
-## 下一优先切片
+## 下一优先（管理端）
 
-1. 管理端登录（API 已有 → 做 `/admin/login` + token + 路由守卫）
-2. 管理端壳层（展示默认租户名、退出）
-3. `[平台]` tenant §5 Redis/MinIO/WS — 无 UI，可独立 change
+管理端须先 **UI 定调**（见 [`docs/dev/admin-ui-workflow.md`](../../docs/dev/admin-ui-workflow.md)），再纵向切片接 API：
+
+1. `admin-ui-prototype` — Mock 全壳层 + 人工签字
+2. `admin-ui-design-direction` — 从定稿原型抽取规则
+3. `admin-login-slice` — 真 JWT（保留原型 UI）
+4. `admin-shell-api` + `admin-shell-web` + `admin-shell-integrate` — 租户名、退出
+5. `[平台]` tenant §5 Redis/MinIO/WS — 无 UI，可独立 change
 
 全文：[`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)

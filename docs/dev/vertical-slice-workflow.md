@@ -79,15 +79,28 @@ cd web && pnpm dev
 
 脚手架已完成（Maven、framework、server、compose、web 模板、system 表结构、租户 Starter、登录 API 等）。
 
-**下一批建议按此顺序**（每项 = 独立 change 或同一 change 内一组 tasks）：
+### 管理端 UI 定调（先于接 API 的纵向切片）
+
+管理端首次落地须按 **[admin-ui-workflow.md](admin-ui-workflow.md)** 执行（文档驱动，**不决定后端**）：
+
+| 阶段 | OpenSpec change | 产出 |
+|------|-----------------|------|
+| 1 定方向 | `admin-ui-design-direction` 阶段 0 | B · Clean Enterprise 等决策 ✅ |
+| 2 可点击原型 | `admin-ui-prototype` | Mock 全壳层 + **你签字 UI 定调** |
+| 3 规则沉淀 | `admin-ui-design-direction` 阶段 2–4 | `admin-ui-tokens.md`、`admin-ui-patterns.md`、Cursor 规则 |
+| 4 接 API | `admin-login-slice` → … | 只换数据层，不重做 UI |
+
+> 登录 API 可先于阶段 2 存在；**不得**因 API 已有而跳过 UI 定调。
+
+### 纵向切片（UI 定调完成后）
 
 | 顺序 | 切片 | 后端状态 | 前端待做 |
 |------|------|----------|----------|
-| 1 | **管理端登录** | ✅ `POST /admin-api/system/auth/login`、JWT | `/admin/login`、token 存储、401 跳转、`/admin` 受保护 |
-| 2 | **管理端首页壳层** | ✅ 默认租户查询 API | 登录后展示企业名、用户菜单占位、退出 |
-| 3 | **首次管理员引导** `[可选]` | ✅ `POST /admin-api/system/user/create` | 无用户时的创建管理员向导页 |
-| 4 | **租户平台能力** `[平台]` | §5 Redis/MinIO/WS 隔离 | 无 UI；可单独 change，不阻塞 1–3 |
-| 5 | **用户管理列表** | 待建分页 API | `/admin/system/user` 列表页 |
+| 1 | **管理端登录** | ✅ 登录 API | Mock → 真 JWT（保留原型 UI） |
+| 2 | **管理端首页壳层** | ✅ 默认租户 API | `admin-shell-web`（并行 `admin-shell-api`） |
+| 3 | **首次管理员引导** `[可选]` | ✅ 用户创建 API | 无用户时的向导页 |
+| 4 | **租户平台能力** `[平台]` | §5 Redis/MinIO/WS 隔离 | 无 UI；可单独 change |
+| 5 | **用户管理列表** | 待建分页 API | `/admin/system/user` 接 API |
 
 已存在的 **仅后端** 工作（如 `tenant-ready-foundation` §4）应在后续切片中 **补前端**，而不是再开新的纯后端 change 重复造登录 API。
 
@@ -96,14 +109,16 @@ cd web && pnpm dev
 新建 change 时：
 
 1. `proposal.md` 写明 **是否含 web/** 与 **用户可见路径**（如 `/admin/login`）。
-2. `tasks.md` 使用上文 **切片标准结构**；不要按「先全部 Controller、再全部 Vue」分组。
-3. `design.md` 增加 **「联调与演示」** 小节：本地端口、示例账号、浏览器路径。
-4. `openspec/config.yaml` 的 `tasks` 规则已引用本工作流；AI 实现前必读本文档。
+2. **带 UI 的新切片**：拆为 `{slice}-api`、`{slice}-web`、`{slice}-integrate`，契约写 `_lanes/{slice}/contract.md`（见 [parallel-lane-workflow.md](parallel-lane-workflow.md)）。
+3. 单 change 模式：`tasks.md` 使用 **切片标准结构**；不要按「先全部 Controller、再全部 Vue」分组。
+4. `design.md` 增加 **「联调与演示」** 小节：本地端口、示例账号、浏览器路径。
+5. `openspec/config.yaml` 的 `tasks` 规则已引用本工作流；AI 实现前必读本文档。
 
 ## 与旧流程的关系
 
 - **保留**：小步 OpenSpec change、Flyway 真源、codegen CLI、禁止跨 change 实现。
 - **调整**：「禁止前后端一起搭完」→ **禁止一次搭完整产品**；**允许且鼓励**同一切片内前后端一起交付。
+- **并行 Lane**（推荐）：新切片拆为 `{slice}-api` + `{slice}-web` + `{slice}-integrate`，见 [parallel-lane-workflow.md](parallel-lane-workflow.md)。
 - **脚手架 change**（`scaffold-*`）不适用纵向切片，按原 `implementation-workflow.mdc` 执行。
 
 ## 参考
