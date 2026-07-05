@@ -2,11 +2,13 @@ package com.relayflow.framework.tenant.core;
 
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.relayflow.framework.tenant.config.TenantProperties;
+import lombok.RequiredArgsConstructor;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.LongValue;
 
 import java.util.Set;
 
+@RequiredArgsConstructor
 public class RelayflowTenantLineHandler implements TenantLineHandler {
 
     private static final Set<String> IGNORED_TABLES = Set.of(
@@ -16,10 +18,6 @@ public class RelayflowTenantLineHandler implements TenantLineHandler {
     );
 
     private final TenantProperties properties;
-
-    public RelayflowTenantLineHandler(TenantProperties properties) {
-        this.properties = properties;
-    }
 
     @Override
     public Expression getTenantId() {

@@ -17,6 +17,7 @@ public class JwtTokenService {
     private final JwtProperties properties;
     private final SecretKey secretKey;
 
+    /** 构造器内派生 secretKey，不适用 {@code @RequiredArgsConstructor}。 */
     public JwtTokenService(JwtProperties properties) {
         this.properties = properties;
         this.secretKey = Keys.hmacShaKeyFor(properties.getSecret().getBytes(StandardCharsets.UTF_8));

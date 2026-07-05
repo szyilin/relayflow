@@ -9,27 +9,19 @@ import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.mysql.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mysql.SysUserMapper;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final SysUserMapper userMapper;
     private final SysTenantUserMapper tenantUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final TenantProperties tenantProperties;
-
-    public UserServiceImpl(SysUserMapper userMapper,
-                           SysTenantUserMapper tenantUserMapper,
-                           PasswordEncoder passwordEncoder,
-                           TenantProperties tenantProperties) {
-        this.userMapper = userMapper;
-        this.tenantUserMapper = tenantUserMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.tenantProperties = tenantProperties;
-    }
 
     @Override
     @Transactional

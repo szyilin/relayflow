@@ -12,10 +12,12 @@ import com.relayflow.module.system.dal.mysql.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mysql.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private static final String ADMIN_USER_TYPE = "admin";
@@ -24,16 +26,6 @@ public class AuthServiceImpl implements AuthService {
     private final SysTenantUserMapper tenantUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-
-    public AuthServiceImpl(SysUserMapper userMapper,
-                           SysTenantUserMapper tenantUserMapper,
-                           PasswordEncoder passwordEncoder,
-                           JwtTokenService jwtTokenService) {
-        this.userMapper = userMapper;
-        this.tenantUserMapper = tenantUserMapper;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtTokenService = jwtTokenService;
-    }
 
     @Override
     public AuthLoginRespVO login(AuthLoginReqVO request) {

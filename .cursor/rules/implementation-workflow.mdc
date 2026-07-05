@@ -44,6 +44,7 @@ RelayFlow 脚手架已就绪；**业务功能**按 **纵向切片**（后端 API
 - 手写完整 `pom.xml` 树、`vite.config.ts`、`nuxt.config` 而不参考官方模板
 - 引入 Element Plus、React、未在 BOM/spec 中的依赖
 - 为 DO/DTO/VO/Properties 等数据类手写 getter/setter（须用 Lombok，见 `docs/dev/code-style.md` § Lombok）
+- Spring Bean 使用字段注入，或手写仅赋值的构造器（须用 `@RequiredArgsConstructor`，见 `docs/dev/code-style.md` § 构造器注入）
 - 跨域调用走 `*-api`，禁止 `*-biz` 互依赖、禁止跨域 Mapper 访问他域表（见 `docs/dev/architecture.md`）
 - V1 禁止引入 Gateway、Nacos、独立 `*-server`（Phase 2 再做）
 
@@ -111,5 +112,6 @@ docker compose -f deploy/compose.yml config # Compose 语法
 - 租户：V1 `relayflow.tenant.enabled=false`，默认 `tenant_id=1`
 - 前端 UI：Nuxt UI v4（见 `frontend-nuxt-ui.mdc`）
 - Lombok：数据类用 `@Data` 等；禁止手写 getter/setter（见 `docs/dev/code-style.md` § Lombok）
+- 构造器注入：Spring Bean 用 `@RequiredArgsConstructor`；禁止字段注入（见 `docs/dev/code-style.md` § 构造器注入）
 - Commit：中文 + Conventional Commits（见 `CONTRIBUTING.md`）
 - 模块：跨域仅 `*-api`；禁止 `*-biz → *-biz`（见 `docs/dev/architecture.md`）
