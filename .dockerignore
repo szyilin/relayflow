@@ -1,0 +1,9 @@
+**/.git
+**/.cursor
+**/target
+**/node_modules
+**/.pnpm-store
+web/dist
+.relayflow
+research
+openspec/changes/archive
