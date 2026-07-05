@@ -109,6 +109,7 @@ docker compose -f deploy/compose.yml config # Compose 语法
 - 前端：管理端路由必须以 `/admin` 开头（见 `docs/dev/code-style.md`）
 - 表前缀：`sys_`、`infra_`、`im_`、`bpm_`；主键雪花 ID；时间字段 `create_time`（见 `docs/dev/database.md`）
 - Flyway：`V{major}.{minor}.{patch}.{seq}__{description}.sql`（见 `docs/dev/database.md`）
+- 产品版本：**开发期 major 固定 `0`**（当前 `0.1.0-SNAPSHOT`）；**禁止** AI 自行将 major 升到 `1`；只有产品负责人宣布正式上线后才允许 `1.0.0`；minor/patch 可按开发进度调整（见 `CONTRIBUTING.md` § 版本号）
 - 租户：V1 `relayflow.tenant.enabled=false`，默认 `tenant_id=1`
 - 前端 UI：Nuxt UI v4（见 `frontend-nuxt-ui.mdc`）
 - Lombok：数据类用 `@Data` 等；禁止手写 getter/setter（见 `docs/dev/code-style.md` § Lombok）
