@@ -1,57 +1,78 @@
 /**
- * 员工工作台视觉 token —— 客户端风格（飞书 / Discord / X 分层）
- * 与管理端 admin 变量独立，勿混用
+ * 员工工作台视觉 token —— 飞书式卡片分层 + 可拖拽列宽
  */
 :root {
-  --ws-rail-w: 4.5rem;
-  --ws-panel-w: 18rem;
+  --ws-rail-w: 13.5rem;
   --ws-aside-w: 17.5rem;
+  --ws-shell-gap: 0.625rem;
+  --ws-card-radius: 0.875rem;
+  --ws-card-border: rgb(0 0 0 / 6%);
+  --ws-card-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 4px 16px rgb(15 23 42 / 4%);
 
-  /* 飞书式浅色：rail 略深 → panel 白 → main 灰底 */
-  --ws-rail-bg: #d8dce3;
+  --ws-canvas-bg: #e8ebf0;
+  --ws-rail-bg: #f3f5f8;
   --ws-panel-bg: #ffffff;
-  --ws-main-bg: #eef0f4;
+  --ws-main-bg: #ffffff;
   --ws-aside-bg: #ffffff;
-  --ws-border: #e3e6eb;
-  --ws-rail-hover: rgb(255 255 255 / 55%);
-  --ws-rail-active: #ffffff;
+  --ws-border: #e5e8ee;
+  --ws-border-subtle: rgb(0 0 0 / 5%);
+  --ws-rail-hover: rgb(0 0 0 / 4%);
+  --ws-rail-active: color-mix(in oklab, var(--ui-primary) 10%, #ffffff);
   --ws-text: #1f2329;
   --ws-text-muted: #646a73;
-  --ws-search-bg: #f5f6f7;
-  --ws-input-bar-bg: #ffffff;
+  --ws-search-bg: #ffffff;
+  --ws-input-bar-bg: #f5f6f8;
+  --ws-resize-hover: rgb(0 0 0 / 12%);
 }
 
 .dark {
-  /* Discord / 飞书深色：rail 最深 → panel 中 → main 工作区略亮 */
-  --ws-rail-bg: #0b0c0e;
-  --ws-panel-bg: #1e1f22;
-  --ws-main-bg: #2b2d31;
-  --ws-aside-bg: #1e1f22;
-  --ws-border: rgb(255 255 255 / 6%);
-  --ws-rail-hover: #232428;
-  --ws-rail-active: #35373c;
+  --ws-card-border: rgb(255 255 255 / 8%);
+  --ws-card-shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px rgb(0 0 0 / 28%);
+
+  --ws-canvas-bg: #0b0c0e;
+  --ws-rail-bg: #151619;
+  --ws-panel-bg: #1c1d21;
+  --ws-main-bg: #222327;
+  --ws-aside-bg: #1c1d21;
+  --ws-border: rgb(255 255 255 / 8%);
+  --ws-border-subtle: rgb(255 255 255 / 6%);
+  --ws-rail-hover: rgb(255 255 255 / 5%);
+  --ws-rail-active: color-mix(in oklab, var(--ui-primary) 16%, #1c1d21);
   --ws-text: #f2f3f5;
   --ws-text-muted: #949ba4;
   --ws-search-bg: #111214;
-  --ws-input-bar-bg: #383a40;
+  --ws-input-bar-bg: #2b2d31;
+  --ws-resize-hover: rgb(255 255 255 / 22%);
 }
 
 .workspace-shell {
   color: var(--ws-text);
-  background: var(--ws-main-bg);
+  background: var(--ws-canvas-bg);
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.workspace-shell-inner {
+  height: 100%;
+}
+
+.workspace-card {
+  border: 1px solid var(--ws-card-border);
+  border-radius: var(--ws-card-radius);
+  box-shadow: var(--ws-card-shadow);
 }
 
 .workspace-rail {
   width: var(--ws-rail-w);
   background: var(--ws-rail-bg);
-  border-right: 1px solid var(--ws-border);
+}
+
+.workspace-panel-wrap {
+  min-width: 15rem;
+  max-width: 30rem;
 }
 
 .workspace-panel {
-  width: var(--ws-panel-w);
   background: var(--ws-panel-bg);
-  border-right: 1px solid var(--ws-border);
 }
 
 .workspace-main {
@@ -61,13 +82,11 @@
 .workspace-aside {
   width: var(--ws-aside-w);
   background: var(--ws-aside-bg);
-  border-left: 1px solid var(--ws-border);
 }
 
-/* 图标轨按钮 — Discord 式圆角块 + 左侧激活条 */
 .workspace-rail-btn {
   color: var(--ws-text-muted);
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .workspace-rail-btn:hover {
@@ -80,16 +99,6 @@
   color: var(--ui-primary);
 }
 
-.dark .workspace-rail-btn[data-active='true'] {
-  box-shadow: inset 3px 0 0 var(--ui-primary);
-  border-radius: 0 0.75rem 0.75rem 0;
-}
-
-:root:not(.dark) .workspace-rail-btn[data-active='true'] {
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
-}
-
-/* 列表项 — 飞书会话列表 */
 .workspace-list-item {
   border-radius: 0.625rem;
   transition: background-color 0.12s ease;
@@ -119,10 +128,18 @@
   background:
     radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in oklab, var(--ui-primary) 18%, transparent), transparent),
     radial-gradient(circle at 100% 100%, color-mix(in oklab, var(--ui-primary) 8%, transparent), transparent 40%),
-    var(--ws-main-bg);
+    var(--ws-canvas-bg);
 }
 
-/* 工作台页禁止出现管理端 sidebar 样式 */
+body.workspace-resizing {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.workspace-resizing * {
+  cursor: col-resize !important;
+}
+
 .workspace-shell .admin-page-header,
 .workspace-shell [data-admin-shell] {
   display: none !important;

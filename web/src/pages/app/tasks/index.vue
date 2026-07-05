@@ -14,7 +14,7 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="border-b border-[var(--ws-border)] px-4 py-3">
+      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3">
         <h2 class="font-semibold">
           任务
         </h2>
@@ -33,7 +33,7 @@ meta:
     </template>
 
     <div class="flex h-full flex-col">
-      <header class="flex items-center gap-3 border-b border-[var(--ws-border)] px-5 py-3">
+      <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
         <h1 class="flex-1 text-lg font-semibold">
           我负责的
         </h1>
@@ -42,7 +42,7 @@ meta:
         </UButton>
       </header>
 
-      <div class="flex gap-4 border-b border-[var(--ws-border)] px-5">
+      <div class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5">
         <button
           type="button"
           class="border-b-2 py-2 text-sm"
@@ -66,7 +66,7 @@ meta:
           <div
             v-for="task in mockTasks"
             :key="task.id"
-            class="flex items-center gap-3 rounded-lg border border-[var(--ws-border)] bg-[var(--ws-panel-bg)] px-4 py-3"
+            class="flex items-center gap-3 rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] px-4 py-3"
           >
             <UCheckbox :model-value="task.done" disabled />
             <div class="min-w-0 flex-1">
