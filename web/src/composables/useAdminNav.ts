@@ -1,7 +1,17 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { usePermission } from './usePermission'
+
+export type AdminNavItem = NavigationMenuItem & {
+  permission?: string
+}
+
+function filterNavItems(items: AdminNavItem[], hasPermission: (code: string) => boolean): NavigationMenuItem[] {
+  return items.filter(item => !item.permission || hasPermission(item.permission))
+}
 
 export function useAdminNav() {
+  const { hasPermission } = usePermission()
   const open = ref(false)
 
   const closeSidebar = () => {
@@ -16,19 +26,21 @@ export function useAdminNav() {
     onSelect: closeSidebar
   }]
 
-  const systemLinks: NavigationMenuItem[] = [{
+  const systemLinksRaw: AdminNavItem[] = [{
     label: '用户管理',
     icon: 'i-lucide-users',
     to: '/admin/system/user',
+    permission: 'system:user:list',
     onSelect: closeSidebar
   }, {
     label: '部门管理',
     icon: 'i-lucide-building-2',
     to: '/admin/system/dept',
+    permission: 'system:dept:list',
     onSelect: closeSidebar
   }]
 
-  const infraLinks: NavigationMenuItem[] = [{
+  const infraLinksRaw: AdminNavItem[] = [{
     label: '文件管理',
     icon: 'i-lucide-folder-open',
     to: '/admin/infra/file',
@@ -41,6 +53,9 @@ export function useAdminNav() {
     to: '/admin/design-preview',
     onSelect: closeSidebar
   }]
+
+  const systemLinks = computed(() => filterNavItems(systemLinksRaw, hasPermission))
+  const infraLinks = computed(() => filterNavItems(infraLinksRaw, hasPermission))
 
   return {
     open,

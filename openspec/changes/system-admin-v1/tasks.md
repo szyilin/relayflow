@@ -10,7 +10,7 @@
 
 ## 2. 子 change 立项（按顺序 propose，不写代码）
 
-- [ ] 2.1 `openspec new change system-rbac-kernel` 并完成 proposal/design/tasks/spec
+- [x] 2.1 `system-rbac-kernel-api` + `system-rbac-kernel-web` 已 propose（见 `openspec/changes/system-rbac-kernel-*`）
 - [ ] 2.2 `openspec new change admin-dept-slice` 并完成 proposal/design/tasks/spec
 - [ ] 2.3 `openspec new change admin-role-slice` 并完成 proposal/design/tasks/spec
 - [ ] 2.4 `openspec new change admin-user-mutate-slice` 并完成 proposal/design/tasks/spec

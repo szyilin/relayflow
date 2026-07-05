@@ -24,6 +24,8 @@ openspec/lanes/
     contract.md
   admin-user-list/
     contract.md
+  system-rbac-kernel/
+    contract.md
 ```
 
 说明：[`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)

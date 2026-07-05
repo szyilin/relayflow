@@ -27,6 +27,17 @@
 | 统一登录 | archived | **done** | `POST …/auth/login` · `/app/login` | — | store 无 Mock |
 | admin-shell | archived | **done** | `GET …/tenant/default` | [contract](../../openspec/lanes/admin-shell/contract.md) | store 无 Mock |
 | admin-user-list | **ready** | **done** | `GET …/user/page` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-list/contract.md) | store 无 Mock |
+| system-rbac-kernel | **ready** | **done** | `GET …/auth/get-permission-info` · nav 权限过滤 | [contract](../../openspec/lanes/system-rbac-kernel/contract.md) | store 无 Mock；sidebar 按 permission 过滤 |
+
+## 实施顺序（system-admin-v1）
+
+| 顺序 | Change | Lane |
+|------|--------|------|
+| ①a | `system-rbac-kernel-api` | 后端 |
+| ①b | `system-rbac-kernel-web` | 前端（前置 ①a ready） |
+| ② | `admin-dept-slice` | web → api → integrate |
+| ③ | `admin-role-slice` | web → api → integrate |
+| ④ | `admin-user-mutate-slice` | web → api → integrate |
 
 ## 仍为 Mock 的页面（待后续切片）
 

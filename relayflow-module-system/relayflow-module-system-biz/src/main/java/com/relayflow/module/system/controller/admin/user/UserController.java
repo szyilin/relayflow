@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,11 +26,13 @@ public class UserController {
 
     private final UserService userService;
 
+    @PreAuthorize("hasAuthority('system:user:list')")
     @GetMapping("/page")
     public CommonResult<PageResult<UserRespVO>> getUserPage(@Valid UserPageReqVO request) {
         return CommonResult.success(userService.getUserPage(request));
     }
 
+    @PreAuthorize("hasAuthority('system:user:create')")
     @PostMapping("/create")
     public CommonResult<Long> createUser(@Valid @RequestBody UserCreateReqVO request) {
         UserCreateReqDTO dto = new UserCreateReqDTO();
