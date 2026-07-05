@@ -2,9 +2,11 @@
 
 ## Context
 
-- **视觉基调**：已选 `admin-ui-design-direction` → **B · Clean Enterprise**，主题跟随系统，登录左右分栏，启用 design-preview
+- **工作流**：见 [`docs/dev/admin-ui-workflow.md`](../../docs/dev/admin-ui-workflow.md) — 本 change = **阶段 2**（可点击原型）；**不决定后端**
+- **视觉大方向**：`admin-ui-design-direction` 阶段 0 → **B · Clean Enterprise**（跟随系统主题、登录左右分栏、design-preview）
 - **现状**：`layouts/admin.vue` 仅 1 个导航项；模板 demo 页仍在 `pages/` 根目录
-- **目标**：一眼看到 RelayFlow 管理端 **整体框架**，内容可为占位，数据全部 Mock
+- **目标**：在浏览器里确认 RelayFlow 管理端 **整体展示效果**；内容可为占位，数据全部 Mock
+- **下游**：你 **签字确认** 后 → `admin-ui-design-direction` 从 **本 change 定稿代码** 抽取 token / 页面模式 / 组件约定 → 再 `admin-login-slice` 接 API
 
 ## Goals / Non-Goals
 
@@ -14,10 +16,12 @@
 2. 代表型页面各 1 个：**登录、概览、列表、表单、空状态、组件板**
 3. Mock 登录/退出/守卫，**零后端依赖**
 4. 为后续切片 **保留目录与组件结构**（换 API 时不重写页面骨架）
+5. 成为 **UI 定调的可视化真源** —— 规则文档从本原型 **反抽**，而非从 design 想象
 
 **Non-Goals:**
 
 - 真实 `POST /admin-api/system/auth/login`
+- **`docs/dev/admin-ui-*.md` 规则终稿**（→ 原型签字后的 `admin-ui-design-direction`）
 - RBAC 动态菜单、WebSocket、IM 聊天 UI
 - 用户端 `/app/*`
 - 像素级 Figma 稿
@@ -203,10 +207,10 @@ pnpm dev
 
 | 阶段 | Change | 工作 |
 |------|--------|------|
-| 当前 | `admin-ui-prototype` | Mock 全壳层，视觉验收 |
-| 下一 | `admin-login-slice` | `api/admin/auth.ts` + 真 JWT，**替换** store 登录逻辑，页面保留 |
-| 再后 | `admin-shell-slice` | 租户 API 替换 mock tenant |
-| 再后 | `admin-user-list-slice` | 用户 API 替换 mock users |
+| **2 当前** | `admin-ui-prototype` | Mock 全壳层；**你签字 UI 定调** |
+| **3** | `admin-ui-design-direction` | 从定稿原型抽取 → `admin-ui-tokens.md`、`admin-ui-patterns.md`、`.cursor/rules/admin-ui-patterns.mdc` |
+| **4** | `admin-login-slice` | 真 JWT；**保留** 本 change 页面/壳层，只改 store/api |
+| **4+** | `admin-shell-slice` 等 | 租户、用户列表等接 API |
 
 ---
 

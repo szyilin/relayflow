@@ -15,10 +15,18 @@ export default defineConfig({
     ui({
       ui: {
         colors: {
-          primary: 'green',
+          primary: 'teal',
           neutral: 'zinc'
         }
       }
     })
-  ]
+  ],
+  server: {
+    proxy: {
+      '/admin-api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      }
+    }
+  }
 })

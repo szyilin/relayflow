@@ -3,7 +3,10 @@ import { computed } from 'vue'
 import { useHead } from '@unhead/vue'
 import { useColorMode } from '@vueuse/core'
 
-const colorMode = useColorMode()
+const colorMode = useColorMode({
+  initialValue: 'auto',
+  storageKey: 'relayflow-color-mode'
+})
 const themeColor = computed(() => colorMode.value === 'dark' ? '#18181b' : '#ffffff')
 
 useHead({

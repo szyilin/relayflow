@@ -79,6 +79,23 @@ docker compose -f deploy/compose.yml up -d
 cd web && pnpm install && pnpm dev
 ```
 
+### 前端（Docker，Nginx 静态部署）
+
+适合演示 / 预览 Mock 管理端，无需本机安装 Node：
+
+```bash
+docker compose -f deploy/compose.yml up -d web
+# 浏览器打开 http://localhost:8081/admin/login
+```
+
+重新构建镜像（改完 web/ 代码后）：
+
+```bash
+docker compose -f deploy/compose.yml up -d --build web
+```
+
+> 当前原型阶段为零后端 Mock；接真 API 后需在 `web/nginx.conf` 中启用 `/admin-api/` 反向代理，并将 `relayflow-server` 加入 Compose。
+
 > 后端 Maven 骨架第一步已完成（`scaffold-maven-parent`）；server 与 framework 见 OpenSpec `scaffold-*` changes。
 
 ## 文档

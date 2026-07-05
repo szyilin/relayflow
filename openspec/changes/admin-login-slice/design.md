@@ -22,7 +22,9 @@
 7. 刷新页面仍 authenticated；清除 token → 重定向登录
 ```
 
-环境变量：`VITE_API_BASE_URL=http://localhost:8080`（或 Vite proxy）。
+**验证记录（2026-07-05）**：curl 与浏览器联调通过；账号 `admin` / `admin123`；dev 走 Vite proxy `/admin-api` → `localhost:8080`。
+
+环境变量：`VITE_API_BASE_URL=`（dev 留空走 proxy）；生产构建设为后端绝对地址。
 
 ## 安全注意
 
