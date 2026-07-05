@@ -7,7 +7,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
-
 const loading = ref(false)
 const form = reactive({
   username: '',

@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi } from '../api/admin/auth'
-import { ApiError } from '../api/request'
+import { ApiError, isApiUnavailable } from '../api/request'
+import { mockLogin } from '../mocks/auth'
 
 export interface AuthUser {
   username: string
@@ -25,6 +26,12 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+function persistSession(accessToken: string, tenant: number, authUser: AuthUser) {
+  localStorage.setItem(TOKEN_KEY, accessToken)
+  localStorage.setItem(TENANT_KEY, String(tenant))
+  localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+}
+
 export type LoginResult =
   | { ok: true }
   | { ok: false, message: string }
@@ -32,7 +39,7 @@ export type LoginResult =
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const storedTenantId = localStorage.getItem(TENANT_KEY)
-const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
+  const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
   const user = ref<AuthUser | null>(readStoredUser())
 
   const isAuthenticated = computed(() => Boolean(token.value))
@@ -42,26 +49,45 @@ const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : nu
       return { ok: false, message: '请输入用户名和密码' }
     }
 
+    const trimmedUsername = username.trim()
+
     try {
       const data = await loginApi({
-        username: username.trim(),
+        username: trimmedUsername,
         password
       })
 
       const authUser: AuthUser = {
-        username: username.trim(),
-        nickname: username.trim()
+        username: trimmedUsername,
+        nickname: trimmedUsername
       }
 
       token.value = data.accessToken
       tenantId.value = data.tenantId
       user.value = authUser
-      localStorage.setItem(TOKEN_KEY, data.accessToken)
-      localStorage.setItem(TENANT_KEY, String(data.tenantId))
-      localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+      persistSession(data.accessToken, data.tenantId, authUser)
 
       return { ok: true }
     } catch (error) {
+      if (isApiUnavailable(error)) {
+        const result = mockLogin(trimmedUsername, password)
+        if (!result.ok) {
+          return result
+        }
+
+        const authUser: AuthUser = {
+          username: result.user.username,
+          nickname: result.user.nickname
+        }
+
+        token.value = result.token
+        tenantId.value = 1
+        user.value = authUser
+        persistSession(result.token, 1, authUser)
+
+        return { ok: true }
+      }
+
       const message = error instanceof ApiError
         ? error.message
         : '登录失败，请稍后重试'

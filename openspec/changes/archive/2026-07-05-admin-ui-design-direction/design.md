@@ -26,11 +26,12 @@
 
 **Goals:**
 
-1. 提供 **三种可对比的视觉方向**，便于你选定 V1 基调
-2. 定义跨页面一致的 **设计 token**（色、字、圆角、阴影、间距、暗色策略）
-3. 定义 **页面模式**（登录、壳层、列表、详情/表单、空状态、错误态）
-4. 给出 **组件选用约定**（Nuxt UI 组件映射，减少 ad-hoc 样式）
-5. 明确与 `admin-login-slice` 的衔接：登录页作为第一个「按新基调实现」的页面
+1. 提供 **三种可对比的视觉方向**，便于你选定 V1 基调（**阶段 0 — 已完成**）
+2. 通过 **`admin-ui-prototype` Mock 全壳层** 在浏览器中确认整体展示效果（**阶段 2 — 见 sibling change**）
+3. 从你 **签字确认的原型代码** 中 **反抽** 设计 token、页面模式、组件约定，写入 `docs/dev/` 与 `.cursor/rules/`（**阶段 3 — 本 change tasks 阶段 2–4**）
+4. 为 `admin-login-slice` 及后续纵向切片提供 **唯一 UI 工程化真源**（**阶段 4 — 只换 API，不重做展示层**）
+
+> 本 change **不决定后端架构**。design.md 中「方向 B 详细规范」为 **草案**；定稿以原型验收后抽取的 `admin-ui-tokens.md` / `admin-ui-patterns.md` 为准。
 
 **Non-Goals:**
 
@@ -117,21 +118,17 @@
 
 ### 1. 设计 Token
 
+> **定稿真源**：[`docs/dev/admin-ui-tokens.md`](../../docs/dev/admin-ui-tokens.md)（摘自 `admin-ui-prototype` 验收版 @ 工作区未提交）
+
 ```css
-/* web/src/assets/css/main.css — 概念示意 */
+/* web/src/assets/css/main.css — 与 admin-ui-tokens.md 一致 */
 @theme static {
   --font-sans: 'Inter', ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
   /* Primary: teal — RelayFlow 协作/流动 */
-  --color-primary-500: oklch(65% 0.14 175);
-  --color-primary-600: oklch(55% 0.13 175);
+  --color-teal-500: oklch(65% 0.14 175);
+  --color-teal-600: oklch(55% 0.13 175);
 
-  /* 语义色 — 对齐 Nuxt UI semantic */
-  --color-success-500: oklch(65% 0.15 145);
-  --color-warning-500: oklch(75% 0.15 85);
-  --color-error-500: oklch(55% 0.2 25);
-
-  /* 圆角 */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -242,14 +239,16 @@
 
 ---
 
-## Migration Plan
+## Migration Plan（文档驱动四阶段）
 
-1. **你确认视觉方向**（A / B / C 或 B 微调）
-2. Apply 本 change：更新 `main.css` token、`layouts/admin.vue`、可选 design-preview 页
-3. 归档 `admin-ui-design-direction` → 主 spec `admin-ui-design`
-4. 再 apply `admin-login-slice`，登录页按已定基调实现
+详见 [`docs/dev/admin-ui-workflow.md`](../../docs/dev/admin-ui-workflow.md)。
 
-回滚：还原 `web/src/assets/css/main.css` 与 layout 文件即可，无数据迁移。
+1. **阶段 0** — 确认视觉方向（A/B/C）→ **已完成 B**
+2. **阶段 2** — Apply `admin-ui-prototype`：Mock 全壳层 + 浏览器走查 + **人工签字**
+3. **阶段 3** — Apply 本 change tasks 阶段 2–4：从定稿原型抽取规则 → `docs/dev/admin-ui-*.md` + `.cursor/rules/admin-ui-patterns.mdc`
+4. **阶段 4** — Apply `admin-login-slice` 等：保留页面结构，替换 Mock 为真 API
+
+回滚：阶段 2 还原 `web/` 原型文件；阶段 3 删除新增 docs/rules 即可，无数据迁移。
 
 ---
 
@@ -263,4 +262,18 @@
 | 设计预览 | **启用** `/admin/design-preview` |
 | Logo | V1 暂用 Lucide `workflow` + RelayFlow 文案（无自定义 SVG） |
 
-**可进入 tasks 实现** → apply 本 change 后再做 `admin-login-slice`。
+**阶段 0 已完成** → **`admin-ui-prototype` 已实现** → **阶段 3 规则沉淀已完成**（见 `docs/dev/admin-ui-*.md`）。
+
+---
+
+## 验收记录（阶段 2 人工签字）
+
+| 项 | 内容 |
+|----|------|
+| 原型 change | `admin-ui-prototype` |
+| 签字人 | 用户（会话确认继续） |
+| 日期 | 2026-07-05 |
+| 定稿 commit | 工作区未提交（基于 `bebe9bc` 之上 admin-ui-prototype 实现） |
+| 结论 | ☑ UI 定调通过 |
+
+**阶段 3 规则沉淀**（2026-07-05）：`docs/dev/admin-ui-tokens.md`、`admin-ui-patterns.md`、`.cursor/rules/admin-ui-patterns.mdc` 已从上述原型代码归纳。

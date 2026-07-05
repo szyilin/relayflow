@@ -17,11 +17,14 @@
   <style>html { background-color: #ffffff } html.dark { background-color: #18181b }</style>
   <script>
     (function () {
-      var mode = localStorage.getItem('vueuse-color-scheme') || 'auto'
+      var mode = localStorage.getItem('relayflow-color-mode') || 'auto'
       var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      var html = document.documentElement
       if (dark) {
-        document.documentElement.classList.add('dark')
+        html.classList.add('dark')
         document.querySelector('meta[name="theme-color"]').setAttribute('content', '#18181b')
+      } else {
+        html.classList.remove('dark')
       }
     })()
   </script>
