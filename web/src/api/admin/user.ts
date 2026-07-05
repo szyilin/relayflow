@@ -1,11 +1,11 @@
 import { get } from '../request'
 
 export interface UserPageItem {
-  id: number | string
+  id: number
   username: string
   nickname: string
   dept?: string
-  status?: number | string
+  status?: number
   createTime?: string
 }
 

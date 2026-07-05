@@ -1,19 +1,30 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
-import { mockThreads, type WorkspaceThread } from '../../../mocks/workspace/data'
 
-const activeId = ref(mockThreads[0]?.id)
+interface WorkspaceThread {
+  id: string
+  name: string
+  preview: string
+  time: string
+  avatarText: string
+  tag?: string
+  tagColor?: 'bot' | 'official' | 'external'
+  unread?: number
+}
+
+const threads = ref<WorkspaceThread[]>([])
+const activeId = ref<string>()
 const keyword = ref('')
 
-const filtered = () => {
+const filtered = computed(() => {
   const q = keyword.value.trim().toLowerCase()
   if (!q) {
-    return mockThreads
+    return threads.value
   }
-  return mockThreads.filter(t =>
+  return threads.value.filter(t =>
     t.name.toLowerCase().includes(q) || t.preview.toLowerCase().includes(q))
-}
+})
 
 function tagClass(tag?: WorkspaceThread['tagColor']) {
   if (tag === 'bot') {
@@ -28,7 +39,7 @@ function tagClass(tag?: WorkspaceThread['tagColor']) {
   return ''
 }
 
-const active = () => mockThreads.find(t => t.id === activeId.value)
+const active = computed(() => threads.value.find(t => t.id === activeId.value))
 </script>
 
 <route lang="yaml">
@@ -55,9 +66,9 @@ meta:
         />
       </div>
 
-      <div class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+      <div v-if="filtered.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
         <button
-          v-for="thread in filtered()"
+          v-for="thread in filtered"
           :key="thread.id"
           type="button"
           class="workspace-list-item flex w-full gap-3 px-3 py-2.5 text-left"
@@ -85,17 +96,25 @@ meta:
           </span>
         </button>
       </div>
+
+      <div v-else class="flex flex-1 flex-col items-center justify-center p-6">
+        <UEmpty
+          icon="i-lucide-message-square"
+          title="暂无会话"
+          description="IM 聊天将在后续切片接入"
+        />
+      </div>
     </template>
 
-    <div v-if="active()" class="flex h-full flex-col">
+    <div v-if="active" class="flex h-full flex-col">
       <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
-        <UAvatar :text="active()!.avatarText" />
+        <UAvatar :text="active.avatarText" />
         <div class="min-w-0 flex-1">
           <h1 class="truncate font-semibold">
-            {{ active()!.name }}
+            {{ active.name }}
           </h1>
           <p class="text-xs text-[var(--ws-text-muted)]">
-            3 人在线 · 原型会话
+            会话详情
           </p>
         </div>
         <UButton icon="i-lucide-phone" color="neutral" variant="ghost" square />
@@ -104,15 +123,11 @@ meta:
       </header>
 
       <div class="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <div class="text-5xl">
-          👍
-        </div>
-        <p class="max-w-sm text-[var(--ws-text-muted)]">
-          优秀的你，值得一朵小红花
-        </p>
-        <p class="text-sm text-[var(--ws-text-muted)]">
-          IM 聊天 UI 将在后续切片接入；当前为工作台壳层原型
-        </p>
+        <UEmpty
+          icon="i-lucide-messages-square"
+          title="暂无消息"
+          description="消息内容将在 IM 切片接入后展示"
+        />
       </div>
 
       <footer class="border-t border-[var(--ws-border-subtle)] p-4">
@@ -129,6 +144,10 @@ meta:
       </footer>
     </div>
 
+    <div v-else class="flex h-full items-center justify-center p-8">
+      <UEmpty icon="i-lucide-message-circle" title="选择会话" description="从左侧列表选择会话开始聊天" />
+    </div>
+
     <template #aside>
       <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         活跃状态
@@ -136,9 +155,6 @@ meta:
       <div class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
         <UIcon name="i-lucide-sparkles" class="size-8 opacity-40" />
         <p>现在还没有同事在协作</p>
-        <p class="text-xs">
-          类似 Discord「Active Now」侧栏占位
-        </p>
       </div>
     </template>
   </WorkspaceShell>

@@ -1,8 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { login as loginApi } from '../api/admin/auth'
-import { ApiError, isApiUnavailable } from '../api/request'
-import { mockLogin } from '../mocks/auth'
+import { ApiError } from '../api/request'
 
 export interface AuthUser {
   username: string
@@ -69,28 +68,9 @@ export const useAuthStore = defineStore('auth', () => {
 
       return { ok: true }
     } catch (error) {
-      if (isApiUnavailable(error)) {
-        const result = mockLogin(trimmedUsername, password)
-        if (!result.ok) {
-          return result
-        }
-
-        const authUser: AuthUser = {
-          username: result.user.username,
-          nickname: result.user.nickname
-        }
-
-        token.value = result.token
-        tenantId.value = 1
-        user.value = authUser
-        persistSession(result.token, 1, authUser)
-
-        return { ok: true }
-      }
-
       const message = error instanceof ApiError
         ? error.message
-        : '登录失败，请稍后重试'
+        : '登录失败，请确认后端服务已启动后重试'
 
       return { ok: false, message }
     }

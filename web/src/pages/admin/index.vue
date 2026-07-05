@@ -1,6 +1,22 @@
 <script setup lang="ts">
 import AdminNavbar from '../../components/admin/AdminNavbar.vue'
-import { mockDashboardStats, mockQuickLinks } from '../../mocks/dashboard'
+
+const quickLinks = [{
+  label: '用户管理',
+  description: '查看与管理系统用户',
+  icon: 'i-lucide-users',
+  to: '/admin/system/user'
+}, {
+  label: '文件管理',
+  description: '浏览已上传的文件',
+  icon: 'i-lucide-folder-open',
+  to: '/admin/infra/file'
+}, {
+  label: '部门管理',
+  description: '组织架构与部门',
+  icon: 'i-lucide-building-2',
+  to: '/admin/system/dept'
+}]
 </script>
 
 <route lang="yaml">
@@ -16,26 +32,13 @@ meta:
 
     <template #body>
       <div class="space-y-6 p-4 sm:p-6">
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <UCard v-for="stat in mockDashboardStats" :key="stat.label">
-            <div class="flex items-start justify-between gap-3">
-              <div class="space-y-1">
-                <p class="text-sm text-muted">
-                  {{ stat.label }}
-                </p>
-                <p class="text-2xl font-semibold">
-                  {{ stat.value }}
-                </p>
-                <p v-if="stat.change" class="text-xs text-muted">
-                  {{ stat.change }}
-                </p>
-              </div>
-              <div class="rounded-lg bg-primary/10 p-2 text-primary">
-                <UIcon :name="stat.icon" class="size-5" />
-              </div>
-            </div>
-          </UCard>
-        </div>
+        <UCard>
+          <UEmpty
+            icon="i-lucide-layout-dashboard"
+            title="概览统计"
+            description="统计数据将在接入 API 后展示"
+          />
+        </UCard>
 
         <UCard>
           <template #header>
@@ -46,7 +49,7 @@ meta:
 
           <div class="grid gap-3 sm:grid-cols-3">
             <UButton
-              v-for="link in mockQuickLinks"
+              v-for="link in quickLinks"
               :key="link.to"
               :to="link.to"
               color="neutral"

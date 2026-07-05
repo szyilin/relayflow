@@ -32,9 +32,9 @@ async function onSubmit() {
   loading.value = false
 
   toast.add({
-    title: '保存成功',
-    description: '用户已创建（Mock）',
-    color: 'success'
+    title: '功能开发中',
+    description: '新建用户将在接入 API 后启用',
+    color: 'neutral'
   })
   await router.push('/admin/system/user')
 }

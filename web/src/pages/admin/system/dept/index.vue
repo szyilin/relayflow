@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
-import { mockDeptTree } from '../../../../mocks/system/users'
 </script>
 
 <route lang="yaml">
@@ -19,11 +18,15 @@ meta:
       <div class="space-y-4 p-4 sm:p-6">
         <AdminPageHeader
           title="部门架构"
-          description="组织架构与部门层级（原型占位）"
+          description="组织架构与部门层级"
         />
 
         <UCard>
-          <UTree :items="mockDeptTree" />
+          <UEmpty
+            icon="i-lucide-building-2"
+            title="暂无部门数据"
+            description="部门列表将在接入 API 后展示"
+          />
         </UCard>
       </div>
     </template>

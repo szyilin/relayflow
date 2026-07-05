@@ -83,17 +83,17 @@ rules:
     - 记录端口、环境变量、Flyway 迁移
     - 说明离线 / 内网部署影响
   tasks:
-    - 带 UI 的业务切片 **默认前端优先**：`{slice}-web`（UI+Mock+contract 草案）→ `{slice}-api` → `{slice}-integrate`；见 docs/dev/frontend-first-workflow.md
-    - 契约由 **`-web` lane 起草** 至 `openspec/lanes/{slice}/contract.md`；`-api` 按 contract 实现
-    - 看板 `docs/dev/api-integration-board.md`；单 change 模式 tasks 顺序：**前端 → 后端 → 联调**
+    - "带 UI 的业务切片默认前端优先：{slice}-web → {slice}-api → {slice}-integrate；见 docs/dev/frontend-first-workflow.md"
+    - "契约由 -web lane 起草至 openspec/lanes/{slice}/contract.md；-api 按 contract 实现"
+    - "看板 docs/dev/api-integration-board.md；单 change tasks 顺序：前端 → 后端 → 联调"
     - 管理端 UI 定调（admin-ui-prototype 等）仍为更早的 UI 例外
-    - `[平台]` 无 UI 保持单 change 后端先行
+    - "[平台] 无 UI 保持单 change 后端先行"
     - 单次 change ≤10 条 checkbox；须可验证（pnpm build、mvn compile、openspec validate）
   apply:
     - 实现前读取 openspec/changes/<change>/tasks.md，仅完成其中未勾选项
-    - **必读** docs/dev/frontend-first-workflow.md
-    - change 名以 `-web` 结尾：先做 UI+Mock+contract；读 parallel-lane-frontend.mdc；禁止改 Java（白名单除外）
-    - change 名以 `-api` 结尾：前置 contract 已存在；读 parallel-lane-backend.mdc；禁止改 web/（白名单除外）
+    - 必读 docs/dev/frontend-first-workflow.md
+    - "change 名以 -web 结尾：先做 UI+Mock+contract；读 parallel-lane-frontend.mdc"
+    - "change 名以 -api 结尾：前置 contract 已存在；读 parallel-lane-backend.mdc"
     - change 名以 `-integrate` 结尾：前置 `-api` 与 `-web` tasks 须已完成；负责联调与 validate
     - 实现前读取 .cursor/rules/implementation-workflow.mdc、vertical-slice-workflow.mdc 与 docs/dev/vertical-slice-workflow.md
     - 管理端 UI change（admin-ui-prototype、admin-ui-design-direction、admin-login-slice）须先读 docs/dev/admin-ui-workflow.md
