@@ -1,5 +1,5 @@
-# 部署：全栈 Docker（容器内构建 server + web）。
-# 开发阶段请用 compose.yml + 本机 spring-boot:run / pnpm dev。
+# 部署：Docker 跑基础设施 + 后端（relayflow-server）。
+# 前端仅在宿主机运行：cd web && pnpm dev（见 README § 开发）。
 
 include:
   - path: compose.yml
@@ -29,21 +29,3 @@ services:
       timeout: 5s
       retries: 10
       start_period: 90s
-
-  web:
-    build:
-      context: ../web
-      dockerfile: Dockerfile
-    container_name: relayflow-web
-    restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-8081}:80"
-    depends_on:
-      server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s

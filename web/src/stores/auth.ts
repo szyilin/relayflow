@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { login as loginApi } from '../api/admin/auth'
+import { getPermissionInfo, login as loginApi } from '../api/admin/auth'
 import { ApiError } from '../api/request'
 
 export interface AuthUser {
@@ -31,6 +31,10 @@ function persistSession(accessToken: string, tenant: number, authUser: AuthUser)
   localStorage.setItem(USER_KEY, JSON.stringify(authUser))
 }
 
+function persistUser(authUser: AuthUser) {
+  localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+}
+
 export type LoginResult =
   | { ok: true }
   | { ok: false, message: string }
@@ -40,8 +44,23 @@ export const useAuthStore = defineStore('auth', () => {
   const storedTenantId = localStorage.getItem(TENANT_KEY)
   const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
   const user = ref<AuthUser | null>(readStoredUser())
+  const permissions = ref<string[]>([])
 
   const isAuthenticated = computed(() => Boolean(token.value))
+
+  async function fetchPermissionInfo() {
+    const data = await getPermissionInfo()
+    permissions.value = data.permissions
+
+    if (user.value) {
+      const updatedUser: AuthUser = {
+        username: data.username,
+        nickname: data.nickname || data.username
+      }
+      user.value = updatedUser
+      persistUser(updatedUser)
+    }
+  }
 
   async function login(username: string, password: string): Promise<LoginResult> {
     if (!username.trim() || !password.trim()) {
@@ -66,6 +85,8 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = authUser
       persistSession(data.accessToken, data.tenantId, authUser)
 
+      await fetchPermissionInfo()
+
       return { ok: true }
     } catch (error) {
       const message = error instanceof ApiError
@@ -80,6 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     tenantId.value = null
     user.value = null
+    permissions.value = []
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(TENANT_KEY)
     localStorage.removeItem(USER_KEY)
@@ -89,8 +111,10 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     tenantId,
     user,
+    permissions,
     isAuthenticated,
     login,
-    logout
+    logout,
+    fetchPermissionInfo
   }
 })

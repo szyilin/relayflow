@@ -78,15 +78,19 @@ cd web && pnpm install && pnpm dev
 
 默认开发账号：**`admin` / `admin123`**（Flyway 种子数据；生产环境请修改密码）。
 
-## 部署（Docker 全栈 · 可选）
+## 部署（Docker 后端 · 可选）
 
-演示环境或机器上无 Java/Node 时使用；**容器内会构建前后端，较慢，开发阶段不必用**：
+机器上无 Java 时，可用 Docker 跑 **基础设施 + relayflow-server**；**前端始终在宿主机** `pnpm dev`：
 
 ```bash
-docker compose -f deploy/compose.prod.yml up -d --build
+# 基础设施（开发/部署均需要）
+docker compose -f deploy/compose.yml up -d
+
+# 可选：后端也进容器（会构建 JAR，较慢）
+docker compose -f deploy/compose.prod.yml up -d --build server
 ```
 
-浏览器打开 **http://localhost:8081/app/login**。
+浏览器仍打开 **http://localhost:5173/app/login**（另开终端 `cd web && pnpm dev`）。
 
 ## 文档
 
