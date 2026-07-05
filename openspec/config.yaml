@@ -62,12 +62,12 @@ context: |
   领域规格：deployment/、system/、infra/、im/、workflow/（后续）
   架构详情：docs/dev/architecture.md
   Phase 2 微服务：openspec/changes/distributed-backend-v1/design.md
-  开发约定：docs/dev/（api.md、database.md、code-style.md、vertical-slice-workflow.md、parallel-lane-workflow.md、admin-ui-workflow.md）
+  开发约定：docs/dev/（api.md、database.md、code-style.md、frontend-first-workflow.md、vertical-slice-workflow.md、parallel-lane-workflow.md、admin-ui-workflow.md）
   AI 编码入口：根目录 AGENTS.md（导引，非全文）
   实现工作流（必读）：.cursor/rules/implementation-workflow.mdc
-  纵向切片（业务功能必读）：.cursor/rules/vertical-slice-workflow.mdc、docs/dev/vertical-slice-workflow.md
+  前端优先（业务切片必读）：docs/dev/frontend-first-workflow.md、.cursor/rules/vertical-slice-workflow.mdc
 
-  当前阶段：脚手架与 system 登录 API 已就绪；业务功能按纵向切片推进（后端+web/ 同批、界面可验证）。禁止一次实现整套 V1；禁止连续堆后端无前端（[平台] 任务除外）。
+  当前阶段：脚手架与登录 API 已就绪；业务功能按 **前端优先纵向切片**（-web → -api → -integrate）推进。唯一登录页 /app/login。禁止一次实现整套 V1；禁止先堆后端无 UI（[平台] 除外）。
 
 rules:
   proposal:
@@ -83,20 +83,17 @@ rules:
     - 记录端口、环境变量、Flyway 迁移
     - 说明离线 / 内网部署影响
   tasks:
-    - 带 UI 的业务切片 **优先拆成并行 Lane**：`{slice}-api`（后端）、`{slice}-web`（前端）、`{slice}-integrate`（联调）；契约写入 `openspec/lanes/{slice}/contract.md`；对接看板 `docs/dev/api-integration-board.md`（见 docs/dev/parallel-lane-workflow.md）
-    - 单 change 纵向切片仍可用；新切片默认用 `-api`/`-web`/`-integrate` 命名
-    - 按 Maven 模块 / web/ / deploy/ 分组；`[平台]` 无 UI 任务保持单 change
-    - 管理端 UI 定调（Mock 原型 → 规则沉淀 → 接 API）须遵循 docs/dev/admin-ui-workflow.md；`admin-ui-prototype` 与 `admin-ui-design-direction` 为 UI 先行例外
-    - 切片 tasks 建议结构：后端 → 前端（web/）→ 联调（浏览器路径）→ 文档
-    - 纯平台任务（无 UI）标题标注 [平台]
-    - 明确标注 Flyway 迁移类任务
-    - 单次 change 任务控制在可一会话完成（建议 ≤10 条 checkbox）
-    - 脚手架类任务须注明使用的 CLI/官方模板，不得要求 AI 从零生成完整构建配置
-    - 每项任务须可验证（如 mvn compile、pnpm build、openspec validate、浏览器路径）
+    - 带 UI 的业务切片 **默认前端优先**：`{slice}-web`（UI+Mock+contract 草案）→ `{slice}-api` → `{slice}-integrate`；见 docs/dev/frontend-first-workflow.md
+    - 契约由 **`-web` lane 起草** 至 `openspec/lanes/{slice}/contract.md`；`-api` 按 contract 实现
+    - 看板 `docs/dev/api-integration-board.md`；单 change 模式 tasks 顺序：**前端 → 后端 → 联调**
+    - 管理端 UI 定调（admin-ui-prototype 等）仍为更早的 UI 例外
+    - `[平台]` 无 UI 保持单 change 后端先行
+    - 单次 change ≤10 条 checkbox；须可验证（pnpm build、mvn compile、openspec validate）
   apply:
     - 实现前读取 openspec/changes/<change>/tasks.md，仅完成其中未勾选项
-    - change 名以 `-web` 结尾：读 api-integration-board.md、parallel-lane-workflow.md 与 .cursor/rules/parallel-lane-frontend.mdc，禁止改 Java（tasks 白名单除外）
-    - change 名以 `-api` 结尾：读 parallel-lane-workflow.md 与 .cursor/rules/parallel-lane-backend.mdc，禁止改 web/（tasks 白名单除外）；archive 前更新看板
+    - **必读** docs/dev/frontend-first-workflow.md
+    - change 名以 `-web` 结尾：先做 UI+Mock+contract；读 parallel-lane-frontend.mdc；禁止改 Java（白名单除外）
+    - change 名以 `-api` 结尾：前置 contract 已存在；读 parallel-lane-backend.mdc；禁止改 web/（白名单除外）
     - change 名以 `-integrate` 结尾：前置 `-api` 与 `-web` tasks 须已完成；负责联调与 validate
     - 实现前读取 .cursor/rules/implementation-workflow.mdc、vertical-slice-workflow.mdc 与 docs/dev/vertical-slice-workflow.md
     - 管理端 UI change（admin-ui-prototype、admin-ui-design-direction、admin-login-slice）须先读 docs/dev/admin-ui-workflow.md

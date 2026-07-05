@@ -1,30 +1,29 @@
 # 并行 Lane · 切片契约（永久目录）
 
-本目录存放 **前后端并行切片** 的 API 契约，**不随 `-api` change 归档而删除**。
+本目录存放 **前后端切片** 的 API 契约，**不随 `-api` change 归档而删除**。
 
 | 文件 | 职责 |
 |------|------|
-| `{slice}/contract.md` | 路径、字段、鉴权、curl 示例；`-web` lane 对接依据 |
-| [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md) | **对接看板**：API/Web 是否已就绪、前端待建文件 |
+| `{slice}/contract.md` | 路径、字段、鉴权、curl；**`-web` 起草**，`-api` 实现 |
+| [`docs/dev/api-integration-board.md`](../../docs/dev/api-integration-board.md) | UI/API 进度 |
 
-## 生命周期
+## 生命周期（前端优先）
 
 ```text
-T0  -api 起草 contract.md 并冻结
-T1  -api / -web 并行实现
-T2  -api 验收通过 → 更新看板 api=archived → archive -api change
-T3  -web 读看板 + contract → 对接
-T4  -integrate 联调 → archive -web、-integrate
+T0  -web 起草 contract.md + UI（Mock）
+T1  -web ui_ready → pnpm build
+T2  -api 读 contract → 实现 → archive
+T3  -integrate 去 Mock → 看板 done
 ```
 
-契约变更：**仅** `-api` lane 或人工修改 `contract.md`，并同步更新看板与通知 `-web`。
+契约变更：改 `contract.md` 并同步看板；integrate 阶段发现不一致时回写 contract。
 
 ```text
 openspec/lanes/
   admin-shell/
     contract.md
-  admin-user-list/   （待建）
+  admin-user-list/   （待 -web 起草）
     contract.md
 ```
 
-说明：[`docs/dev/parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)
+说明：[`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)

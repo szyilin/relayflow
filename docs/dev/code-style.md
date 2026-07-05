@@ -184,8 +184,15 @@ web/src/
 
 | 类型 | path 规则 | 示例 | 对应 API |
 |------|-----------|------|----------|
-| **管理端** | **必须以 `/admin` 开头** | `/admin/login`、`/admin/system/user` | `/admin-api/**` |
+| **管理端** | **必须以 `/admin` 开头** | `/admin/system/user` | `/admin-api/**` |
 | **用户端** | **必须以 `/app` 开头** | `/app/login`、`/app/messages` | `/app-api/**` |
+| **统一登录** | **`/app/login` 为唯一产品登录页** | 登录成功 → `/app/messages` | `POST /admin-api/system/auth/login` |
+
+认证约定：
+
+- **同一账号、同一 JWT**；管理员与普通员工 **不** 使用不同登录入口，由 RBAC 区分能否访问 `/admin/**`
+- 员工工作台侧栏提供「管理后台」入口；无权限时 API 返回 403（前端门禁后续切片补充）
+- `/admin/login` 仅作兼容重定向至 `/app/login`；**禁止** 在产品导航中并列「员工登录 / 管理员登录」
 
 管理端路由约定：
 

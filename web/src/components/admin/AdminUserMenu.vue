@@ -25,7 +25,7 @@ const items = computed<DropdownMenuItem[][]>(() => [[{
   icon: 'i-lucide-log-out',
   onSelect: () => {
     authStore.logout()
-    router.push('/admin/login')
+    router.push('/app/login')
   }
 }]])
 </script>

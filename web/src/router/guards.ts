@@ -1,28 +1,41 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
-const PUBLIC_ADMIN_PATHS = new Set(['/admin/login'])
-const PUBLIC_APP_PATHS = new Set(['/app/login'])
+/** 产品唯一登录页 */
+export const LOGIN_PATH = '/app/login'
+
+const PUBLIC_PATHS = new Set([LOGIN_PATH])
 
 export function setupAdminGuards(router: Router) {
   router.beforeEach((to) => {
     const authStore = useAuthStore()
 
+    if (to.path === '/admin/login') {
+      return {
+        path: LOGIN_PATH,
+        query: to.query
+      }
+    }
+
     if (to.path === '/') {
-      return true
+      if (authStore.isAuthenticated) {
+        return { path: '/app/messages' }
+      }
+
+      return { path: LOGIN_PATH }
     }
 
     if (to.path.startsWith('/app')) {
-      const isPublic = PUBLIC_APP_PATHS.has(to.path)
+      const isPublic = PUBLIC_PATHS.has(to.path)
 
       if (!authStore.isAuthenticated && !isPublic) {
         return {
-          path: '/app/login',
+          path: LOGIN_PATH,
           query: { redirect: to.fullPath }
         }
       }
 
-      if (authStore.isAuthenticated && to.path === '/app/login') {
+      if (authStore.isAuthenticated && to.path === LOGIN_PATH) {
         return { path: '/app/messages' }
       }
 
@@ -33,17 +46,11 @@ export function setupAdminGuards(router: Router) {
       return true
     }
 
-    const isPublic = PUBLIC_ADMIN_PATHS.has(to.path)
-
-    if (!authStore.isAuthenticated && !isPublic) {
+    if (!authStore.isAuthenticated) {
       return {
-        path: '/admin/login',
+        path: LOGIN_PATH,
         query: { redirect: to.fullPath }
       }
-    }
-
-    if (authStore.isAuthenticated && to.path === '/admin/login') {
-      return { path: '/admin' }
     }
 
     return true
