@@ -1,22 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { onMounted, watch } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
-import { mockUserPage, type MockUserRecord } from '../../../../mocks/system/users'
+import { useUserStore, type UserListRecord } from '../../../../stores/user'
 
 const toast = useToast()
-const keyword = ref('')
-const page = ref(1)
-const pageSize = 5
+const userStore = useUserStore()
 
-const pageData = computed(() => mockUserPage({
-  page: page.value,
-  pageSize,
-  keyword: keyword.value
-}))
-
-const columns: TableColumn<MockUserRecord>[] = [{
+const columns: TableColumn<UserListRecord>[] = [{
   accessorKey: 'username',
   header: '用户名'
 }, {
@@ -34,7 +26,7 @@ const columns: TableColumn<MockUserRecord>[] = [{
 }]
 
 function onSearch() {
-  page.value = 1
+  userStore.fetchPage({ page: 1, keyword: userStore.keyword })
 }
 
 function showPrototypeToast(action: string) {
@@ -44,6 +36,14 @@ function showPrototypeToast(action: string) {
     color: 'neutral'
   })
 }
+
+onMounted(() => {
+  userStore.fetchPage()
+})
+
+watch(() => userStore.page, (page) => {
+  userStore.fetchPage({ page })
+})
 </script>
 
 <route lang="yaml">
@@ -73,27 +73,27 @@ meta:
         <UCard>
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
             <UInput
-              v-model="keyword"
+              v-model="userStore.keyword"
               placeholder="搜索用户名、昵称或部门"
               icon="i-lucide-search"
               class="sm:max-w-xs"
               @keyup.enter="onSearch"
             />
-            <UButton color="neutral" variant="soft" @click="onSearch">
+            <UButton color="neutral" variant="soft" :loading="userStore.loading" @click="onSearch">
               搜索
             </UButton>
           </div>
 
-          <UTable :data="pageData.list" :columns="columns" />
+          <UTable :data="userStore.list" :columns="columns" :loading="userStore.loading" />
 
           <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-sm text-muted">
-              共 {{ pageData.total }} 条
+              共 {{ userStore.total }} 条
             </p>
             <UPagination
-              v-model:page="page"
-              :total="pageData.total"
-              :items-per-page="pageSize"
+              v-model:page="userStore.page"
+              :total="userStore.total"
+              :items-per-page="userStore.pageSize"
             />
           </div>
         </UCard>

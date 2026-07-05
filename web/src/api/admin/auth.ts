@@ -1,4 +1,4 @@
-import { request } from '../request'
+import { post } from '../request'
 
 export interface AuthLoginReq {
   username: string
@@ -11,8 +11,5 @@ export interface AuthLoginResp {
 }
 
 export function login(data: AuthLoginReq): Promise<AuthLoginResp> {
-  return request<AuthLoginResp>('/admin-api/system/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data)
-  })
+  return post<AuthLoginResp>('/admin-api/system/auth/login', data)
 }

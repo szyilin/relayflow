@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useAdminNav } from '../composables/useAdminNav'
+import { useTenantStore } from '../stores/tenant'
 import AdminUserMenu from '../components/admin/AdminUserMenu.vue'
 
 const {
@@ -9,6 +11,12 @@ const {
   infraLinks,
   devLinks
 } = useAdminNav()
+
+const tenantStore = useTenantStore()
+
+onMounted(() => {
+  tenantStore.fetchDefaultTenant()
+})
 </script>
 
 <template>
