@@ -44,6 +44,7 @@ openspec archive <change-name>
 | **并行 Lane（前后端拆分）** | [parallel-lane-workflow.md](docs/dev/parallel-lane-workflow.md) | **`-api`/`-web` 双 Agent 并行时必读** |
 | **API 对接看板** | [api-integration-board.md](docs/dev/api-integration-board.md) | **`-web` lane / 前端接 API 前必读** |
 | **管理端 UI 定调工作流** | [admin-ui-workflow.md](docs/dev/admin-ui-workflow.md) | **管理端 Mock 原型、规则沉淀、接 API 前** |
+| **员工工作台 UI** | [workspace-ui-patterns.md](docs/dev/workspace-ui-patterns.md) | **编辑 `/app/*`、对接 app-api 前** |
 | 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |
 | 并行 Lane 前端 | [.cursor/rules/parallel-lane-frontend.mdc](.cursor/rules/parallel-lane-frontend.mdc) | **`*-web` change / 前端 AI** |

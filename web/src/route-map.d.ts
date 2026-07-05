@@ -38,58 +38,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/_deprecated/customers': RouteRecordInfo<
-      '/_deprecated/customers',
-      '/_deprecated/customers',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_deprecated/inbox': RouteRecordInfo<
-      '/_deprecated/inbox',
-      '/_deprecated/inbox',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_deprecated/settings': RouteRecordInfo<
-      '/_deprecated/settings',
-      '/_deprecated/settings',
-      Record<never, never>,
-      Record<never, never>,
-      | '/_deprecated/settings/'
-      | '/_deprecated/settings/members'
-      | '/_deprecated/settings/notifications'
-      | '/_deprecated/settings/security'
-    >,
-    '/_deprecated/settings/': RouteRecordInfo<
-      '/_deprecated/settings/',
-      '/_deprecated/settings',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_deprecated/settings/members': RouteRecordInfo<
-      '/_deprecated/settings/members',
-      '/_deprecated/settings/members',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_deprecated/settings/notifications': RouteRecordInfo<
-      '/_deprecated/settings/notifications',
-      '/_deprecated/settings/notifications',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_deprecated/settings/security': RouteRecordInfo<
-      '/_deprecated/settings/security',
-      '/_deprecated/settings/security',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/admin/': RouteRecordInfo<
       '/admin/',
       '/admin',
@@ -197,66 +145,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/index.vue': {
       routes:
         | '/'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/customers.vue': {
-      routes:
-        | '/_deprecated/customers'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/inbox.vue': {
-      routes:
-        | '/_deprecated/inbox'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/settings.vue': {
-      routes:
-        | '/_deprecated/settings'
-        | '/_deprecated/settings/'
-        | '/_deprecated/settings/members'
-        | '/_deprecated/settings/notifications'
-        | '/_deprecated/settings/security'
-      views:
-        | 'default'
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/settings/index.vue': {
-      routes:
-        | '/_deprecated/settings/'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/settings/members.vue': {
-      routes:
-        | '/_deprecated/settings/members'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/settings/notifications.vue': {
-      routes:
-        | '/_deprecated/settings/notifications'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_deprecated/settings/security.vue': {
-      routes:
-        | '/_deprecated/settings/security'
       views:
         | never
       pathParamNames:

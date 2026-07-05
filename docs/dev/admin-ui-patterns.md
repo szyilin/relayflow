@@ -15,7 +15,8 @@ web/src/
 │   └── AdminPageHeader.vue
 ├── composables/useAdminNav.ts # sidebar 导航单源
 ├── pages/admin/               # 管理端页面
-└── api/admin/                 # 接 API 阶段新增（原型阶段无）
+├── stores/                    # Pinia（页面不 import mocks/）
+└── api/admin/                 # axios 封装下的管理端 API
 ```
 
 ## 壳层（`/admin/*`，登录除外）
@@ -44,7 +45,7 @@ web/src/
 | 移动 | 单列，顶部品牌 |
 | 表单 | `UCard` + `UFormField` + `UInput` + 主按钮 `UButton` block |
 | 提交 | store `login()`；成功 → `/admin` 或 `redirect` query |
-| 提示 | 底部「原型模式 · 任意非空账号可登录」（接 API 后移除） |
+| 提示 | 底部固定文案；后端不可用时 store 自动 Mock 回退 |
 
 ## 概览页 `/admin`
 

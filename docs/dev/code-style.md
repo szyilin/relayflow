@@ -185,7 +185,7 @@ web/src/
 | 类型 | path 规则 | 示例 | 对应 API |
 |------|-----------|------|----------|
 | **管理端** | **必须以 `/admin` 开头** | `/admin/login`、`/admin/system/user` | `/admin-api/**` |
-| **用户端** | 暂不限前缀，语义清晰即可 | `/login`、`/im`、`/chat/:id` | `/app-api/**` |
+| **用户端** | **必须以 `/app` 开头** | `/app/login`、`/app/messages` | `/app-api/**` |
 
 管理端路由约定：
 
@@ -193,12 +193,23 @@ web/src/
 - 页面文件放在 `pages/admin/`，路径与 URL 对应（如 `pages/admin/system/user.vue` → `/admin/system/user`）
 - 管理端 API 调用走 `api/admin/`，**禁止**在 admin 页面直接请求 `/app-api`
 
-用户端路由约定（V1）：
+用户端路由约定：
 
-- 不强制 `/app` 前缀；后续若做独立用户端壳层，再评估是否统一加前缀
+- 员工工作台页面挂在 `/app` 下，使用 `workspace` layout
+- 页面文件放在 `pages/app/`
 - 用户端 API 调用走 `api/app/` → `/app-api/**`
 
-公共页（如安装向导、404）可不在 `/admin` 下，按实际产品命名。
+### HTTP 与数据层
+
+| 项 | 约定 |
+|----|------|
+| HTTP 客户端 | **axios**（`web/src/api/request.ts` 统一封装） |
+| 响应格式 | `{ code, msg, data }`；`code === 0` 成功 |
+| 页面数据 | **Page → Pinia Store → `api/admin/*` 或 `api/app/*`** |
+| Mock 回退 | 仅在 store 内、`isApiUnavailable(error)` 时回退 `mocks/` |
+| 禁止 | 页面直接 `import mocks/` |
+
+公共页（如入口 `/`、404）可不在 `/admin` 或 `/app` 下。
 
 ### 规则
 
@@ -220,6 +231,19 @@ web/src/
 | [admin-ui-patterns.md](admin-ui-patterns.md) | 壳层、登录、列表、表单等页面模式 |
 
 Cursor 规则：`.cursor/rules/admin-ui-patterns.mdc`（编辑 `web/` 管理端时生效）。
+
+### 员工工作台 UI（已定调）
+
+| 文档 | 用途 |
+|------|------|
+| [workspace-ui-tokens.md](workspace-ui-tokens.md) | 卡片分层、`--ws-*` token |
+| [workspace-ui-patterns.md](workspace-ui-patterns.md) | 壳层、消息/任务页模式、数据层 |
+
+Cursor 规则：`.cursor/rules/workspace-ui-patterns.mdc`（编辑 `/app/*` 时生效）。
+
+### UI 预览
+
+UI 定调与签字验收默认走 **Docker** `http://localhost:8081`；`pnpm dev`（5173）仅本地开发热更新。
 
 ### 环境变量
 

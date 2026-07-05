@@ -1,3 +1,5 @@
+import axios, { type AxiosRequestConfig } from 'axios'
+
 export interface ApiResult<T> {
   code: number
   msg: string
@@ -20,6 +22,10 @@ export function isApiUnavailable(error: unknown): boolean {
     return true
   }
 
+  if (axios.isAxiosError(error) && !error.response) {
+    return true
+  }
+
   if (error instanceof ApiError && error.message === '服务响应格式错误') {
     return true
   }
@@ -29,37 +35,70 @@ export function isApiUnavailable(error: unknown): boolean {
 
 const TOKEN_KEY = 'relayflow:admin:access-token'
 
-function resolveUrl(path: string): string {
-  const base = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
-  return `${base}${path}`
+const client = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token && config.headers && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+function parseApiResult<T>(payload: unknown): ApiResult<T> {
+  if (!payload || typeof payload !== 'object' || !('code' in payload)) {
+    throw new ApiError(0, '服务响应格式错误')
+  }
+
+  return payload as ApiResult<T>
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers)
-  if (!headers.has('Content-Type') && init.body) {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`)
-  }
-
-  const response = await fetch(resolveUrl(path), {
-    ...init,
-    headers
-  })
-
-  let payload: ApiResult<T>
+export async function request<T>(path: string, config: AxiosRequestConfig = {}): Promise<T> {
   try {
-    payload = await response.json() as ApiResult<T>
-  } catch {
-    throw new ApiError(response.status, '服务响应格式错误')
-  }
+    const response = await client.request<ApiResult<T>>({
+      url: path,
+      ...config
+    })
 
-  if (payload.code !== 0) {
-    throw new ApiError(payload.code, payload.msg || '请求失败')
-  }
+    const payload = parseApiResult<T>(response.data)
+    if (payload.code !== 0) {
+      throw new ApiError(payload.code, payload.msg || '请求失败')
+    }
 
-  return payload.data
+    return payload.data
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+
+    if (axios.isAxiosError(error) && error.response?.data) {
+      try {
+        const payload = parseApiResult<T>(error.response.data)
+        throw new ApiError(payload.code, payload.msg || '请求失败')
+      } catch (inner) {
+        if (inner instanceof ApiError) {
+          throw inner
+        }
+      }
+    }
+
+    if (axios.isAxiosError(error)) {
+      throw new ApiError(error.response?.status ?? 0, '服务响应格式错误')
+    }
+
+    throw error
+  }
+}
+
+export async function get<T>(path: string, config: Omit<AxiosRequestConfig, 'method' | 'url'> = {}): Promise<T> {
+  return request<T>(path, { ...config, method: 'GET' })
+}
+
+export async function post<T>(path: string, data?: unknown, config: Omit<AxiosRequestConfig, 'method' | 'url' | 'data'> = {}): Promise<T> {
+  return request<T>(path, { ...config, method: 'POST', data })
 }
