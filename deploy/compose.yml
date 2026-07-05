@@ -1,3 +1,6 @@
+# 开发：仅基础设施（PostgreSQL / Redis / MinIO）。
+# 后端、前端在宿主机运行，见 README § 开发。
+
 services:
   postgres:
     image: postgres:16
@@ -49,21 +52,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  web:
-    build:
-      context: ../web
-      dockerfile: Dockerfile
-    container_name: relayflow-web
-    restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-8081}:80"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
 volumes:
   postgres_data:

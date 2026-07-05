@@ -59,44 +59,32 @@ relayflow/                          # Git 根 = Java Maven 父工程
 
 每个业务模块拆分为 `*-api`（跨域契约）与 `*-biz`（实现）。**跨域只走 `*-api`**，禁止 `*-biz` 互依赖；V1 单进程部署，Phase 2 可拆为 Gateway + 多 `*-server`（见 [`docs/dev/architecture.md`](docs/dev/architecture.md)）。
 
-## 快速开始（开发）
+## 开发（日常）
 
-### 依赖服务
+与多数开源项目一致：**Docker 只跑依赖，应用在宿主机跑**（HMR、断点、本机代理均可用）。
 
 ```bash
+# 1. 基础设施
 docker compose -f deploy/compose.yml up -d
-```
 
-### 后端
-
-```bash
+# 2. 后端
 ./mvnw -pl relayflow-server -am spring-boot:run
-```
 
-### 前端
-
-```bash
+# 3. 前端（另开终端）
 cd web && pnpm install && pnpm dev
 ```
 
-### 前端（Docker，Nginx 静态部署）
+浏览器打开 **http://localhost:5173/app/login**（Vite 已将 `/admin-api` 代理到 `:8080`）。
 
-适合演示 / 预览 Mock 管理端，无需本机安装 Node：
+## 部署（Docker 全栈 · 可选）
 
-```bash
-docker compose -f deploy/compose.yml up -d web
-# 浏览器打开 http://localhost:8081/admin/login
-```
-
-重新构建镜像（改完 web/ 代码后）：
+演示环境或机器上无 Java/Node 时使用；**容器内会构建前后端，较慢，开发阶段不必用**：
 
 ```bash
-docker compose -f deploy/compose.yml up -d --build web
+docker compose -f deploy/compose.prod.yml up -d --build
 ```
 
-> 当前原型阶段为零后端 Mock；接真 API 后需在 `web/nginx.conf` 中启用 `/admin-api/` 反向代理，并将 `relayflow-server` 加入 Compose。
-
-> 后端 Maven 骨架第一步已完成（`scaffold-maven-parent`）；server 与 framework 见 OpenSpec `scaffold-*` changes。
+浏览器打开 **http://localhost:8081/app/login**。
 
 ## 文档
 

@@ -1,0 +1,49 @@
+# 部署：全栈 Docker（容器内构建 server + web）。
+# 开发阶段请用 compose.yml + 本机 spring-boot:run / pnpm dev。
+
+include:
+  - path: compose.yml
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: relayflow-server/Dockerfile
+    container_name: relayflow-server
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-relayflow}
+      POSTGRES_USER: ${POSTGRES_USER:-relayflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-relayflow}
+      RELAYFLOW_JWT_SECRET: ${RELAYFLOW_JWT_SECRET:-dev-only-change-me-in-production}
+      RELAYFLOW_TENANT_ENABLED: ${RELAYFLOW_TENANT_ENABLED:-false}
+      RELAYFLOW_TENANT_DEFAULT_ID: ${RELAYFLOW_TENANT_DEFAULT_ID:-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/admin-api/system/tenant/default"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: relayflow-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8081}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
