@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAdminNav } from '../composables/useAdminNav'
 import { useTenantStore } from '../stores/tenant'
 import AdminUserMenu from '../components/admin/AdminUserMenu.vue'
+
+const toast = useToast()
 
 const {
   open,
@@ -14,8 +16,15 @@ const {
 
 const tenantStore = useTenantStore()
 
-onMounted(() => {
-  tenantStore.fetchDefaultTenant()
+onMounted(async () => {
+  await tenantStore.fetchDefaultTenant()
+  if (tenantStore.lastError) {
+    toast.add({
+      title: '租户信息加载失败',
+      description: tenantStore.lastError,
+      color: 'warning'
+    })
+  }
 })
 </script>
 

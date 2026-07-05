@@ -76,6 +76,8 @@ cd web && pnpm install && pnpm dev
 
 浏览器打开 **http://localhost:5173/app/login**（Vite 已将 `/admin-api` 代理到 `:8080`）。
 
+默认开发账号：**`admin` / `admin123`**（Flyway 种子数据；生产环境请修改密码）。
+
 ## 部署（Docker 全栈 · 可选）
 
 演示环境或机器上无 Java/Node 时使用；**容器内会构建前后端，较慢，开发阶段不必用**：

@@ -1,24 +1,6 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
-import { mockFiles } from '../../../../mocks/system/users'
-
-type MockFile = typeof mockFiles[number]
-
-const columns: TableColumn<MockFile>[] = [{
-  accessorKey: 'name',
-  header: '文件名'
-}, {
-  accessorKey: 'size',
-  header: '大小'
-}, {
-  accessorKey: 'type',
-  header: '类型'
-}, {
-  accessorKey: 'createTime',
-  header: '上传时间'
-}]
 </script>
 
 <route lang="yaml">
@@ -36,7 +18,7 @@ meta:
       <div class="space-y-4 p-4 sm:p-6">
         <AdminPageHeader
           title="文件列表"
-          description="浏览与管理已上传文件（原型占位）"
+          description="浏览与管理已上传文件"
         >
           <template #actions>
             <UTooltip text="接 API 后启用">
@@ -48,7 +30,11 @@ meta:
         </AdminPageHeader>
 
         <UCard>
-          <UTable :data="mockFiles" :columns="columns" />
+          <UEmpty
+            icon="i-lucide-folder-open"
+            title="暂无文件"
+            description="文件列表将在接入 API 后展示"
+          />
         </UCard>
       </div>
     </template>

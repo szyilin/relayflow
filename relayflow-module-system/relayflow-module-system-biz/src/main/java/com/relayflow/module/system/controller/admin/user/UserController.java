@@ -1,23 +1,34 @@
 package com.relayflow.module.system.controller.admin.user;
 
 import com.relayflow.common.pojo.CommonResult;
+import com.relayflow.common.pojo.PageResult;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
+import com.relayflow.module.system.controller.admin.user.vo.UserPageReqVO;
+import com.relayflow.module.system.controller.admin.user.vo.UserRespVO;
 import com.relayflow.module.system.service.user.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/admin-api/system/user")
 public class UserController {
 
     private final UserService userService;
+
+    @GetMapping("/page")
+    public CommonResult<PageResult<UserRespVO>> getUserPage(@Valid UserPageReqVO request) {
+        return CommonResult.success(userService.getUserPage(request));
+    }
 
     @PostMapping("/create")
     public CommonResult<Long> createUser(@Valid @RequestBody UserCreateReqVO request) {

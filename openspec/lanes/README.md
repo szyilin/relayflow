@@ -22,7 +22,7 @@ T3  -integrate 去 Mock → 看板 done
 openspec/lanes/
   admin-shell/
     contract.md
-  admin-user-list/   （待 -web 起草）
+  admin-user-list/
     contract.md
 ```
 

@@ -1,8 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getUserPage, type UserPageItem } from '../api/admin/user'
-import { isApiUnavailable } from '../api/request'
-import { mockUserPage } from '../mocks/system/users'
+import { ApiError } from '../api/request'
 
 export interface UserListRecord {
   id: string
@@ -33,6 +32,7 @@ export const useUserStore = defineStore('user', () => {
   const page = ref(1)
   const pageSize = ref(5)
   const keyword = ref('')
+  const lastError = ref<string | null>(null)
 
   async function fetchPage(options?: { page?: number, keyword?: string }) {
     if (options?.page !== undefined) {
@@ -43,6 +43,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     loading.value = true
+    lastError.value = null
     try {
       const data = await getUserPage({
         pageNo: page.value,
@@ -53,19 +54,11 @@ export const useUserStore = defineStore('user', () => {
       list.value = data.list.map(normalizeUser)
       total.value = data.total
     } catch (error) {
-      if (isApiUnavailable(error)) {
-        const mock = mockUserPage({
-          page: page.value,
-          pageSize: pageSize.value,
-          keyword: keyword.value
-        })
-        list.value = mock.list
-        total.value = mock.total
-        return
-      }
-
       list.value = []
       total.value = 0
+      lastError.value = error instanceof ApiError
+        ? error.message
+        : '加载用户列表失败，请确认后端服务已启动'
       throw error
     } finally {
       loading.value = false
@@ -83,6 +76,7 @@ export const useUserStore = defineStore('user', () => {
     page,
     pageSize,
     keyword,
+    lastError,
     fetchPage,
     setPage
   }

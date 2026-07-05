@@ -1,6 +1,7 @@
 package com.relayflow.framework.tenant.config;
 
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
 import com.relayflow.framework.tenant.core.RelayflowTenantLineHandler;
 import com.relayflow.framework.tenant.web.TenantWebFilter;
@@ -34,6 +35,7 @@ public class TenantAutoConfiguration {
     @ConditionalOnBean(DataSource.class)
     public MybatisPlusInterceptor mybatisPlusInterceptor(RelayflowTenantLineHandler tenantLineHandler) {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor());
         TenantLineInnerInterceptor tenantInterceptor = new TenantLineInnerInterceptor();
         tenantInterceptor.setTenantLineHandler(tenantLineHandler);
         interceptor.addInnerInterceptor(tenantInterceptor);

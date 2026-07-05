@@ -25,24 +25,36 @@ const columns: TableColumn<UserListRecord>[] = [{
   header: '创建时间'
 }]
 
+async function loadPage(options?: { page?: number, keyword?: string }) {
+  try {
+    await userStore.fetchPage(options)
+  } catch {
+    toast.add({
+      title: '加载失败',
+      description: userStore.lastError ?? '无法获取用户列表',
+      color: 'error'
+    })
+  }
+}
+
 function onSearch() {
-  userStore.fetchPage({ page: 1, keyword: userStore.keyword })
+  loadPage({ page: 1, keyword: userStore.keyword })
 }
 
 function showPrototypeToast(action: string) {
   toast.add({
     title: '原型未实现',
-    description: `${action} 将在接 API 后启用`,
+    description: `${action} 将在后续版本启用`,
     color: 'neutral'
   })
 }
 
 onMounted(() => {
-  userStore.fetchPage()
+  loadPage()
 })
 
 watch(() => userStore.page, (page) => {
-  userStore.fetchPage({ page })
+  loadPage({ page })
 })
 </script>
 

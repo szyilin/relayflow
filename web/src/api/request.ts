@@ -16,23 +16,6 @@ export class ApiError extends Error {
   }
 }
 
-/** 后端未启动、Nginx 无代理、网络异常等 —— 可回退 Mock，与业务错误（密码错等）区分 */
-export function isApiUnavailable(error: unknown): boolean {
-  if (error instanceof TypeError) {
-    return true
-  }
-
-  if (axios.isAxiosError(error) && !error.response) {
-    return true
-  }
-
-  if (error instanceof ApiError && error.message === '服务响应格式错误') {
-    return true
-  }
-
-  return false
-}
-
 const TOKEN_KEY = 'relayflow:admin:access-token'
 
 const client = axios.create({
