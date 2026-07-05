@@ -2,7 +2,7 @@
 
 ## API 契约
 
-完整契约见 [`_lanes/admin-shell/contract.md`](../_lanes/admin-shell/contract.md)。
+完整契约见 [`openspec/lanes/admin-shell/contract.md`](../../../lanes/admin-shell/contract.md)。
 
 本 change 确保以下端点可用：
 

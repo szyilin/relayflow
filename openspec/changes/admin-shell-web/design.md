@@ -2,7 +2,7 @@
 
 ## API 契约（只读）
 
-见 [`_lanes/admin-shell/contract.md`](../_lanes/admin-shell/contract.md)。
+见 [`openspec/lanes/admin-shell/contract.md`](../../lanes/admin-shell/contract.md)。
 
 ## 技术选型
 

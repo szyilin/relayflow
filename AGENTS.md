@@ -42,6 +42,7 @@ openspec archive <change-name>
 | Git / IDEA | [docs/dev/git-and-idea.md](docs/dev/git-and-idea.md) | 首次用 IDEA 打开、确认勿提交项 |
 | **纵向切片工作流** | [vertical-slice-workflow.md](docs/dev/vertical-slice-workflow.md) | **实现任何用户可见功能前（后端+前端同批）** |
 | **并行 Lane（前后端拆分）** | [parallel-lane-workflow.md](docs/dev/parallel-lane-workflow.md) | **`-api`/`-web` 双 Agent 并行时必读** |
+| **API 对接看板** | [api-integration-board.md](docs/dev/api-integration-board.md) | **`-web` lane / 前端接 API 前必读** |
 | **管理端 UI 定调工作流** | [admin-ui-workflow.md](docs/dev/admin-ui-workflow.md) | **管理端 Mock 原型、规则沉淀、接 API 前** |
 | 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |

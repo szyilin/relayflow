@@ -1,13 +1,14 @@
 # 任务：admin-shell-web
 
 > **Lane**：前端 · 与 `admin-shell-api` 并行；联调见 `admin-shell-integrate`。  
-> 契约：[`_lanes/admin-shell/contract.md`](../_lanes/admin-shell/contract.md)
+> 契约：[`openspec/lanes/admin-shell/contract.md`](../../lanes/admin-shell/contract.md)
 
 ## 前置
 
 - [x] 0.1 `admin-ui-prototype` UI 定调通过
 - [x] 0.2 `admin-login-slice` 已完成
-- [x] 0.3 `_lanes/admin-shell/contract.md` 已冻结
+- [x] 0.3 `openspec/lanes/admin-shell/contract.md` 已冻结
+- [x] 0.4 [`api-integration-board.md`](../../../docs/dev/api-integration-board.md) 该切片 `api: archived`
 
 ## 前端（web/）
 

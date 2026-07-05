@@ -12,12 +12,12 @@
 | `admin-shell-web` | 前端 |
 | `admin-shell-integrate` | 联调与门禁 |
 
-契约真源：[`openspec/changes/_lanes/admin-shell/contract.md`](../_lanes/admin-shell/contract.md)
+契约真源：[`openspec/lanes/admin-shell/contract.md`](../../../lanes/admin-shell/contract.md)
 
 ## 前置条件
 
 - [x] `admin-login-slice` 已完成（JWT 登录可用）
-- [x] `_lanes/admin-shell/contract.md` 已冻结
+- [x] `openspec/lanes/admin-shell/contract.md` 已冻结
 
 ## 范围
 
