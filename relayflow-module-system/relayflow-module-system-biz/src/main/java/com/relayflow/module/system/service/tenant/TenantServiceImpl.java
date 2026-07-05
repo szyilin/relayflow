@@ -5,18 +5,15 @@ import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.mysql.SysTenantMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class TenantServiceImpl implements TenantService {
 
     private final SysTenantMapper tenantMapper;
     private final TenantProperties tenantProperties;
-
-    public TenantServiceImpl(SysTenantMapper tenantMapper, TenantProperties tenantProperties) {
-        this.tenantMapper = tenantMapper;
-        this.tenantProperties = tenantProperties;
-    }
 
     @Override
     public SysTenantDO getTenant(Long tenantId) {

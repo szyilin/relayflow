@@ -11,7 +11,7 @@ Java 后端与 Vue 前端的命名、分层、认证与日志习惯。
 | 包名 | `com.relayflow` |
 | Java | 21 |
 | Spring Boot | 3.4.x |
-| 注入 | 构造器注入 |
+| 注入 | 构造器注入 + `@RequiredArgsConstructor`（见下节） |
 | 异常 | 统一 `@ControllerAdvice`；禁止空 `catch` |
 | DTO 转换 | MapStruct |
 | 参数校验 | Jakarta Validation |
@@ -65,7 +65,8 @@ DO / 基础 Mapper **不得**放在 `src/` 下手写；须按 [codegen.md](codeg
 | DO / DTO / VO / ReqVO / RespVO | `@Data` | `UserRespVO`、`UserCreateReqDTO` |
 | 抽象 DO 基类 | `@Getter` `@Setter` | `BaseDO`、`TenantBaseDO` |
 | `@ConfigurationProperties` | `@Data` | `JwtProperties`、`TenantProperties` |
-| 仅构造注入 + 只读字段 | `@Getter` `@RequiredArgsConstructor` | `LoginUser` |
+| 仅构造注入 + 只读字段（非 Spring Bean） | `@Getter` `@RequiredArgsConstructor` | `LoginUser` |
+| Spring Bean 依赖注入 | `@RequiredArgsConstructor` | `AuthController`、`AuthServiceImpl` |
 | 异常（含 `code` 等 final 字段） | `@Getter` | `ServiceException` |
 | 枚举字段 | `@Getter` | `ErrorCodeConstants` |
 
@@ -75,6 +76,27 @@ DO / 基础 Mapper **不得**放在 `src/` 下手写；须按 [codegen.md](codeg
 - 生成 DO 由 codegen CLI 输出 Lombok 注解（见 [codegen.md](codegen.md)）；手写 POJO 同样遵循上表
 - MapStruct `Convert` 与 Lombok 共存；编译期需启用 Lombok 注解处理
 - **禁止** 为普通数据类手写 `getXxx` / `setXxx`；IDE 请安装 Lombok 插件（见 [git-and-idea.md](git-and-idea.md)）
+
+### 构造器注入
+
+Spring Bean（`Controller`、`Service`、`ApiImpl`、`Filter`、Starter 内组件等）**必须**使用构造器注入：
+
+- 依赖声明为 `private final`
+- 类上添加 Lombok `@RequiredArgsConstructor`，**禁止**手写仅做字段赋值的构造器
+- **禁止**字段注入（`@Autowired` 写在字段上）
+
+`@RequiredArgsConstructor` 只为「未在声明处初始化的 `final` 实例字段」生成构造器参数，因此与下列字段共存无冲突：
+
+| 字段类型 | 示例 | 是否进入构造器 |
+|----------|------|----------------|
+| 常量 | `private static final String ADMIN = "admin"` | 否 |
+| 声明处已初始化 | `private final DateTimeFormatter FMT = ISO_OFFSET_DATE_TIME` | 否 |
+| 可变状态 | `private volatile boolean ready` | 否 |
+| Spring 依赖 | `private final UserService userService` | 是 |
+
+例外：构造器内除赋值外还有**派生逻辑**（如由配置计算 `SecretKey`）时，保留手写构造器（例：`JwtTokenService`）。
+
+依赖过多（如 `final` 注入字段 ≥ 4）时，优先**拆分 Service / 提取 Facade**，而不是改用字段注入。
 
 ### 对象命名
 
