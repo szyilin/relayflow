@@ -3,6 +3,10 @@ package com.relayflow.module.system.service.permission;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
+import com.relayflow.module.system.controller.admin.permission.vo.PermissionRespVO;
+import com.relayflow.module.system.convert.PermissionConvert;
+import com.relayflow.framework.tenant.config.TenantProperties;
+import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.dal.dataobject.SysPermissionDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
 import com.relayflow.module.system.dal.dataobject.SysRolePermissionDO;
@@ -38,6 +42,7 @@ public class PermissionServiceImpl implements PermissionService {
     private final SysRoleMapper roleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysPermissionMapper permissionMapper;
+    private final TenantProperties tenantProperties;
 
     @Override
     public Set<String> getPermissionCodes(Long userId, Long tenantId) {
@@ -92,6 +97,23 @@ public class PermissionServiceImpl implements PermissionService {
         }).toList());
         response.setPermissions(new ArrayList<>(getPermissionCodes(userId, tenantId)));
         return response;
+    }
+
+
+    @Override
+    public List<PermissionRespVO> getPermissionTree() {
+        Long tenantId = resolveTenantId();
+        List<SysPermissionDO> permissions = permissionMapper.selectList(
+                Wrappers.<SysPermissionDO>lambdaQuery()
+                        .eq(SysPermissionDO::getTenantId, tenantId)
+                        .orderByAsc(SysPermissionDO::getSort)
+                        .orderByAsc(SysPermissionDO::getId));
+        return PermissionConvert.buildTree(permissions);
+    }
+
+    private Long resolveTenantId() {
+        Long tenantId = TenantContextHolder.get();
+        return tenantId != null ? tenantId : tenantProperties.getDefaultId();
     }
 
     private List<SysRoleDO> loadRoles(Long userId, Long tenantId) {
