@@ -33,6 +33,12 @@ export function useAdminNav() {
     permission: 'system:user:list',
     onSelect: closeSidebar
   }, {
+    label: '角色管理',
+    icon: 'i-lucide-shield',
+    to: '/admin/system/role',
+    permission: 'system:role:list',
+    onSelect: closeSidebar
+  }, {
     label: '部门管理',
     icon: 'i-lucide-building-2',
     to: '/admin/system/dept',

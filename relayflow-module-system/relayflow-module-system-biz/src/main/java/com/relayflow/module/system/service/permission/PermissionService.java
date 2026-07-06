@@ -1,6 +1,7 @@
 package com.relayflow.module.system.service.permission;
 
 import com.relayflow.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
+import com.relayflow.module.system.controller.admin.permission.vo.PermissionRespVO;
 import com.relayflow.module.system.service.permission.dto.RoleSimpleDTO;
 
 import java.util.List;
@@ -13,4 +14,6 @@ public interface PermissionService {
     List<RoleSimpleDTO> getRoleList(Long userId, Long tenantId);
 
     AuthPermissionInfoRespVO getPermissionInfo(Long userId, Long tenantId);
+
+    List<PermissionRespVO> getPermissionTree();
 }

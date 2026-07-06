@@ -85,3 +85,11 @@ export async function get<T>(path: string, config: Omit<AxiosRequestConfig, 'met
 export async function post<T>(path: string, data?: unknown, config: Omit<AxiosRequestConfig, 'method' | 'url' | 'data'> = {}): Promise<T> {
   return request<T>(path, { ...config, method: 'POST', data })
 }
+
+export async function put<T>(path: string, data?: unknown, config: Omit<AxiosRequestConfig, 'method' | 'url' | 'data'> = {}): Promise<T> {
+  return request<T>(path, { ...config, method: 'PUT', data })
+}
+
+export async function del<T>(path: string, config: Omit<AxiosRequestConfig, 'method' | 'url'> = {}): Promise<T> {
+  return request<T>(path, { ...config, method: 'DELETE' })
+}
