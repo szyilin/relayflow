@@ -89,7 +89,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 从工作台进入。
 
-**下一优先**：`unified-login-slice`（已完成）→ 业务切片按 **前端优先** 推进（如用户列表：先完善 `/admin/system/user` UI，再 `-api`）。
+**下一优先**：`system-admin-v1`（已完成）→ `tenant-platform-slice`（租户 Redis/MinIO/WS 前缀）或按域继续 `infra-*` / `im-*` 纵向切片。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 此后走纵向切片。
 
