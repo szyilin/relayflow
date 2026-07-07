@@ -1,6 +1,19 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getUserPage, type UserPageItem } from '../api/admin/user'
+import {
+  createUser,
+  getUser,
+  getUserPage,
+  updateUser,
+  updateUserDept,
+  updateUserRole,
+  updateUserStatus,
+  type UserCreatePayload,
+  type UserDetail,
+  type UserId,
+  type UserPageItem,
+  type UserUpdatePayload
+} from '../api/admin/user'
 import { ApiError } from '../api/request'
 
 export interface UserListRecord {
@@ -9,19 +22,29 @@ export interface UserListRecord {
   nickname: string
   dept: string
   status: string
+  statusCode: number
   createTime: string
 }
 
 function normalizeUser(item: UserPageItem): UserListRecord {
+  const statusCode = typeof item.status === 'number' ? item.status : 0
   return {
     id: String(item.id),
     username: item.username,
     nickname: item.nickname,
     dept: item.dept ?? '—',
-    status: typeof item.status === 'number'
-      ? (item.status === 0 ? '启用' : '禁用')
-      : (item.status ?? '启用'),
+    status: statusCode === 0 ? '启用' : '禁用',
+    statusCode,
     createTime: item.createTime?.slice(0, 10) ?? '—'
+  }
+}
+
+function normalizeDetail(item: UserDetail): UserDetail {
+  return {
+    ...item,
+    id: String(item.id),
+    deptId: item.deptId != null ? String(item.deptId) : null,
+    roleIds: (item.roleIds ?? []).map(id => String(id))
   }
 }
 
@@ -65,6 +88,43 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  async function fetchDetail(id: UserId): Promise<UserDetail> {
+    const detail = await getUser(id)
+    return normalizeDetail(detail)
+  }
+
+  async function create(payload: UserCreatePayload) {
+    const id = await createUser(payload)
+    await fetchPage()
+    return String(id)
+  }
+
+  async function saveProfile(payload: UserUpdatePayload & {
+    deptId?: UserId | null
+    roleIds?: UserId[]
+  }) {
+    await updateUser({
+      id: payload.id,
+      nickname: payload.nickname,
+      mobile: payload.mobile,
+      email: payload.email
+    })
+    await updateUserDept({
+      id: payload.id,
+      deptId: payload.deptId ?? null
+    })
+    await updateUserRole({
+      id: payload.id,
+      roleIds: payload.roleIds ?? []
+    })
+    await fetchPage()
+  }
+
+  async function toggleStatus(id: UserId, status: number) {
+    await updateUserStatus({ id, status })
+    await fetchPage()
+  }
+
   function setPage(next: number) {
     page.value = next
   }
@@ -78,6 +138,10 @@ export const useUserStore = defineStore('user', () => {
     keyword,
     lastError,
     fetchPage,
+    fetchDetail,
+    create,
+    saveProfile,
+    toggleStatus,
     setPage
   }
 })
