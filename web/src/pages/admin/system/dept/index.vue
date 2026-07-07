@@ -18,7 +18,7 @@ const editingDept = ref<DeptItem | null>(null)
 const deletingDept = ref<DeptItem | null>(null)
 
 const form = reactive({
-  parentId: 0,
+  parentId: '0',
   name: '',
   sort: 0,
   status: 0
@@ -32,7 +32,7 @@ const parentSelectItems = computed(() => deptStore.parentOptions(editingDept.val
 
 const modalTitle = computed(() => (editingDept.value ? '编辑部门' : '新建部门'))
 
-function resetForm(parentId = 0) {
+function resetForm(parentId = '0') {
   form.parentId = parentId
   form.name = ''
   form.sort = 0
@@ -51,7 +51,7 @@ async function loadList() {
   }
 }
 
-function openCreate(parentId = 0) {
+function openCreate(parentId = '0') {
   editingDept.value = null
   resetForm(parentId)
   formOpen.value = true
@@ -191,7 +191,6 @@ meta:
             v-else
             :items="deptStore.tree"
             :get-key="item => item.id"
-            default-expanded
             class="max-w-3xl"
           >
             <template #item-trailing="{ item }">
