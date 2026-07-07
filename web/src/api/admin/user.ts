@@ -21,11 +21,14 @@ export interface UserPageQuery {
 }
 
 export function getUserPage(query: UserPageQuery): Promise<UserPageResult> {
-  return get<UserPageResult>('/admin-api/system/user/page', {
+  return get<{ list: UserPageItem[], total: number | string }>('/admin-api/system/user/page', {
     params: {
       pageNo: query.pageNo,
       pageSize: query.pageSize,
       keyword: query.keyword?.trim() || undefined
     }
-  })
+  }).then(data => ({
+    list: data.list,
+    total: Number(data.total)
+  }))
 }

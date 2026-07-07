@@ -6,6 +6,7 @@ import {
   getDeptList,
   updateDept,
   type DeptCreatePayload,
+  type DeptId,
   type DeptItem,
   type DeptUpdatePayload
 } from '../api/admin/dept'
@@ -18,17 +19,30 @@ export interface DeptTreeNode {
   children?: DeptTreeNode[]
 }
 
-function buildTree(items: DeptItem[], parentId = 0): DeptTreeNode[] {
+const ROOT_PARENT_ID = '0'
+
+function normalizeDept(item: DeptItem): DeptItem {
+  return {
+    ...item,
+    id: String(item.id),
+    parentId: String(item.parentId ?? ROOT_PARENT_ID),
+    leaderUserId: item.leaderUserId != null ? String(item.leaderUserId) : null
+  }
+}
+
+function buildTree(items: DeptItem[], parentId = ROOT_PARENT_ID): DeptTreeNode[] {
   return items
     .filter(item => item.parentId === parentId)
-    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id - b.id)
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
     .map((item) => {
       const children = buildTree(items, item.id)
       return {
-        id: String(item.id),
+        id: item.id,
         label: item.name,
         dept: item,
-        ...(children.length > 0 ? { children } : {})
+        ...(children.length > 0
+          ? { children, defaultExpanded: true }
+          : {})
       }
     })
 }
@@ -44,7 +58,8 @@ export const useDeptStore = defineStore('dept', () => {
     loading.value = true
     lastError.value = null
     try {
-      list.value = await getDeptList()
+      const items = await getDeptList()
+      list.value = items.map(normalizeDept)
     } catch (error) {
       list.value = []
       lastError.value = error instanceof ApiError
@@ -67,13 +82,13 @@ export const useDeptStore = defineStore('dept', () => {
     await fetchList()
   }
 
-  async function remove(id: number) {
+  async function remove(id: DeptId) {
     await deleteDept(id)
     await fetchList()
   }
 
-  function parentOptions(excludeId?: number) {
-    const options = [{ label: '顶级部门', value: 0 }]
+  function parentOptions(excludeId?: DeptId) {
+    const options = [{ label: '顶级部门', value: ROOT_PARENT_ID }]
     for (const item of list.value) {
       if (excludeId != null && item.id === excludeId) {
         continue

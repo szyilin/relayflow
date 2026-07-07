@@ -28,6 +28,8 @@
 | admin-shell | archived | **done** | `GET …/tenant/default` | [contract](../../openspec/lanes/admin-shell/contract.md) | store 无 Mock |
 | admin-user-list | **ready** | **done** | `GET …/user/page` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-list/contract.md) | store 无 Mock |
 | system-rbac-kernel | **ready** | **done** | `GET …/auth/get-permission-info` · nav 权限过滤 | [contract](../../openspec/lanes/system-rbac-kernel/contract.md) | store 无 Mock；sidebar 按 permission 过滤 |
+| admin-dept | **ready** | **done** | `GET/POST/PUT/DELETE …/dept/*` · `/admin/system/dept` | [contract](../../openspec/lanes/admin-dept/contract.md) | store 无 Mock；部门树 CRUD |
+| admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | store 无 Mock；角色 CRUD + 绑权限/数据范围 |
 
 ## 实施顺序（system-admin-v1）
 
@@ -44,7 +46,7 @@
 | 区域 | 页面 | 说明 |
 |------|------|------|
 | 工作台 | `/app/messages`、`/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
-| 管理端 | `/admin` 概览、`/admin/system/dept`、`/admin/infra/file` | 页面内 Mock |
+| 管理端 | `/admin` 概览、`/admin/infra/file` | 页面内 Mock |
 
 ## 参考
 

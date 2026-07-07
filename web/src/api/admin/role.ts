@@ -61,13 +61,16 @@ export interface PermissionNode {
 }
 
 export function getRolePage(query: RolePageQuery): Promise<RolePageResult> {
-  return get<RolePageResult>('/admin-api/system/role/page', {
+  return get<{ list: RolePageItem[], total: number | string }>('/admin-api/system/role/page', {
     params: {
       pageNo: query.pageNo,
       pageSize: query.pageSize,
       keyword: query.keyword?.trim() || undefined
     }
-  })
+  }).then(data => ({
+    list: data.list,
+    total: Number(data.total)
+  }))
 }
 
 export function getRole(id: number): Promise<RoleDetail> {

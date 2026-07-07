@@ -1,7 +1,9 @@
 package com.relayflow.framework.web.config;
 
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.relayflow.framework.web.handler.GlobalExceptionHandler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.cors.CorsConfiguration;
@@ -13,6 +15,16 @@ import java.util.List;
 @AutoConfiguration
 @Import(GlobalExceptionHandler.class)
 public class WebAutoConfiguration {
+
+    /**
+     * 雪花 ID 超出 JS {@code Number.MAX_SAFE_INTEGER}，序列化为字符串避免前端精度丢失。
+     */
+    @Bean
+    public Jackson2ObjectMapperBuilderCustomizer longToStringJacksonCustomizer() {
+        return builder -> builder
+                .serializerByType(Long.class, ToStringSerializer.instance)
+                .serializerByType(Long.TYPE, ToStringSerializer.instance);
+    }
 
     @Bean
     public CorsFilter corsFilter() {
