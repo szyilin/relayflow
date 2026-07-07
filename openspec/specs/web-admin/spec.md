@@ -63,3 +63,22 @@ TBD - created by archiving change admin-login-slice. Update Purpose after archiv
 - **WHEN** 用户从壳层退出登录
 - **THEN** 会话清除且受保护路由不可访问
 
+### Requirement: 管理端前端权限门禁
+
+管理端前端须在登录后加载权限码，并在用户缺少关联 permission code 时隐藏导航项（可选拦截路由）。
+
+#### Scenario: Sidebar 隐藏无权限菜单
+
+- **WHEN** 已登录用户的权限集不包含 `system:role:list`
+- **THEN** 管理端 sidebar 不得展示角色管理入口
+
+#### Scenario: 超级管理员可见全部静态导航
+
+- **WHEN** 已登录用户拥有全部 system 预置权限（如 `super_admin`）
+- **THEN** 所有按 permission 门禁的 V1 静态 admin 导航项均可见
+
+#### Scenario: 刷新页面重新加载权限
+
+- **WHEN** 用户在 admin 路由携带有效 token 刷新浏览器
+- **THEN** 前端在渲染过滤导航前再次请求权限信息
+

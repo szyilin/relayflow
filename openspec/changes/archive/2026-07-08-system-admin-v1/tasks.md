@@ -11,15 +11,15 @@
 ## 2. 子 change 立项（按顺序 propose，不写代码）
 
 - [x] 2.1 `system-rbac-kernel-api` + `system-rbac-kernel-web` 已 propose（见 `openspec/changes/system-rbac-kernel-*`）
-- [ ] 2.2 `openspec new change admin-dept-slice` 并完成 proposal/design/tasks/spec
-- [ ] 2.3 `openspec new change admin-role-slice` 并完成 proposal/design/tasks/spec
-- [ ] 2.4 `openspec new change admin-user-mutate-slice` 并完成 proposal/design/tasks/spec
+- [x] 2.2 `openspec new change admin-dept-slice` 并完成 proposal/design/tasks/spec（实现已合并，见 commit `37e2ed4`）
+- [x] 2.3 `openspec new change admin-role-slice` 并完成 proposal/design/tasks/spec（实现已合并，见 commit `6ecc3d5`）
+- [x] 2.4 `openspec new change admin-user-mutate-slice` 并完成 proposal/design/tasks/spec（已归档）
 
 ## 3. 史诗归档（全部子 change 实施后）
 
-- [ ] 3.1 更新 `docs/dev/api-integration-board.md` 增加 system-admin 切片行
-- [ ] 3.2 更新 `AGENTS.md`「下一优先」指向 `system-rbac-kernel`
-- [ ] 3.3 `openspec archive system-admin-v1` 合并 spec 至主 specs
+- [x] 3.1 更新 `docs/dev/api-integration-board.md` 增加 system-admin 切片行
+- [x] 3.2 更新 `AGENTS.md`「下一优先」指向 `tenant-platform-slice`
+- [x] 3.3 `openspec archive system-admin-v1` 合并 spec 至主 specs
 
 ## 不在本 change
 

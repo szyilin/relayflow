@@ -178,3 +178,73 @@
 - 当 声明 Maven 依赖
 - 那么 仅依赖 `relayflow-module-system-api`
 - 并且 不依赖 `relayflow-module-system-biz`
+
+### 需求：RBAC 运行时 API 鉴权
+
+系统须通过 `permission.code` 对管理端 API 实施运行时鉴权；仅 JWT 认证不得访问受权限保护的端点。
+
+#### 场景：授权 API 调用
+
+- 当 已认证用户调用要求 `system:user:list` 的管理端端点
+- 并且 其有效权限集包含 `system:user:list`
+- 那么 请求成功返回 HTTP 200 且 `code=0`
+
+#### 场景：缺少权限
+
+- 当 已认证用户调用要求 `system:dept:create` 的端点
+- 并且 其有效权限集不包含该 code
+- 那么 系统返回 HTTP 403
+
+### 需求：权限信息 API
+
+系统须提供已认证端点，供当前用户获取角色与权限码列表，用于前端菜单与按钮门禁。
+
+#### 场景：获取权限信息
+
+- 当 客户端携带有效 Bearer JWT 请求 `GET /admin-api/system/auth/get-permission-info`
+- 那么 响应 `code` 为 0
+- 并且 `data.permissions` 为 `permission.code` 字符串数组
+- 并且 `data` 包含基本用户身份信息
+
+### 需求：部门管理 API
+
+系统须提供管理端 API，在当前租户内列出、创建、更新、删除部门；各端点须以 `system:dept:*` 权限码保护。
+
+#### 场景：列出部门
+
+- 当 具备 `system:dept:list` 的用户请求部门列表 API
+- 那么 返回当前租户内可组树的部门扁平列表
+
+#### 场景：删除含子部门或用户的部门
+
+- 当 用户尝试删除仍有子部门或关联用户的部门
+- 那么 系统以业务错误拒绝操作
+
+### 需求：角色管理 API
+
+系统须提供管理端 API 管理角色、绑定权限点、配置 `data_scope`（CUSTOM 时含 `sys_role_dept`）；各端点须以 `system:role:*` 权限码保护。
+
+#### 场景：创建自定义角色并绑权限
+
+- 当 具备 `system:role:create` 的用户提交含权限 ID 的新角色
+- 那么 持久化 `role_type=CUSTOM` 的角色
+- 并且 创建 `sys_role_permission` 关联
+
+#### 场景：系统角色不可删除
+
+- 当 用户尝试删除 `role_type=SYSTEM` 的角色
+- 那么 系统拒绝操作
+
+### 需求：用户写操作管理端 API
+
+系统须提供管理端 API，支持创建用户（含部门与角色分配）、查询详情、更新基本信息、更新成员状态、更新主部门与角色绑定；用户分页须按调用者有效 data_scope 过滤。
+
+#### 场景：创建用户并分配部门与角色
+
+- 当 具备 `system:user:create` 的管理员提交含部门与角色分配的有效创建请求
+- 那么 系统创建 `sys_user`、`sys_tenant_user` 及相关关联行
+
+#### 场景：用户分页按 data_scope 过滤
+
+- 当 具备 `system:user:list` 且 data_scope 非 ALL 的用户请求用户分页 API
+- 那么 返回用户须限制在其有效数据范围内（SELF 与允许 deptIds 并集，或 ALL 时全量）
