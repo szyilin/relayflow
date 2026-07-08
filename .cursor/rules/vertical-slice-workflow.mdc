@@ -10,19 +10,16 @@ alwaysApply: true
 ## 必须
 
 1. 默认顺序：**`-web`（UI+Mock+contract 草案）→ `-api` → `-integrate`**（见 [`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)）
-2. **唯一登录页** `/app/login`；登录后进工作台；管理端 `/admin` 同一 JWT
-3. 完成前：`-web` 须 **`pnpm build`** + 浏览器路径；integrate 须联调
-4. 已有后端无 UI → 开 **`-web`** 补 UI，勿再堆纯 `-api`
+2. **唯一登录页** `/app/login`；未登录不可进 `/app`（除 login）、`/admin`；登录后进工作台
+3. 管理端 `/admin`：同一 JWT，须 **管理身份**（见 [`product-permission-model.md`](../../docs/dev/product-permission-model.md)）
+4. 完成前：`-web` 须 **`pnpm build`** + 浏览器路径；integrate 须联调
+5. 已有后端无 UI → 开 **`-web`** 补 UI，勿再堆纯 `-api`
 
 ## 禁止
 
 - **先开 `-api` 无对应 `-web` UI**（`[平台]` 除外）
 - 连续多会话只写后端
 - 页面直接 `import mocks/`（仅 store 内）
+- 用管理面 RBAC 限制 `/app` 产品面；未登录渲染 app/admin 壳层
 
-## 下一优先
-
-1. `admin-shell-web` + integrate — 壳层租户名
-2. `admin-user-list-web` — **用户列表 UI 先行**，再 `-api`
-
-全文：[`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) · [`vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)
+全文：[`product-permission-model.md`](../../docs/dev/product-permission-model.md) · [`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) · [`vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md)

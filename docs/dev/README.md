@@ -4,6 +4,7 @@
 
 | 文档 | 内容 |
 |------|------|
+| [**product-permission-model.md**](product-permission-model.md) | **双产品面**、登录门禁、管理身份 vs 组织成员、RBAC 适用范围 |
 | [architecture.md](architecture.md) | **V1 微服务就绪单体**、四条耦合铁律、Phase 2 演进 |
 | [api.md](api.md) | 统一响应、错误码、分页、HTTP 状态；与前端路由对齐 |
 | [database.md](database.md) | 表前缀、V1 单库分域、公共字段、雪花 ID、Flyway 命名 |

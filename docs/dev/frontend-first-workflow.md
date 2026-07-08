@@ -71,9 +71,12 @@ T5  archive -integrate、-web；看板 web → done
 
 ## 认证与入口（产品约定）
 
+详见 [`product-permission-model.md`](product-permission-model.md)。
+
 - **唯一登录页**：`/app/login`（已接 `POST /admin-api/system/auth/login`）
-- 登录成功 → **员工工作台** `/app/messages`
-- **管理后台** `/admin/*` 为同一账号、同一 JWT；从工作台入口进入；**权限** 由 RBAC 控制（前端逐步加菜单/路由门禁）
+- **未登录**：`/app/**`（除 login）、`/admin/**` 必须 redirect login；禁止未登录展示 app/admin 壳层
+- 登录成功 → **员工工作台** `/app/messages`（有效成员即可，**不**用 RBAC 区分产品面）
+- **管理后台** `/admin/*`：同一账号、同一 JWT；须 **管理身份**（角色含后台 permission）；进入后 RBAC 控菜单/API
 - **禁止** 再新增 `/admin/login` 等产品级第二登录入口
 
 ## 验证命令
