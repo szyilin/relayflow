@@ -195,6 +195,26 @@
 - 并且 其有效权限集不包含该 code
 - 那么 系统返回 HTTP 403
 
+#### 场景：用户分页缺少 list 权限
+
+- 当 已认证用户不具备 `system:user:list` 调用 `GET /admin-api/system/user/page`
+- 那么 系统返回 HTTP 403
+
+#### 场景：用户分页具备 list 权限
+
+- 当 用户 `admin` 具备 `system:user:list` 调用 `GET /admin-api/system/user/page`
+- 那么 请求成功返回 HTTP 200 且 `code=0`
+
+### 需求：认证请求加载权限
+
+系统须在每次已认证的管理端请求中，从数据库加载当前用户有效 `permission.code` 并写入 Security 上下文（authorities 等于 `sys_permission.code`）。
+
+#### 场景：超级管理员加载种子权限
+
+- 当 用户 `admin` 使用有效 JWT 认证
+- 那么 Security 上下文 authorities 包含 `system:user:list`
+- 并且 包含绑定至 `super_admin` 的其他 system 域预置权限码
+
 ### 需求：权限信息 API
 
 系统须提供已认证端点，供当前用户获取角色与权限码列表，用于前端菜单与按钮门禁。
@@ -204,7 +224,70 @@
 - 当 客户端携带有效 Bearer JWT 请求 `GET /admin-api/system/auth/get-permission-info`
 - 那么 响应 `code` 为 0
 - 并且 `data.permissions` 为 `permission.code` 字符串数组
+- 并且 `data.isAdmin` 为布尔值，与权限集合是否非空一致
 - 并且 `data` 包含基本用户身份信息
+
+#### 场景：超级管理员 permission info
+
+- 当 客户端携带有效 Bearer token 调用 `get-permission-info`
+- 那么 HTTP 200 且 `code=0`
+- 并且 `data.permissions` 对 `super_admin` 为非空数组
+- 并且 `data.isAdmin` 为 true
+
+#### 场景：未认证 permission info
+
+- 当 客户端未携带 token 调用 `get-permission-info`
+- 那么 系统返回 HTTP 401
+
+#### 场景：普通成员 permission info
+
+- 当 非管理身份的有效组织成员携带有效 Bearer JWT 调用 `get-permission-info`
+- 那么 HTTP 200 且 `code=0`
+- 并且 `data.isAdmin` 为 false
+- 并且 `data.permissions` 为空数组
+
+### 需求：管理身份判定
+
+系统须将 **管理身份（isAdmin）** 定义为：在当前租户下，用户经 `sys_user_role → sys_role → sys_role_permission → sys_permission` 解析得到的有效 `permission.code` 集合**非空**。
+
+#### 场景：超级管理员为管理身份
+
+- 当 用户 `admin` 在默认租户下绑定 `super_admin` 且该角色有关联 permission
+- 那么 该用户的 `isAdmin` 为 true
+
+#### 场景：无角色非管理身份
+
+- 当 用户已登录且在当前租户下未绑定任何角色
+- 那么 该用户的 `isAdmin` 为 false
+
+#### 场景：零权限角色非管理身份
+
+- 当 用户绑定了 `sys_role` 但该角色未关联任何 `sys_permission`
+- 那么 该用户的 `isAdmin` 为 false
+
+### 需求：管理面 API 门户准入
+
+系统须对 `/admin-api/**` 实施门户层鉴权：已认证但 `isAdmin=false`（security authorities 为空）的用户不得访问除明确白名单外的管理端 API。
+
+#### 场景：非管理员调用受保护管理 API
+
+- 当 已认证但 authorities 为空的用户调用 `GET /admin-api/system/user/page`
+- 那么 系统返回 HTTP 403
+
+#### 场景：非管理员仍可获取 permission info
+
+- 当 已认证但 authorities 为空的用户调用 `GET /admin-api/system/auth/get-permission-info`
+- 那么 请求成功返回 HTTP 200 且 `code=0`
+
+#### 场景：非管理员登录与租户默认信息白名单
+
+- 当 未认证用户调用 `POST /admin-api/system/auth/login` 或 `GET /admin-api/system/tenant/default`
+- 那么 请求按现有 permitAll 规则处理
+
+#### 场景：管理员调用管理 API
+
+- 当 已认证且 authorities 包含 `system:user:list` 的用户调用 `GET /admin-api/system/user/page`
+- 那么 请求按既有 RBAC 规则处理（HTTP 200 且 `code=0` 当 permission 满足）
 
 ### 需求：部门管理 API
 
