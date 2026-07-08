@@ -1,0 +1,32 @@
+---
+description: 双产品面与权限模型 — 工作台 vs 管理后台、登录门禁、isAdmin
+alwaysApply: true
+---
+
+# 产品权限模型（必读）
+
+完整说明：[`docs/dev/product-permission-model.md`](../../docs/dev/product-permission-model.md)
+
+## 两个产品面
+
+| 面 | 路由 | 准入 |
+|----|------|------|
+| **员工工作台** | `/app/**` | 有效组织成员 + 已登录；**不用** `sys_permission` 区分 |
+| **管理后台** | `/admin/**` | 已登录 + **管理身份**（`sys_role` 且角色有 ≥1 个 permission） |
+
+同一账号、同一 JWT、`/app/login` 唯一登录页。
+
+## 登录门禁（前端）
+
+- `/app/**`（除 login）、`/admin/**`：**未登录必须** redirect `/app/login?redirect=...`
+- **禁止**未登录仍渲染 app/admin 壳层（空 UI 易误判已登录）
+- 管理后台入口、 `/admin/**`：**目标态**仅 `isAdmin` 可进；勿按「有 token 即可」实现新功能
+
+## 管理面 RBAC
+
+- 仅作用于 `/admin/**`、`/admin-api/**`：菜单/按钮/API 按 `permission.code`
+- **禁止**用管理面 RBAC 限制 `/app` 主导航
+
+## 实现 auth/guard/nav/Security 前
+
+先读 [`product-permission-model.md`](../../docs/dev/product-permission-model.md) §6（目标态 vs 现状 gap）。

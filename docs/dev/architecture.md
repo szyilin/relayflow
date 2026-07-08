@@ -48,6 +48,15 @@ relayflow-server/                     # 唯一运行时入口
 3. **数据分域**：表前缀 `sys_` / `infra_` / `im_`；**禁止** im 的 Mapper 访问 `sys_` 表
 4. **API 路径**：`/admin-api/{module}/`、`/app-api/{module}/` 与未来 Gateway 路由一致
 
+### 产品面与 API 前缀
+
+前端 **员工工作台**（`/app`）与 **管理后台**（`/admin`）共用同一登录与 JWT；准入语义见 [`product-permission-model.md`](product-permission-model.md)。
+
+| API 前缀 | 产品面 | 鉴权要点 |
+|----------|--------|----------|
+| `/app-api/**` | 员工使用端 | JWT + 当前租户有效成员；**不**默认要求 `sys_permission` |
+| `/admin-api/**` | 企业管理端 | JWT + 管理身份 + 各端点 `permission.code` |
+
 ### 数据库（V1）
 
 - **一个** PostgreSQL 数据库（如 `relayflow`）
@@ -81,6 +90,7 @@ relayflow-server/                     # 唯一运行时入口
 
 ## 参考
 
+- 产品面与权限：[`product-permission-model.md`](product-permission-model.md)
 - 模块与代码风格：[`code-style.md`](code-style.md)
 - 数据库与 Flyway：[`database.md`](database.md)
 - API 约定：[`api.md`](api.md)
