@@ -1,6 +1,8 @@
 import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { useAuthStore } from '../stores/auth'
 
 export interface WorkspaceRailItem {
   id: string
@@ -12,6 +14,8 @@ export interface WorkspaceRailItem {
 
 export function useWorkspaceNav() {
   const route = useRoute()
+  const authStore = useAuthStore()
+  const { isAdmin } = storeToRefs(authStore)
 
   const railItems: WorkspaceRailItem[] = [{
     id: 'messages',
@@ -52,12 +56,18 @@ export function useWorkspaceNav() {
     return 'messages'
   })
 
-  const footerLinks = [[{
-    label: '管理后台',
-    icon: 'i-lucide-shield',
-    to: '/admin',
-    target: '_self'
-  }]] satisfies NavigationMenuItem[][]
+  const footerLinks = computed(() => {
+    if (!isAdmin.value) {
+      return [[]] satisfies NavigationMenuItem[][]
+    }
+
+    return [[{
+      label: '管理后台',
+      icon: 'i-lucide-shield',
+      to: '/admin',
+      target: '_self'
+    }]] satisfies NavigationMenuItem[][]
+  })
 
   return {
     railItems,

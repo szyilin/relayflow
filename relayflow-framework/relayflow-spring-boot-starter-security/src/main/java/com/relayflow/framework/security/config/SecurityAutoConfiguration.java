@@ -2,6 +2,7 @@ package com.relayflow.framework.security.config;
 
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.security.core.PermissionAuthoritiesLoader;
+import com.relayflow.framework.security.filter.AdminPortalAuthorizationFilter;
 import com.relayflow.framework.security.filter.JwtAuthenticationFilter;
 import com.relayflow.framework.security.handler.RelayflowAccessDeniedHandler;
 import com.relayflow.framework.security.handler.RelayflowAuthenticationEntryPoint;
@@ -39,7 +40,15 @@ public class SecurityAutoConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
+    public AdminPortalAuthorizationFilter adminPortalAuthorizationFilter() {
+        return new AdminPortalAuthorizationFilter();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AdminPortalAuthorizationFilter adminPortalAuthorizationFilter)
             throws Exception {
         http.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
@@ -53,7 +62,8 @@ public class SecurityAutoConfiguration {
                                 "/admin-api/system/tenant/default"
                         ).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(adminPortalAuthorizationFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 }

@@ -39,7 +39,8 @@
     "system:user:list",
     "system:dept:list",
     "system:role:list"
-  ]
+  ],
+  "isAdmin": true
 }
 ```
 
@@ -53,6 +54,7 @@
 | `roles[].code` | string | 可空（自定义角色） |
 | `roles[].name` | string | 角色名 |
 | `permissions` | string[] | 去重后的 `sys_permission.code` 列表 |
+| `isAdmin` | boolean | 是否具备管理身份（`permissions` 非空） |
 
 **curl**：
 
@@ -84,7 +86,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | 项 | 约定 |
 |----|------|
 | API | `web/src/api/admin/auth.ts` → `getPermissionInfo()` |
-| Store | `stores/auth.ts` → `permissions: string[]`、`fetchPermissionInfo()` |
+| Store | `stores/auth.ts` → `permissions: string[]`、`isAdmin`、`fetchPermissionInfo()` |
 | Composable | `composables/usePermission.ts` → `hasPermission(code)` |
 | Nav | `useAdminNav.ts` 每项可选 `permission?: string` |
 | 调用时机 | 登录成功后 + 已有 token 进入 `/admin` 壳层时 |

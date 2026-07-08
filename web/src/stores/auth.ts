@@ -45,12 +45,16 @@ export const useAuthStore = defineStore('auth', () => {
   const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
   const user = ref<AuthUser | null>(readStoredUser())
   const permissions = ref<string[]>([])
+  const isAdmin = ref(false)
+  const permissionInfoLoaded = ref(false)
 
   const isAuthenticated = computed(() => Boolean(token.value))
 
   async function fetchPermissionInfo() {
     const data = await getPermissionInfo()
     permissions.value = data.permissions
+    isAdmin.value = data.isAdmin
+    permissionInfoLoaded.value = true
 
     if (user.value) {
       const updatedUser: AuthUser = {
@@ -83,6 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = data.accessToken
       tenantId.value = data.tenantId
       user.value = authUser
+      permissionInfoLoaded.value = false
       persistSession(data.accessToken, data.tenantId, authUser)
 
       await fetchPermissionInfo()
@@ -102,6 +107,8 @@ export const useAuthStore = defineStore('auth', () => {
     tenantId.value = null
     user.value = null
     permissions.value = []
+    isAdmin.value = false
+    permissionInfoLoaded.value = false
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(TENANT_KEY)
     localStorage.removeItem(USER_KEY)
@@ -112,6 +119,8 @@ export const useAuthStore = defineStore('auth', () => {
     tenantId,
     user,
     permissions,
+    isAdmin,
+    permissionInfoLoaded,
     isAuthenticated,
     login,
     logout,

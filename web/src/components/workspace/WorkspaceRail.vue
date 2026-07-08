@@ -71,6 +71,7 @@ function logout() {
 
     <div class="space-y-1 border-t border-[var(--ws-border-subtle)] p-2">
       <RouterLink
+        v-if="authStore.isAdmin"
         to="/admin"
         class="workspace-rail-btn flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[var(--ws-text-muted)]"
       >
