@@ -9,8 +9,8 @@ const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(false)
 const form = reactive({
-  username: '',
-  password: ''
+  username: import.meta.env.DEV ? 'admin' : '',
+  password: import.meta.env.DEV ? 'admin123' : ''
 })
 
 async function onSubmit() {
