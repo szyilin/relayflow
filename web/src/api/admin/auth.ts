@@ -22,6 +22,7 @@ export interface AuthPermissionInfoResp {
   nickname: string
   roles: AuthPermissionRole[]
   permissions: string[]
+  isAdmin: boolean
 }
 
 export function login(data: AuthLoginReq): Promise<AuthLoginResp> {

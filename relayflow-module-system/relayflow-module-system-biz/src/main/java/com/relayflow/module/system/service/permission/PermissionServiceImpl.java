@@ -69,6 +69,11 @@ public class PermissionServiceImpl implements PermissionService {
     }
 
     @Override
+    public boolean isAdmin(Long userId, Long tenantId) {
+        return !getPermissionCodes(userId, tenantId).isEmpty();
+    }
+
+    @Override
     public List<RoleSimpleDTO> getRoleList(Long userId, Long tenantId) {
         return loadRoles(userId, tenantId).stream()
                 .sorted(Comparator.comparing(SysRoleDO::getSort, Comparator.nullsLast(Integer::compareTo))
@@ -95,7 +100,9 @@ public class PermissionServiceImpl implements PermissionService {
             vo.setName(role.getName());
             return vo;
         }).toList());
-        response.setPermissions(new ArrayList<>(getPermissionCodes(userId, tenantId)));
+        Set<String> permissionCodes = getPermissionCodes(userId, tenantId);
+        response.setPermissions(new ArrayList<>(permissionCodes));
+        response.setAdmin(!permissionCodes.isEmpty());
         return response;
     }
 

@@ -11,6 +11,8 @@ public interface PermissionService {
 
     Set<String> getPermissionCodes(Long userId, Long tenantId);
 
+    boolean isAdmin(Long userId, Long tenantId);
+
     List<RoleSimpleDTO> getRoleList(Long userId, Long tenantId);
 
     AuthPermissionInfoRespVO getPermissionInfo(Long userId, Long tenantId);

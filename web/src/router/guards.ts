@@ -4,10 +4,21 @@ import { useAuthStore } from '../stores/auth'
 /** 产品唯一登录页 */
 export const LOGIN_PATH = '/app/login'
 
+/** 已登录但无管理身份时的引导页 */
+export const NO_ADMIN_ACCESS_PATH = '/app/no-admin-access'
+
 const PUBLIC_PATHS = new Set([LOGIN_PATH])
 
+async function ensurePermissionInfoLoaded(authStore: ReturnType<typeof useAuthStore>) {
+  if (!authStore.isAuthenticated || authStore.permissionInfoLoaded) {
+    return
+  }
+
+  await authStore.fetchPermissionInfo()
+}
+
 export function setupAdminGuards(router: Router) {
-  router.beforeEach((to) => {
+  router.beforeEach(async (to) => {
     const authStore = useAuthStore()
 
     if (to.path === '/admin/login') {
@@ -39,6 +50,18 @@ export function setupAdminGuards(router: Router) {
         return { path: '/app/messages' }
       }
 
+      if (authStore.isAuthenticated && !isPublic) {
+        try {
+          await ensurePermissionInfoLoaded(authStore)
+        } catch {
+          authStore.logout()
+          return {
+            path: LOGIN_PATH,
+            query: { redirect: to.fullPath }
+          }
+        }
+      }
+
       return true
     }
 
@@ -51,6 +74,20 @@ export function setupAdminGuards(router: Router) {
         path: LOGIN_PATH,
         query: { redirect: to.fullPath }
       }
+    }
+
+    try {
+      await ensurePermissionInfoLoaded(authStore)
+    } catch {
+      authStore.logout()
+      return {
+        path: LOGIN_PATH,
+        query: { redirect: to.fullPath }
+      }
+    }
+
+    if (!authStore.isAdmin) {
+      return { path: NO_ADMIN_ACCESS_PATH }
     }
 
     return true

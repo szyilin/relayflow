@@ -129,6 +129,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/no-admin-access': RouteRecordInfo<
+      '/app/no-admin-access',
+      '/app/no-admin-access',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/app/tasks/': RouteRecordInfo<
       '/app/tasks/',
       '/app/tasks',
@@ -256,6 +263,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/messages/index.vue': {
       routes:
         | '/app/messages/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/no-admin-access.vue': {
+      routes:
+        | '/app/no-admin-access'
       views:
         | never
       pathParamNames:
