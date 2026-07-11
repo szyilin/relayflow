@@ -21,6 +21,12 @@
 
 ```json
 {
+  "effectiveSource": "bootstrap",
+  "bootstrap": {
+    "available": true,
+    "provider": "minio",
+    "credentialsConfigured": true
+  },
   "providers": [
     {
       "provider": "minio",
@@ -38,6 +44,27 @@
 ```
 
 空 `providers` 表示租户未自定义，运行时回退 `application.yml` Bootstrap。
+
+空 `providers` 表示租户尚未保存自定义配置；`effectiveSource=bootstrap` 时新上传使用部署默认。
+
+`bootstrap` **不得**包含 endpoint、accessKey、secretKey 等敏感字段。
+
+### PUT /admin-api/infra/storage/effective-source
+
+| 项 | 值 |
+|----|-----|
+| 鉴权 | Bearer JWT |
+| 所需权限 | `infra:storage:update` |
+
+**Request body**：
+
+```json
+{ "source": "bootstrap" }
+```
+
+或 `{ "source": "tenant" }`（须已存在租户 MinIO 配置）。
+
+**Response `data`**：`true`
 
 ### PUT /admin-api/infra/storage/config
 
@@ -66,7 +93,7 @@
 | `provider` | 是 | V1 仅 `minio` |
 | `endpoint` / `bucket` / `accessKey` | 是 | |
 | `secretKey` | 新建必填；更新可空（保留原密文） | |
-| `isDefault` | 否 | `true` 时旧默认改 `legacy` |
+| `isDefault` | **已废弃**（由 `effective-source` 控制） | |
 
 **Response `data`**：`true`
 
@@ -90,7 +117,15 @@
 **Request body**（二选一）：
 
 ```json
-{ "provider": "minio" }
+{ "source": "bootstrap" }
+```
+
+测试部署环境 Bootstrap（密钥不出服务端）。
+
+或租户配置：
+
+```json
+{ "source": "tenant", "provider": "minio" }
 ```
 
 或带 inline 参数（须含 `secretKey`）：

@@ -5,13 +5,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.common.encrypt.AesGcmEncryptor;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.oss.config.StorageProperties;
 import com.relayflow.framework.oss.core.ObjectStorageClient;
 import com.relayflow.framework.oss.core.ObjectStorageClientFactory;
 import com.relayflow.framework.oss.core.ObjectStorageProviderType;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.infra.controller.admin.storage.vo.StorageBootstrapSummaryVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageConfigRespVO;
+import com.relayflow.module.infra.controller.admin.storage.vo.StorageEffectiveSourceReqVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageProviderRespVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageProviderSaveReqVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageTestConnectionReqVO;
@@ -36,10 +39,13 @@ public class StorageProviderServiceImpl implements StorageProviderService {
     private static final String STATUS_ACTIVE = "active";
     private static final String STATUS_LEGACY = "legacy";
     private static final String PROVIDER_MINIO = "minio";
+    private static final String SOURCE_BOOTSTRAP = "bootstrap";
+    private static final String SOURCE_TENANT = "tenant";
 
     private final InfraStorageProviderMapper providerMapper;
     private final InfraFileMapper fileMapper;
     private final ObjectStorageClientFactory clientFactory;
+    private final StorageProperties storageProperties;
     private final AesGcmEncryptor encryptor;
     private final ObjectMapper objectMapper;
     private final TenantProperties tenantProperties;
@@ -55,8 +61,30 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                 .map(row -> StorageProviderConvert.toVo(row, parseConfigJson(row.getConfigJson())))
                 .toList();
         StorageConfigRespVO response = new StorageConfigRespVO();
+        response.setBootstrap(buildBootstrapSummary());
+        response.setEffectiveSource(resolveEffectiveSource(rows));
         response.setProviders(providers);
         return response;
+    }
+
+    @Override
+    @Transactional
+    public void setEffectiveSource(StorageEffectiveSourceReqVO request) {
+        String source = normalizeSource(request.getSource());
+        Long tenantId = resolveTenantId();
+        if (SOURCE_BOOTSTRAP.equals(source)) {
+            clearDefaultFlags(tenantId);
+            return;
+        }
+
+        InfraStorageProviderDO tenantProvider = findProvider(tenantId, PROVIDER_MINIO);
+        if (tenantProvider == null) {
+            throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_NOT_FOUND);
+        }
+        clearDefaultFlags(tenantId);
+        tenantProvider.setIsDefault(1);
+        tenantProvider.setStatus(STATUS_ACTIVE);
+        providerMapper.updateById(tenantProvider);
     }
 
     @Override
@@ -83,17 +111,15 @@ public class StorageProviderServiceImpl implements StorageProviderService {
             throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
         }
 
-        boolean makeDefault = Boolean.TRUE.equals(request.getIsDefault());
-        if (makeDefault) {
-            markPreviousDefaultLegacy(tenantId, provider);
-            clearDefaultFlags(tenantId);
-        }
+        List<InfraStorageProviderDO> tenantRows = providerMapper.selectList(Wrappers.<InfraStorageProviderDO>lambdaQuery()
+                .eq(InfraStorageProviderDO::getTenantId, tenantId));
+        boolean tenantEffective = SOURCE_TENANT.equals(resolveEffectiveSource(tenantRows));
 
         InfraStorageProviderDO row = existing != null ? existing : new InfraStorageProviderDO();
         row.setTenantId(tenantId);
         row.setProvider(provider);
         row.setStatus(STATUS_ACTIVE);
-        row.setIsDefault(makeDefault ? 1 : (existing != null ? existing.getIsDefault() : 0));
+        row.setIsDefault(tenantEffective ? 1 : 0);
         row.setConfigJson(writeConfigJson(configJson));
 
         if (existing == null) {
@@ -123,10 +149,52 @@ public class StorageProviderServiceImpl implements StorageProviderService {
 
     @Override
     public void testConnection(StorageTestConnectionReqVO request) {
+        if (SOURCE_BOOTSTRAP.equalsIgnoreCase(request.getSource())) {
+            runConnectivityCheck(storageProperties.toBootstrapConfig());
+            return;
+        }
+
         String provider = normalizeProvider(request.getProvider());
+        if (!StringUtils.hasText(provider)) {
+            provider = PROVIDER_MINIO;
+        }
         validateSupportedProvider(provider);
         StorageProviderConfig runtimeConfig = buildRuntimeConfig(resolveTenantId(), provider, request);
         runConnectivityCheck(runtimeConfig);
+    }
+
+    private StorageBootstrapSummaryVO buildBootstrapSummary() {
+        StorageBootstrapSummaryVO summary = new StorageBootstrapSummaryVO();
+        ObjectStorageProviderType defaultProvider = storageProperties.getDefaultProvider();
+        if (defaultProvider == null) {
+            summary.setAvailable(false);
+            return summary;
+        }
+        summary.setAvailable(true);
+        summary.setProvider(defaultProvider.name().toLowerCase());
+        try {
+            storageProperties.validateBootstrapBlocks();
+            summary.setCredentialsConfigured(true);
+        } catch (IllegalStateException ex) {
+            summary.setCredentialsConfigured(false);
+        }
+        return summary;
+    }
+
+    private String resolveEffectiveSource(List<InfraStorageProviderDO> rows) {
+        boolean tenantDefault = rows.stream().anyMatch(row -> Integer.valueOf(1).equals(row.getIsDefault()));
+        return tenantDefault ? SOURCE_TENANT : SOURCE_BOOTSTRAP;
+    }
+
+    private String normalizeSource(String source) {
+        if (!StringUtils.hasText(source)) {
+            throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+        }
+        String normalized = source.trim().toLowerCase();
+        if (!SOURCE_BOOTSTRAP.equals(normalized) && !SOURCE_TENANT.equals(normalized)) {
+            throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+        }
+        return normalized;
     }
 
     private StorageProviderConfig buildRuntimeConfig(Long tenantId,
