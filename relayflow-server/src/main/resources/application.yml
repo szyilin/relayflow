@@ -23,3 +23,14 @@ relayflow:
     jwt:
       secret: ${RELAYFLOW_JWT_SECRET:dev-only-change-me-in-production}
       access-token-expire-seconds: 7200
+  storage:
+    default-provider: minio
+    allow-local: false
+    validate-on-startup: true
+    minio:
+      endpoint: ${RELAYFLOW_MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${MINIO_ROOT_USER:minioadmin}
+      secret-key: ${MINIO_ROOT_PASSWORD:minioadmin}
+      bucket: relayflow
+      use-ssl: false
+      path-prefix: ""
