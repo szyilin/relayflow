@@ -32,7 +32,7 @@ public class RelayflowColumnTypeConvertHandler implements com.baomidou.mybatispl
         }
 
         if ("timestamptz".equalsIgnoreCase(metaInfo.getTypeName())) {
-            return simpleType("OffsetDateTime", "java.time");
+            return simpleType("OffsetDateTime", "java.time.OffsetDateTime");
         }
 
         if ("int2".equalsIgnoreCase(metaInfo.getTypeName()) || "smallint".equalsIgnoreCase(metaInfo.getTypeName())) {

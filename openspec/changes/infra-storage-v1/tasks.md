@@ -13,7 +13,8 @@
 > 每个子 change 须含 `proposal.md`、`design.md`、`tasks.md`、必要 spec delta；有 UI 的须 `openspec/lanes/{slice}/contract.md`。
 
 - [x] 2.0 `infra-storage-platform` 已 propose（见 `openspec/changes/infra-storage-platform/`）
-- [ ] 2.0b ②–⑧ 子 change 在实施前按需 `openspec new change <name>`
+- [x] 2.0b ② `infra-storage-schema` 已 propose + apply（见 `openspec/changes/infra-storage-schema/`）
+- [ ] 2.0c ③–⑧ 子 change 在实施前按需 `openspec new change <name>`
 
 ### ① `infra-storage-platform` `[平台]`
 
