@@ -2,6 +2,7 @@ package com.relayflow.module.infra.controller.admin.storage;
 
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageConfigRespVO;
+import com.relayflow.module.infra.controller.admin.storage.vo.StorageEffectiveSourceReqVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageProviderSaveReqVO;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageTestConnectionReqVO;
 import com.relayflow.module.infra.service.storage.StorageProviderService;
@@ -37,6 +38,13 @@ public class StorageConfigController {
     @PutMapping("/config")
     public CommonResult<Boolean> saveConfig(@Valid @RequestBody StorageProviderSaveReqVO request) {
         storageProviderService.saveConfig(request);
+        return CommonResult.success(true);
+    }
+
+    @PreAuthorize("hasAuthority('infra:storage:update')")
+    @PutMapping("/effective-source")
+    public CommonResult<Boolean> setEffectiveSource(@Valid @RequestBody StorageEffectiveSourceReqVO request) {
+        storageProviderService.setEffectiveSource(request);
         return CommonResult.success(true);
     }
 

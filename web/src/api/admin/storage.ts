@@ -1,5 +1,13 @@
 import { del, get, post, put } from '../request'
 
+export type StorageEffectiveSource = 'bootstrap' | 'tenant'
+
+export interface StorageBootstrapSummary {
+  available: boolean
+  provider?: string
+  credentialsConfigured?: boolean
+}
+
 export interface StorageProviderItem {
   provider: string
   status?: string
@@ -13,6 +21,8 @@ export interface StorageProviderItem {
 }
 
 export interface StorageConfigResponse {
+  effectiveSource: StorageEffectiveSource
+  bootstrap: StorageBootstrapSummary
   providers: StorageProviderItem[]
 }
 
@@ -24,11 +34,15 @@ export interface StorageProviderSavePayload {
   secretKey?: string
   useSsl?: boolean
   pathPrefix?: string
-  isDefault?: boolean
+}
+
+export interface StorageEffectiveSourcePayload {
+  source: StorageEffectiveSource
 }
 
 export interface StorageTestConnectionPayload {
-  provider: string
+  source?: StorageEffectiveSource
+  provider?: string
   endpoint?: string
   bucket?: string
   accessKey?: string
@@ -43,6 +57,10 @@ export function getStorageConfig(): Promise<StorageConfigResponse> {
 
 export function saveStorageConfig(data: StorageProviderSavePayload): Promise<boolean> {
   return put<boolean>('/admin-api/infra/storage/config', data)
+}
+
+export function setStorageEffectiveSource(data: StorageEffectiveSourcePayload): Promise<boolean> {
+  return put<boolean>('/admin-api/infra/storage/effective-source', data)
 }
 
 export function deleteStorageConfig(provider: string): Promise<boolean> {

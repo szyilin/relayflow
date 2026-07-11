@@ -1,12 +1,15 @@
 package com.relayflow.module.infra.controller.admin.storage.vo;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class StorageTestConnectionReqVO {
 
-    @NotBlank
+    /**
+     * {@code bootstrap} tests deployment config; {@code tenant} tests saved or inline tenant config.
+     */
+    private String source;
+
     private String provider;
 
     private String endpoint;
