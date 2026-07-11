@@ -19,6 +19,8 @@
 
 策略骨架 + MinIO 实现 + Bootstrap 启动校验 + `application.yml` 绑定。
 
+- [x] ① 实施完成（见 `openspec/changes/infra-storage-platform/`）
+
 | # | 任务摘要 |
 |---|----------|
 | 1 | BOM 引入 MinIO SDK |
