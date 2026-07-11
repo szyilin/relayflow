@@ -1,1 +1,2 @@
 com.relayflow.framework.security.config.SecurityAutoConfiguration
+com.relayflow.framework.security.config.EncryptAutoConfiguration
