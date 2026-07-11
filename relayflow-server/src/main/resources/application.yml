@@ -36,6 +36,8 @@ relayflow:
     jwt:
       secret: ${RELAYFLOW_JWT_SECRET:dev-only-change-me-in-production}
       access-token-expire-seconds: 7200
+  encrypt:
+    aes-key: ${RELAYFLOW_ENCRYPT_AES_KEY:cmVsYXlmbG93LWRldi1hZXMta2V5LWNoYW5nZS1tZSE=}
   storage:
     default-provider: minio
     allow-local: false
