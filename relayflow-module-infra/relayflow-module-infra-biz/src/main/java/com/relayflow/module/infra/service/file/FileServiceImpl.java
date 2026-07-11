@@ -1,0 +1,105 @@
+package com.relayflow.module.infra.service.file;
+
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.oss.core.model.StorageObjectMeta;
+import com.relayflow.framework.oss.core.model.StorageProviderConfig;
+import com.relayflow.framework.tenant.config.TenantProperties;
+import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
+import com.relayflow.module.infra.api.file.dto.FileRespDTO;
+import com.relayflow.module.infra.convert.FileConvert;
+import com.relayflow.module.infra.dal.dataobject.InfraFileBindingDO;
+import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
+import com.relayflow.module.infra.dal.dataobject.InfraFileUploadSessionDO;
+import com.relayflow.module.infra.dal.mysql.InfraFileBindingMapper;
+import com.relayflow.module.infra.dal.mysql.InfraFileMapper;
+import com.relayflow.module.infra.enums.ErrorCodeConstants;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+@Service
+@RequiredArgsConstructor
+public class FileServiceImpl implements FileService {
+
+    private final InfraFileMapper fileMapper;
+    private final InfraFileBindingMapper bindingMapper;
+    private final TenantProperties tenantProperties;
+
+    @Override
+    public FileRespDTO getFile(Long fileId) {
+        return FileConvert.toDto(requireFile(fileId));
+    }
+
+    @Override
+    public InfraFileDO requireFile(Long fileId) {
+        Long tenantId = resolveTenantId();
+        InfraFileDO file = fileMapper.selectOne(Wrappers.<InfraFileDO>lambdaQuery()
+                .eq(InfraFileDO::getId, fileId)
+                .eq(InfraFileDO::getTenantId, tenantId)
+                .last("LIMIT 1"));
+        if (file == null) {
+            throw new ServiceException(ErrorCodeConstants.FILE_NOT_FOUND);
+        }
+        return file;
+    }
+
+    @Override
+    public InfraFileDO createFromSession(InfraFileUploadSessionDO session,
+                                         StorageProviderConfig providerConfig,
+                                         StorageObjectMeta objectMeta) {
+        InfraFileDO file = new InfraFileDO();
+        file.setTenantId(session.getTenantId());
+        file.setProvider(session.getProvider());
+        file.setStorageUri(buildStorageUri(providerConfig.getBucket(), session.getObjectKey()));
+        file.setObjectKey(session.getObjectKey());
+        file.setOriginalName(session.getOriginalName());
+        file.setMimeType(session.getMimeType());
+        file.setSize(objectMeta.getSize());
+        file.setAccessLevel(session.getAccessLevel());
+        fileMapper.insert(file);
+        return file;
+    }
+
+    @Override
+    @Transactional
+    public void bindFile(FileBindReqDTO request) {
+        if (request == null
+                || request.getFileId() == null
+                || !StringUtils.hasText(request.getBizType())
+                || request.getBizId() == null) {
+            throw new ServiceException(ErrorCodeConstants.FILE_UPLOAD_INVALID_REQUEST);
+        }
+
+        Long tenantId = resolveTenantId();
+        requireFile(request.getFileId());
+
+        String bizType = request.getBizType().trim();
+        Long existing = bindingMapper.selectCount(Wrappers.<InfraFileBindingDO>lambdaQuery()
+                .eq(InfraFileBindingDO::getTenantId, tenantId)
+                .eq(InfraFileBindingDO::getFileId, request.getFileId())
+                .eq(InfraFileBindingDO::getBizType, bizType)
+                .eq(InfraFileBindingDO::getBizId, request.getBizId()));
+        if (existing != null && existing > 0) {
+            return;
+        }
+
+        InfraFileBindingDO binding = new InfraFileBindingDO();
+        binding.setTenantId(tenantId);
+        binding.setFileId(request.getFileId());
+        binding.setBizType(bizType);
+        binding.setBizId(request.getBizId());
+        bindingMapper.insert(binding);
+    }
+
+    static String buildStorageUri(String bucket, String objectKey) {
+        return "minio://" + bucket + "/" + objectKey;
+    }
+
+    private Long resolveTenantId() {
+        Long tenantId = TenantContextHolder.get();
+        return tenantId != null ? tenantId : tenantProperties.getDefaultId();
+    }
+}
