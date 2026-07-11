@@ -14,7 +14,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-8 p-4 sm:p-6">
+      <div class="space-y-8">
         <section class="space-y-4">
           <h2 class="text-lg font-semibold">
             色板

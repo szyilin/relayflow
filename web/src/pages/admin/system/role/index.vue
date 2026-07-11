@@ -308,7 +308,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-4 p-4 sm:p-6">
+      <div class="space-y-4">
         <AdminPageHeader
           title="角色列表"
           description="管理功能权限与数据范围"

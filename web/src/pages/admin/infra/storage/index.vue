@@ -258,7 +258,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-4 p-4 sm:p-6">
+      <div class="space-y-4">
         <AdminPageHeader
           title="对象存储"
           description="系统默认由部署环境提供且不展示敏感信息；租户可另存一套 MinIO 并选择生效来源"

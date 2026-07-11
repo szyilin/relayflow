@@ -153,7 +153,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-4 p-4 sm:p-6">
+      <div class="space-y-4">
         <AdminPageHeader
           title="部门架构"
           description="组织架构与部门层级"
