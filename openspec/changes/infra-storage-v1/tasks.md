@@ -16,7 +16,7 @@
 - [x] 2.0b ② `infra-storage-schema` 已 propose + apply（见 `openspec/changes/infra-storage-schema/`）
 - [x] 2.0c ③ `infra-storage-config-api` 已 propose + apply（见 `openspec/changes/infra-storage-config-api/`）
 - [x] 2.0d ④ `infra-storage-config-web` 已 propose + apply（见 `openspec/changes/infra-storage-config-web/`）
-- [ ] 2.0e ⑤–⑧ 子 change 在实施前按需 `openspec new change <name>`
+- [ ] 2.0e ⑤–⑧ 子 change 已 propose + apply（见 archive ③–⑦）
 
 ### ① `infra-storage-platform` `[平台]`
 

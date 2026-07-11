@@ -8,10 +8,14 @@ import com.relayflow.module.infra.controller.admin.file.vo.FileUploadConfirmReqV
 import com.relayflow.module.infra.controller.admin.file.vo.FileUploadConfirmRespVO;
 import com.relayflow.module.infra.controller.admin.file.vo.FileUploadSessionCreateReqVO;
 import com.relayflow.module.infra.controller.admin.file.vo.FileUploadSessionRespVO;
+import com.relayflow.module.infra.service.file.FileDownloadService;
 import com.relayflow.module.infra.service.file.FileService;
 import com.relayflow.module.infra.service.file.FileUploadSessionService;
+import com.relayflow.module.infra.service.file.model.FileDownloadRedirect;
+import com.relayflow.module.infra.controller.app.file.AppFileController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +34,14 @@ public class FileController {
 
     private final FileUploadSessionService fileUploadSessionService;
     private final FileService fileService;
+    private final FileDownloadService fileDownloadService;
+
+    @PreAuthorize("hasAuthority('infra:file:download')")
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Void> downloadFile(@PathVariable Long id) {
+        FileDownloadRedirect redirect = fileDownloadService.resolveAdminDownload(id);
+        return AppFileController.buildRedirect(redirect);
+    }
 
     @PreAuthorize("hasAuthority('infra:file:list')")
     @GetMapping("/page")

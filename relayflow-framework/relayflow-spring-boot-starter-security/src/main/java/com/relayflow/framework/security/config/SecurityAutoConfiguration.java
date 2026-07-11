@@ -61,7 +61,8 @@ public class SecurityAutoConfiguration {
                 .authorizeHttpRequests(registry -> registry
                         .requestMatchers(
                                 "/admin-api/system/auth/login",
-                                "/admin-api/system/tenant/default"
+                                "/admin-api/system/tenant/default",
+                                "/app-api/infra/file/public/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

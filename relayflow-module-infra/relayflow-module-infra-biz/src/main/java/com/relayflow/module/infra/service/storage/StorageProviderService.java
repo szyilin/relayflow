@@ -27,4 +27,9 @@ public interface StorageProviderService {
      * Runtime object storage config for the current tenant (tenant override or bootstrap).
      */
     StorageProviderConfig resolveEffectiveProviderConfig();
+
+    /**
+     * Resolve storage config for reading an existing file by its persisted provider name.
+     */
+    StorageProviderConfig resolveProviderConfig(String provider);
 }

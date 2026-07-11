@@ -5,6 +5,7 @@ import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { useDirectUpload } from '../../../../composables/useDirectUpload'
 import { usePermission } from '../../../../composables/usePermission'
+import { openAdminFileDownload } from '../../../../api/admin/file'
 import { useFileStore, type FileListRecord } from '../../../../stores/file'
 
 const toast = useToast()
@@ -20,6 +21,7 @@ const deletingRecord = ref<FileListRecord | null>(null)
 
 const canList = computed(() => hasPermission('infra:file:list'))
 const canUpload = computed(() => hasPermission('infra:file:upload'))
+const canDownload = computed(() => hasPermission('infra:file:download'))
 const canDelete = computed(() => hasPermission('infra:file:delete'))
 
 const columns: TableColumn<FileListRecord>[] = [{
@@ -100,6 +102,18 @@ async function handleFileChange(event: Event) {
 function openDelete(record: FileListRecord) {
   deletingRecord.value = record
   deleteOpen.value = true
+}
+
+async function handleDownload(record: FileListRecord) {
+  try {
+    await openAdminFileDownload(record.id)
+  } catch (error) {
+    toast.add({
+      title: '下载失败',
+      description: error instanceof Error ? error.message : '请稍后重试',
+      color: 'error'
+    })
+  }
 }
 
 async function confirmDelete() {
@@ -229,16 +243,28 @@ meta:
                 </template>
 
                 <template #actions-cell="{ row }">
-                  <UButton
-                    v-if="canDelete"
-                    icon="i-lucide-trash-2"
-                    color="error"
-                    variant="ghost"
-                    size="xs"
-                    @click="openDelete(row.original)"
-                  >
-                    删除
-                  </UButton>
+                  <div class="flex gap-1">
+                    <UButton
+                      v-if="canDownload"
+                      icon="i-lucide-download"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="handleDownload(row.original)"
+                    >
+                      下载
+                    </UButton>
+                    <UButton
+                      v-if="canDelete"
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="ghost"
+                      size="xs"
+                      @click="openDelete(row.original)"
+                    >
+                      删除
+                    </UButton>
+                  </div>
                 </template>
               </UTable>
 
