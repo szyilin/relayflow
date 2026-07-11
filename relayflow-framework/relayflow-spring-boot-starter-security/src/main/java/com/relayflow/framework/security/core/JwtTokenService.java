@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class JwtTokenService {
@@ -27,6 +29,7 @@ public class JwtTokenService {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(properties.getAccessTokenExpireSeconds());
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(userId))
                 .claim(LoginUser.CLAIM_TENANT_ID, tenantId)
                 .claim(LoginUser.CLAIM_USER_TYPE, userType)
@@ -34,6 +37,14 @@ public class JwtTokenService {
                 .expiration(Date.from(expiresAt))
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public Duration remainingLifetime(Claims claims) {
+        if (claims == null || claims.getExpiration() == null) {
+            return Duration.ZERO;
+        }
+        long millis = claims.getExpiration().getTime() - System.currentTimeMillis();
+        return millis > 0 ? Duration.ofMillis(millis) : Duration.ZERO;
     }
 
     public Claims parseClaims(String token) {

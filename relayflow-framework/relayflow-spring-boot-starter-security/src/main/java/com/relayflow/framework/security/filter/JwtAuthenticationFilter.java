@@ -3,6 +3,7 @@ package com.relayflow.framework.security.filter;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.PermissionAuthoritiesLoader;
+import com.relayflow.framework.security.core.TokenRevocationStore;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -25,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenService jwtTokenService;
     private final ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader;
+    private final ObjectProvider<TokenRevocationStore> tokenRevocationStore;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -45,6 +48,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = Long.valueOf(claims.getSubject());
             Long tenantId = claims.get(LoginUser.CLAIM_TENANT_ID, Long.class);
             String userType = claims.get(LoginUser.CLAIM_USER_TYPE, String.class);
+            String jti = claims.getId();
+
+            if (isTokenRevoked(jti, tenantId)) {
+                SecurityContextHolder.clearContext();
+                return;
+            }
 
             if (tenantId != null) {
                 TenantContextHolder.set(tenantId);
@@ -68,5 +77,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception ignored) {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    private boolean isTokenRevoked(String jti, Long tenantId) {
+        if (!StringUtils.hasText(jti) || tenantId == null) {
+            return false;
+        }
+        TokenRevocationStore store = tokenRevocationStore.getIfAvailable();
+        return store != null && store.isRevoked(jti, tenantId);
     }
 }
