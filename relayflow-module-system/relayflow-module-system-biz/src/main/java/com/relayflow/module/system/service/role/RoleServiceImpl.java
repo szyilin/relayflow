@@ -22,6 +22,7 @@ import com.relayflow.module.system.dal.mysql.SysUserRoleMapper;
 import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.RoleType;
+import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class RoleServiceImpl implements RoleService {
     private final SysRoleDeptMapper roleDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final TenantProperties tenantProperties;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     @Override
     public PageResult<RoleRespVO> getRolePage(RolePageReqVO request) {
@@ -104,6 +106,7 @@ public class RoleServiceImpl implements RoleService {
 
         syncRolePermissions(role.getId(), tenantId, request.getPermissionIds());
         syncRoleDepts(role.getId(), tenantId, request.getDataScope(), request.getDeptIds());
+        permissionCacheEvictor.evictByRole(tenantId, role.getId());
         return role.getId();
     }
 
@@ -138,6 +141,7 @@ public class RoleServiceImpl implements RoleService {
 
         syncRolePermissions(existing.getId(), tenantId, request.getPermissionIds());
         syncRoleDepts(existing.getId(), tenantId, request.getDataScope(), request.getDeptIds());
+        permissionCacheEvictor.evictByRole(tenantId, existing.getId());
     }
 
     @Override
@@ -148,6 +152,7 @@ public class RoleServiceImpl implements RoleService {
         if (role.getRoleType() == RoleType.SYSTEM) {
             throw new ServiceException(ErrorCodeConstants.ROLE_SYSTEM_DELETE_FORBIDDEN);
         }
+        permissionCacheEvictor.evictByRole(tenantId, id);
 
         Long childCount = roleMapper.selectCount(Wrappers.<SysRoleDO>lambdaQuery()
                 .eq(SysRoleDO::getTenantId, tenantId)

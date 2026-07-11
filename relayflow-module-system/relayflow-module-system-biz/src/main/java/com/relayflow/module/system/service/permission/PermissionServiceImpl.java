@@ -43,9 +43,14 @@ public class PermissionServiceImpl implements PermissionService {
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysPermissionMapper permissionMapper;
     private final TenantProperties tenantProperties;
+    private final PermissionCacheService permissionCacheService;
 
     @Override
     public Set<String> getPermissionCodes(Long userId, Long tenantId) {
+        return permissionCacheService.getOrLoad(tenantId, userId, () -> loadPermissionCodesFromDb(userId, tenantId));
+    }
+
+    private Set<String> loadPermissionCodesFromDb(Long userId, Long tenantId) {
         List<SysRoleDO> roles = loadRoles(userId, tenantId);
         if (roles.isEmpty()) {
             return Collections.emptySet();

@@ -32,6 +32,7 @@ import com.relayflow.module.system.dal.mysql.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.permission.DataScopeHelper;
+import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.permission.dto.DataScopeResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -63,6 +64,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final TenantProperties tenantProperties;
     private final DataScopeHelper dataScopeHelper;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     @Override
     @Transactional
@@ -243,6 +245,7 @@ public class UserServiceImpl implements UserService {
                 .eq(SysUserRoleDO::getUserId, userId));
 
         if (CollectionUtils.isEmpty(roleIds)) {
+            permissionCacheEvictor.evictUser(tenantId, userId);
             return;
         }
 
@@ -257,6 +260,7 @@ public class UserServiceImpl implements UserService {
             relation.setRoleId(roleId);
             userRoleMapper.insert(relation);
         }
+        permissionCacheEvictor.evictUser(tenantId, userId);
     }
 
     private void validateUsernameUnique(String username, Long excludeUserId) {

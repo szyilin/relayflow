@@ -6,4 +6,6 @@ import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 public interface AuthService {
 
     AuthLoginRespVO login(AuthLoginReqVO request);
+
+    void logout(String accessToken);
 }
