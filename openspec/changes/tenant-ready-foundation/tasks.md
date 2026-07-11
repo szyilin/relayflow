@@ -36,7 +36,7 @@
 - [ ] 5.1 infra 模块所有 DO 含 `tenantId` 字段
 - [ ] 5.2 im 模块所有 DO 含 `tenantId` 字段
 - [ ] 5.3 Redis 缓存 key 前缀 `t:{tenantId}:`
-- [ ] 5.4 MinIO 对象路径前缀 `tenant/{tenantId}/`
+- [x] 5.4 MinIO 对象路径前缀 `tenant/{tenantId}/`（`infra-file-upload-api` objectKey 规范）
 - [ ] 5.5 WebSocket 握手绑定 `tenant_id`，消息路由带租户过滤
 
 ## 6. 部署配置

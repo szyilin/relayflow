@@ -66,3 +66,33 @@ export function createUploadSession(data: UploadSessionCreatePayload): Promise<U
 export function confirmUpload(data: UploadConfirmPayload): Promise<UploadConfirmResponse> {
   return post<UploadConfirmResponse>('/admin-api/infra/file/confirm', data)
 }
+
+const TOKEN_KEY = 'relayflow:admin:access-token'
+
+export async function openAdminFileDownload(id: string | number): Promise<void> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+  const token = localStorage.getItem(TOKEN_KEY)
+  const response = await fetch(`${baseURL}/admin-api/infra/file/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    redirect: 'manual'
+  })
+
+  if (response.status === 302) {
+    const location = response.headers.get('Location')
+    if (location) {
+      window.open(location, '_blank', 'noopener,noreferrer')
+      return
+    }
+  }
+
+  let message = '下载失败'
+  try {
+    const payload = await response.json() as { msg?: string }
+    if (payload.msg) {
+      message = payload.msg
+    }
+  } catch {
+    // ignore parse errors
+  }
+  throw new Error(message)
+}

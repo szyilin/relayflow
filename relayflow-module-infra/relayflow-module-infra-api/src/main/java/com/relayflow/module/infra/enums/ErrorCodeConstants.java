@@ -20,7 +20,8 @@ public enum ErrorCodeConstants implements ErrorCode {
     FILE_UPLOAD_OBJECT_NOT_FOUND(2_002_002_004, "对象存储中未找到已上传对象"),
     FILE_UPLOAD_SIZE_MISMATCH(2_002_002_005, "确认时文件大小不匹配"),
     FILE_NOT_FOUND(2_002_002_006, "文件不存在"),
-    FILE_UPLOAD_INVALID_REQUEST(2_002_002_007, "上传请求参数无效");
+    FILE_UPLOAD_INVALID_REQUEST(2_002_002_007, "上传请求参数无效"),
+    FILE_ACCESS_DENIED(2_002_002_008, "无权访问该文件");
 
     private final Integer code;
     private final String msg;

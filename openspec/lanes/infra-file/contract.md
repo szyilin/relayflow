@@ -57,6 +57,24 @@
 
 V1 仅逻辑删除 `infra_file` 行，不删除对象存储中的对象。
 
+### GET /app-api/infra/file/public/{fileId}
+
+| 项 | 值 |
+|----|-----|
+| 鉴权 | 无（permitAll） |
+| 条件 | `access_level=public` |
+
+HTTP 302 presigned GET；`Cache-Control: public, max-age=31536000, immutable`
+
+### GET /admin-api/infra/file/{fileId}/download
+
+| 项 | 值 |
+|----|-----|
+| 鉴权 | Bearer JWT |
+| 所需权限 | `infra:file:download` |
+
+HTTP 302 presigned GET（TTL 15min）
+
 ## 上传（引用）
 
 | 端点 | 说明 |

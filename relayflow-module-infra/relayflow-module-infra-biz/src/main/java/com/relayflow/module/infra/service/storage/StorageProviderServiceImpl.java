@@ -184,6 +184,28 @@ public class StorageProviderServiceImpl implements StorageProviderService {
         return storageProperties.toBootstrapConfig();
     }
 
+    @Override
+    public StorageProviderConfig resolveProviderConfig(String provider) {
+        String normalizedProvider = normalizeProvider(provider);
+        if (!StringUtils.hasText(normalizedProvider)) {
+            normalizedProvider = PROVIDER_MINIO;
+        }
+        validateSupportedProvider(normalizedProvider);
+
+        Long tenantId = resolveTenantId();
+        InfraStorageProviderDO saved = findProvider(tenantId, normalizedProvider);
+        if (saved != null) {
+            StorageProviderConfigJson configJson = parseConfigJson(saved.getConfigJson());
+            if (StringUtils.hasText(configJson.getSecretKeyEnc())) {
+                return toRuntimeConfig(configJson, encryptor.decrypt(configJson.getSecretKeyEnc()));
+            }
+        }
+        if (PROVIDER_MINIO.equals(normalizedProvider)) {
+            return storageProperties.toBootstrapConfig();
+        }
+        throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_NOT_FOUND);
+    }
+
     private StorageBootstrapSummaryVO buildBootstrapSummary() {
         StorageBootstrapSummaryVO summary = new StorageBootstrapSummaryVO();
         ObjectStorageProviderType defaultProvider = storageProperties.getDefaultProvider();
