@@ -174,7 +174,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-4 p-4 sm:p-6">
+      <div class="space-y-4">
         <AdminPageHeader
           title="用户列表"
           description="管理系统用户账号与基本信息"

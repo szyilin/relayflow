@@ -15,7 +15,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-4 p-4 sm:p-6">
+      <div class="space-y-4">
         <AdminPageHeader
           title="文件列表"
           description="浏览与管理已上传文件"

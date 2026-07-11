@@ -31,7 +31,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="space-y-6 p-4 sm:p-6">
+      <div class="space-y-6">
         <UCard>
           <UEmpty
             icon="i-lucide-layout-dashboard"

@@ -114,7 +114,7 @@ meta:
     </template>
 
     <template #body>
-      <div class="mx-auto max-w-2xl space-y-6 p-4 sm:p-6">
+      <div class="mx-auto max-w-2xl space-y-6">
         <AdminPageHeader
           title="新建用户"
           description="填写基本信息并分配部门与角色"
