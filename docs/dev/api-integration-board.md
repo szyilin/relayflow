@@ -32,7 +32,8 @@
 | admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | store 无 Mock；角色 CRUD + 绑权限/数据范围 |
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
 | infra-storage-config | **ready** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
-| infra-file-upload | **ready** | pending | `POST …/file/upload-session` · `POST …/file/confirm` | [contract](../../openspec/lanes/infra-file-upload/contract.md) | curl 直传 MinIO 验收通过；待 ⑥ 前端对接 |
+| infra-file-upload | **ready** | **ui_ready** | `POST …/file/upload-session` · `POST …/file/confirm` | [contract](../../openspec/lanes/infra-file-upload/contract.md) | ⑤ API ready；⑥ 前端已对接 |
+| infra-file | **ready** | **ui_ready** | `GET …/file/page` · `DELETE …/file/{id}` · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | 列表 + 直传 + 删除；待 ⑧ integrate |
 
 ## 实施顺序（system-admin-v1）
 
@@ -49,7 +50,7 @@
 | 区域 | 页面 | 说明 |
 |------|------|------|
 | 工作台 | `/app/messages`、`/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
-| 管理端 | `/admin` 概览、`/admin/infra/file` | 页面内 Mock / 占位 |
+| 管理端 | `/admin` 概览 | 页面内 Mock / 占位 |
 
 ## 参考
 

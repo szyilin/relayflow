@@ -1,13 +1,17 @@
 package com.relayflow.module.infra.service.file;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.oss.core.model.StorageObjectMeta;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
 import com.relayflow.module.infra.api.file.dto.FileRespDTO;
+import com.relayflow.module.infra.controller.admin.file.vo.FileListItemRespVO;
+import com.relayflow.module.infra.controller.admin.file.vo.FilePageReqVO;
 import com.relayflow.module.infra.convert.FileConvert;
 import com.relayflow.module.infra.dal.dataobject.InfraFileBindingDO;
 import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
@@ -31,6 +35,28 @@ public class FileServiceImpl implements FileService {
     @Override
     public FileRespDTO getFile(Long fileId) {
         return FileConvert.toDto(requireFile(fileId));
+    }
+
+    @Override
+    public PageResult<FileListItemRespVO> getFilePage(FilePageReqVO request) {
+        Long tenantId = resolveTenantId();
+        Page<InfraFileDO> page = fileMapper.selectPage(
+                new Page<>(request.getPageNo(), request.getPageSize()),
+                Wrappers.<InfraFileDO>lambdaQuery()
+                        .eq(InfraFileDO::getTenantId, tenantId)
+                        .like(StringUtils.hasText(request.getKeyword()),
+                                InfraFileDO::getOriginalName,
+                                request.getKeyword() != null ? request.getKeyword().trim() : null)
+                        .orderByDesc(InfraFileDO::getCreateTime));
+        return PageResult.of(
+                page.getRecords().stream().map(FileConvert::toListItem).toList(),
+                page.getTotal());
+    }
+
+    @Override
+    public void deleteFile(Long fileId) {
+        InfraFileDO file = requireFile(fileId);
+        fileMapper.deleteById(file.getId());
     }
 
     @Override
