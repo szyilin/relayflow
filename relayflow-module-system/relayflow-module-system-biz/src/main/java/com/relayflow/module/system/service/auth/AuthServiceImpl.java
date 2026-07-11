@@ -3,6 +3,8 @@ package com.relayflow.module.system.service.auth;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.JwtTokenService;
+import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.TokenRevocationStore;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginReqVO;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
@@ -12,9 +14,14 @@ import com.relayflow.module.system.dal.mysql.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mysql.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private final SysTenantUserMapper tenantUserMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final ObjectProvider<TokenRevocationStore> tokenRevocationStore;
 
     @Override
     public AuthLoginRespVO login(AuthLoginReqVO request) {
@@ -53,5 +61,24 @@ public class AuthServiceImpl implements AuthService {
         response.setAccessToken(accessToken);
         response.setTenantId(tenantId);
         return response;
+    }
+
+    @Override
+    public void logout(String accessToken) {
+        if (!StringUtils.hasText(accessToken)) {
+            return;
+        }
+        try {
+            Claims claims = jwtTokenService.parseClaims(accessToken);
+            String jti = claims.getId();
+            Long tenantId = claims.get(LoginUser.CLAIM_TENANT_ID, Long.class);
+            Duration ttl = jwtTokenService.remainingLifetime(claims);
+            TokenRevocationStore store = tokenRevocationStore.getIfAvailable();
+            if (store != null) {
+                store.revoke(jti, tenantId, ttl);
+            }
+        } catch (Exception ignored) {
+            // 登出幂等：无效 token 也视为成功
+        }
     }
 }

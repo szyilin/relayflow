@@ -10,8 +10,10 @@ import com.relayflow.module.system.controller.admin.auth.vo.AuthPermissionInfoRe
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.service.auth.AuthService;
 import com.relayflow.module.system.service.permission.PermissionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +31,15 @@ public class AuthController {
     @PostMapping("/login")
     public CommonResult<AuthLoginRespVO> login(@Valid @RequestBody AuthLoginReqVO request) {
         return CommonResult.success(authService.login(request));
+    }
+
+    @PostMapping("/logout")
+    public CommonResult<Boolean> logout(HttpServletRequest request) {
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            authService.logout(authorization.substring(7).trim());
+        }
+        return CommonResult.success(true);
     }
 
     @GetMapping("/get-permission-info")
