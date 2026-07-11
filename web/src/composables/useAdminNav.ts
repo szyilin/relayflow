@@ -56,6 +56,7 @@ export function useAdminNav() {
     label: '文件管理',
     icon: 'i-lucide-folder-open',
     to: '/admin/infra/file',
+    permission: 'infra:file:list',
     onSelect: closeSidebar
   }]
 
