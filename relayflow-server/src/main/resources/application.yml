@@ -7,6 +7,11 @@ spring:
     username: ${POSTGRES_USER:relayflow}
     password: ${POSTGRES_PASSWORD:relayflow}
 
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -19,6 +24,14 @@ relayflow:
     enabled: false
     default-id: 1
     header-name: X-Tenant-Id
+  cache:
+    enabled: true
+    default-ttl-seconds: 1800
+    null-value-ttl-seconds: 60
+    ttl-jitter-seconds: 300
+    lock-wait-millis: 3000
+    lock-lease-millis: 10000
+    permission-ttl-seconds: 1800
   security:
     jwt:
       secret: ${RELAYFLOW_JWT_SECRET:dev-only-change-me-in-production}

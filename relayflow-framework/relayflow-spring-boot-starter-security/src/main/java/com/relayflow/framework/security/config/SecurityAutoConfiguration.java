@@ -2,6 +2,7 @@ package com.relayflow.framework.security.config;
 
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.security.core.PermissionAuthoritiesLoader;
+import com.relayflow.framework.security.core.TokenRevocationStore;
 import com.relayflow.framework.security.filter.AdminPortalAuthorizationFilter;
 import com.relayflow.framework.security.filter.JwtAuthenticationFilter;
 import com.relayflow.framework.security.handler.RelayflowAccessDeniedHandler;
@@ -35,8 +36,9 @@ public class SecurityAutoConfiguration {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(
             JwtTokenService jwtTokenService,
-            ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader) {
-        return new JwtAuthenticationFilter(jwtTokenService, permissionAuthoritiesLoader);
+            ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader,
+            ObjectProvider<TokenRevocationStore> tokenRevocationStore) {
+        return new JwtAuthenticationFilter(jwtTokenService, permissionAuthoritiesLoader, tokenRevocationStore);
     }
 
     @Bean

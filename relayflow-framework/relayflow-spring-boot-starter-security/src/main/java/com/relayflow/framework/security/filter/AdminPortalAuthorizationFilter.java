@@ -24,6 +24,7 @@ public class AdminPortalAuthorizationFilter extends OncePerRequestFilter {
 
     private static final Set<String> WHITELIST = Set.of(
             "/admin-api/system/auth/login",
+            "/admin-api/system/auth/logout",
             "/admin-api/system/tenant/default",
             "/admin-api/system/auth/get-permission-info"
     );
@@ -59,7 +60,7 @@ public class AdminPortalAuthorizationFilter extends OncePerRequestFilter {
         if (!WHITELIST.contains(path)) {
             return false;
         }
-        if ("/admin-api/system/auth/login".equals(path)) {
+        if ("/admin-api/system/auth/login".equals(path) || "/admin-api/system/auth/logout".equals(path)) {
             return HttpMethod.POST.matches(request.getMethod());
         }
         return HttpMethod.GET.matches(request.getMethod());
