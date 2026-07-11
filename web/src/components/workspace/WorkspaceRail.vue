@@ -12,8 +12,8 @@ const keyword = ref('')
 
 const displayName = () => authStore.user?.nickname?.slice(0, 1) ?? '员'
 
-function logout() {
-  authStore.logout()
+async function logout() {
+  await authStore.logout()
   router.push('/app/login')
 }
 </script>

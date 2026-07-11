@@ -23,8 +23,8 @@ const items = computed<DropdownMenuItem[][]>(() => [[{
 }], [{
   label: '退出登录',
   icon: 'i-lucide-log-out',
-  onSelect: () => {
-    authStore.logout()
+  onSelect: async () => {
+    await authStore.logout()
     router.push('/app/login')
   }
 }]])

@@ -32,3 +32,7 @@ export function login(data: AuthLoginReq): Promise<AuthLoginResp> {
 export function getPermissionInfo(): Promise<AuthPermissionInfoResp> {
   return get<AuthPermissionInfoResp>('/admin-api/system/auth/get-permission-info')
 }
+
+export function logout(): Promise<boolean> {
+  return post<boolean>('/admin-api/system/auth/logout')
+}
