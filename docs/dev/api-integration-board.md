@@ -32,6 +32,7 @@
 | admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | store 无 Mock；角色 CRUD + 绑权限/数据范围 |
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
 | infra-storage-config | **ready** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
+| infra-file-upload | **ready** | pending | `POST …/file/upload-session` · `POST …/file/confirm` | [contract](../../openspec/lanes/infra-file-upload/contract.md) | curl 直传 MinIO 验收通过；待 ⑥ 前端对接 |
 
 ## 实施顺序（system-admin-v1）
 
