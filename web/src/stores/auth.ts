@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getPermissionInfo, login as loginApi } from '../api/admin/auth'
+import { getPermissionInfo, login as loginApi, logout as logoutApi } from '../api/admin/auth'
 import { ApiError } from '../api/request'
 
 export interface AuthUser {
@@ -102,7 +102,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await logoutApi()
+    } catch {
+      // 登出以清本地会话为准；服务端吊销失败不阻塞退出
+    }
     token.value = null
     tenantId.value = null
     user.value = null

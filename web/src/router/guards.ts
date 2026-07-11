@@ -54,7 +54,7 @@ export function setupAdminGuards(router: Router) {
         try {
           await ensurePermissionInfoLoaded(authStore)
         } catch {
-          authStore.logout()
+          await authStore.logout()
           return {
             path: LOGIN_PATH,
             query: { redirect: to.fullPath }
@@ -79,7 +79,7 @@ export function setupAdminGuards(router: Router) {
     try {
       await ensurePermissionInfoLoaded(authStore)
     } catch {
-      authStore.logout()
+      await authStore.logout()
       return {
         path: LOGIN_PATH,
         query: { redirect: to.fullPath }
