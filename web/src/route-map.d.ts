@@ -59,6 +59,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/infra/storage/': RouteRecordInfo<
+      '/admin/infra/storage/',
+      '/admin/infra/storage',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/login': RouteRecordInfo<
       '/admin/login',
       '/admin/login',
@@ -183,6 +190,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/infra/file/index.vue': {
       routes:
         | '/admin/infra/file/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/infra/storage/index.vue': {
+      routes:
+        | '/admin/infra/storage/'
       views:
         | never
       pathParamNames:
