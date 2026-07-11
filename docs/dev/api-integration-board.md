@@ -31,6 +31,7 @@
 | admin-dept | **ready** | **done** | `GET/POST/PUT/DELETE …/dept/*` · `/admin/system/dept` | [contract](../../openspec/lanes/admin-dept/contract.md) | store 无 Mock；部门树 CRUD |
 | admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | store 无 Mock；角色 CRUD + 绑权限/数据范围 |
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
+| infra-storage-config | **ready** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
 
 ## 实施顺序（system-admin-v1）
 
@@ -47,7 +48,7 @@
 | 区域 | 页面 | 说明 |
 |------|------|------|
 | 工作台 | `/app/messages`、`/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
-| 管理端 | `/admin` 概览、`/admin/infra/file` | 页面内 Mock |
+| 管理端 | `/admin` 概览、`/admin/infra/file` | 页面内 Mock / 占位 |
 
 ## 参考
 

@@ -47,6 +47,12 @@ export function useAdminNav() {
   }]
 
   const infraLinksRaw: AdminNavItem[] = [{
+    label: '存储设置',
+    icon: 'i-lucide-hard-drive',
+    to: '/admin/infra/storage',
+    permission: 'infra:storage:query',
+    onSelect: closeSidebar
+  }, {
     label: '文件管理',
     icon: 'i-lucide-folder-open',
     to: '/admin/infra/file',
