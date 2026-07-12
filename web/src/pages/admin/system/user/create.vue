@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { getRolePage } from '../../../../api/admin/role'
@@ -8,6 +8,7 @@ import { useDeptStore } from '../../../../stores/dept'
 import { useUserStore } from '../../../../stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const userStore = useUserStore()
 const deptStore = useDeptStore()
@@ -47,6 +48,12 @@ async function loadOptions() {
   optionsLoading.value = true
   try {
     await deptStore.fetchList()
+    const queryDeptId = typeof route.query.deptId === 'string' ? route.query.deptId : null
+    if (queryDeptId && deptStore.list.some(item => item.id === queryDeptId)) {
+      form.deptId = queryDeptId
+    } else {
+      form.deptId = deptStore.rootDeptId() ?? null
+    }
     const roles = await getRolePage({ pageNo: 1, pageSize: 100 })
     roleOptions.value = roles.list.map(item => ({
       id: String(item.id),

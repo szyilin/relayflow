@@ -98,6 +98,28 @@ export const useDeptStore = defineStore('dept', () => {
     return options
   }
 
+  function rootDeptId(): string | undefined {
+    const roots = list.value
+      .filter(item => item.parentId === ROOT_PARENT_ID)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
+    return roots[0]?.id
+  }
+
+  function findTreeNode(nodes: DeptTreeNode[], id: string): DeptTreeNode | undefined {
+    for (const node of nodes) {
+      if (node.id === id) {
+        return node
+      }
+      if (node.children?.length) {
+        const found = findTreeNode(node.children, id)
+        if (found) {
+          return found
+        }
+      }
+    }
+    return undefined
+  }
+
   return {
     list,
     tree,
@@ -107,6 +129,8 @@ export const useDeptStore = defineStore('dept', () => {
     create,
     update,
     remove,
-    parentOptions
+    parentOptions,
+    rootDeptId,
+    findTreeNode
   }
 })

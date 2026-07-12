@@ -15,4 +15,6 @@ public class UserPageReqVO {
     private Integer pageSize = 20;
 
     private String keyword;
+
+    private Long deptId;
 }

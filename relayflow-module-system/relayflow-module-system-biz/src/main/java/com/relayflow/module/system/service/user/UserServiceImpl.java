@@ -176,6 +176,25 @@ public class UserServiceImpl implements UserService {
             return PageResult.empty();
         }
 
+        if (request.getDeptId() != null) {
+            requireDept(request.getDeptId(), tenantId);
+            Set<Long> deptUserIds = userDeptMapper.selectList(
+                            Wrappers.<SysUserDeptDO>lambdaQuery()
+                                    .eq(SysUserDeptDO::getTenantId, tenantId)
+                                    .eq(SysUserDeptDO::getDeptId, request.getDeptId())
+                                    .eq(SysUserDeptDO::getPrimaryFlag, 1))
+                    .stream()
+                    .map(SysUserDeptDO::getUserId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            userIds = userIds.stream()
+                    .filter(deptUserIds::contains)
+                    .collect(Collectors.toSet());
+            if (userIds.isEmpty()) {
+                return PageResult.empty();
+            }
+        }
+
         String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : null;
         Page<SysUserDO> page = userMapper.selectPage(
                 new Page<>(request.getPageNo(), request.getPageSize()),

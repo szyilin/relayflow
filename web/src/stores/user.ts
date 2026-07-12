@@ -55,14 +55,18 @@ export const useUserStore = defineStore('user', () => {
   const page = ref(1)
   const pageSize = ref(5)
   const keyword = ref('')
+  const deptId = ref<string | undefined>()
   const lastError = ref<string | null>(null)
 
-  async function fetchPage(options?: { page?: number, keyword?: string }) {
+  async function fetchPage(options?: { page?: number, keyword?: string, deptId?: string }) {
     if (options?.page !== undefined) {
       page.value = options.page
     }
     if (options?.keyword !== undefined) {
       keyword.value = options.keyword
+    }
+    if (options?.deptId !== undefined) {
+      deptId.value = options.deptId
     }
 
     loading.value = true
@@ -71,7 +75,8 @@ export const useUserStore = defineStore('user', () => {
       const data = await getUserPage({
         pageNo: page.value,
         pageSize: pageSize.value,
-        keyword: keyword.value
+        keyword: keyword.value,
+        deptId: deptId.value
       })
 
       list.value = data.list.map(normalizeUser)
@@ -136,6 +141,7 @@ export const useUserStore = defineStore('user', () => {
     page,
     pageSize,
     keyword,
+    deptId,
     lastError,
     fetchPage,
     fetchDetail,

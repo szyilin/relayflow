@@ -20,6 +20,7 @@ export interface UserPageQuery {
   pageNo: number
   pageSize: number
   keyword?: string
+  deptId?: UserId
 }
 
 export interface UserDetail {
@@ -71,7 +72,8 @@ export function getUserPage(query: UserPageQuery): Promise<UserPageResult> {
     params: {
       pageNo: query.pageNo,
       pageSize: query.pageSize,
-      keyword: query.keyword?.trim() || undefined
+      keyword: query.keyword?.trim() || undefined,
+      deptId: query.deptId || undefined
     }
   }).then(data => ({
     list: data.list,
