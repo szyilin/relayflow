@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useWorkspaceNav } from '../../composables/useWorkspaceNav'
+import WorkspaceTenantSwitcher from './WorkspaceTenantSwitcher.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -33,9 +34,7 @@ async function logout() {
           <p class="truncate text-sm font-semibold">
             RelayFlow
           </p>
-          <p class="truncate text-xs text-[var(--ws-text-muted)]">
-            工作台
-          </p>
+          <WorkspaceTenantSwitcher />
         </div>
         <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" class="size-8" />
       </div>

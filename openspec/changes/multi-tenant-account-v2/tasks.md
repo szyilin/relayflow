@@ -95,11 +95,11 @@ curl -s -X POST http://localhost:8080/app-api/system/auth/register \
 
 ## 5. tenant-switch-v2-web（前端 lane）
 
-- [ ] 5.1 `WorkspaceTenantSwitcher` 组件（header 展示当前企业名）
-- [ ] 5.2 登录页：处理 `TENANT_SELECTION_REQUIRED` 企业选择 UI
-- [ ] 5.3 store：`tenants`、`switchTenant()` Mock
-- [ ] 5.4 起草 `openspec/lanes/tenant-switch-v2/contract.md`（my-list、switch、login 扩展）
-- [ ] 5.5 `cd web && pnpm build`
+- [x] 5.1 `WorkspaceTenantSwitcher` 组件（header 展示当前企业名）
+- [x] 5.2 登录页：处理 `TENANT_SELECTION_REQUIRED` 企业选择 UI
+- [x] 5.3 store：`tenants`、`switchTenant()` Mock
+- [x] 5.4 起草 `openspec/lanes/tenant-switch-v2/contract.md`（my-list、switch、login 扩展）
+- [x] 5.5 `cd web && pnpm build`
 
 ---
 
