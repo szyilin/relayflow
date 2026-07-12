@@ -9,23 +9,10 @@ import {
   type MessageItem
 } from '../api/app/im'
 import { ApiError } from '../api/request'
-import {
-  mockCurrentUserId,
-  mockGetConversationList,
-  mockGetMessageList,
-  mockSendMessage
-} from '../mocks/im'
 import { useAuthStore } from './auth'
 
 export type MessageViewItem = MessageItem & {
   localStatus?: 'sending' | 'sent' | 'failed'
-}
-
-function isApiUnavailable(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.code === 0 || error.code === 404
-  }
-  return true
 }
 
 function formatRelativeTime(iso?: string): string {
@@ -53,6 +40,16 @@ function textFromContent(content: MessageContent): string {
   return textBlock?.text ?? ''
 }
 
+function normalizeIncomingMessage(raw: MessageItem): MessageViewItem {
+  return {
+    ...raw,
+    id: String(raw.id),
+    conversationId: String(raw.conversationId),
+    senderId: String(raw.senderId),
+    localStatus: 'sent'
+  }
+}
+
 export const useImStore = defineStore('im', () => {
   const conversations = ref<ConversationItem[]>([])
   const messages = ref<MessageViewItem[]>([])
@@ -61,7 +58,6 @@ export const useImStore = defineStore('im', () => {
   const loadingConversations = ref(false)
   const loadingMessages = ref(false)
   const sending = ref(false)
-  const usingMock = ref(false)
   const lastError = ref<string | null>(null)
 
   const activeConversation = computed(() =>
@@ -78,7 +74,7 @@ export const useImStore = defineStore('im', () => {
 
   function currentUserId(): string {
     const auth = useAuthStore()
-    return auth.userId != null ? String(auth.userId) : mockCurrentUserId()
+    return auth.userId != null ? String(auth.userId) : ''
   }
 
   async function fetchConversations(search?: string) {
@@ -89,14 +85,9 @@ export const useImStore = defineStore('im', () => {
     lastError.value = null
     try {
       conversations.value = await getConversationList(keyword.value.trim() || undefined)
-      usingMock.value = false
     } catch (error) {
-      if (!isApiUnavailable(error)) {
-        lastError.value = error instanceof ApiError ? error.message : '加载会话失败'
-        throw error
-      }
-      conversations.value = mockGetConversationList(keyword.value.trim() || undefined)
-      usingMock.value = true
+      lastError.value = error instanceof ApiError ? error.message : '加载会话失败'
+      throw error
     } finally {
       loadingConversations.value = false
     }
@@ -117,29 +108,48 @@ export const useImStore = defineStore('im', () => {
     lastError.value = null
     try {
       const list = await getMessageList(conversationId, afterSeq)
+      const normalized = list.map(item => ({ ...item, localStatus: 'sent' as const }))
       if (afterSeq === 0) {
-        messages.value = list
+        messages.value = normalized
       } else {
-        messages.value = [...messages.value, ...list]
-      }
-      if (!usingMock.value) {
-        usingMock.value = false
+        messages.value = [...messages.value, ...normalized]
       }
     } catch (error) {
-      if (!isApiUnavailable(error)) {
-        lastError.value = error instanceof ApiError ? error.message : '加载消息失败'
-        throw error
-      }
-      const list = mockGetMessageList(conversationId, afterSeq)
-      if (afterSeq === 0) {
-        messages.value = list
-      } else {
-        messages.value = [...messages.value, ...list]
-      }
-      usingMock.value = true
+      lastError.value = error instanceof ApiError ? error.message : '加载消息失败'
+      throw error
     } finally {
       loadingMessages.value = false
     }
+  }
+
+  function handleMessageNew(raw: MessageItem) {
+    const message = normalizeIncomingMessage(raw)
+    const preview = textFromContent(message.content)
+    const conversationId = message.conversationId
+
+    let conversation = conversations.value.find(item => item.id === conversationId)
+    if (conversation) {
+      conversation.lastMsgPreview = preview
+      conversation.lastMsgAt = message.createTime
+      if (activeConversationId.value !== conversationId) {
+        conversation.unreadCount += 1
+      }
+    } else {
+      void fetchConversations()
+    }
+
+    if (activeConversationId.value !== conversationId) {
+      return
+    }
+
+    const exists = messages.value.some(item =>
+      item.id === message.id
+      || (item.clientMsgId && message.clientMsgId && item.clientMsgId === message.clientMsgId))
+    if (exists) {
+      return
+    }
+
+    messages.value = [...messages.value, message]
   }
 
   async function sendText(text: string) {
@@ -173,25 +183,19 @@ export const useImStore = defineStore('im', () => {
 
     sending.value = true
     try {
-      const result = usingMock.value
-        ? mockSendMessage({
-            conversationId: conversation.id,
-            peerUserId: conversation.peerUserId,
-            clientMsgId,
-            content
-          })
-        : await sendMessage({
-            conversationId: conversation.id,
-            peerUserId: conversation.peerUserId,
-            clientMsgId,
-            content
-          })
+      const result = await sendMessage({
+        conversationId: conversation.id,
+        peerUserId: conversation.peerUserId,
+        clientMsgId,
+        content
+      })
 
       messages.value = messages.value.map(item =>
         item.clientMsgId === clientMsgId
           ? {
               ...item,
               id: result.id,
+              conversationId: result.conversationId,
               seq: result.seq,
               createTime: result.createTime,
               localStatus: 'sent'
@@ -215,7 +219,6 @@ export const useImStore = defineStore('im', () => {
     loadingConversations,
     loadingMessages,
     sending,
-    usingMock,
     lastError,
     activeConversation,
     filteredConversations,
@@ -223,6 +226,7 @@ export const useImStore = defineStore('im', () => {
     fetchConversations,
     selectConversation,
     fetchMessages,
+    handleMessageNew,
     sendText,
     formatRelativeTime,
     textFromContent

@@ -1,0 +1,255 @@
+package com.relayflow.module.im.service.conversation;
+
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.relayflow.common.exception.ServiceException;
+import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.dal.dataobject.ImConversationDO;
+import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
+import com.relayflow.module.im.dal.mysql.ImConversationMapper;
+import com.relayflow.module.im.dal.mysql.ImConversationMemberMapper;
+import com.relayflow.module.im.enums.ErrorCodeConstants;
+import com.relayflow.module.im.enums.ImConversationType;
+import com.relayflow.module.im.service.message.ImContentHelper;
+import com.relayflow.module.system.api.user.UserApi;
+import com.relayflow.module.system.api.user.dto.UserBasicDTO;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ImConversationServiceImpl implements ImConversationService {
+
+    private final ImConversationMapper conversationMapper;
+    private final ImConversationMemberMapper conversationMemberMapper;
+    private final UserApi userApi;
+    private final ImContentHelper contentHelper;
+
+    @Override
+    public List<ConversationItemRespVO> listConversations(Long tenantId, Long userId, String keyword) {
+        List<ImConversationMemberDO> memberships = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getUserId, userId));
+        if (memberships.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, ImConversationMemberDO> membershipByConversationId = memberships.stream()
+                .collect(Collectors.toMap(ImConversationMemberDO::getConversationId, member -> member, (left, right) -> left));
+
+        List<ImConversationDO> conversations = conversationMapper.selectList(
+                Wrappers.<ImConversationDO>lambdaQuery()
+                        .eq(ImConversationDO::getTenantId, tenantId)
+                        .in(ImConversationDO::getId, membershipByConversationId.keySet())
+                        .eq(ImConversationDO::getType, ImConversationType.DIRECT));
+
+        Map<Long, Long> peerUserIdByConversationId = loadPeerUserIds(tenantId, userId, conversations);
+
+        List<ConversationItemRespVO> items = new ArrayList<>();
+        for (ImConversationDO conversation : conversations) {
+            Long peerUserId = peerUserIdByConversationId.get(conversation.getId());
+            if (peerUserId == null) {
+                continue;
+            }
+            UserBasicDTO peer = userApi.getUserBasic(peerUserId);
+            String title = peer.getNickname();
+            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
+
+            ConversationItemRespVO item = new ConversationItemRespVO();
+            item.setId(conversation.getId());
+            item.setType(conversation.getType());
+            item.setTitle(title);
+            item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setLastMsgPreview(conversation.getLastMsgPreview());
+            item.setLastMsgAt(conversation.getLastMsgAt());
+            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setPeerUserId(peerUserId);
+            items.add(item);
+        }
+
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase() : null;
+        return items.stream()
+                .filter(item -> matchesKeyword(item, normalizedKeyword))
+                .sorted(Comparator.comparing(ConversationItemRespVO::getLastMsgAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public Long getOrCreateDirectConversation(Long tenantId, Long userId, Long peerUserId) {
+        if (peerUserId == null || Objects.equals(userId, peerUserId)) {
+            throw new ServiceException(ErrorCodeConstants.PEER_USER_INVALID);
+        }
+        userApi.getUserBasic(peerUserId);
+
+        long low = Math.min(userId, peerUserId);
+        long high = Math.max(userId, peerUserId);
+
+        ImConversationDO existing = conversationMapper.selectOne(
+                Wrappers.<ImConversationDO>lambdaQuery()
+                        .eq(ImConversationDO::getTenantId, tenantId)
+                        .eq(ImConversationDO::getType, ImConversationType.DIRECT)
+                        .eq(ImConversationDO::getDirectPeerLow, low)
+                        .eq(ImConversationDO::getDirectPeerHigh, high));
+        if (existing != null) {
+            ensureMembership(tenantId, existing.getId(), userId);
+            ensureMembership(tenantId, existing.getId(), peerUserId);
+            return existing.getId();
+        }
+
+        ImConversationDO conversation = new ImConversationDO();
+        conversation.setTenantId(tenantId);
+        conversation.setType(ImConversationType.DIRECT);
+        conversation.setDirectPeerLow(low);
+        conversation.setDirectPeerHigh(high);
+        conversation.setCreator(userId);
+        try {
+            conversationMapper.insert(conversation);
+        } catch (DuplicateKeyException ex) {
+            ImConversationDO raced = conversationMapper.selectOne(
+                    Wrappers.<ImConversationDO>lambdaQuery()
+                            .eq(ImConversationDO::getTenantId, tenantId)
+                            .eq(ImConversationDO::getType, ImConversationType.DIRECT)
+                            .eq(ImConversationDO::getDirectPeerLow, low)
+                            .eq(ImConversationDO::getDirectPeerHigh, high));
+            if (raced == null) {
+                throw ex;
+            }
+            ensureMembership(tenantId, raced.getId(), userId);
+            ensureMembership(tenantId, raced.getId(), peerUserId);
+            return raced.getId();
+        }
+
+        createMember(tenantId, conversation.getId(), userId);
+        createMember(tenantId, conversation.getId(), peerUserId);
+        return conversation.getId();
+    }
+
+    @Override
+    public void requireMembership(Long tenantId, Long conversationId, Long userId) {
+        ImConversationMemberDO member = conversationMemberMapper.selectOne(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getUserId, userId));
+        if (member == null) {
+            throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
+        }
+    }
+
+    @Override
+    public void lockConversation(Long tenantId, Long conversationId) {
+        ImConversationDO conversation = conversationMapper.selectOne(
+                Wrappers.<ImConversationDO>lambdaQuery()
+                        .eq(ImConversationDO::getTenantId, tenantId)
+                        .eq(ImConversationDO::getId, conversationId)
+                        .last("FOR UPDATE"));
+        if (conversation == null) {
+            throw new ServiceException(ErrorCodeConstants.CONVERSATION_NOT_FOUND);
+        }
+    }
+
+    @Override
+    public List<Long> listOtherMemberUserIds(Long tenantId, Long conversationId, Long senderId) {
+        return conversationMemberMapper.selectList(
+                        Wrappers.<ImConversationMemberDO>lambdaQuery()
+                                .eq(ImConversationMemberDO::getTenantId, tenantId)
+                                .eq(ImConversationMemberDO::getConversationId, conversationId))
+                .stream()
+                .map(ImConversationMemberDO::getUserId)
+                .filter(userId -> !Objects.equals(userId, senderId))
+                .toList();
+    }
+
+    public ImConversationDO requireConversation(Long tenantId, Long conversationId) {
+        ImConversationDO conversation = conversationMapper.selectOne(
+                Wrappers.<ImConversationDO>lambdaQuery()
+                        .eq(ImConversationDO::getTenantId, tenantId)
+                        .eq(ImConversationDO::getId, conversationId));
+        if (conversation == null) {
+            throw new ServiceException(ErrorCodeConstants.CONVERSATION_NOT_FOUND);
+        }
+        return conversation;
+    }
+
+    private Map<Long, Long> loadPeerUserIds(Long tenantId, Long userId, List<ImConversationDO> conversations) {
+        if (conversations.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> conversationIds = conversations.stream().map(ImConversationDO::getId).toList();
+        List<ImConversationMemberDO> allMembers = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .in(ImConversationMemberDO::getConversationId, conversationIds));
+
+        Map<Long, List<Long>> membersByConversation = new HashMap<>();
+        for (ImConversationMemberDO member : allMembers) {
+            membersByConversation
+                    .computeIfAbsent(member.getConversationId(), key -> new ArrayList<>())
+                    .add(member.getUserId());
+        }
+
+        Map<Long, Long> peerByConversation = new HashMap<>();
+        for (ImConversationDO conversation : conversations) {
+            List<Long> memberIds = membersByConversation.getOrDefault(conversation.getId(), List.of());
+            Long peerUserId = memberIds.stream()
+                    .filter(memberId -> !Objects.equals(memberId, userId))
+                    .findFirst()
+                    .orElse(null);
+            if (peerUserId != null) {
+                peerByConversation.put(conversation.getId(), peerUserId);
+            }
+        }
+        return peerByConversation;
+    }
+
+    private boolean matchesKeyword(ConversationItemRespVO item, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        return containsIgnoreCase(item.getTitle(), keyword)
+                || containsIgnoreCase(item.getLastMsgPreview(), keyword);
+    }
+
+    private boolean containsIgnoreCase(String value, String keyword) {
+        return StringUtils.hasText(value) && value.toLowerCase().contains(keyword);
+    }
+
+    private void ensureMembership(Long tenantId, Long conversationId, Long userId) {
+        Long count = conversationMemberMapper.selectCount(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getUserId, userId));
+        if (count == null || count == 0) {
+            createMember(tenantId, conversationId, userId);
+        }
+    }
+
+    private void createMember(Long tenantId, Long conversationId, Long userId) {
+        ImConversationMemberDO member = new ImConversationMemberDO();
+        member.setTenantId(tenantId);
+        member.setConversationId(conversationId);
+        member.setUserId(userId);
+        member.setRole("member");
+        member.setReadSeq(0L);
+        member.setUnreadCount(0);
+        member.setJoinTime(OffsetDateTime.now());
+        member.setPinned(0);
+        member.setCreator(userId);
+        conversationMemberMapper.insert(member);
+    }
+}

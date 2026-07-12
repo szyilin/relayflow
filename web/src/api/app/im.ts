@@ -52,18 +52,67 @@ export interface SendMessageResult {
   createTime: string
 }
 
+export interface RealtimeEnvelope {
+  domain: string
+  type: string
+  requestId?: string
+  ts?: number
+  payload?: unknown
+}
+
+type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId'> & {
+  id: number | string
+  peerUserId?: number | string
+}
+
+type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId'> & {
+  id: number | string
+  conversationId: number | string
+  senderId: number | string
+}
+
+type RawSendMessageResult = Omit<SendMessageResult, 'id' | 'conversationId'> & {
+  id: number | string
+  conversationId: number | string
+}
+
+function normalizeConversation(item: RawConversationItem): ConversationItem {
+  return {
+    ...item,
+    id: String(item.id),
+    peerUserId: item.peerUserId != null ? String(item.peerUserId) : undefined
+  }
+}
+
+function normalizeMessage(item: RawMessageItem): MessageItem {
+  return {
+    ...item,
+    id: String(item.id),
+    conversationId: String(item.conversationId),
+    senderId: String(item.senderId)
+  }
+}
+
+function normalizeSendResult(item: RawSendMessageResult): SendMessageResult {
+  return {
+    ...item,
+    id: String(item.id),
+    conversationId: String(item.conversationId)
+  }
+}
+
 export function getConversationList(keyword?: string): Promise<ConversationItem[]> {
-  return get<ConversationItem[]>('/app-api/im/conversation/list', {
+  return get<RawConversationItem[]>('/app-api/im/conversation/list', {
     params: keyword ? { keyword } : undefined
-  })
+  }).then(list => list.map(normalizeConversation))
 }
 
 export function getMessageList(conversationId: string, afterSeq = 0): Promise<MessageItem[]> {
-  return get<MessageItem[]>('/app-api/im/message/list', {
+  return get<RawMessageItem[]>('/app-api/im/message/list', {
     params: { conversationId, afterSeq }
-  })
+  }).then(list => list.map(normalizeMessage))
 }
 
 export function sendMessage(payload: SendMessagePayload): Promise<SendMessageResult> {
-  return post<SendMessageResult>('/app-api/im/message/send', payload)
+  return post<RawSendMessageResult>('/app-api/im/message/send', payload).then(normalizeSendResult)
 }
