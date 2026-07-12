@@ -567,3 +567,36 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 - 当 已认证工作台成员请求 `GET /app-api/system/user/list-by-dept` 并携带有效 `deptId`
 - 那么 系统返回主部门等于 `deptId` 的用户
 - 并且 每项含名片所需字段（如 id、昵称、部门名、头像字）
+
+### 需求：工作台用户资料 API
+
+系统须向已认证工作台成员暴露 `/app-api/system/user/profile`，用于读写全局资料字段；**不**要求 `sys_permission`。
+
+#### 场景：获取当前资料
+
+- 当 已认证工作台成员请求 `GET /app-api/system/user/profile`
+- 那么 返回 `userId`、`username`、`nickname`、`avatar`（fileId 或空）、`tenantId`、`tenantName`、`tenantVerified`（V1 恒为 `false`）、`isAdmin`
+
+#### 场景：更新昵称
+
+- 当 成员调用 `PUT /app-api/system/user/profile` 并提交非空 `nickname`（≤ 64 字符）
+- 那么 系统更新 `sys_user.nickname` 并返回与 GET 相同结构
+
+#### 场景：更新头像
+
+- 当 成员调用 `PUT /app-api/system/user/profile` 并提交有效租户内 `fileId` 作为 `avatar`
+- 那么 系统写入 `sys_user.avatar` 并返回更新后资料
+
+#### 场景：拒绝空昵称
+
+- 当 `PUT` 将 `nickname` 置空
+- 那么 系统以业务错误 `USER_NICKNAME_EMPTY` 拒绝
+
+### 需求：权限信息含头像
+
+系统须在 `GET /admin-api/system/auth/get-permission-info` 响应中包含当前用户 `avatar` fileId，供会话恢复与工作台 UI 展示。
+
+#### 场景：permission info 返回 avatar
+
+- 当 已认证用户请求 `GET /admin-api/system/auth/get-permission-info`
+- 那么 响应 `avatar` 与 `sys_user.avatar` 一致

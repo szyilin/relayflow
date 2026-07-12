@@ -1,15 +1,16 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { TenantSummary } from '../api/app/tenant'
+import { idsEqual } from '../utils/id'
 import { useAuthStore } from './auth'
 
 export interface AccountDockEntry {
   key: string
-  userId: number
+  userId: string
   username: string
   nickname: string
   avatar?: string
-  tenantId: number
+  tenantId: string
   tenantName: string
   token: string
   isAdmin?: boolean
@@ -17,7 +18,7 @@ export interface AccountDockEntry {
 
 const DOCK_KEY = 'relayflow:account-dock'
 
-function buildKey(userId: number, tenantId: number) {
+function buildKey(userId: string, tenantId: string) {
   return `${userId}:${tenantId}`
 }
 
@@ -29,7 +30,14 @@ function readStoredEntries(): AccountDockEntry[] {
 
   try {
     const parsed = JSON.parse(raw) as AccountDockEntry[]
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.map(entry => ({
+      ...entry,
+      userId: String(entry.userId),
+      tenantId: String(entry.tenantId)
+    }))
   } catch {
     return []
   }
@@ -60,7 +68,7 @@ export const useAccountDockStore = defineStore('accountDock', () => {
     persistEntries(next)
   }
 
-  function removeByUserId(userId: number) {
+  function removeByUserId(userId: string) {
     const next = entries.value.filter(entry => entry.userId !== userId)
     entries.value = next
     persistEntries(next)
@@ -111,7 +119,7 @@ export const useAccountDockStore = defineStore('accountDock', () => {
     }
 
     for (const tenant of tenants) {
-      if (tenant.tenantId === auth.tenantId) {
+      if (idsEqual(tenant.tenantId, auth.tenantId)) {
         continue
       }
       const key = buildKey(auth.userId, tenant.tenantId)
@@ -145,7 +153,8 @@ export const useAccountDockStore = defineStore('accountDock', () => {
         ...entry,
         nickname: entry.key === key ? nickname : entry.nickname,
         avatar: avatar ?? entry.avatar,
-        token: entry.key === key ? auth.token! : entry.token
+        token: entry.key === key ? auth.token! : entry.token,
+        tenantName: entry.key === key ? auth.activeTenantName : entry.tenantName
       }
     })
     persistEntries(entries.value)

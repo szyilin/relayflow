@@ -1,39 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useWorkspaceNav } from '../../composables/useWorkspaceNav'
-import WorkspaceAccountDock from './WorkspaceAccountDock.vue'
+import WorkspaceRailHeader from './WorkspaceRailHeader.vue'
 
 const { railItems, activeRailId } = useWorkspaceNav()
-
-const keyword = ref('')
 </script>
 
 <template>
   <aside class="workspace-rail workspace-card flex h-full shrink-0 flex-col overflow-hidden">
-    <div class="space-y-3 border-b border-[var(--ws-border-subtle)] p-3">
-      <div class="flex items-center gap-2">
-        <RouterLink
-          to="/app/messages"
-          class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-sm"
-          title="RelayFlow"
-        >
-          <UIcon name="i-lucide-workflow" class="size-4.5" />
-        </RouterLink>
-        <p class="min-w-0 flex-1 truncate text-sm font-semibold">
-          RelayFlow
-        </p>
-        <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" class="size-8" />
-      </div>
-
-      <UInput
-        v-model="keyword"
-        placeholder="搜索 (⌘K)"
-        icon="i-lucide-search"
-        size="sm"
-        class="workspace-search"
-        disabled
-      />
-    </div>
+    <WorkspaceRailHeader />
 
     <nav class="flex-1 space-y-0.5 overflow-y-auto p-2">
       <RouterLink
@@ -53,9 +27,5 @@ const keyword = ref('')
         </span>
       </RouterLink>
     </nav>
-
-    <div class="border-t border-[var(--ws-border-subtle)]">
-      <WorkspaceAccountDock />
-    </div>
   </aside>
 </template>

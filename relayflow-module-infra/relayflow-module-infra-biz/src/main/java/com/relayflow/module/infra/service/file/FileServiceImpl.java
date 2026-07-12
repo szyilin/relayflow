@@ -18,6 +18,7 @@ import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
 import com.relayflow.module.infra.dal.dataobject.InfraFileUploadSessionDO;
 import com.relayflow.module.infra.dal.mysql.InfraFileBindingMapper;
 import com.relayflow.module.infra.dal.mysql.InfraFileMapper;
+import com.relayflow.module.infra.dal.mysql.InfraFilePublicMapper;
 import com.relayflow.module.infra.enums.ErrorCodeConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,10 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class FileServiceImpl implements FileService {
 
+    private static final String ACCESS_PUBLIC = "public";
+
     private final InfraFileMapper fileMapper;
+    private final InfraFilePublicMapper filePublicMapper;
     private final InfraFileBindingMapper bindingMapper;
     private final TenantProperties tenantProperties;
 
@@ -68,6 +72,18 @@ public class FileServiceImpl implements FileService {
                 .last("LIMIT 1"));
         if (file == null) {
             throw new ServiceException(ErrorCodeConstants.FILE_NOT_FOUND);
+        }
+        return file;
+    }
+
+    @Override
+    public InfraFileDO requirePublicFile(Long fileId) {
+        InfraFileDO file = filePublicMapper.selectByIdGlobal(fileId);
+        if (file == null) {
+            throw new ServiceException(ErrorCodeConstants.FILE_NOT_FOUND);
+        }
+        if (!ACCESS_PUBLIC.equalsIgnoreCase(file.getAccessLevel())) {
+            throw new ServiceException(ErrorCodeConstants.FILE_ACCESS_DENIED);
         }
         return file;
     }

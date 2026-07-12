@@ -37,7 +37,7 @@ export const useProfileStore = defineStore('profile', () => {
     uploading.value = true
     try {
       const fileId = await uploadPublicFile(file)
-      const updated = await updateMyProfile({ avatar: String(fileId) })
+      const updated = await updateMyProfile({ avatar: fileId })
       profile.value = updated
       applyToAuth(updated)
       return updated
@@ -51,6 +51,7 @@ export const useProfileStore = defineStore('profile', () => {
     if (auth.user) {
       auth.user.nickname = updated.nickname
       auth.user.avatar = updated.avatar
+      auth.user = { ...auth.user }
       localStorage.setItem('relayflow:admin:user', JSON.stringify(auth.user))
     }
     useAccountDockStore().updateCurrentProfile(updated.nickname, updated.avatar)
