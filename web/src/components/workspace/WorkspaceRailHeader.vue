@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import WorkspaceAccountSwitcher from './WorkspaceAccountSwitcher.vue'
+import WorkspaceNotifyBell from './WorkspaceNotifyBell.vue'
 import WorkspaceProfileCard from './WorkspaceProfileCard.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
@@ -72,6 +73,7 @@ onMounted(() => {
           <span class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">
             {{ displayNickname }}
           </span>
+          <WorkspaceNotifyBell />
           <WorkspaceAccountSwitcher />
         </div>
 

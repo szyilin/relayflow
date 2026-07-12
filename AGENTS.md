@@ -90,7 +90,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`org-member-invite-notify`（邀请站内通知）→ `workspace-tasks-v1`（工作台任务）→ `account-sms-verify`（注册验证码，可选）。OpenSpec 文档已就绪，待按子 change 实现。`im-deepening-v1`、`multi-tenant-account-v2`、`workspace-profile-card` 已归档。
+**下一优先**：`workspace-tasks-v1`（`task-schema-v1` → `workspace-tasks-web`）→ `account-sms-verify`（可选）。`org-member-invite-notify` 联调完成，待 §5 归档。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

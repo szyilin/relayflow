@@ -40,12 +40,12 @@
 | im-message-file | **ready** | **done** | `POST …/message/send` (file/image) · `/app/messages` | [contract](../../openspec/lanes/im-message-file/contract.md) | private 上传 + JWT 预览/下载 |
 | im-read-receipt | **ready** | **done** | `GET …/conversation/read-status` · `/app/messages` | [contract](../../openspec/lanes/im-read-receipt/contract.md) | 单聊「已读」+ WS `read.updated` |
 | im-presence | **ready** | **done** | `GET …/im/presence/batch` · messages/contacts | [contract](../../openspec/lanes/im-presence/contract.md) | 30s REST 轮询；WS push 留后续 |
+| org-member-invite-notify | **ready** | **done** | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
 |------|----------|----------|-------------|--------|------|
-| org-member-invite-notify | **ready** | pending | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [org-member-invite-notify](../../openspec/changes/org-member-invite-notify/proposal.md) | API 完成；待 `-web` |
 | workspace-tasks | planned | pending | `/app-api/task/item/*` · `/app/tasks` | [workspace-tasks-v1](../../openspec/changes/workspace-tasks-v1/proposal.md) | 我负责的任务 CRUD；母 change |
 | account-sms-verify | planned | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；可选 |
 
