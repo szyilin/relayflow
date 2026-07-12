@@ -5,27 +5,27 @@
 
 ## 1. 前置
 
-- [ ] 1.1 阅读本 change `proposal.md`、`design.md` 与 `openspec/specs/infra/spec.md` WebSocket 相关需求
+- [x] 1.1 阅读本 change `proposal.md`、`design.md` 与 `openspec/specs/infra/spec.md` WebSocket 相关需求
 
 ## 2. Framework（relayflow-spring-boot-starter-websocket）
 
-- [ ] 2.1 `WebSocketProperties` + `RealtimeEnvelope` + `WebSocketSessionRegistry` + `WebSocketSessionInfo`
-- [ ] 2.2 `JwtWebSocketHandshakeInterceptor`（query `token` → userId + tenantId）
-- [ ] 2.3 `LocalWebSocketMessageSender` + `RedisWebSocketMessageSender` + `WebSocketAutoConfiguration`
-- [ ] 2.4 `starter-websocket` 依赖 security、redis；注册 `META-INF/spring/...AutoConfiguration.imports`
+- [x] 2.1 `WebSocketProperties` + `RealtimeEnvelope` + `WebSocketSessionRegistry` + `WebSocketSessionInfo`
+- [x] 2.2 `JwtWebSocketHandshakeInterceptor`（query `token` → userId + tenantId）
+- [x] 2.3 `LocalWebSocketMessageSender` + `RedisWebSocketMessageSender` + `WebSocketAutoConfiguration`
+- [x] 2.4 `starter-websocket` 依赖 security、redis；注册 `META-INF/spring/...AutoConfiguration.imports`
 
 ## 3. Infra API + Biz
 
-- [ ] 3.1 `infra-api`：`RealtimeTransportApi`、`RealtimeEventPublisher`、`RealtimeDomainMessageHandler`、DTO/枚举
-- [ ] 3.2 `infra-biz`：`InfraWebSocketHandler`、`DomainMessageRouter`、`SystemPingPongHandler`、NoOp notify/presence
-- [ ] 3.3 `RealtimeTransportApiImpl`、`RealtimeEventPublisherImpl`；`infra-biz` 引入 `starter-websocket`、`starter-redis`
-- [ ] 3.4 Security：`/infra/ws` HTTP upgrade `permitAll`；`application.yml` 增加 `relayflow.websocket.*`
+- [x] 3.1 `infra-api`：`RealtimeTransportApi`、`RealtimeEventPublisher`、`RealtimeDomainMessageHandler`、DTO/枚举
+- [x] 3.2 `infra-biz`：`InfraWebSocketHandler`、`DomainMessageRouter`、`SystemPingPongHandler`、NoOp notify/presence
+- [x] 3.3 `RealtimeTransportApiImpl`、`RealtimeEventPublisherImpl`；`infra-biz` 引入 `starter-websocket`、`starter-redis`
+- [x] 3.4 Security：`/infra/ws` HTTP upgrade `permitAll`；`application.yml` 增加 `relayflow.websocket.*`
 
 ## 4. 验证与归档
 
-- [ ] 4.1 `./mvnw -pl relayflow-server -am compile`
-- [ ] 4.2 `openspec validate im-realtime-platform --strict`
-- [ ] 4.3 手工或集成测试：WS 连接 + `ping`→`pong` + `RealtimeTransportApi` 下行推送
+- [x] 4.1 `./mvnw -pl relayflow-server -am compile`
+- [x] 4.2 `openspec validate im-realtime-platform --strict`
+- [x] 4.3 手工或集成测试：WS 连接 + `ping`→`pong` + `RealtimeTransportApi` 下行推送（见 design §验证）
 
 ## 不在本 change
 
@@ -34,3 +34,21 @@
 ## 下一 change
 
 - `im-schema-v1`（Flyway）或与 `im-direct-chat-web` 并行启动
+
+## 手工冒烟
+
+```bash
+# 1. 启动依赖与服务
+docker compose -f deploy/compose.yml up -d
+./mvnw -pl relayflow-server -am spring-boot:run
+
+# 2. 登录拿 token（管理端示例）
+curl -s -X POST http://localhost:8080/admin-api/system/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}' | jq -r .data.accessToken
+
+# 3. WebSocket（需 wscat）
+wscat -c "ws://localhost:8080/infra/ws?token=<JWT>"
+> {"domain":"system","type":"ping","requestId":"1","ts":0,"payload":{}}
+# 期望收到 type=pong
+```
