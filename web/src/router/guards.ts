@@ -60,8 +60,9 @@ export function setupAdminGuards(router: Router) {
         return { path: '/app/messages' }
       }
 
+      // 已登录时仍允许注册页（多账号 Dock：注册新账号 / 从 addAccount 登录页跳转）
       if (authStore.isAuthenticated && to.path === REGISTER_PATH) {
-        return { path: '/app/messages' }
+        return true
       }
 
       if (authStore.isAuthenticated && !isPublic) {

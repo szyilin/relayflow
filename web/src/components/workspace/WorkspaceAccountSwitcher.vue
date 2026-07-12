@@ -79,7 +79,7 @@ function loginMoreAccounts() {
 
 function registerAccount() {
   open.value = false
-  void router.push('/app/register')
+  void router.push({ path: '/app/register', query: { addAccount: '1' } })
 }
 </script>
 
