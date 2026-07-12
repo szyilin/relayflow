@@ -299,7 +299,7 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession(entry.token, entry.tenantId, user.value!)
     await fetchPermissionInfo()
     await fetchMyTenants()
-    dockSyncAfterSession()
+    await dockSyncAfterSession()
   }
 
   function clearLocalSession() {

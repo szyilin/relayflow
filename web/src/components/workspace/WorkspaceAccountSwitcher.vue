@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAccountDockStore, type AccountDockEntry } from '../../stores/accountDock'
 import { useAuthStore } from '../../stores/auth'
 import { avatarTextFromName, resolveAvatarUrl, tenantTileColor } from '../../utils/avatar'
+import { idsEqual } from '../../utils/id'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const dockStore = useAccountDockStore()
@@ -37,6 +39,14 @@ const dockEntries = computed(() => {
   return list
 })
 
+function resolveEntryMeta(entry: AccountDockEntry) {
+  const tenant = authStore.tenants.find(item => idsEqual(item.tenantId, entry.tenantId))
+  return {
+    tenantName: entry.tenantName?.trim() || tenant?.tenantName || '企业',
+    nickname: entry.nickname?.trim() || entry.username?.trim() || '员工'
+  }
+}
+
 function entryTileStyle(entry: AccountDockEntry) {
   return {
     backgroundColor: tenantTileColor(entry.tenantId),
@@ -62,10 +72,13 @@ async function switchEntry(entry: AccountDockEntry) {
     }
     toast.add({
       title: '已切换',
-      description: entry.tenantName,
+      description: resolveEntryMeta(entry).tenantName,
       color: 'success'
     })
     open.value = false
+    if (route.path.startsWith('/app/messages')) {
+      return
+    }
     await router.replace('/app/messages')
   } finally {
     switchingKey.value = null
@@ -120,16 +133,16 @@ function registerAccount() {
               <img
                 v-if="resolveAvatarUrl(entry.avatar)"
                 :src="resolveAvatarUrl(entry.avatar)"
-                :alt="entry.nickname"
-                class="size-full rounded-[inherit] object-cover"
+                :alt="resolveEntryMeta(entry).nickname"
+                class="h-full w-full rounded-[inherit] object-cover"
               >
               <span v-else class="text-xs font-semibold">
-                {{ avatarTextFromName(entry.tenantName) }}
+                {{ avatarTextFromName(resolveEntryMeta(entry).tenantName) }}
               </span>
             </span>
             <span class="min-w-0 flex-1 text-left">
-              <span class="block truncate text-sm font-medium">{{ entry.tenantName }}</span>
-              <span class="block truncate text-xs text-[var(--ws-text-muted)]">{{ entry.nickname }}</span>
+              <span class="block truncate text-sm font-medium">{{ resolveEntryMeta(entry).tenantName }}</span>
+              <span class="block truncate text-xs text-[var(--ws-text-muted)]">{{ resolveEntryMeta(entry).nickname }}</span>
             </span>
             <UIcon
               v-if="isCurrentEntry(entry)"
@@ -165,8 +178,9 @@ function registerAccount() {
 <style scoped>
 .workspace-switcher-trigger {
   display: inline-flex;
-  size: 1.5rem;
-  shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
@@ -218,8 +232,9 @@ function registerAccount() {
 
 .workspace-account-switcher-tile {
   display: flex;
-  size: 2rem;
-  shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;

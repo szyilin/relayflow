@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '../../stores/auth'
+import { idsEqual } from '../../utils/id'
 
 const authStore = useAuthStore()
 const toast = useToast()
@@ -9,9 +10,8 @@ const switching = ref(false)
 const showSwitcher = computed(() => authStore.tenants.length > 1)
 
 const menuItems = computed(() => {
-  const currentId = authStore.tenantId
   return [authStore.tenants.map((tenant) => {
-    const selected = tenant.tenantId === currentId
+    const selected = idsEqual(tenant.tenantId, authStore.tenantId)
     return {
       label: tenant.tenantName,
       icon: selected ? 'i-lucide-check' : tenant.owner ? 'i-lucide-building-2' : 'i-lucide-users',
@@ -21,8 +21,8 @@ const menuItems = computed(() => {
   })]
 })
 
-async function selectTenant(targetTenantId: number) {
-  if (targetTenantId === authStore.tenantId || switching.value) {
+async function selectTenant(targetTenantId: string) {
+  if (idsEqual(targetTenantId, authStore.tenantId) || switching.value) {
     return
   }
 
