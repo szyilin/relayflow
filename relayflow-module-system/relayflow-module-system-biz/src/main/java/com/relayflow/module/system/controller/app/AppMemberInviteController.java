@@ -1,6 +1,7 @@
 package com.relayflow.module.system.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
+import com.relayflow.common.util.MobileUtils;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 import com.relayflow.module.system.controller.app.vo.MemberInviteAcceptReqVO;
 import com.relayflow.module.system.controller.app.vo.MemberInvitePreviewRespVO;
@@ -38,7 +39,7 @@ public class AppMemberInviteController {
     @GetMapping("/preview")
     public CommonResult<MemberInvitePreviewRespVO> preview(
             @RequestParam @NotBlank(message = "手机号不能为空") String mobile) {
-        return CommonResult.success(memberInviteService.preview(mobile));
+        return CommonResult.success(memberInviteService.preview(MobileUtils.normalize(mobile)));
     }
 
     /**

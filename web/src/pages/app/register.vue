@@ -2,6 +2,7 @@
 import { computed, onBeforeMount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { isValidMobile, normalizeMobile } from '../../utils/mobile'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,7 +31,7 @@ onBeforeMount(() => {
 })
 
 async function onSubmit() {
-  const mobile = form.mobile.trim()
+  const mobile = normalizeMobile(form.mobile.trim())
   const password = form.password.trim()
   const confirmPassword = form.confirmPassword.trim()
   const nickname = form.nickname.trim()
@@ -38,6 +39,10 @@ async function onSubmit() {
 
   if (!mobile) {
     toast.add({ title: '请输入手机号', color: 'error' })
+    return
+  }
+  if (!isValidMobile(form.mobile)) {
+    toast.add({ title: '请输入 11 位手机号', color: 'error' })
     return
   }
   if (password.length < 6) {
@@ -101,7 +106,7 @@ meta:
         <UFormField label="手机号">
           <UInput
             v-model="form.mobile"
-            placeholder="11 位手机号"
+            placeholder="11 位手机号，可分段输入"
             icon="i-lucide-smartphone"
             inputmode="tel"
           />

@@ -3,6 +3,7 @@ package com.relayflow.module.system.service.user;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.common.util.MobileUtils;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
@@ -132,7 +133,7 @@ public class UserServiceImpl implements UserService {
         user.setUsername(request.getUsername().trim());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getNickname() != null ? request.getNickname().trim() : request.getUsername().trim());
-        user.setMobile(trimToNull(request.getMobile()));
+        user.setMobile(normalizeMobile(request.getMobile()));
         user.setEmail(trimToNull(request.getEmail()));
         userMapper.insert(user);
 
@@ -151,7 +152,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public Long inviteMember(UserInviteReqDTO request) {
-        String mobile = trimToNull(request.getMobile());
+        String mobile = normalizeMobile(request.getMobile());
         if (!StringUtils.hasText(mobile)) {
             throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
         }
@@ -223,7 +224,7 @@ public class UserServiceImpl implements UserService {
             user.setNickname(request.getNickname().trim());
         }
         if (request.getMobile() != null) {
-            user.setMobile(trimToNull(request.getMobile()));
+            user.setMobile(normalizeMobile(request.getMobile()));
         }
         if (request.getEmail() != null) {
             user.setEmail(trimToNull(request.getEmail()));
@@ -580,6 +581,13 @@ public class UserServiceImpl implements UserService {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeMobile(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return MobileUtils.normalize(value);
     }
 
     private Long resolveTenantId() {

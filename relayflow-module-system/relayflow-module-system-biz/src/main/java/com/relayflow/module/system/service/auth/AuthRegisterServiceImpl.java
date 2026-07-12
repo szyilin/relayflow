@@ -2,6 +2,7 @@ package com.relayflow.module.system.service.auth;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.common.util.MobileUtils;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
@@ -49,7 +50,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     public AuthRegisterRespVO register(AuthRegisterReqVO request) {
         assertOpenRegisterEnabled();
 
-        String mobile = request.getMobile().trim();
+        String mobile = MobileUtils.normalize(request.getMobile());
         String password = request.getPassword().trim();
         String nickname = request.getNickname().trim();
         String tenantName = request.getTenantName().trim();

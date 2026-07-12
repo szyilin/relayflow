@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TenantSummary } from '../../api/app/tenant'
 import { useAuthStore } from '../../stores/auth'
+import { isValidMobile, normalizeMobile } from '../../utils/mobile'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,15 +15,15 @@ const registerTo = computed(() =>
   isAddAccount.value ? { path: '/app/register', query: { addAccount: '1' } } : '/app/register'
 )
 const tenantSelection = ref<TenantSummary[] | null>(null)
-const pendingCredentials = ref<{ username: string, password: string } | null>(null)
+const pendingCredentials = ref<{ mobile: string, password: string } | null>(null)
 
 const form = reactive({
-  username: import.meta.env.DEV ? 'admin' : '',
-  password: import.meta.env.DEV ? 'admin123' : ''
+  mobile: import.meta.env.DEV ? '19988888888' : '',
+  password: import.meta.env.DEV ? '123456' : ''
 })
 
-async function completeLogin(username: string, password: string, selectedTenantId?: number) {
-  const result = await authStore.login(username, password, selectedTenantId)
+async function completeLogin(mobile: string, password: string, selectedTenantId?: number) {
+  const result = await authStore.login(mobile, password, selectedTenantId)
   if (result.ok) {
     tenantSelection.value = null
     pendingCredentials.value = null
@@ -41,9 +42,21 @@ async function completeLogin(username: string, password: string, selectedTenantI
 }
 
 async function onSubmit() {
+  const mobile = normalizeMobile(form.mobile.trim())
+  const password = form.password.trim()
+
+  if (!mobile || !password) {
+    toast.add({ title: '请输入手机号和密码', color: 'error' })
+    return
+  }
+  if (!isValidMobile(form.mobile)) {
+    toast.add({ title: '请输入 11 位手机号', color: 'error' })
+    return
+  }
+
   loading.value = true
   try {
-    await completeLogin(form.username, form.password)
+    await completeLogin(mobile, password)
   } finally {
     loading.value = false
   }
@@ -57,7 +70,7 @@ async function onSelectTenant(tenant: TenantSummary) {
   loading.value = true
   try {
     await completeLogin(
-      pendingCredentials.value.username,
+      pendingCredentials.value.mobile,
       pendingCredentials.value.password,
       tenant.tenantId
     )
@@ -131,11 +144,23 @@ meta:
 
     <UCard v-else class="ring-1 ring-default">
       <form class="space-y-4" @submit.prevent="onSubmit">
-        <UFormField label="账号">
-          <UInput v-model="form.username" placeholder="用户名或手机号" icon="i-lucide-user" />
+        <UFormField label="手机号">
+          <UInput
+            v-model="form.mobile"
+            placeholder="11 位手机号，可分段输入"
+            icon="i-lucide-smartphone"
+            inputmode="tel"
+            autocomplete="tel"
+          />
         </UFormField>
         <UFormField label="密码">
-          <UInput v-model="form.password" type="password" placeholder="••••••••" icon="i-lucide-lock" />
+          <UInput
+            v-model="form.password"
+            type="password"
+            placeholder="••••••••"
+            icon="i-lucide-lock"
+            autocomplete="current-password"
+          />
         </UFormField>
         <UButton type="submit" block :loading="loading">
           进入工作台
@@ -144,7 +169,7 @@ meta:
     </UCard>
 
     <p v-if="!tenantSelection" class="text-center text-xs text-muted">
-      使用企业账号登录；管理员与普通员工同一入口，权限由系统分配
+      使用手机号登录；管理员与普通员工同一入口，权限由系统分配
     </p>
     <p v-if="!tenantSelection" class="text-center text-sm text-muted">
       <RouterLink :to="registerTo" class="text-primary hover:underline">
