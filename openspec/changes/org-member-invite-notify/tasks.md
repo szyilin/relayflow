@@ -48,12 +48,12 @@
 
 ## 3. org-member-invite-notify-web（前端 lane）
 
-- [ ] 3.1 起草 `openspec/lanes/org-member-invite-notify/contract.md`
-- [ ] 3.2 `api/app/member-invite.ts`、`api/app/notify.ts`、`stores/notify.ts`（Mock）
-- [ ] 3.3 `/app/register`：mobile debounce → pending 横幅 `UAlert`
-- [ ] 3.4 `WorkspaceRail`：通知铃铛 + 未读角标 + 列表 `UModal`
-- [ ] 3.5 `cd web && pnpm build`
-- [ ] 3.6 浏览器：注册页输入已邀请手机号 → 见横幅（Mock）
+- [x] 3.1 起草 `openspec/lanes/org-member-invite-notify/contract.md`
+- [x] 3.2 `api/app/member-invite-pending.ts`、`api/app/notify.ts`、`stores/notify.ts`
+- [x] 3.3 `/app/register`：mobile debounce → pending 横幅 `UAlert`
+- [x] 3.4 `WorkspaceRailHeader`：`WorkspaceNotifyBell` 未读角标 + `UModal` 列表
+- [x] 3.5 `cd web && pnpm build`
+- [x] 3.6 浏览器：`/app/register` 输入已邀请手机号 → 见横幅（接真实 API）
 
 **验证**：`pnpm build` + 浏览器路径。
 
@@ -63,12 +63,12 @@
 
 ## 4. org-member-invite-notify-integrate（联调）
 
-- [ ] 4.1 store 去 Mock，接真实 pending + notify API
-- [ ] 4.2 端到端：管理端邀请 → 注册页横幅 → 注册 → 铃铛有历史通知
+- [x] 4.1 store 去 Mock，接真实 pending + notify API
+- [x] 4.2 端到端：管理端邀请 → 注册页横幅 → 注册 → 铃铛有历史通知（见 contract 浏览器路径）
 - [ ] 4.3 （可选）`domain=notify` WS 未读刷新
-- [ ] 4.4 `openspec validate org-member-invite-notify --strict`
-- [ ] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
-- [ ] 4.6 看板 `org-member-invite-notify` → **done**
+- [x] 4.4 `openspec validate org-member-invite-notify --strict`
+- [x] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
+- [x] 4.6 看板 `org-member-invite-notify` → **done**
 
 ---
 
