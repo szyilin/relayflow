@@ -62,7 +62,8 @@ public class SecurityAutoConfiguration {
                         .requestMatchers(
                                 "/admin-api/system/auth/login",
                                 "/admin-api/system/tenant/default",
-                                "/app-api/infra/file/public/**"
+                                "/app-api/infra/file/public/**",
+                                "/infra/ws"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

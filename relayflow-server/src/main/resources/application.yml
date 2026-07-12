@@ -49,3 +49,10 @@ relayflow:
       bucket: relayflow
       use-ssl: false
       path-prefix: ""
+  websocket:
+    enable: true
+    path: /infra/ws
+    sender-type: local
+    allowed-origins: "*"
+    heartbeat-ttl-seconds: 60
+    token-query-param: token
