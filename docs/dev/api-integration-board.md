@@ -41,12 +41,12 @@
 | im-read-receipt | **ready** | **done** | `GET …/conversation/read-status` · `/app/messages` | [contract](../../openspec/lanes/im-read-receipt/contract.md) | 单聊「已读」+ WS `read.updated` |
 | im-presence | **ready** | **done** | `GET …/im/presence/batch` · messages/contacts | [contract](../../openspec/lanes/im-presence/contract.md) | 30s REST 轮询；WS push 留后续 |
 | org-member-invite-notify | **ready** | **done** | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
+| workspace-tasks | **ready** | **done** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | store 无 Mock |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
 |------|----------|----------|-------------|--------|------|
-| workspace-tasks | planned | **ui_ready** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | UI + Mock；待 `-api` |
 | account-sms-verify | planned | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；可选 |
 
 ## 实施顺序（system-admin-v1）
