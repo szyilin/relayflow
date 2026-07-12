@@ -2,6 +2,7 @@ package com.relayflow.module.system.service.tenant;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.framework.tenant.config.TenantProperties;
+import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.dal.dataobject.SysPermissionDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
 import com.relayflow.module.system.dal.dataobject.SysRolePermissionDO;
@@ -116,10 +117,21 @@ public class TenantBootstrapServiceImpl implements TenantBootstrapService {
 
     private Map<Long, Long> copyPermissionTemplate(Long tenantId) {
         Long templateTenantId = tenantProperties.getDefaultId();
-        List<SysPermissionDO> templatePermissions = permissionMapper.selectList(
-                Wrappers.<SysPermissionDO>lambdaQuery()
-                        .eq(SysPermissionDO::getTenantId, templateTenantId)
-                        .orderByAsc(SysPermissionDO::getId));
+        Long previousContext = TenantContextHolder.get();
+        List<SysPermissionDO> templatePermissions;
+        try {
+            TenantContextHolder.set(templateTenantId);
+            templatePermissions = permissionMapper.selectList(
+                    Wrappers.<SysPermissionDO>lambdaQuery()
+                            .eq(SysPermissionDO::getTenantId, templateTenantId)
+                            .orderByAsc(SysPermissionDO::getId));
+        } finally {
+            if (previousContext != null) {
+                TenantContextHolder.set(previousContext);
+            } else {
+                TenantContextHolder.set(tenantId);
+            }
+        }
         if (CollectionUtils.isEmpty(templatePermissions)) {
             return Map.of();
         }

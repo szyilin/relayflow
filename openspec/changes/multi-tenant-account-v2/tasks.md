@@ -15,14 +15,9 @@
 
 > **允许直接清理脏数据，不需要为历史脏数据写适配/回填逻辑。** 见 `design.md` §D11。
 
-- [ ] 0.4 **（实施 V2 前执行一次）** 清库重建开发数据库：
-  ```bash
-  # 任选其一
-  docker compose -f deploy/compose.yml down -v && docker compose -f deploy/compose.yml up -d
-  # 或本地 PostgreSQL：DROP DATABASE relayflow; CREATE DATABASE relayflow;
-  ```
-- [ ] 0.5 启动 `relayflow-server`，确认 Flyway 从头迁移成功（`V0.1.0.1` → 最新）
-- [ ] 0.6 验证种子：`sys_tenant(id=1)` 存在；按需保留或不再依赖 `admin` 种子（V2 可改为纯注册验证）
+- [x] 0.4 **（实施 V2 前执行一次）** 清库重建开发数据库：
+- [x] 0.5 启动 `relayflow-server`，确认 Flyway 从头迁移成功（`V0.1.0.1` → 最新）
+- [x] 0.6 验证种子：`sys_tenant(id=1)` 存在；按需保留或不再依赖 `admin` 种子（V2 可改为纯注册验证）
 
 **禁止**：为开发期脏数据编写 `UPDATE` 修复脚本、双写兼容、或「旧 invite/accept 数据迁移至新 register 模型」逻辑。
 
@@ -88,13 +83,13 @@ curl -s -X POST http://localhost:8080/app-api/system/auth/register \
 
 ## 4. account-register-v2-integrate（联调）
 
-- [ ] 4.1 store 去 Mock，接真实 `POST /auth/register`
-- [ ] 4.2 `application-dev.yml` 增加 profile：`tenant.enabled=true`、`allow-open-register=true`
-- [ ] 4.3 **联调前若数据混乱，再次清库**（§0.4），不做脏数据修复
-- [ ] 4.4 端到端：注册 → 进工作台 → 管理端可见新 tenant 数据隔离
-- [ ] 4.5 端到端：管理端邀请 B 手机号 → B 注册 → B 同时拥有自己的企业与 ACTIVE 邀请 tenant
-- [ ] 4.6 `openspec validate multi-tenant-account-v2 --strict`
-- [ ] 4.7 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
+- [x] 4.1 store 去 Mock，接真实 `POST /auth/register`
+- [x] 4.2 `application-dev.yml` 增加 profile：`tenant.enabled=true`、`allow-open-register=true`
+- [x] 4.3 **联调前若数据混乱，再次清库**（§0.4），不做脏数据修复
+- [x] 4.4 端到端：注册 → 进工作台 → 管理端可见新 tenant 数据隔离
+- [x] 4.5 端到端：管理端邀请 B 手机号 → B 注册 → B 同时拥有自己的企业与 ACTIVE 邀请 tenant
+- [x] 4.6 `openspec validate multi-tenant-account-v2 --strict`
+- [x] 4.7 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
 
 ---
 
