@@ -3,12 +3,12 @@ import { get, post } from '../request'
 export interface AuthLoginReq {
   username: string
   password: string
-  tenantId?: number
+  tenantId?: string
 }
 
 export interface AuthLoginResp {
   accessToken: string
-  tenantId: number
+  tenantId: string
 }
 
 export interface AuthPermissionRole {
@@ -18,7 +18,7 @@ export interface AuthPermissionRole {
 }
 
 export interface AuthPermissionInfoResp {
-  userId: number
+  userId: string
   username: string
   nickname: string
   avatar?: string

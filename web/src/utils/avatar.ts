@@ -1,3 +1,5 @@
+import { hashId } from './id'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 
 export function avatarTextFromName(name?: string | null): string {
@@ -19,7 +21,7 @@ export function resolveAvatarUrl(avatar?: string | null): string | undefined {
   return `${API_BASE}/app-api/infra/file/public/${value}`
 }
 
-export function tenantTileColor(tenantId: number): string {
+export function tenantTileColor(tenantId: string | number): string {
   const palette = [
     '#3370ff',
     '#34c724',
@@ -28,5 +30,6 @@ export function tenantTileColor(tenantId: number): string {
     '#7f3bf5',
     '#14c0ff'
   ]
-  return palette[Math.abs(tenantId) % palette.length]
+  const key = typeof tenantId === 'number' ? String(tenantId) : tenantId
+  return palette[hashId(key) % palette.length]
 }

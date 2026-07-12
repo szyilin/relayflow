@@ -20,6 +20,11 @@ public interface FileService {
 
     InfraFileDO requireFile(Long fileId);
 
+    /**
+     * Resolve a public file by global id (ignores tenant context). Used by permitAll public download.
+     */
+    InfraFileDO requirePublicFile(Long fileId);
+
     InfraFileDO createFromSession(InfraFileUploadSessionDO session,
                                   StorageProviderConfig providerConfig,
                                   StorageObjectMeta objectMeta);

@@ -1,12 +1,10 @@
 package com.relayflow.module.infra.service.file;
 
-import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.oss.core.ObjectStorageClient;
 import com.relayflow.framework.oss.core.ObjectStorageClientFactory;
 import com.relayflow.framework.oss.core.ObjectStorageProviderType;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
 import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
-import com.relayflow.module.infra.enums.ErrorCodeConstants;
 import com.relayflow.module.infra.service.file.model.FileDownloadRedirect;
 import com.relayflow.module.infra.service.storage.StorageProviderService;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +27,7 @@ public class FileDownloadServiceImpl implements FileDownloadService {
 
     @Override
     public FileDownloadRedirect resolvePublicDownload(Long fileId) {
-        InfraFileDO file = fileService.requireFile(fileId);
-        if (!ACCESS_PUBLIC.equalsIgnoreCase(file.getAccessLevel())) {
-            throw new ServiceException(ErrorCodeConstants.FILE_ACCESS_DENIED);
-        }
+        InfraFileDO file = fileService.requirePublicFile(fileId);
         String url = createPresignedGetUrl(file);
         return FileDownloadRedirect.builder()
                 .url(url)

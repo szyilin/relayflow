@@ -1,11 +1,11 @@
 import { get, put } from '../request'
 
 export interface UserProfile {
-  userId: number
+  userId: string
   username: string
   nickname: string
   avatar?: string
-  tenantId: number
+  tenantId: string
   tenantName: string
   tenantVerified: boolean
   isAdmin: boolean

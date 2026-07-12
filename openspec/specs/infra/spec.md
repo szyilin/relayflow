@@ -154,6 +154,24 @@
 - 当 文件属于当前租户
 - 那么 返回文件元数据且不暴露存储密钥
 
+### 需求：工作台成员文件上传
+
+系统 SHALL 允许任意已认证工作台成员经 `/app-api/infra/file/` 创建 upload session 并确认 `public` 文件，**无需** `infra:file:upload` 管理权限（用于头像等场景）。
+
+#### 场景：App 侧 upload session 无需管理权限
+
+- 给定 已认证工作台成员提交 filename、size、mimeType 且 `accessLevel=public`
+- 当 调用 `POST /app-api/infra/file/upload-session`
+- 那么 返回 `uploadId`、presigned URL、objectKey 与过期时间
+- 并且 调用者无需持有 `infra:file:upload`
+
+#### 场景：App 侧 upload confirm
+
+- 给定 成员完成直传后调用 `POST /app-api/infra/file/upload-confirm`
+- 当 对象存在且元数据匹配
+- 那么 创建 `infra_file` 并返回 `fileId`
+- 并且 文件归属 JWT 当前租户
+
 ### 需求：文件业务绑定
 
 系统 SHALL 支持将 `infra_file` 绑定到业务实体，用于授权与生命周期管理。

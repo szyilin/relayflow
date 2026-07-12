@@ -37,7 +37,7 @@ export function confirmUpload(data: FileUploadConfirmReq): Promise<FileUploadCon
   return post<FileUploadConfirmResp>('/app-api/infra/file/upload-confirm', data)
 }
 
-export async function uploadPublicFile(file: File): Promise<number> {
+export async function uploadPublicFile(file: File): Promise<string> {
   const session = await createUploadSession({
     filename: file.name,
     size: file.size,
@@ -67,5 +67,5 @@ export async function uploadPublicFile(file: File): Promise<number> {
     etag: etag?.replaceAll('"', '')
   })
 
-  return confirmed.fileId
+  return String(confirmed.fileId)
 }

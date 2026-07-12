@@ -132,11 +132,6 @@ function openAdmin() {
   close()
   void router.push('/admin')
 }
-
-function loginMoreAccounts() {
-  close()
-  void router.push({ path: '/app/login', query: { addAccount: '1' } })
-}
 </script>
 
 <template>
@@ -203,21 +198,7 @@ function loginMoreAccounts() {
 
       <div class="flex flex-wrap items-center justify-center gap-1.5">
         <span class="text-sm text-[var(--ws-text-muted)]">{{ displayTenantName }}</span>
-        <UBadge color="neutral" variant="subtle" size="xs">
-          未认证
-        </UBadge>
       </div>
-    </div>
-
-    <div class="space-y-0.5 py-2">
-      <button
-        type="button"
-        class="workspace-profile-action"
-        @click="loginMoreAccounts"
-      >
-        <UIcon name="i-lucide-user-plus" class="size-4 shrink-0" />
-        <span>登录更多账号</span>
-      </button>
     </div>
 
     <div class="space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-2">

@@ -1,18 +1,20 @@
 import { get, post } from '../request'
 
+import { idsEqual, normalizeId } from '../utils/id'
+
 export interface TenantSummary {
-  tenantId: number
+  tenantId: string
   tenantName: string
   owner?: boolean
 }
 
 export interface TenantSwitchReq {
-  tenantId: number
+  tenantId: string
 }
 
 export interface TenantSwitchResp {
   accessToken: string
-  tenantId: number
+  tenantId: string
 }
 
 /** 与后端 ErrorCodeConstants.TENANT_SELECTION_REQUIRED 对齐 */
@@ -41,9 +43,9 @@ export function parseTenantSelectionPayload(data: unknown): TenantSummary[] {
       && 'tenantId' in item
       && 'tenantName' in item)
     .map(item => ({
-      tenantId: Number(item.tenantId),
+      tenantId: String(item.tenantId),
       tenantName: String(item.tenantName),
       owner: 'owner' in item ? Boolean(item.owner) : undefined
     }))
-    .filter(item => Number.isFinite(item.tenantId) && item.tenantName)
+    .filter(item => item.tenantId && item.tenantName)
 }

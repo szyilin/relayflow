@@ -67,6 +67,9 @@ export function setupAdminGuards(router: Router) {
       if (authStore.isAuthenticated && !isPublic) {
         try {
           await ensurePermissionInfoLoaded(authStore)
+          if (authStore.tenants.length === 0) {
+            await authStore.fetchMyTenants()
+          }
         } catch {
           await authStore.logout()
           return {

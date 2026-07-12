@@ -10,6 +10,7 @@ import {
 } from '../api/app/tenant'
 import { getPermissionInfo, login as loginApi, logout as logoutApi } from '../api/admin/auth'
 import { ApiError } from '../api/request'
+import { idsEqual, normalizeId } from '../utils/id'
 
 export interface AuthUser {
   username: string
@@ -43,15 +44,21 @@ function readStoredTenants(): TenantSummary[] {
 
   try {
     const parsed = JSON.parse(raw) as TenantSummary[]
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+    return parsed.map(item => ({
+      ...item,
+      tenantId: String(item.tenantId)
+    }))
   } catch {
     return []
   }
 }
 
-function persistSession(accessToken: string, tenant: number, authUser: AuthUser) {
+function persistSession(accessToken: string, tenant: string, authUser: AuthUser) {
   localStorage.setItem(TOKEN_KEY, accessToken)
-  localStorage.setItem(TENANT_KEY, String(tenant))
+  localStorage.setItem(TENANT_KEY, tenant)
   localStorage.setItem(USER_KEY, JSON.stringify(authUser))
 }
 
@@ -79,10 +86,10 @@ export type SwitchTenantResult = { ok: true } | { ok: false, message: string }
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const storedTenantId = localStorage.getItem(TENANT_KEY)
-  const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
+  const tenantId = ref<string | null>(normalizeId(storedTenantId))
   const user = ref<AuthUser | null>(readStoredUser())
   const tenants = ref<TenantSummary[]>(readStoredTenants())
-  const userId = ref<number | null>(null)
+  const userId = ref<string | null>(null)
   const permissions = ref<string[]>([])
   const isAdmin = ref(false)
   const permissionInfoLoaded = ref(false)
@@ -90,10 +97,10 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => Boolean(token.value))
 
   const activeTenant = computed(() =>
-    tenants.value.find(item => item.tenantId === tenantId.value) ?? null)
+    tenants.value.find(item => idsEqual(item.tenantId, tenantId.value)) ?? null)
 
   const activeTenantName = computed(() =>
-    activeTenant.value?.tenantName ?? (tenantId.value != null ? `企业 #${tenantId.value}` : '当前企业'))
+    activeTenant.value?.tenantName ?? '当前企业')
 
   function setTenants(items: TenantSummary[]) {
     tenants.value = items
@@ -110,24 +117,22 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await getPermissionInfo()
     permissions.value = data.permissions
     isAdmin.value = data.isAdmin
-    userId.value = data.userId
+    userId.value = normalizeId(data.userId)
     permissionInfoLoaded.value = true
 
-    if (user.value) {
-      const updatedUser: AuthUser = {
-        username: data.username,
-        nickname: data.nickname || data.username,
-        avatar: data.avatar || undefined
-      }
-      user.value = updatedUser
-      persistUser(updatedUser)
+    const updatedUser: AuthUser = {
+      username: data.username,
+      nickname: data.nickname || data.username,
+      avatar: data.avatar || undefined
     }
+    user.value = updatedUser
+    persistUser(updatedUser)
   }
 
   async function login(
     username: string,
     password: string,
-    selectedTenantId?: number
+    selectedTenantId?: string
   ): Promise<LoginResult> {
     if (!username.trim() || !password.trim()) {
       return { ok: false, message: '请输入用户名和密码' }
@@ -142,7 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
         tenantId: selectedTenantId
       })
 
-      await establishSession(data.accessToken, data.tenantId, trimmedUsername)
+      await establishSession(data.accessToken, String(data.tenantId), trimmedUsername)
       await fetchMyTenants()
       await dockSyncAfterSession()
 
@@ -191,7 +196,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (data.tenants?.length) {
         setTenants(data.tenants)
       }
-      await establishSession(data.accessToken, data.tenantId, mobile, nickname)
+      await establishSession(data.accessToken, String(data.tenantId), mobile, nickname)
       if (!data.tenants?.length) {
         await fetchMyTenants()
       }
@@ -205,8 +210,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function switchTenant(targetTenantId: number): Promise<SwitchTenantResult> {
-    if (targetTenantId === tenantId.value) {
+  async function switchTenant(targetTenantId: string): Promise<SwitchTenantResult> {
+    if (idsEqual(targetTenantId, tenantId.value)) {
       return { ok: true }
     }
 
@@ -214,7 +219,7 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await switchTenantApi({ tenantId: targetTenantId })
       await establishSession(
         data.accessToken,
-        data.tenantId,
+        String(data.tenantId),
         user.value?.username ?? '',
         user.value?.nickname
       )
@@ -231,7 +236,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function establishSession(
     accessToken: string,
-    tenant: number,
+    tenant: string,
     username: string,
     nickname?: string
   ) {
@@ -312,7 +317,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function switchToDockEntry(entry: import('./accountDock').AccountDockEntry) {
-    if (entry.userId === userId.value && entry.tenantId === tenantId.value) {
+    if (entry.userId === userId.value && idsEqual(entry.tenantId, tenantId.value)) {
       return { ok: true as const }
     }
 
