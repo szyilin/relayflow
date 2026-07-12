@@ -58,7 +58,7 @@ Content-Type: application/json
 
 ```json
 {
-  "code": 1001003001,
+  "code": 1001003003,
   "msg": "请选择要进入的企业",
   "data": {
     "tenants": [
@@ -69,7 +69,7 @@ Content-Type: application/json
 }
 ```
 
-**错误码**：`TENANT_SELECTION_REQUIRED` = `1_001_003_001`（1001003001）
+**错误码**：`TENANT_SELECTION_REQUIRED` = `1_001_003_003`（1001003003）
 
 ## 前端（`-web` Mock）
 

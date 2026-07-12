@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ServiceException.class)
     @ResponseStatus(HttpStatus.OK)
-    public CommonResult<Void> handleServiceException(ServiceException exception) {
+    public CommonResult<Object> handleServiceException(ServiceException exception) {
         return CommonResult.error(exception);
     }
 

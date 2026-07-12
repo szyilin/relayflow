@@ -31,6 +31,12 @@ public class CommonResult<T> {
     }
 
     public static <T> CommonResult<T> error(ServiceException exception) {
-        return error(exception.getCode(), exception.getMessage());
+        CommonResult<T> result = new CommonResult<>();
+        result.code = exception.getCode();
+        result.msg = exception.getMessage();
+        @SuppressWarnings("unchecked")
+        T payload = (T) exception.getData();
+        result.data = payload;
+        return result;
     }
 }

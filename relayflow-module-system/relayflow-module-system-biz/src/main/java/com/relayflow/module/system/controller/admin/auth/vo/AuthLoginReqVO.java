@@ -11,4 +11,7 @@ public class AuthLoginReqVO {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    /** 多企业登录时指定目标 tenant；`enabled=true` 且未指定且有多企业时返回 TENANT_SELECTION_REQUIRED */
+    private Long tenantId;
 }
