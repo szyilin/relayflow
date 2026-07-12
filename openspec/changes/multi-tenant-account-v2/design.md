@@ -238,7 +238,7 @@ Store：`auth.ts` 增加 `tenants`、`activeTenant`、`switchTenant()`。
 
 ## Open Questions
 
-- [ ] 开发环境默认 `enabled=true` 还是保持 `false` 直到 integrate 完成？→ **建议 dev profile 用 true，CI 双模式**
+- [ ] 开发环境默认 `enabled=true` 还是保持 `false` 直到 integrate 完成？→ **已确认：dev profile 默认 `enabled=true`（`application-dev.yml`）；生产/base 仍为 `false`**
 - [ ] 注册后 IM 欢迎消息 / 邀请通知 → 留 `org-member-invite-notify` change
 - [ ] 用户名登录是否允许与 mobile 不同？→ **V2 MVP：username=mobile，后续可改昵称式 username**
 

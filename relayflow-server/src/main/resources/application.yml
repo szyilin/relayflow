@@ -1,6 +1,8 @@
 spring:
   application:
     name: relayflow-server
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/relayflow}
@@ -24,6 +26,7 @@ relayflow:
     enabled: false
     default-id: 1
     header-name: X-Tenant-Id
+    allow-open-register: false
   cache:
     enabled: true
     default-ttl-seconds: 1800

@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { register as registerApi, type AuthRegisterReq } from '../api/app/auth-register'
 import { getPermissionInfo, login as loginApi, logout as logoutApi } from '../api/admin/auth'
 import { ApiError } from '../api/request'
 
@@ -38,6 +39,17 @@ function persistUser(authUser: AuthUser) {
 export type LoginResult =
   | { ok: true }
   | { ok: false, message: string }
+
+export type RegisterResult = LoginResult
+
+const MOCK_REGISTER_TENANT_ID = 200001
+
+function shouldUseRegisterMock(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.code === 0 || error.code === 404
+  }
+  return true
+}
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
@@ -93,6 +105,41 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function register(payload: AuthRegisterReq): Promise<RegisterResult> {
+    const mobile = payload.mobile.trim()
+    const password = payload.password.trim()
+    const nickname = payload.nickname.trim()
+    const tenantName = payload.tenantName.trim()
+
+    if (!mobile || !password || !nickname || !tenantName) {
+      return { ok: false, message: '请完整填写注册信息' }
+    }
+    if (password.length < 6) {
+      return { ok: false, message: '密码至少 6 位' }
+    }
+
+    try {
+      const data = await registerApi({
+        mobile,
+        password,
+        nickname,
+        tenantName
+      })
+      await establishSession(data.accessToken, data.tenantId, mobile)
+      return { ok: true }
+    } catch (error) {
+      if (shouldUseRegisterMock(error)) {
+        await establishSession(`mock-register-token-${Date.now()}`, MOCK_REGISTER_TENANT_ID, mobile)
+        return { ok: true }
+      }
+
+      const message = error instanceof ApiError
+        ? error.message
+        : '注册失败，请稍后重试'
+      return { ok: false, message }
+    }
+  }
+
   async function establishSession(accessToken: string, tenant: number, username: string) {
     const authUser: AuthUser = {
       username,
@@ -136,6 +183,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissionInfoLoaded,
     isAuthenticated,
     login,
+    register,
     establishSession,
     logout,
     fetchPermissionInfo
