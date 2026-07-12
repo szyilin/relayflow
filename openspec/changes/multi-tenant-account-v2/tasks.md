@@ -8,8 +8,8 @@
 ## 0. 规划基线（本 change）
 
 - [x] 0.1 `proposal.md` / `design.md` / spec delta / 本 `tasks.md`
-- [ ] 0.2 `openspec validate multi-tenant-account-v2 --strict`
-- [ ] 0.3 团队确认：开发 profile 是否默认 `tenant.enabled=true`（见 design Open Questions）
+- [x] 0.2 `openspec validate multi-tenant-account-v2 --strict`
+- [x] 0.3 团队确认：开发 profile 默认 `tenant.enabled=true`（`application-dev.yml` + `spring.profiles.active=dev`）
 
 ### 0.x 开发库数据策略（产品负责人已授权）
 
@@ -33,10 +33,10 @@
 **目标**：抽取租户初始化逻辑，供「注册建企」与种子安装复用。  
 **范围**：Java only；无 `web/`。
 
-- [ ] 1.1 新增 `TenantBootstrapService`：创建根部门、owner 主部门、`super_admin` 绑定
-- [ ] 1.2 从 `V0.1.0.3__seed_admin_user` 逻辑提取为可编程调用（种子脚本仍可用）
-- [ ] 1.3 单元测试：bootstrap 后 owner 可解析为 `isAdmin`
-- [ ] 1.4 `./mvnw -pl relayflow-server -am compile`
+- [x] 1.1 新增 `TenantBootstrapService`：创建根部门、owner 主部门、`super_admin` 绑定
+- [x] 1.2 从 `V0.1.0.3__seed_admin_user` 逻辑提取为可编程调用（种子脚本仍可用）
+- [x] 1.3 单元测试：bootstrap 后 owner 可解析为 `isAdmin`
+- [x] 1.4 `./mvnw -pl relayflow-server -am compile`
 
 **验证**：Java 单测 + compile。
 
@@ -48,13 +48,13 @@
 
 **OpenSpec 子 change**：`openspec new change account-register-v2-web`（或会话内声明 lane）
 
-- [ ] 2.1 新建 `/app/register`：mobile、password、confirmPassword、nickname、tenantName
-- [ ] 2.2 `login.vue` 入口改为「没有账号？注册」→ `/app/register`
-- [ ] 2.3 `/app/invite/accept` 路由 redirect → `/app/register`（保留 mobile query）
-- [ ] 2.4 新建 `api/app/auth-register.ts` + store 方法（Mock 成功返回 token）
-- [ ] 2.5 起草 `openspec/lanes/account-register-v2/contract.md`（register API 字段）
-- [ ] 2.6 `cd web && pnpm build`
-- [ ] 2.7 浏览器：`/app/login` → 注册页 → Mock 成功进 `/app/messages`
+- [x] 2.1 新建 `/app/register`：mobile、password、confirmPassword、nickname、tenantName
+- [x] 2.2 `login.vue` 入口改为「没有账号？注册」→ `/app/register`
+- [x] 2.3 `/app/invite/accept` 路由 redirect → `/app/register`（保留 mobile query）
+- [x] 2.4 新建 `api/app/auth-register.ts` + store 方法（Mock 成功返回 token）
+- [x] 2.5 起草 `openspec/lanes/account-register-v2/contract.md`（register API 字段）
+- [x] 2.6 `cd web && pnpm build`
+- [x] 2.7 浏览器：`/app/login` → 注册页 → Mock 成功进 `/app/messages`
 
 **验证**：`pnpm build` + 浏览器路径。
 

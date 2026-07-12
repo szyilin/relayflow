@@ -66,8 +66,8 @@ meta:
       使用企业账号登录；管理员与普通员工同一入口，权限由系统分配
     </p>
     <p class="text-center text-sm text-muted">
-      <RouterLink to="/app/invite/accept" class="text-primary hover:underline">
-        收到邀请？设置密码加入
+      <RouterLink to="/app/register" class="text-primary hover:underline">
+        没有账号？注册
       </RouterLink>
     </p>
   </div>

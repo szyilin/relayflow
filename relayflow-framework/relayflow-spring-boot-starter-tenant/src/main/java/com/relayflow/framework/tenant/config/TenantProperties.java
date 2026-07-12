@@ -21,4 +21,9 @@ public class TenantProperties {
      * HTTP header used when {@link #enabled} is true.
      */
     private String headerName = "X-Tenant-Id";
+
+    /**
+     * When {@link #enabled} is true, allow {@code POST /app-api/system/auth/register}.
+     */
+    private boolean allowOpenRegister = false;
 }

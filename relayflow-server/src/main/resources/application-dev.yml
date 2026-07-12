@@ -1,0 +1,5 @@
+# Local development profile — V2 multi-tenant product mode (see multi-tenant-account-v2 design D1).
+relayflow:
+  tenant:
+    enabled: true
+    allow-open-register: true
