@@ -4,14 +4,14 @@
 
 ## 1. 文档与规格
 
-- [ ] 1.1 审阅 `proposal.md`、`design.md` 与 `specs/` 增量，确认四层架构、Envelope、数据模型、API 契约与路线图一致
-- [ ] 1.2 确认「V1 实现 vs 占位接口」边界清晰（notify / presence / NotifyInboxApi 仅预留）
-- [ ] 1.3 运行 `openspec validate im-platform-foundation --strict`
+- [x] 1.1 审阅 `proposal.md`、`design.md` 与 `specs/` 增量，确认四层架构、Envelope、数据模型、API 契约与路线图一致
+- [x] 1.2 确认「V1 实现 vs 占位接口」边界清晰（notify / presence / NotifyInboxApi 仅预留）
+- [x] 1.3 运行 `openspec validate im-platform-foundation --strict`
 
 ## 2. 归档与衔接（文档完成后）
 
-- [ ] 2.1 运行 `openspec archive im-platform-foundation` 合并 spec delta 至 `openspec/specs/`
-- [ ] 2.2 更新 `AGENTS.md`「下一优先」：`im-realtime-platform` → `im-schema-v1` → `im-direct-chat-*`
+- [x] 2.1 运行 `openspec archive im-platform-foundation` 合并 spec delta 至 `openspec/specs/`
+- [x] 2.2 更新 `AGENTS.md`「下一优先」：`im-realtime-platform` → `im-schema-v1` → `im-direct-chat-*`
 
 ## 3. 后续实现 change（不在本 change 勾选）
 
