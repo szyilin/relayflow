@@ -14,6 +14,8 @@ public class UserGetRespVO {
     private String nickname;
     private String mobile;
     private String email;
+    /** TenantUserStatus 枚举名 */
+    private String memberStatus;
     /** 0=启用 1=禁用（租户成员状态） */
     private Integer status;
     private Long deptId;

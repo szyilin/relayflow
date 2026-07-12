@@ -3,6 +3,7 @@ package com.relayflow.module.system.service.user;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
+import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
 import com.relayflow.module.system.controller.admin.user.vo.UserGetRespVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserPageReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserRespVO;
@@ -17,6 +18,8 @@ import java.util.List;
 public interface UserService {
 
     Long createUser(UserCreateReqDTO request);
+
+    Long inviteMember(UserInviteReqDTO request);
 
     UserBasicDTO getUserBasic(Long userId);
 

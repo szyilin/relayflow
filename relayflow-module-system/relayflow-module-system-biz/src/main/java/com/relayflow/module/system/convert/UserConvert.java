@@ -16,7 +16,9 @@ public class UserConvert {
         vo.setId(user.getId());
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
+        vo.setMobile(user.getMobile());
         vo.setDept(deptName);
+        vo.setMemberStatus(memberStatus.name());
         vo.setStatus(toStatusCode(memberStatus));
         vo.setCreateTime(user.getCreateTime());
         return vo;
@@ -30,6 +32,7 @@ public class UserConvert {
         vo.setNickname(user.getNickname());
         vo.setMobile(user.getMobile());
         vo.setEmail(user.getEmail());
+        vo.setMemberStatus(memberStatus.name());
         vo.setStatus(toStatusCode(memberStatus));
         vo.setDeptId(deptId);
         vo.setRoleIds(roleIds);

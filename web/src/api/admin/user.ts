@@ -6,6 +6,8 @@ export interface UserPageItem {
   id: UserId
   username: string
   nickname: string
+  mobile?: string
+  memberStatus?: string
   dept?: string
   status?: number
   createTime?: string
@@ -29,10 +31,19 @@ export interface UserDetail {
   nickname: string
   mobile?: string | null
   email?: string | null
+  memberStatus?: string
   status: number
   deptId?: UserId | null
   roleIds: UserId[]
   createTime?: string
+}
+
+export interface UserInvitePayload {
+  mobile: string
+  nickname?: string
+  email?: string
+  deptId?: UserId | null
+  roleIds?: UserId[]
 }
 
 export interface UserCreatePayload {
@@ -89,6 +100,10 @@ export function getUser(id: UserId): Promise<UserDetail> {
 
 export function createUser(data: UserCreatePayload): Promise<UserId> {
   return post<UserId>('/admin-api/system/user/create', data)
+}
+
+export function inviteUser(data: UserInvitePayload): Promise<UserId> {
+  return post<UserId>('/admin-api/system/user/invite', data)
 }
 
 export function updateUser(data: UserUpdatePayload): Promise<boolean> {

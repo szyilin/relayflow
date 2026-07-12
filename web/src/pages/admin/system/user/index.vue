@@ -30,20 +30,17 @@ const editForm = reactive({
 })
 
 const columns: TableColumn<UserListRecord>[] = [{
-  accessorKey: 'username',
-  header: '用户名'
-}, {
   accessorKey: 'nickname',
-  header: '昵称'
+  header: '姓名'
+}, {
+  accessorKey: 'memberStatus',
+  header: '账号状态'
+}, {
+  accessorKey: 'mobile',
+  header: '手机号'
 }, {
   accessorKey: 'dept',
   header: '部门'
-}, {
-  accessorKey: 'status',
-  header: '状态'
-}, {
-  accessorKey: 'createTime',
-  header: '创建时间'
 }, {
   id: 'actions',
   header: '操作'
@@ -55,6 +52,10 @@ const createUserLink = computed(() => ({
   path: '/admin/system/user/create',
   query: selectedDeptId.value ? { deptId: selectedDeptId.value } : undefined
 }))
+
+function canToggleStatus(record: UserListRecord) {
+  return record.memberStatus === 'ACTIVE' || record.memberStatus === 'SUSPENDED'
+}
 
 const deptOptions = computed(() =>
   deptStore.list.map(item => ({
@@ -157,13 +158,12 @@ async function saveEdit() {
     await userStore.saveProfile({
       id: editForm.id,
       nickname: editForm.nickname.trim() || undefined,
-      mobile: editForm.mobile.trim() || undefined,
       email: editForm.email.trim() || undefined,
       deptId: editForm.deptId,
       roleIds: editForm.roleIds
     })
     editOpen.value = false
-    toast.add({ title: '用户已更新', color: 'success' })
+    toast.add({ title: '成员已更新', color: 'success' })
   } catch (error) {
     toast.add({
       title: '保存失败',
@@ -177,10 +177,10 @@ async function saveEdit() {
 
 async function toggleStatus(record: UserListRecord) {
   const nextStatus = record.statusCode === 0 ? 1 : 0
-  const action = nextStatus === 1 ? '禁用' : '启用'
+  const action = nextStatus === 1 ? '暂停' : '恢复'
   try {
     await userStore.toggleStatus(record.id, nextStatus)
-    toast.add({ title: `用户已${action}`, color: 'success' })
+    toast.add({ title: `成员已${action}`, color: 'success' })
   } catch (error) {
     toast.add({
       title: `${action}失败`,
@@ -213,16 +213,16 @@ meta:
     <template #body>
       <div class="space-y-4">
         <AdminPageHeader
-          title="用户列表"
-          description="按部门浏览与管理成员"
+          title="成员列表"
+          description="按部门浏览与管理组织成员"
         >
           <template #actions>
             <UButton
               v-if="hasPermission('system:user:create')"
               :to="createUserLink"
-              icon="i-lucide-plus"
+              icon="i-lucide-user-plus"
             >
-              新建用户
+              邀请成员
             </UButton>
           </template>
         </AdminPageHeader>
@@ -260,7 +260,7 @@ meta:
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <UInput
                 v-model="userStore.keyword"
-                placeholder="搜索用户名或昵称"
+                placeholder="搜索姓名或手机号"
                 icon="i-lucide-search"
                 class="sm:max-w-xs"
                 @keyup.enter="loadPage({ page: 1, keyword: userStore.keyword })"
@@ -276,6 +276,12 @@ meta:
             </div>
 
             <UTable :data="userStore.list" :columns="columns" :loading="userStore.loading">
+              <template #memberStatus-cell="{ row }">
+                <UBadge :color="row.original.statusColor" variant="subtle">
+                  {{ row.original.statusLabel }}
+                </UBadge>
+              </template>
+
               <template #actions-cell="{ row }">
                 <div class="flex gap-1">
                   <UButton
@@ -288,13 +294,13 @@ meta:
                     编辑
                   </UButton>
                   <UButton
-                    v-if="hasPermission('system:user:update')"
+                    v-if="hasPermission('system:user:update') && canToggleStatus(row.original)"
                     size="xs"
                     :color="row.original.statusCode === 0 ? 'error' : 'primary'"
                     variant="soft"
                     @click="toggleStatus(row.original)"
                   >
-                    {{ row.original.statusCode === 0 ? '禁用' : '启用' }}
+                    {{ row.original.statusCode === 0 ? '暂停' : '恢复' }}
                   </UButton>
                 </div>
               </template>
@@ -314,22 +320,22 @@ meta:
         </div>
       </div>
 
-      <UModal v-model:open="editOpen" title="编辑用户">
+      <UModal v-model:open="editOpen" title="编辑成员">
         <template #body>
           <div v-if="detailLoading" class="py-8 text-center text-sm text-muted">
             加载中…
           </div>
           <form v-else class="space-y-4" @submit.prevent="saveEdit">
-            <UFormField label="用户名">
-              <UInput :model-value="editForm.username" disabled />
-            </UFormField>
-            <UFormField label="昵称">
+            <UFormField label="姓名">
               <UInput v-model="editForm.nickname" placeholder="张三" />
             </UFormField>
             <UFormField label="手机号">
-              <UInput v-model="editForm.mobile" placeholder="13800138000" />
+              <UInput :model-value="editForm.mobile" disabled />
+              <template #hint>
+                <span class="text-muted">手机号为账号标识，组织不可修改</span>
+              </template>
             </UFormField>
-            <UFormField label="邮箱">
+            <UFormField label="工作邮箱">
               <UInput v-model="editForm.email" type="email" placeholder="zhangsan@example.com" />
             </UFormField>
             <UFormField label="主部门">
