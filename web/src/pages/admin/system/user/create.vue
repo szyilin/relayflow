@@ -6,6 +6,7 @@ import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { getRolePage } from '../../../../api/admin/role'
 import { useDeptStore } from '../../../../stores/dept'
 import { useUserStore } from '../../../../stores/user'
+import { isValidMobile, normalizeMobile } from '../../../../utils/mobile'
 
 const router = useRouter()
 const route = useRoute()
@@ -69,11 +70,19 @@ async function loadOptions() {
 }
 
 async function onSubmit() {
-  const mobile = form.mobile.trim()
+  const mobile = normalizeMobile(form.mobile.trim())
   if (!mobile) {
     toast.add({
       title: '请完善表单',
       description: '手机号为必填项',
+      color: 'error'
+    })
+    return
+  }
+  if (!isValidMobile(form.mobile)) {
+    toast.add({
+      title: '请完善表单',
+      description: '请输入 11 位手机号',
       color: 'error'
     })
     return
@@ -144,7 +153,8 @@ meta:
               <UFormField label="手机号" required class="md:col-span-1">
                 <UInput
                   v-model="form.mobile"
-                  placeholder="13800138000"
+                  placeholder="11 位手机号，可分段输入"
+                  inputmode="tel"
                   autocomplete="off"
                   size="lg"
                 />

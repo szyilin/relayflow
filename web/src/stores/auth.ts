@@ -11,6 +11,7 @@ import {
 import { getPermissionInfo, login as loginApi, logout as logoutApi } from '../api/admin/auth'
 import { ApiError } from '../api/request'
 import { idsEqual, normalizeId } from '../utils/id'
+import { isValidMobile, normalizeMobile } from '../utils/mobile'
 
 export interface AuthUser {
   username: string
@@ -77,7 +78,7 @@ export type LoginResult =
     ok: false
     needTenantSelection: true
     tenants: TenantSummary[]
-    credentials: { username: string, password: string }
+    credentials: { mobile: string, password: string }
   }
 
 export type RegisterResult = Exclude<LoginResult, { needTenantSelection: true }>
@@ -130,24 +131,28 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(
-    username: string,
+    mobileInput: string,
     password: string,
     selectedTenantId?: string
   ): Promise<LoginResult> {
-    if (!username.trim() || !password.trim()) {
-      return { ok: false, message: '请输入用户名和密码' }
-    }
+    const mobile = normalizeMobile(mobileInput.trim())
+    const trimmedPassword = password.trim()
 
-    const trimmedUsername = username.trim()
+    if (!mobile || !trimmedPassword) {
+      return { ok: false, message: '请输入手机号和密码' }
+    }
+    if (!isValidMobile(mobileInput)) {
+      return { ok: false, message: '请输入 11 位手机号' }
+    }
 
     try {
       const data = await loginApi({
-        username: trimmedUsername,
-        password,
+        username: mobile,
+        password: trimmedPassword,
         tenantId: selectedTenantId
       })
 
-      await establishSession(data.accessToken, String(data.tenantId), trimmedUsername)
+      await establishSession(data.accessToken, String(data.tenantId), mobile)
       await fetchMyTenants()
       await dockSyncAfterSession()
 
@@ -160,7 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
             ok: false,
             needTenantSelection: true,
             tenants: selection,
-            credentials: { username: trimmedUsername, password }
+            credentials: { mobile, password: trimmedPassword }
           }
         }
       }
@@ -174,13 +179,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function register(payload: AuthRegisterReq): Promise<RegisterResult> {
-    const mobile = payload.mobile.trim()
+    const mobile = normalizeMobile(payload.mobile.trim())
     const password = payload.password.trim()
     const nickname = payload.nickname.trim()
     const tenantName = payload.tenantName.trim()
 
     if (!mobile || !password || !nickname || !tenantName) {
       return { ok: false, message: '请完整填写注册信息' }
+    }
+    if (!isValidMobile(payload.mobile)) {
+      return { ok: false, message: '请输入 11 位手机号' }
     }
     if (password.length < 6) {
       return { ok: false, message: '密码至少 6 位' }

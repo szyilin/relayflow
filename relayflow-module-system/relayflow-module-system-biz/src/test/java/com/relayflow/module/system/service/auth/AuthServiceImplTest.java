@@ -136,7 +136,6 @@ class AuthServiceImplTest {
         tenantProperties.setEnabled(true);
 
         when(userMapper.selectOne(any()))
-                .thenReturn(null)
                 .thenReturn(user);
         when(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
         when(tenantUserMapper.selectList(any())).thenReturn(List.of(activeMembership(3L)));
@@ -149,6 +148,25 @@ class AuthServiceImplTest {
         AuthLoginRespVO response = authService.login(request);
 
         assertEquals(3L, response.getTenantId());
+    }
+
+    @Test
+    void loginWithSpacedMobileWhenTenantDisabled() {
+        tenantProperties.setEnabled(false);
+
+        SysTenantUserDO membership = activeMembership(1L);
+        when(userMapper.selectOne(any())).thenReturn(user);
+        when(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).thenReturn(true);
+        when(tenantUserMapper.selectOne(any())).thenReturn(membership);
+        when(jwtTokenService.createAccessToken(100L, "13900001234", 1L, "admin")).thenReturn("token-spaced");
+
+        AuthLoginReqVO request = new AuthLoginReqVO();
+        request.setUsername("139 0000 1234");
+        request.setPassword(PASSWORD);
+
+        AuthLoginRespVO response = authService.login(request);
+
+        assertEquals("token-spaced", response.getAccessToken());
     }
 
     private SysTenantUserDO activeMembership(long tenantId) {

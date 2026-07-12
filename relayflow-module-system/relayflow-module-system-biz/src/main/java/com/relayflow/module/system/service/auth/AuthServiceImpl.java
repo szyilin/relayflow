@@ -2,6 +2,7 @@ package com.relayflow.module.system.service.auth;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.common.util.MobileUtils;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.TokenRevocationStore;
@@ -131,16 +132,16 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(loginName)) {
             return null;
         }
-        String normalized = loginName.trim();
+        String normalized = MobileUtils.normalize(loginName);
+        if (!MobileUtils.isValid(normalized)) {
+            return null;
+        }
         SysUserDO user = userMapper.selectOne(Wrappers.<SysUserDO>lambdaQuery()
-                .eq(SysUserDO::getUsername, normalized));
+                .eq(SysUserDO::getMobile, normalized));
         if (user != null) {
             return user;
         }
-        if (tenantProperties.isEnabled()) {
-            return userMapper.selectOne(Wrappers.<SysUserDO>lambdaQuery()
-                    .eq(SysUserDO::getMobile, normalized));
-        }
-        return null;
+        return userMapper.selectOne(Wrappers.<SysUserDO>lambdaQuery()
+                .eq(SysUserDO::getUsername, normalized));
     }
 }

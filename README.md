@@ -80,7 +80,7 @@ cd web && pnpm install && pnpm dev
 
 浏览器打开 **http://localhost:5173/app/login**（Vite 已将 `/admin-api` 代理到 `:8080`）。
 
-默认开发账号：**`admin` / `admin123`**（Flyway 种子数据；生产环境请修改密码）。
+默认开发账号：**`19988888888` / `123456`**（Flyway 种子数据；生产环境请修改密码）。
 
 ### 租户产品模式（V1 / V2）
 
