@@ -18,6 +18,7 @@ services:
       RELAYFLOW_JWT_SECRET: ${RELAYFLOW_JWT_SECRET:-dev-only-change-me-in-production}
       RELAYFLOW_TENANT_ENABLED: ${RELAYFLOW_TENANT_ENABLED:-false}
       RELAYFLOW_TENANT_DEFAULT_ID: ${RELAYFLOW_TENANT_DEFAULT_ID:-1}
+      RELAYFLOW_TENANT_ALLOW_OPEN_REGISTER: ${RELAYFLOW_TENANT_ALLOW_OPEN_REGISTER:-false}
     depends_on:
       postgres:
         condition: service_healthy

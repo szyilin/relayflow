@@ -152,9 +152,9 @@ curl -s -X POST http://localhost:8080/app-api/system/tenant/switch \
 
 ## 9. deployment 与文档
 
-- [ ] 9.1 `deploy/compose.yml` / README：增加 `RELAYFLOW_TENANT_ENABLED` 说明
-- [ ] 9.2 `docs/dev/product-permission-model.md` 补充多 tenant 切换语义（若需要）
-- [ ] 9.3 `docker compose config` 验证
+- [x] 9.1 `deploy/compose.yml` / README：增加 `RELAYFLOW_TENANT_ENABLED` 说明
+- [x] 9.2 `docs/dev/product-permission-model.md` 补充多 tenant 切换语义（若需要）
+- [x] 9.3 `docker compose config` 验证
 
 ---
 

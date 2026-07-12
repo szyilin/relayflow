@@ -23,10 +23,10 @@ server:
 
 relayflow:
   tenant:
-    enabled: false
-    default-id: 1
+    enabled: ${RELAYFLOW_TENANT_ENABLED:false}
+    default-id: ${RELAYFLOW_TENANT_DEFAULT_ID:1}
     header-name: X-Tenant-Id
-    allow-open-register: false
+    allow-open-register: ${RELAYFLOW_TENANT_ALLOW_OPEN_REGISTER:false}
   cache:
     enabled: true
     default-ttl-seconds: 1800
