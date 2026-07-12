@@ -1,5 +1,7 @@
 # 提案：手机号短信验证码（account-sms-verify）
 
+> **归档说明（2026-07-12）**：本 change **仅归档规划规格**，delta 已手动合并至 `openspec/specs/system`、`web-auth`。**V1 前期暂缓实现**，待开放注册 spam 风险上升或产品要求时再立项 `-api` / `-web`。
+
 ## Why
 
 [`multi-tenant-account-v2`](../archive/2026-07-12-multi-tenant-account-v2/proposal.md) 开放注册使用 **手机号 + 密码**，无验证码环节。设计文档已标注 spam 风险，缓解手段为 `allow-open-register` 开关 + **后续验证码**。

@@ -600,3 +600,86 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 - 当 已认证用户请求 `GET /admin-api/system/auth/get-permission-info`
 - 那么 响应 `avatar` 与 `sys_user.avatar` 一致
+
+### Requirement: Member invite notification trigger
+
+The system SHALL create an in-app notification when an administrator successfully invites a member by mobile.
+
+#### Scenario: Invite pushes MEMBER_INVITE notify
+
+- **WHEN** `POST /admin-api/system/user/invite` succeeds and creates or updates a `NOT_JOINED` membership
+- **THEN** the system pushes a `MEMBER_INVITE` notification including tenant name and inviter display name in the payload
+
+#### Scenario: Duplicate invite refreshes notification
+
+- **WHEN** the same mobile already has an unread `MEMBER_INVITE` notification for the same tenant
+- **THEN** the system updates the existing notification instead of creating duplicate unread rows
+
+### Requirement: Public pending invite preview for registration
+
+The system SHALL expose a permitAll app API so the registration page can show pending enterprise invitations for a mobile number without authentication.
+
+#### Scenario: Preview pending tenants by mobile
+
+- **WHEN** a client calls `GET /app-api/system/member-invite/pending?mobile={mobile}`
+- **THEN** the system returns tenants where the mobile has `sys_tenant_user.status=NOT_JOINED`
+- **AND** each item includes at least `tenantId` and `tenantName`
+- **AND** does not expose admin-only fields such as department or role assignments
+
+#### Scenario: No pending invites
+
+- **WHEN** the mobile has no `NOT_JOINED` memberships
+- **THEN** the system returns an empty list with `code=0`
+
+### Requirement: SMS verification code send
+
+When `relayflow.sms.enabled=true`, the system SHALL expose a public API to send a time-limited numeric verification code for a given mobile and scene.
+
+> **实现状态**：`account-sms-verify` 已归档为规划规格，V1 前期暂缓实现。
+
+#### Scenario: Send register code
+
+- **WHEN** a client calls `POST /app-api/system/auth/sms/send` with `{ mobile, scene: "register" }` and SMS is enabled
+- **THEN** the system stores a 6-digit code in Redis with configured TTL
+- **AND** dispatches the code through the configured `SmsSender`
+- **AND** returns success without revealing whether the mobile is already registered
+
+#### Scenario: Resend too frequent
+
+- **WHEN** a client requests another code for the same mobile and scene within the resend interval
+- **THEN** the system rejects with `SMS_SEND_TOO_FREQUENT`
+
+#### Scenario: SMS disabled
+
+- **WHEN** `relayflow.sms.enabled=false`
+- **THEN** the send endpoint is not available or returns `SMS_DISABLED`
+- **AND** registration does not require `smsCode`
+
+### Requirement: SMS verification on registration
+
+When SMS is enabled, registration SHALL require a valid verification code for the same mobile and `register` scene.
+
+> **实现状态**：`account-sms-verify` 已归档为规划规格，V1 前期暂缓实现。
+
+#### Scenario: Register with valid sms code
+
+- **WHEN** a client calls `POST /app-api/system/auth/register` with matching `mobile` and valid `smsCode` while SMS is enabled
+- **THEN** registration proceeds as defined by open registration rules
+- **AND** the used code is consumed and cannot be reused
+
+#### Scenario: Register with invalid sms code
+
+- **WHEN** `smsCode` is missing, expired, or incorrect while SMS is enabled
+- **THEN** the system rejects with `SMS_CODE_INVALID` or `SMS_CODE_EXPIRED`
+
+### Requirement: Mock SMS sender for development
+
+The system SHALL provide a mock SMS sender for non-production profiles that logs verification codes instead of calling an external provider.
+
+> **实现状态**：`account-sms-verify` 已归档为规划规格，V1 前期暂缓实现。
+
+#### Scenario: Dev mock logs code
+
+- **WHEN** `relayflow.sms.mock=true` and a send request succeeds
+- **THEN** the verification code is written to application logs
+- **AND** no external SMS API is called
