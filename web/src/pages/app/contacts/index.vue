@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
 import { useContactsStore, type ContactDeptTreeNode } from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
+import { usePresenceStore } from '../../../stores/presence'
 import type { ContactItem } from '../../../api/app/contacts'
 
 const router = useRouter()
 const toast = useToast()
 const contacts = useContactsStore()
 const im = useImStore()
+const presence = usePresenceStore()
 const {
   open: profileOpen,
   payload: profileContact,
@@ -109,8 +111,18 @@ function openMessage(contact: ContactItem) {
   void router.push('/app/messages')
 }
 
+const memberUserIds = computed(() => contacts.members.map(member => member.id))
+
+watch(memberUserIds, (userIds) => {
+  presence.startPolling(userIds)
+}, { immediate: true, deep: true })
+
 onMounted(() => {
   void initPage()
+})
+
+onUnmounted(() => {
+  presence.stopPolling()
 })
 </script>
 
@@ -187,7 +199,7 @@ meta:
             @click="handleContactClick(person, $event)"
           >
             <UAvatar :text="person.avatarText" size="md" />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="truncate font-medium">
                 {{ person.nickname }}
               </p>
@@ -195,6 +207,10 @@ meta:
                 {{ person.deptName }} · @{{ person.username }}
               </p>
             </div>
+            <span
+              class="size-2 shrink-0 rounded-full"
+              :class="presence.isOnline(person.id) ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
+            />
           </button>
         </div>
 
@@ -246,9 +262,25 @@ meta:
       <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         活跃状态
       </div>
-      <div class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
+      <div v-if="contacts.members.length" class="space-y-1 overflow-y-auto p-2">
+        <div
+          v-for="person in contacts.members"
+          :key="`presence-${person.id}`"
+          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+        >
+          <span
+            class="size-2 shrink-0 rounded-full"
+            :class="presence.isOnline(person.id) ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
+          />
+          <span class="truncate">{{ person.nickname }}</span>
+          <span class="ml-auto text-xs text-[var(--ws-text-muted)]">
+            {{ presence.isOnline(person.id) ? '在线' : '离线' }}
+          </span>
+        </div>
+      </div>
+      <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
         <UIcon name="i-lucide-sparkles" class="size-8 opacity-40" />
-        <p>在线状态将在后续切片接入</p>
+        <p>选择部门查看成员在线状态</p>
       </div>
     </template>
   </WorkspaceShell>

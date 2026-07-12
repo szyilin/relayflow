@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -46,6 +47,12 @@ public class AppFileController {
     public CommonResult<FileUploadConfirmRespVO> confirmUpload(
             @Valid @RequestBody FileUploadConfirmReqVO request) {
         return CommonResult.success(fileUploadSessionService.confirm(request));
+    }
+
+    @GetMapping("/download")
+    public ResponseEntity<Void> downloadMemberFile(@RequestParam Long fileId) {
+        FileDownloadRedirect redirect = fileDownloadService.resolveMemberDownload(fileId);
+        return buildRedirect(redirect);
     }
 
     public static ResponseEntity<Void> buildRedirect(FileDownloadRedirect redirect) {

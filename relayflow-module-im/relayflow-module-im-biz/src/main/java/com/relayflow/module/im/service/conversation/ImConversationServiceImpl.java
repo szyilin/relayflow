@@ -3,15 +3,22 @@ package com.relayflow.module.im.service.conversation;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.controller.app.vo.ConversationMemberReadStatusRespVO;
+import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
 import com.relayflow.module.im.dal.dataobject.ImMessageDO;
 import com.relayflow.module.im.dal.mysql.ImConversationMapper;
 import com.relayflow.module.im.dal.mysql.ImConversationMemberMapper;
+import com.relayflow.module.im.dal.dataobject.ImGroupDO;
+import com.relayflow.module.im.dal.mysql.ImGroupMapper;
 import com.relayflow.module.im.dal.mysql.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImConversationType;
+import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.service.message.ImContentHelper;
+import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
+import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +43,10 @@ public class ImConversationServiceImpl implements ImConversationService {
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
     private final ImMessageMapper messageMapper;
+    private final ImGroupMapper groupMapper;
     private final UserApi userApi;
     private final ImContentHelper contentHelper;
+    private final RealtimeTransportApi realtimeTransportApi;
 
     @Override
     public List<ConversationItemRespVO> listConversations(Long tenantId, Long userId, String keyword) {
@@ -56,12 +65,21 @@ public class ImConversationServiceImpl implements ImConversationService {
                 Wrappers.<ImConversationDO>lambdaQuery()
                         .eq(ImConversationDO::getTenantId, tenantId)
                         .in(ImConversationDO::getId, membershipByConversationId.keySet())
-                        .eq(ImConversationDO::getType, ImConversationType.DIRECT));
+                        .in(ImConversationDO::getType, ImConversationType.DIRECT, ImConversationType.GROUP));
 
-        Map<Long, Long> peerUserIdByConversationId = loadPeerUserIds(tenantId, userId, conversations);
+        List<ImConversationDO> directConversations = conversations.stream()
+                .filter(conversation -> ImConversationType.DIRECT.equals(conversation.getType()))
+                .toList();
+        List<ImConversationDO> groupConversations = conversations.stream()
+                .filter(conversation -> ImConversationType.GROUP.equals(conversation.getType()))
+                .toList();
+
+        Map<Long, Long> peerUserIdByConversationId = loadPeerUserIds(tenantId, userId, directConversations);
+        Map<Long, ImGroupDO> groupByConversationId = loadGroups(tenantId, groupConversations);
+        Map<Long, Integer> memberCountByConversationId = loadMemberCounts(tenantId, groupConversations);
 
         List<ConversationItemRespVO> items = new ArrayList<>();
-        for (ImConversationDO conversation : conversations) {
+        for (ImConversationDO conversation : directConversations) {
             Long peerUserId = peerUserIdByConversationId.get(conversation.getId());
             if (peerUserId == null) {
                 continue;
@@ -79,6 +97,26 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
             item.setPeerUserId(peerUserId);
+            items.add(item);
+        }
+
+        for (ImConversationDO conversation : groupConversations) {
+            ImGroupDO group = groupByConversationId.get(conversation.getId());
+            if (group == null) {
+                continue;
+            }
+            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
+            String title = group.getName();
+
+            ConversationItemRespVO item = new ConversationItemRespVO();
+            item.setId(conversation.getId());
+            item.setType(conversation.getType());
+            item.setTitle(title);
+            item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setLastMsgPreview(conversation.getLastMsgPreview());
+            item.setLastMsgAt(conversation.getLastMsgAt());
+            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setMemberCount(memberCountByConversationId.getOrDefault(conversation.getId(), 0));
             items.add(item);
         }
 
@@ -191,6 +229,48 @@ public class ImConversationServiceImpl implements ImConversationService {
         member.setReadSeq(newReadSeq);
         member.setUnreadCount(unreadCount != null ? unreadCount.intValue() : 0);
         conversationMemberMapper.updateById(member);
+
+        if (newReadSeq > currentReadSeq) {
+            dispatchReadUpdated(tenantId, conversationId, userId, newReadSeq);
+        }
+    }
+
+    @Override
+    public ConversationReadStatusRespVO getReadStatus(Long tenantId, Long userId, Long conversationId) {
+        requireMembership(tenantId, conversationId, userId);
+        List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId));
+
+        ConversationReadStatusRespVO response = new ConversationReadStatusRespVO();
+        response.setConversationId(conversationId);
+        response.setMembers(members.stream().map(member -> {
+            ConversationMemberReadStatusRespVO item = new ConversationMemberReadStatusRespVO();
+            item.setUserId(member.getUserId());
+            item.setReadSeq(member.getReadSeq() != null ? member.getReadSeq() : 0L);
+            return item;
+        }).toList());
+        return response;
+    }
+
+    private void dispatchReadUpdated(Long tenantId, Long conversationId, Long userId, Long readSeq) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("conversationId", conversationId);
+        payload.put("userId", userId);
+        payload.put("readSeq", readSeq);
+
+        RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
+                .domain(ImRealtimeTypes.DOMAIN)
+                .type(ImRealtimeTypes.READ_UPDATED)
+                .ts(System.currentTimeMillis())
+                .payload(payload)
+                .build();
+
+        List<Long> recipients = listOtherMemberUserIds(tenantId, conversationId, userId);
+        if (!recipients.isEmpty()) {
+            realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
+        }
     }
 
     @Override
@@ -205,6 +285,18 @@ public class ImConversationServiceImpl implements ImConversationService {
                 .toList();
     }
 
+    @Override
+    public List<Long> listMemberUserIds(Long tenantId, Long conversationId) {
+        return conversationMemberMapper.selectList(
+                        Wrappers.<ImConversationMemberDO>lambdaQuery()
+                                .eq(ImConversationMemberDO::getTenantId, tenantId)
+                                .eq(ImConversationMemberDO::getConversationId, conversationId))
+                .stream()
+                .map(ImConversationMemberDO::getUserId)
+                .toList();
+    }
+
+    @Override
     public ImConversationDO requireConversation(Long tenantId, Long conversationId) {
         ImConversationDO conversation = conversationMapper.selectOne(
                 Wrappers.<ImConversationDO>lambdaQuery()
@@ -245,6 +337,38 @@ public class ImConversationServiceImpl implements ImConversationService {
             }
         }
         return peerByConversation;
+    }
+
+    private Map<Long, ImGroupDO> loadGroups(Long tenantId, List<ImConversationDO> groupConversations) {
+        if (groupConversations.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> conversationIds = groupConversations.stream().map(ImConversationDO::getId).toList();
+        List<ImGroupDO> groups = groupMapper.selectList(
+                Wrappers.<ImGroupDO>lambdaQuery()
+                        .eq(ImGroupDO::getTenantId, tenantId)
+                        .in(ImGroupDO::getConversationId, conversationIds));
+        Map<Long, ImGroupDO> groupByConversationId = new HashMap<>();
+        for (ImGroupDO group : groups) {
+            groupByConversationId.put(group.getConversationId(), group);
+        }
+        return groupByConversationId;
+    }
+
+    private Map<Long, Integer> loadMemberCounts(Long tenantId, List<ImConversationDO> groupConversations) {
+        if (groupConversations.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> conversationIds = groupConversations.stream().map(ImConversationDO::getId).toList();
+        List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .in(ImConversationMemberDO::getConversationId, conversationIds));
+        Map<Long, Integer> counts = new HashMap<>();
+        for (ImConversationMemberDO member : members) {
+            counts.merge(member.getConversationId(), 1, Integer::sum);
+        }
+        return counts;
     }
 
     private boolean matchesKeyword(ConversationItemRespVO item, String keyword) {

@@ -5,6 +5,7 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.MarkConversationReadReqVO;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
@@ -43,6 +44,13 @@ public class ImConversationController {
                 request.getConversationId(),
                 request.getReadSeq());
         return CommonResult.success(null);
+    }
+
+    @GetMapping("/read-status")
+    public CommonResult<ConversationReadStatusRespVO> getReadStatus(@RequestParam Long conversationId) {
+        LoginUser loginUser = requireLoginUser();
+        return CommonResult.success(conversationService.getReadStatus(
+                loginUser.getTenantId(), loginUser.getUserId(), conversationId));
     }
 
     private LoginUser requireLoginUser() {
