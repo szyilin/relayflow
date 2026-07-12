@@ -8,13 +8,14 @@
 
 ### 需求：JWT 用户认证
 
-系统应通过用户名与密码认证用户，并签发 JWT 供后续 API 请求使用。
+系统应通过用户名与密码认证用户，并签发 JWT 供后续 API 请求使用；JWT MUST 包含当前租户标识 `tenant_id`。
 
 #### 场景：登录成功
 
 - 给定 一名已注册且状态正常的用户
 - 当 向 `/admin-api/system/auth/login` 提交有效凭据
 - 那么 系统返回 JWT 访问令牌
+- 并且 令牌 payload 包含 `tenant_id`（V1 单租户模式下为默认租户 ID）
 - 并且 后续携带 `Authorization: Bearer <token>` 的请求被接受
 
 #### 场景：凭据无效
@@ -40,6 +41,78 @@
 - 当 同一 `sys_user` 关联多个租户
 - 那么 通过多条 `sys_tenant_user` 记录表达
 - 并且 各租户成员状态可独立（例如 A 企业 ACTIVE、B 企业 LEFT）
+
+### 需求：租户主数据
+
+系统 SHALL 维护租户（tenant）主数据，作为全局数据隔离边界。
+
+#### 场景：默认租户种子
+
+- 当 应用首次执行 Flyway 迁移
+- 那么 创建 `sys_tenant` 表
+- 并且 插入 `id=1`、`code=default` 的默认租户记录
+- 并且 默认租户不可被删除
+
+### 需求：用户租户关系
+
+系统 SHALL 通过 `sys_tenant_user` 维护用户与租户的多对多关系，以支持将来一账号多组织。
+
+#### 场景：V1 单租户绑定
+
+- 当 V1 单租户模式下创建用户
+- 那么 自动在 `sys_tenant_user` 中建立用户与默认租户（`id=1`）的关联
+- 并且 每个用户至少属于一个租户
+
+### 需求：业务表租户字段
+
+除租户元数据表外，所有业务表 MUST 包含 `tenant_id` 字段，且不得为空；codegen 生成的 infra/im DO MUST 继承 `TenantBaseDO`。
+
+#### 场景：系统模块表
+
+- 当 创建任意 `sys_` 前缀业务表（不含 `sys_tenant`、`sys_tenant_user`）
+- 那么 表结构包含 `tenant_id BIGINT NOT NULL`
+- 并且 租户内唯一约束包含 `tenant_id`（如 `UNIQUE(tenant_id, username)`）
+
+#### 场景：基础设施与 IM 模块表
+
+- 当 创建 `infra_` 或 `im_` 前缀业务表
+- 那么 表结构包含 `tenant_id BIGINT NOT NULL`
+- 并且 对应 DO 继承 `TenantBaseDO`
+
+### 需求：租户上下文自动注入
+
+系统 SHALL 通过框架层 TenantContext 与持久层插件，自动注入当前请求的租户标识，避免业务代码手动拼接。
+
+#### 场景：单租户模式查询
+
+- 当 `relayflow.tenant.enabled=false` 且已认证用户访问业务 API
+- 那么 TenantContext 固定为默认租户 ID
+- 并且 MyBatis 查询与写入自动附加 `tenant_id` 条件或填充
+
+#### 场景：租户上下文切换隔离
+
+- 当 TenantContext 设为租户 A 或 B
+- 那么 MyBatis 租户插件使用对应 `tenant_id`
+- 并且 不同租户上下文下的查询条件互不影响（单元测试可断言）
+
+### 需求：跨存储租户隔离
+
+Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
+
+#### 场景：Redis 缓存 key
+
+- 当 写入 Redis 缓存（权限、token 吊销、WS online/fanout 等）
+- 那么 key 使用 `t:{tenantId}:...` 格式（经 `TenantRedisKeyBuilder`）
+
+### 需求：默认租户保护
+
+系统 SHALL 防止删除种子默认租户（配置项 `relayflow.tenant.default-id`，默认 `1`）。
+
+#### 场景：断言默认租户不可删除
+
+- 当 应用代码对默认租户 ID 调用删除保护
+- 那么 系统以业务错误拒绝
+- 并且 默认租户记录保留
 
 ### 需求：租户成员生命周期状态
 

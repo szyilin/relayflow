@@ -90,9 +90,9 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`im-realtime-platform`（WS 平台层）→ `im-schema-v1` → `im-direct-chat-*` 纵向切片。架构真源：[`im-platform-foundation` design](openspec/changes/archive/2026-07-12-im-platform-foundation/design.md)。
+**下一优先**：归档一批 Complete change 后，按产品缺口立项（如 `workspace-tasks-*` 工作台任务、`org-member-invite-notify` 邀请通知）；平台层租户收尾见已归档 `tenant-ready-foundation`。IM 主线（`im-direct-chat-*`）已完成。
 
-脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 此后走纵向切片。
+脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 
 Phase 2 微服务脚手架（Gateway、Nacos、`*-server`）**不在 V1 脚手架阶段实现**；见 `distributed-backend-v1`。
 

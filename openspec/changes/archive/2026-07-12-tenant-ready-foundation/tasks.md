@@ -6,8 +6,8 @@
 
 - [x] 1.1 审阅 proposal.md、design.md、spec delta
 - [x] 1.2 运行 `openspec validate tenant-ready-foundation --strict`
-- [ ] 1.3 运行 `openspec archive tenant-ready-foundation` 合并至 `openspec/specs/`
-- [ ] 1.4 更新 `AGENTS.md`、`openspec/config.yaml`、归档 design 中「V1 不做多租户」表述
+- [x] 1.3 运行 `openspec archive tenant-ready-foundation` 合并至 `openspec/specs/`
+- [x] 1.4 更新 `AGENTS.md`、`openspec/config.yaml`、归档 design 中「V1 不做多租户」表述
 
 ## 2. 框架层（relayflow-framework）
 
@@ -31,24 +31,24 @@
 - [x] 4.3 JWT 签发与校验写入 `tenant_id` claim
 - [x] 4.4 登录流程绑定 TenantContext
 
-## 5. 基础设施与 IM 模块 `[平台 — 无 UI，可独立 change：tenant-platform-slice]`
+## 5. 基础设施与 IM 模块 `[平台 — 见 tenant-platform-slice]`
 
-- [ ] 5.1 infra 模块所有 DO 含 `tenantId` 字段
-- [ ] 5.2 im 模块所有 DO 含 `tenantId` 字段
-- [ ] 5.3 Redis 缓存 key 前缀 `t:{tenantId}:`
+- [x] 5.1 infra 模块所有 DO 含 `tenantId` 字段
+- [x] 5.2 im 模块所有 DO 含 `tenantId` 字段
+- [x] 5.3 Redis 缓存 key 前缀 `t:{tenantId}:`
 - [x] 5.4 MinIO 对象路径前缀 `tenant/{tenantId}/`（`infra-file-upload-api` objectKey 规范）
-- [ ] 5.5 WebSocket 握手绑定 `tenant_id`，消息路由带租户过滤
+- [x] 5.5 WebSocket 握手绑定 `tenant_id`，消息路由带租户过滤
 
 ## 6. 部署配置
 
 - [x] 6.1 `application.yml` 增加 `relayflow.tenant.*` 默认值
 - [x] 6.2 `deploy/.env.example` 增加 `RELAYFLOW_TENANT_ENABLED`、`RELAYFLOW_TENANT_DEFAULT_ID`
 
-## 7. 测试 `[平台]`
+## 7. 测试 `[平台 — 见 tenant-platform-slice]`
 
-- [ ] 7.1 单租户模式：所有查询自动过滤 `tenant_id=1`
-- [ ] 7.2 集成测试：两租户数据互不可见（为将来 enabled=true 预留）
-- [ ] 7.3 默认租户 `id=1` 不可删除
+- [x] 7.1 单租户模式：所有查询自动过滤 `tenant_id=1`
+- [x] 7.2 集成测试：两租户数据互不可见（为将来 enabled=true 预留）
+- [x] 7.3 默认租户 `id=1` 不可删除
 
 ## 8. 后续纵向切片（不在本 change 完成 — 新建 OpenSpec change）
 

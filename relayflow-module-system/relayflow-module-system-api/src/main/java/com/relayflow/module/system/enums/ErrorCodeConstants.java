@@ -17,6 +17,7 @@ public enum ErrorCodeConstants implements ErrorCode {
     MEMBER_INVITE_NOT_FOUND(1_001_002_005, "未找到待接受的组织邀请"),
     MEMBER_INVITE_PASSWORD_WEAK(1_001_002_006, "密码至少 6 位"),
     TENANT_NOT_FOUND(1_001_003_001, "租户不存在"),
+    TENANT_DEFAULT_DELETE_FORBIDDEN(1_001_003_002, "默认租户不可删除"),
     DEPT_NOT_FOUND(1_001_004_001, "部门不存在"),
     DEPT_PARENT_NOT_FOUND(1_001_004_002, "上级部门不存在"),
     DEPT_PARENT_INVALID(1_001_004_003, "上级部门不能为自身或下级部门"),

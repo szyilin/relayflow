@@ -28,4 +28,11 @@ public class TenantServiceImpl implements TenantService {
     public SysTenantDO getDefaultTenant() {
         return getTenant(tenantProperties.getDefaultId());
     }
+
+    @Override
+    public void assertDeletable(Long tenantId) {
+        if (tenantId != null && tenantId == tenantProperties.getDefaultId()) {
+            throw new ServiceException(ErrorCodeConstants.TENANT_DEFAULT_DELETE_FORBIDDEN);
+        }
+    }
 }

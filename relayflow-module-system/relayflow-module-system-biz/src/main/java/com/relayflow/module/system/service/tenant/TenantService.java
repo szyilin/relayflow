@@ -7,4 +7,6 @@ public interface TenantService {
     SysTenantDO getTenant(Long tenantId);
 
     SysTenantDO getDefaultTenant();
+
+    void assertDeletable(Long tenantId);
 }
