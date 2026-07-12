@@ -90,7 +90,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：归档一批 Complete change 后，按产品缺口立项（如 `workspace-tasks-*` 工作台任务、`org-member-invite-notify` 邀请通知）；平台层租户收尾见已归档 `tenant-ready-foundation`。IM 主线（`im-direct-chat-*`）已完成。
+**下一优先**：`multi-tenant-account-v2` 收尾（§9 deployment 文档 → §10 归档同步 specs）；其后按产品缺口立项 `org-member-invite-notify`（邀请通知）、`workspace-tasks-*`（工作台任务）。V2 多租户账号（注册 / 切换 / 邀请迁移）§1–§8 已完成。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 
