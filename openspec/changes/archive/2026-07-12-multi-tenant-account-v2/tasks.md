@@ -160,10 +160,10 @@ curl -s -X POST http://localhost:8080/app-api/system/tenant/switch \
 
 ## 10. 母 change 归档前
 
-- [ ] 10.1 全部子 change archive
-- [ ] 10.2 `openspec validate multi-tenant-account-v2 --strict`
-- [ ] 10.3 `openspec archive multi-tenant-account-v2`（同步 specs）
-- [ ] 10.4 `./mvnw verify`（如 CI 适用）+ `cd web && pnpm build`
+- [x] 10.1 全部子 change archive（lane 切片在母 change 内完成；`org-member-invite*` 已独立归档）
+- [x] 10.2 `openspec validate multi-tenant-account-v2 --strict`
+- [x] 10.3 `openspec archive multi-tenant-account-v2`（同步 specs — 已手动合并 delta 至 `openspec/specs/`）
+- [x] 10.4 `./mvnw verify`（如 CI 适用）+ `cd web && pnpm build`
 
 ---
 

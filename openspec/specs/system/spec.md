@@ -12,10 +12,10 @@
 
 #### 场景：登录成功
 
-- 给定 一名已注册且状态正常的用户
+- 给定 一名已注册且拥有 ACTIVE 租户成员关系的用户
 - 当 向 `/admin-api/system/auth/login` 提交有效凭据
 - 那么 系统返回 JWT 访问令牌
-- 并且 令牌 payload 包含 `tenant_id`（V1 单租户模式下为默认租户 ID）
+- 并且 令牌 payload 包含活跃租户的 `tenant_id`（多租户模式）或默认租户 ID（单租户模式）
 - 并且 后续携带 `Authorization: Bearer <token>` 的请求被接受
 
 #### 场景：凭据无效
@@ -24,6 +24,94 @@
 - 当 用户提交凭据
 - 那么 系统以未授权错误拒绝请求
 - 并且 不签发令牌
+
+### 需求：多租户登录与企业选择
+
+当 `relayflow.tenant.enabled=true` 时，系统 SHALL 以全局凭据认证用户，并将会话绑定至一个 ACTIVE 租户成员关系。
+
+#### 场景：单企业登录
+
+- 当 用户提交有效凭据且仅有一个 ACTIVE 的 `sys_tenant_user`
+- 那么 系统返回含该成员关系 `tenant_id` 的 JWT
+
+#### 场景：多企业须选择
+
+- 当 用户提交有效凭据且有多个 ACTIVE 成员关系，且请求未携带 `tenantId`
+- 那么 系统返回业务错误 `TENANT_SELECTION_REQUIRED`
+- 并且 响应包含可选企业列表（`tenantId`、`tenantName`）
+
+#### 场景：指定企业登录
+
+- 当 用户提交有效凭据及对其 ACTIVE 成员关系有效的 `tenantId`
+- 那么 系统返回含该 `tenant_id` 的 JWT
+
+#### 场景：手机号登录
+
+- 当 登录标识匹配 `sys_user.mobile` 而非 `username`
+- 那么 认证结果与用户名登录等价
+
+#### 场景：无 ACTIVE 企业
+
+- 当 凭据有效但用户无任何 ACTIVE 租户成员关系
+- 那么 系统返回业务错误 `AUTH_NO_TENANT`
+
+### 需求：开放账号注册
+
+当 `relayflow.tenant.enabled=true` 且 `relayflow.tenant.allow-open-register=true` 时，系统 SHALL 暴露公开的用户端注册 API，创建全局用户、用户拥有的新租户及 ACTIVE 成员关系。
+
+#### 场景：新手机号注册建企
+
+- 当 客户端调用 `POST /app-api/system/auth/register`，提交唯一手机号、有效密码（≥6 字符）、昵称与 `tenantName`
+- 那么 系统创建 `sys_user`（`username` 等于手机号）及 BCrypt 密码 hash
+- 并且 创建 `sys_tenant`（`name=tenantName`，`owner_user_id` 为新用户）
+- 并且 创建状态为 `ACTIVE` 的 `sys_tenant_user`
+- 并且 引导最小租户结构（根部门、owner 主部门、`super_admin` 绑定）
+- 并且 返回新租户的 `accessToken` 与 `tenantId`
+- 并且 端点不要求认证
+
+#### 场景：重复手机号拒绝
+
+- 当 手机号已绑定且用户已设置登录密码
+- 那么 系统返回业务错误 `USER_MOBILE_EXISTS`
+
+#### 场景：弱密码拒绝
+
+- 当 密码缺失或少于 6 个字符
+- 那么 系统返回业务错误 `AUTH_REGISTER_PASSWORD_WEAK`
+
+#### 场景：注册激活其他企业待加入邀请
+
+- 当 该手机号在其他租户存在管理员邀请产生的 `NOT_JOINED` 成员关系
+- 那么 系统设置用户密码
+- 并且 将所有此类 `sys_tenant_user` 转为 `ACTIVE`
+- 并且 仍按 `tenantName` 创建用户自有新租户
+- 并且 签发的 JWT 以新创建租户为活跃租户
+
+#### 场景：开放注册关闭
+
+- 当 `relayflow.tenant.allow-open-register=false`
+- 那么 `POST /app-api/system/auth/register` 被拒绝或未注册
+
+### 需求：企业切换
+
+系统 SHALL 允许已认证用户切换活跃租户并获取新 JWT。
+
+#### 场景：列出我的企业
+
+- 当 已认证用户调用 `GET /app-api/system/tenant/my-list`
+- 那么 响应列出用户所有 `ACTIVE` 成员关系的企业
+- 并且 每项含 `tenantId`、`tenantName` 及是否为 `owner`
+
+#### 场景：切换企业
+
+- 当 已认证用户调用 `POST /app-api/system/tenant/switch` 并提交其 ACTIVE 成员关系的 `tenantId`
+- 那么 系统返回含更新 `tenant_id` 的新 `accessToken`
+- 并且 后续 API 使用新租户上下文
+
+#### 场景：切换至无权限企业
+
+- 当 用户非请求企业的 ACTIVE 成员
+- 那么 系统返回业务错误 `TENANT_SWITCH_FORBIDDEN`
 
 ### 需求：全局用户账号
 
@@ -52,6 +140,7 @@
 - 那么 创建 `sys_tenant` 表
 - 并且 插入 `id=1`、`code=default` 的默认租户记录
 - 并且 默认租户不可被删除
+- 并且 多租户模式下用户注册建企会创建**额外**租户，不替换种子租户
 
 ### 需求：用户租户关系
 
@@ -88,6 +177,13 @@
 - 当 `relayflow.tenant.enabled=false` 且已认证用户访问业务 API
 - 那么 TenantContext 固定为默认租户 ID
 - 并且 MyBatis 查询与写入自动附加 `tenant_id` 条件或填充
+- 并且 忽略 JWT 中的 `tenant_id` claim
+
+#### 场景：多租户模式 JWT 驱动
+
+- 当 `relayflow.tenant.enabled=true` 且请求携带有效 JWT
+- 那么 `TenantContextHolder` 从 JWT `tenant_id` 设置当前租户
+- 并且 租户范围 SQL 使用该 tenant id
 
 #### 场景：租户上下文切换隔离
 
@@ -410,7 +506,7 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 - 当 管理员调用 `POST /admin-api/system/user/invite` 并提交有效手机号及可选组织字段
 - 那么 系统创建或复用该手机号对应的全局 `sys_user`，且不接受管理员传入密码
-- 并且 创建 `sys_tenant_user`，状态为 `NOT_JOINED`
+- 并且 创建 `sys_tenant_user`，状态为 `NOT_JOINED`，租户为**管理端 JWT 当前租户**（多租户模式）或默认租户（单租户模式）
 - 并且 在当前租户内分配主部门与角色
 - 并且 该成员在状态变为 `ACTIVE` 之前不得登录本租户
 
@@ -471,37 +567,3 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 - 当 已认证工作台成员请求 `GET /app-api/system/user/list-by-dept` 并携带有效 `deptId`
 - 那么 系统返回主部门等于 `deptId` 的用户
 - 并且 每项含名片所需字段（如 id、昵称、部门名、头像字）
-
-### 需求：成员邀请接受
-
-系统须通过公开的工作台 API，允许被邀请用户预览并接受待加入的租户成员关系，设置账号密码，将 `sys_tenant_user.status` 从 `NOT_JOINED` 转为 `ACTIVE`，并签发与登录等效的 JWT。
-
-#### 场景：预览待接受邀请
-
-- 当 客户端以存在默认租户 `NOT_JOINED` 成员关系的手机号调用 `GET /app-api/system/member-invite/preview`
-- 那么 响应包含 `tenantId`、`tenantName`、`nickname`
-- 并且 端点不要求认证
-
-#### 场景：预览不存在
-
-- 当 手机号在默认租户无 `NOT_JOINED` 成员关系
-- 那么 系统返回业务错误
-
-#### 场景：接受邀请并登录
-
-- 当 客户端以有效手机号与密码调用 `POST /app-api/system/member-invite/accept`，且成员为 `NOT_JOINED`
-- 那么 系统写入用户密码 hash
-- 并且 将 `sys_tenant_user.status` 更新为 `ACTIVE`
-- 并且 返回 `accessToken` 与 `tenantId`
-- 并且 后续使用相同凭据登录成功
-
-#### 场景：接受时密码过短
-
-- 当 提交的密码少于 6 个字符
-- 那么 系统以业务错误拒绝
-
-#### 场景：与管理端 API 分离
-
-- 当 工作台成员使用 `/app-api/system/*` 目录端点
-- 那么 不得暴露用户变更或管理端专有字段
-- 并且 写操作仍仅在 `/admin-api/system/*` 且受 RBAC 保护
