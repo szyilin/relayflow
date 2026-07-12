@@ -18,11 +18,11 @@
 **目标**：`task_item` 表 + Maven 模块 + server 加载。  
 **范围**：Java only；无 `web/`。
 
-- [ ] 1.1 根 `pom.xml` + `relayflow-module-task`（api + biz）脚手架（复制 system 模块模式）
-- [ ] 1.2 Flyway `V0.1.0.{n}__task_item.sql`
-- [ ] 1.3 `./scripts/codegen.sh --module task --tables task_item` → diff 合并
-- [ ] 1.4 `relayflow-server/pom.xml` 引入 `relayflow-module-task-biz`；空 Controller 占位可启动
-- [ ] 1.5 `./mvnw -pl relayflow-server -am compile`
+- [x] 1.1 根 `pom.xml` + `relayflow-module-task`（api + biz）脚手架（复制 system 模块模式）
+- [x] 1.2 Flyway `V0.1.0.{n}__task_item.sql`
+- [x] 1.3 `./scripts/codegen.sh --module task --tables task_item` → diff 合并
+- [x] 1.4 `relayflow-server/pom.xml` 引入 `relayflow-module-task-biz`；空 Controller 占位可启动
+- [x] 1.5 `./mvnw -pl relayflow-server -am compile`
 
 **验证**：compile + Flyway 迁移成功。
 
@@ -32,13 +32,13 @@
 
 ## 2. workspace-tasks-web（前端 lane · 第一步）
 
-- [ ] 2.1 起草 `openspec/lanes/workspace-tasks/contract.md`
-- [ ] 2.2 `api/app/task.ts`、`mocks/tasks.ts`、`stores/tasks.ts`（Mock 回退）
-- [ ] 2.3 重构 `/app/tasks`：列表接 store；启用「新建」`UModal`；checkbox 切换
-- [ ] 2.4 侧栏「我关注的」「动态」disabled + tooltip
-- [ ] 2.5 看板 tab 保持 `UEmpty` 占位
-- [ ] 2.6 `cd web && pnpm build`
-- [ ] 2.7 浏览器：`/app/tasks` → Mock 新建/完成
+- [x] 2.1 起草 `openspec/lanes/workspace-tasks/contract.md`
+- [x] 2.2 `api/app/task.ts`、`mocks/tasks.ts`、`stores/tasks.ts`（Mock 回退）
+- [x] 2.3 重构 `/app/tasks`：列表接 store；启用「新建」`UModal`；checkbox 切换
+- [x] 2.4 侧栏「我关注的」「动态」disabled + tooltip
+- [x] 2.5 看板 tab 保持 `UEmpty` 占位
+- [x] 2.6 `cd web && pnpm build`
+- [x] 2.7 浏览器：`/app/tasks` → Mock 新建/完成
 
 **验证**：`pnpm build` + 浏览器路径。
 

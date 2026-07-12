@@ -46,7 +46,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
 |------|----------|----------|-------------|--------|------|
-| workspace-tasks | planned | pending | `/app-api/task/item/*` · `/app/tasks` | [workspace-tasks-v1](../../openspec/changes/workspace-tasks-v1/proposal.md) | 我负责的任务 CRUD；母 change |
+| workspace-tasks | planned | **ui_ready** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | UI + Mock；待 `-api` |
 | account-sms-verify | planned | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；可选 |
 
 ## 实施顺序（system-admin-v1）
@@ -63,7 +63,6 @@
 
 | 区域 | 页面 | 说明 |
 |------|------|------|
-| 工作台 | `/app/tasks` | 页面内空列表占位；待 `workspace-tasks-v1` |
 | 工作台 | `/app/docs` | 壳层占位；V2 云文档 |
 | 管理端 | `/admin` 概览 | 页面内 Mock / 占位 |
 

@@ -45,6 +45,7 @@
                 <module>relayflow-module-system</module>
                 <module>relayflow-module-infra</module>
                 <module>relayflow-module-im</module>
+                <module>relayflow-module-task</module>
                 <module>relayflow-server</module>
                 <module>relayflow-tools</module>
             </modules>
