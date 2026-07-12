@@ -5,10 +5,14 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.controller.app.vo.MarkConversationReadReqVO;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +32,17 @@ public class ImConversationController {
         LoginUser loginUser = requireLoginUser();
         return CommonResult.success(
                 conversationService.listConversations(loginUser.getTenantId(), loginUser.getUserId(), keyword));
+    }
+
+    @PostMapping("/read")
+    public CommonResult<Void> markConversationRead(@Valid @RequestBody MarkConversationReadReqVO request) {
+        LoginUser loginUser = requireLoginUser();
+        conversationService.markConversationRead(
+                loginUser.getTenantId(),
+                loginUser.getUserId(),
+                request.getConversationId(),
+                request.getReadSeq());
+        return CommonResult.success(null);
     }
 
     private LoginUser requireLoginUser() {

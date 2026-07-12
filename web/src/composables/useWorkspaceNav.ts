@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { useAuthStore } from '../stores/auth'
+import { useImStore } from '../stores/im'
 
 export interface WorkspaceRailItem {
   id: string
@@ -12,17 +13,26 @@ export interface WorkspaceRailItem {
   badge?: string
 }
 
+function formatUnreadBadge(count: number): string | undefined {
+  if (count <= 0) {
+    return undefined
+  }
+  return count > 99 ? '99+' : String(count)
+}
+
 export function useWorkspaceNav() {
   const route = useRoute()
   const authStore = useAuthStore()
+  const imStore = useImStore()
   const { isAdmin } = storeToRefs(authStore)
+  const { totalUnreadCount } = storeToRefs(imStore)
 
-  const railItems: WorkspaceRailItem[] = [{
+  const railItems = computed<WorkspaceRailItem[]>(() => [{
     id: 'messages',
     label: '消息',
     icon: 'i-lucide-message-circle',
     to: '/app/messages',
-    badge: '3'
+    badge: formatUnreadBadge(totalUnreadCount.value)
   }, {
     id: 'tasks',
     label: '任务',
@@ -38,7 +48,7 @@ export function useWorkspaceNav() {
     label: '通讯录',
     icon: 'i-lucide-users',
     to: '/app/contacts'
-  }]
+  }])
 
   const activeRailId = computed(() => {
     if (route.path.startsWith('/app/messages')) {

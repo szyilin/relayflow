@@ -2,8 +2,8 @@
 import { onMounted } from 'vue'
 import { useAdminNav } from '../composables/useAdminNav'
 import { useAuthStore } from '../stores/auth'
-import { useTenantStore } from '../stores/tenant'
 import { ApiError } from '../api/request'
+import AdminBackToWorkspace from '../components/admin/AdminBackToWorkspace.vue'
 import AdminUserMenu from '../components/admin/AdminUserMenu.vue'
 
 const toast = useToast()
@@ -17,21 +17,14 @@ const {
 } = useAdminNav()
 
 const authStore = useAuthStore()
-const tenantStore = useTenantStore()
 
 onMounted(async () => {
-  await tenantStore.fetchDefaultTenant()
-  if (tenantStore.lastError) {
-    toast.add({
-      title: '租户信息加载失败',
-      description: tenantStore.lastError,
-      color: 'warning'
-    })
-  }
-
   if (authStore.isAuthenticated) {
     try {
       await authStore.fetchPermissionInfo()
+      if (authStore.tenants.length === 0) {
+        await authStore.fetchMyTenants()
+      }
     } catch (error) {
       const message = error instanceof ApiError
         ? error.message
@@ -116,6 +109,8 @@ onMounted(async () => {
           tooltip
           class="mt-auto admin-nav-menu"
         />
+
+        <AdminBackToWorkspace :collapsed="collapsed" />
       </template>
 
       <template #footer="{ collapsed }">

@@ -1,16 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
-import { useImWebSocket } from '../../../composables/useImWebSocket'
 import { useImStore } from '../../../stores/im'
 
 const im = useImStore()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
-
-const { connected: wsConnected } = useImWebSocket({
-  onMessageNew: message => im.handleMessageNew(message)
-})
 
 const active = computed(() => im.activeConversation)
 
@@ -77,9 +72,6 @@ meta:
         <h2 class="font-semibold">
           消息
         </h2>
-        <UBadge v-if="wsConnected" color="success" variant="subtle" size="sm">
-          在线
-        </UBadge>
       </div>
 
       <div class="p-3">

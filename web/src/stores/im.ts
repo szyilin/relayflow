@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   getConversationList,
   getMessageList,
+  markConversationRead,
   sendMessage,
   type ConversationItem,
   type MessageContent,
@@ -93,6 +94,9 @@ export const useImStore = defineStore('im', () => {
       item.title.toLowerCase().includes(q) || (item.lastMsgPreview ?? '').toLowerCase().includes(q))
   })
 
+  const totalUnreadCount = computed(() =>
+    conversations.value.reduce((sum, item) => sum + (item.unreadCount > 0 ? item.unreadCount : 0), 0))
+
   function currentUserId(): string {
     const auth = useAuthStore()
     return auth.userId != null ? String(auth.userId) : ''
@@ -105,6 +109,30 @@ export const useImStore = defineStore('im', () => {
     pendingDirectChat.value = null
     keyword.value = ''
     lastError.value = null
+  }
+
+  function clearLocalUnread(conversationId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (item) {
+      item.unreadCount = 0
+    }
+  }
+
+  function latestMessageSeq(): number {
+    return messages.value.reduce((max, item) => Math.max(max, item.seq ?? 0), 0)
+  }
+
+  async function reportConversationRead(conversationId: string, readSeq: number) {
+    if (readSeq <= 0) {
+      clearLocalUnread(conversationId)
+      return
+    }
+    clearLocalUnread(conversationId)
+    try {
+      await markConversationRead(conversationId, readSeq)
+    } catch {
+      // 已读上报失败不阻断 UI；下次拉列表会校正
+    }
   }
 
   async function fetchConversations(search?: string) {
@@ -127,11 +155,7 @@ export const useImStore = defineStore('im', () => {
     pendingDirectChat.value = null
     activeConversationId.value = conversationId
     await fetchMessages(conversationId)
-
-    const item = conversations.value.find(conv => conv.id === conversationId)
-    if (item) {
-      item.unreadCount = 0
-    }
+    await reportConversationRead(conversationId, latestMessageSeq())
   }
 
   async function fetchMessages(conversationId: string, afterSeq = 0) {
@@ -181,6 +205,10 @@ export const useImStore = defineStore('im', () => {
     }
 
     messages.value = [...messages.value, message]
+
+    if (activeConversationId.value === conversationId) {
+      void reportConversationRead(conversationId, message.seq)
+    }
   }
 
   function openDirectChat(peerUserId: string, meta?: { title?: string, avatarText?: string }) {
@@ -189,7 +217,8 @@ export const useImStore = defineStore('im', () => {
     if (existing) {
       pendingDirectChat.value = null
       activeConversationId.value = existing.id
-      void fetchMessages(existing.id)
+      clearLocalUnread(existing.id)
+      void fetchMessages(existing.id).then(() => reportConversationRead(existing.id, latestMessageSeq()))
       return
     }
 
@@ -287,6 +316,7 @@ export const useImStore = defineStore('im', () => {
     lastError,
     activeConversation,
     filteredConversations,
+    totalUnreadCount,
     pendingDirectChat,
     currentUserId,
     fetchConversations,

@@ -30,6 +30,12 @@ export function useTenantSwitchReload() {
       return
     }
 
+    try {
+      await im.fetchConversations()
+    } catch {
+      // 侧栏未读角标静默失败
+    }
+
     if (route.path.startsWith('/app/contacts')) {
       try {
         await contacts.fetchDepts()
