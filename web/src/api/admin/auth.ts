@@ -21,6 +21,7 @@ export interface AuthPermissionInfoResp {
   userId: number
   username: string
   nickname: string
+  avatar?: string
   roles: AuthPermissionRole[]
   permissions: string[]
   isAdmin: boolean

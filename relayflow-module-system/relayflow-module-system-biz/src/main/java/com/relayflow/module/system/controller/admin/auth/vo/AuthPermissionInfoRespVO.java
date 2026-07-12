@@ -11,6 +11,7 @@ public class AuthPermissionInfoRespVO {
     private Long userId;
     private String username;
     private String nickname;
+    private String avatar;
     private List<RoleSimpleVO> roles;
     private List<String> permissions;
     /** Whether the user has admin portal access (at least one permission code). */

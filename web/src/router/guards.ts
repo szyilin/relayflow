@@ -54,6 +54,9 @@ export function setupAdminGuards(router: Router) {
       }
 
       if (authStore.isAuthenticated && to.path === LOGIN_PATH) {
+        if (to.query.addAccount === '1') {
+          return true
+        }
         return { path: '/app/messages' }
       }
 

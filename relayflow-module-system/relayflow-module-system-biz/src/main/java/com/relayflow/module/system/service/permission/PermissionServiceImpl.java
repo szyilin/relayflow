@@ -98,6 +98,7 @@ public class PermissionServiceImpl implements PermissionService {
         response.setUserId(userId);
         response.setUsername(user.getUsername());
         response.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        response.setAvatar(user.getAvatar());
         response.setRoles(getRoleList(userId, tenantId).stream().map(role -> {
             AuthPermissionInfoRespVO.RoleSimpleVO vo = new AuthPermissionInfoRespVO.RoleSimpleVO();
             vo.setId(role.getId());

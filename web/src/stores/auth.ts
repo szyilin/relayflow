@@ -14,6 +14,7 @@ import { ApiError } from '../api/request'
 export interface AuthUser {
   username: string
   nickname: string
+  avatar?: string
 }
 
 const TOKEN_KEY = 'relayflow:admin:access-token'
@@ -115,7 +116,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (user.value) {
       const updatedUser: AuthUser = {
         username: data.username,
-        nickname: data.nickname || data.username
+        nickname: data.nickname || data.username,
+        avatar: data.avatar || undefined
       }
       user.value = updatedUser
       persistUser(updatedUser)
@@ -142,6 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       await establishSession(data.accessToken, data.tenantId, trimmedUsername)
       await fetchMyTenants()
+      await dockSyncAfterSession()
 
       return { ok: true }
     } catch (error) {
@@ -192,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!data.tenants?.length) {
         await fetchMyTenants()
       }
+      await dockSyncAfterSession()
       return { ok: true }
     } catch (error) {
       const message = error instanceof ApiError
@@ -215,6 +219,7 @@ export const useAuthStore = defineStore('auth', () => {
         user.value?.nickname
       )
       await fetchMyTenants()
+      await dockSyncAfterSession()
       return { ok: true }
     } catch (error) {
       const message = error instanceof ApiError
@@ -242,14 +247,49 @@ export const useAuthStore = defineStore('auth', () => {
     persistSession(accessToken, tenant, authUser)
 
     await fetchPermissionInfo()
+    await dockSyncAfterSession()
   }
 
-  async function logout() {
+  async function logout(options?: { preserveOtherAccounts?: boolean }) {
+    const { useAccountDockStore } = await import('./accountDock')
+    const dock = useAccountDockStore()
+    const currentUserId = userId.value
+
     try {
       await logoutApi()
     } catch {
       // 登出以清本地会话为准；服务端吊销失败不阻塞退出
     }
+
+    if (options?.preserveOtherAccounts && currentUserId != null) {
+      const remaining = dock.removeByUserId(currentUserId)
+      if (remaining.length > 0) {
+        const next = remaining[0]
+        await restoreDockEntry(next)
+        return
+      }
+    }
+
+    dock.clearAll()
+    clearLocalSession()
+  }
+
+  async function restoreDockEntry(entry: import('./accountDock').AccountDockEntry) {
+    token.value = entry.token
+    tenantId.value = entry.tenantId
+    user.value = {
+      username: entry.username,
+      nickname: entry.nickname,
+      avatar: entry.avatar
+    }
+    permissionInfoLoaded.value = false
+    persistSession(entry.token, entry.tenantId, user.value!)
+    await fetchPermissionInfo()
+    await fetchMyTenants()
+    dockSyncAfterSession()
+  }
+
+  function clearLocalSession() {
     token.value = null
     tenantId.value = null
     user.value = null
@@ -262,6 +302,32 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(TENANT_KEY)
     localStorage.removeItem(USER_KEY)
     localStorage.removeItem(TENANTS_KEY)
+  }
+
+  async function dockSyncAfterSession() {
+    const { useAccountDockStore } = await import('./accountDock')
+    const dock = useAccountDockStore()
+    dock.syncCurrentSession({ isAdmin: isAdmin.value })
+    await dock.syncAllTenantsForCurrentAccount()
+  }
+
+  async function switchToDockEntry(entry: import('./accountDock').AccountDockEntry) {
+    if (entry.userId === userId.value && entry.tenantId === tenantId.value) {
+      return { ok: true as const }
+    }
+
+    if (entry.userId === userId.value) {
+      return switchTenant(entry.tenantId)
+    }
+
+    try {
+      await restoreDockEntry(entry)
+      return { ok: true as const }
+    } catch {
+      const { useAccountDockStore } = await import('./accountDock')
+      useAccountDockStore().removeEntry(entry.key)
+      return { ok: false as const, message: '登录已过期，请重新登录' }
+    }
   }
 
   return {
@@ -282,6 +348,8 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMyTenants,
     switchTenant,
     logout,
+    switchToDockEntry,
+    dockSyncAfterSession,
     fetchPermissionInfo
   }
 })

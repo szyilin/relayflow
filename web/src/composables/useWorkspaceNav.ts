@@ -1,8 +1,6 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
-import type { NavigationMenuItem } from '@nuxt/ui'
-import { useAuthStore } from '../stores/auth'
 import { useImStore } from '../stores/im'
 
 export interface WorkspaceRailItem {
@@ -22,9 +20,7 @@ function formatUnreadBadge(count: number): string | undefined {
 
 export function useWorkspaceNav() {
   const route = useRoute()
-  const authStore = useAuthStore()
   const imStore = useImStore()
-  const { isAdmin } = storeToRefs(authStore)
   const { totalUnreadCount } = storeToRefs(imStore)
 
   const railItems = computed<WorkspaceRailItem[]>(() => [{
@@ -66,22 +62,8 @@ export function useWorkspaceNav() {
     return 'messages'
   })
 
-  const footerLinks = computed(() => {
-    if (!isAdmin.value) {
-      return [[]] satisfies NavigationMenuItem[][]
-    }
-
-    return [[{
-      label: '管理后台',
-      icon: 'i-lucide-shield',
-      to: '/admin',
-      target: '_self'
-    }]] satisfies NavigationMenuItem[][]
-  })
-
   return {
     railItems,
-    activeRailId,
-    footerLinks
+    activeRailId
   }
 }

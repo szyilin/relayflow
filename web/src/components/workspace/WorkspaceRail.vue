@@ -1,22 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/auth'
 import { useWorkspaceNav } from '../../composables/useWorkspaceNav'
-import WorkspaceTenantSwitcher from './WorkspaceTenantSwitcher.vue'
+import WorkspaceAccountDock from './WorkspaceAccountDock.vue'
 
-const router = useRouter()
-const authStore = useAuthStore()
 const { railItems, activeRailId } = useWorkspaceNav()
 
 const keyword = ref('')
-
-const displayName = () => authStore.user?.nickname?.slice(0, 1) ?? '员'
-
-async function logout() {
-  await authStore.logout()
-  router.push('/app/login')
-}
 </script>
 
 <template>
@@ -30,12 +19,9 @@ async function logout() {
         >
           <UIcon name="i-lucide-workflow" class="size-4.5" />
         </RouterLink>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-semibold">
-            RelayFlow
-          </p>
-          <WorkspaceTenantSwitcher />
-        </div>
+        <p class="min-w-0 flex-1 truncate text-sm font-semibold">
+          RelayFlow
+        </p>
         <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" class="size-8" />
       </div>
 
@@ -68,38 +54,8 @@ async function logout() {
       </RouterLink>
     </nav>
 
-    <div class="space-y-1 border-t border-[var(--ws-border-subtle)] p-2">
-      <RouterLink
-        v-if="authStore.isAdmin"
-        to="/admin"
-        class="workspace-rail-btn flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[var(--ws-text-muted)]"
-      >
-        <UIcon name="i-lucide-shield" class="size-4 shrink-0" />
-        <span>管理后台</span>
-      </RouterLink>
-
-      <UDropdownMenu :items="[[{
-        label: authStore.user?.nickname ?? '员工',
-        type: 'label'
-      }, {
-        label: '退出登录',
-        icon: 'i-lucide-log-out',
-        onSelect: logout
-      }]]">
-        <button
-          type="button"
-          class="workspace-rail-btn flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left"
-        >
-          <UAvatar
-            :alt="displayName()"
-            :text="displayName()"
-            size="xs"
-            class="ring-2 ring-primary/25"
-          />
-          <span class="truncate text-sm">{{ authStore.user?.nickname ?? '员工' }}</span>
-          <UIcon name="i-lucide-chevron-up" class="ml-auto size-4 text-[var(--ws-text-muted)]" />
-        </button>
-      </UDropdownMenu>
+    <div class="border-t border-[var(--ws-border-subtle)]">
+      <WorkspaceAccountDock />
     </div>
   </aside>
 </template>
