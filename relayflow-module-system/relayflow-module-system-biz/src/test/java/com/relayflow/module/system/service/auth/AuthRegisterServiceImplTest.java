@@ -3,6 +3,7 @@ package com.relayflow.module.system.service.auth;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
+import com.relayflow.module.infra.api.notify.NotifyInboxApi;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterReqVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterRespVO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
@@ -56,6 +57,8 @@ class AuthRegisterServiceImplTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private JwtTokenService jwtTokenService;
+    @Mock
+    private NotifyInboxApi notifyInboxApi;
     @Spy
     private TenantProperties tenantProperties = new TenantProperties();
 
@@ -122,6 +125,7 @@ class AuthRegisterServiceImplTest {
                         && Long.valueOf(100L).equals(relation.getUserId())
                         && TenantUserStatus.ACTIVE == relation.getStatus()));
         verify(tenantBootstrapService).bootstrapOwner(200001L, 100L);
+        verify(notifyInboxApi).backfillUserIdByMobile("13900001234", 100L);
     }
 
     @Test

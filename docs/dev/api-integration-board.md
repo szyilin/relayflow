@@ -45,7 +45,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
 |------|----------|----------|-------------|--------|------|
-| org-member-invite-notify | planned | pending | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [org-member-invite-notify](../../openspec/changes/org-member-invite-notify/proposal.md) | 邀请站内通知；母 change |
+| org-member-invite-notify | **ready** | pending | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [org-member-invite-notify](../../openspec/changes/org-member-invite-notify/proposal.md) | API 完成；待 `-web` |
 | workspace-tasks | planned | pending | `/app-api/task/item/*` · `/app/tasks` | [workspace-tasks-v1](../../openspec/changes/workspace-tasks-v1/proposal.md) | 我负责的任务 CRUD；母 change |
 | account-sms-verify | planned | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；可选 |
 

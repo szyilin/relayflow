@@ -4,7 +4,11 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
+import com.relayflow.module.infra.api.notify.NotifyInboxApi;
+import com.relayflow.module.infra.api.notify.dto.NotifyItemCommand;
+import com.relayflow.module.infra.enums.InfraNotifyType;
 import com.relayflow.module.system.dal.dataobject.SysDeptDO;
+import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.mysql.SysDeptMapper;
@@ -18,6 +22,7 @@ import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.dept.DeptService;
 import com.relayflow.module.system.service.permission.DataScopeHelper;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
+import com.relayflow.module.system.service.tenant.TenantService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +67,10 @@ class UserServiceImplInviteTest {
     private DataScopeHelper dataScopeHelper;
     @Mock
     private PermissionCacheEvictor permissionCacheEvictor;
+    @Mock
+    private TenantService tenantService;
+    @Mock
+    private NotifyInboxApi notifyInboxApi;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -89,6 +98,7 @@ class UserServiceImplInviteTest {
             invocation.getArgument(0, SysUserDO.class).setId(200L);
             return 1;
         });
+        when(tenantService.getTenant(JWT_TENANT_ID)).thenReturn(tenant(JWT_TENANT_ID, "测试企业"));
 
         UserInviteReqDTO request = new UserInviteReqDTO();
         request.setMobile("13900009999");
@@ -100,6 +110,11 @@ class UserServiceImplInviteTest {
         verify(tenantUserMapper).insert(captor.capture());
         assertEquals(JWT_TENANT_ID, captor.getValue().getTenantId());
         assertEquals(TenantUserStatus.NOT_JOINED, captor.getValue().getStatus());
+
+        ArgumentCaptor<NotifyItemCommand> notifyCaptor = ArgumentCaptor.forClass(NotifyItemCommand.class);
+        verify(notifyInboxApi).push(notifyCaptor.capture());
+        assertEquals(InfraNotifyType.MEMBER_INVITE, notifyCaptor.getValue().getType());
+        assertEquals(MOBILE, notifyCaptor.getValue().getMobile());
     }
 
     @Test
@@ -127,6 +142,7 @@ class UserServiceImplInviteTest {
             invocation.getArgument(0, SysUserDO.class).setId(201L);
             return 1;
         });
+        when(tenantService.getTenant(1L)).thenReturn(tenant(1L, "默认企业"));
 
         UserInviteReqDTO request = new UserInviteReqDTO();
         request.setMobile("13900009997");
@@ -145,4 +161,13 @@ class UserServiceImplInviteTest {
         dept.setName("根部门");
         return dept;
     }
+
+    private SysTenantDO tenant(long tenantId, String name) {
+        SysTenantDO tenant = new SysTenantDO();
+        tenant.setId(tenantId);
+        tenant.setName(name);
+        return tenant;
+    }
+
+    private static final String MOBILE = "13900009999";
 }
