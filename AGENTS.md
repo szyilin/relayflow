@@ -90,7 +90,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`system-admin-v1`（已完成）→ `tenant-platform-slice`（租户 Redis/MinIO/WS 前缀）或按域继续 `infra-*` / `im-*` 纵向切片。
+**下一优先**：`infra-storage-v1`（已完成）→ `tenant-platform-slice`（租户 Redis/WS 前缀，补齐 `tenant-ready-foundation` §5）或按域继续 `im-*` 纵向切片。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 此后走纵向切片。
 
