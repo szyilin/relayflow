@@ -98,6 +98,15 @@ export const useImStore = defineStore('im', () => {
     return auth.userId != null ? String(auth.userId) : ''
   }
 
+  function resetForTenantSwitch() {
+    conversations.value = []
+    messages.value = []
+    activeConversationId.value = undefined
+    pendingDirectChat.value = null
+    keyword.value = ''
+    lastError.value = null
+  }
+
   async function fetchConversations(search?: string) {
     if (search !== undefined) {
       keyword.value = search
@@ -286,6 +295,7 @@ export const useImStore = defineStore('im', () => {
     fetchMessages,
     handleMessageNew,
     sendText,
+    resetForTenantSwitch,
     formatRelativeTime,
     textFromContent
   }
