@@ -13,6 +13,7 @@ import com.relayflow.module.system.dal.dataobject.SysUserDeptDO;
 import com.relayflow.module.system.dal.mysql.SysDeptMapper;
 import com.relayflow.module.system.dal.mysql.SysUserDeptMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class DeptServiceImpl implements DeptService {
     private final SysDeptMapper deptMapper;
     private final SysUserDeptMapper userDeptMapper;
     private final TenantProperties tenantProperties;
+    private final TenantService tenantService;
 
     @Override
     public List<DeptRespVO> getDeptList() {
@@ -89,7 +91,10 @@ public class DeptServiceImpl implements DeptService {
     @Transactional
     public void deleteDept(Long id) {
         Long tenantId = resolveTenantId();
-        requireDept(id, tenantId);
+        SysDeptDO dept = requireDept(id, tenantId);
+        if (dept.getParentId() == null || dept.getParentId() == 0L) {
+            throw new ServiceException(ErrorCodeConstants.DEPT_ROOT_DELETE_FORBIDDEN);
+        }
 
         Long childCount = deptMapper.selectCount(Wrappers.<SysDeptDO>lambdaQuery()
                 .eq(SysDeptDO::getTenantId, tenantId)
@@ -106,6 +111,29 @@ public class DeptServiceImpl implements DeptService {
         }
 
         deptMapper.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public Long getOrCreateRootDept(Long tenantId) {
+        SysDeptDO root = deptMapper.selectOne(Wrappers.<SysDeptDO>lambdaQuery()
+                .eq(SysDeptDO::getTenantId, tenantId)
+                .eq(SysDeptDO::getParentId, 0L)
+                .orderByAsc(SysDeptDO::getId)
+                .last("LIMIT 1"));
+        if (root != null) {
+            return root.getId();
+        }
+
+        String tenantName = tenantService.getTenant(tenantId).getName();
+        SysDeptDO dept = new SysDeptDO();
+        dept.setTenantId(tenantId);
+        dept.setParentId(0L);
+        dept.setName(tenantName);
+        dept.setSort(0);
+        dept.setStatus(0);
+        deptMapper.insert(dept);
+        return dept.getId();
     }
 
     private SysDeptDO requireDept(Long id, Long tenantId) {

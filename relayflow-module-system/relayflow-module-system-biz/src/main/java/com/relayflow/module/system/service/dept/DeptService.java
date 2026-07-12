@@ -17,4 +17,6 @@ public interface DeptService {
     void updateDept(DeptUpdateReqVO request);
 
     void deleteDept(Long id);
+
+    Long getOrCreateRootDept(Long tenantId);
 }
