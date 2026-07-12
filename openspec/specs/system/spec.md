@@ -143,6 +143,17 @@
 - 当 请求部门树
 - 那么 系统返回当前租户内层级化的部门列表
 
+#### 场景：租户根部门
+
+- 当 租户初始化组织功能
+- 那么 租户须有且仅有一个 `parent_id = 0` 的根部门
+- 并且 根部门展示名应与 `sys_tenant.name` 对齐（飞书式企业根节点）
+
+#### 场景：根部门不可删除
+
+- 当 管理员尝试删除根部门（`parent_id = 0`）
+- 那么 系统拒绝该操作
+
 ### 需求：系统表前缀
 
 系统模块全部数据表必须使用 `sys_` 前缀。
@@ -327,7 +338,50 @@
 - 当 具备 `system:user:create` 的管理员提交含部门与角色分配的有效创建请求
 - 那么 系统创建 `sys_user`、`sys_tenant_user` 及相关关联行
 
+#### 场景：创建用户未指定部门
+
+- 当 管理员创建用户时未提供 `deptId`
+- 那么 系统将租户根部门设为用户主部门（`sys_user_dept.primary_flag = 1`）
+
+#### 场景：有效成员必有主部门
+
+- 当 用户为当前租户的有效成员（`sys_tenant_user` 为允许登录状态）
+- 那么 用户须至少有一条 `primary_flag = 1` 的 `sys_user_dept` 记录
+
+#### 场景：禁止清空主部门
+
+- 当 管理员更新用户主部门时传入 null 或缺失 `deptId`
+- 那么 系统拒绝该请求
+
 #### 场景：用户分页按 data_scope 过滤
 
 - 当 具备 `system:user:list` 且 data_scope 非 ALL 的用户请求用户分页 API
 - 那么 返回用户须限制在其有效数据范围内（SELF 与允许 deptIds 并集，或 ALL 时全量）
+
+#### 场景：用户分页按部门过滤
+
+- 当 管理员请求 `GET /admin-api/system/user/page` 并携带 query `deptId`
+- 那么 响应列表仅含主部门（`sys_user_dept.primary_flag = 1`）等于 `deptId` 的用户
+- 并且 结果仍受调用者 data_scope 规则约束
+
+### 需求：工作台组织目录 API
+
+系统须向已认证的工作台成员暴露只读 `/app-api/system/` 端点，用于浏览租户组织目录；**不**要求 `sys_permission`。
+
+#### 场景：工作台部门树
+
+- 当 已认证工作台成员请求 `GET /app-api/system/dept/tree`
+- 那么 系统返回当前租户部门层级供导航
+- 并且 调用者无需持有任何 `sys_permission` 权限码
+
+#### 场景：按部门列出成员
+
+- 当 已认证工作台成员请求 `GET /app-api/system/user/list-by-dept` 并携带有效 `deptId`
+- 那么 系统返回主部门等于 `deptId` 的用户
+- 并且 每项含名片所需字段（如 id、昵称、部门名、头像字）
+
+#### 场景：与管理端 API 分离
+
+- 当 工作台成员使用 `/app-api/system/*` 目录端点
+- 那么 不得暴露用户变更或管理端专有字段
+- 并且 写操作仍仅在 `/admin-api/system/*` 且受 RBAC 保护

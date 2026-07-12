@@ -10,6 +10,9 @@ import com.relayflow.module.system.controller.admin.user.vo.UserUpdateDeptReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateRoleReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateStatusReqVO;
+import com.relayflow.module.system.controller.app.vo.AppContactItemRespVO;
+
+import java.util.List;
 
 public interface UserService {
 
@@ -28,4 +31,6 @@ public interface UserService {
     void updateUserRole(UserUpdateRoleReqVO request);
 
     PageResult<UserRespVO> getUserPage(UserPageReqVO request);
+
+    List<AppContactItemRespVO> listContactsByDept(Long deptId, String keyword);
 }

@@ -10,6 +10,8 @@ public interface DeptService {
 
     List<DeptRespVO> getDeptList();
 
+    List<DeptRespVO> getEnabledDeptList();
+
     DeptRespVO getDept(Long id);
 
     Long createDept(DeptCreateReqVO request);

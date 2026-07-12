@@ -17,6 +17,7 @@ import com.relayflow.module.system.controller.admin.user.vo.UserUpdateDeptReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateRoleReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateStatusReqVO;
+import com.relayflow.module.system.controller.app.vo.AppContactItemRespVO;
 import com.relayflow.module.system.convert.UserConvert;
 import com.relayflow.module.system.dal.dataobject.SysDeptDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
@@ -222,6 +223,73 @@ public class UserServiceImpl implements UserService {
                 .toList();
 
         return PageResult.of(list, page.getTotal());
+    }
+
+    @Override
+    public List<AppContactItemRespVO> listContactsByDept(Long deptId, String keyword) {
+        Long tenantId = resolveTenantId();
+        requireDept(deptId, tenantId);
+
+        Set<Long> activeUserIds = tenantUserMapper.selectList(Wrappers.<SysTenantUserDO>lambdaQuery()
+                        .eq(SysTenantUserDO::getTenantId, tenantId)
+                        .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE))
+                .stream()
+                .map(SysTenantUserDO::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (activeUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> deptUserIds = userDeptMapper.selectList(
+                        Wrappers.<SysUserDeptDO>lambdaQuery()
+                                .eq(SysUserDeptDO::getTenantId, tenantId)
+                                .eq(SysUserDeptDO::getDeptId, deptId)
+                                .eq(SysUserDeptDO::getPrimaryFlag, 1))
+                .stream()
+                .map(SysUserDeptDO::getUserId)
+                .filter(Objects::nonNull)
+                .filter(activeUserIds::contains)
+                .collect(Collectors.toSet());
+        if (deptUserIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        List<SysUserDO> users = userMapper.selectList(Wrappers.<SysUserDO>lambdaQuery()
+                .in(SysUserDO::getId, deptUserIds)
+                .and(StringUtils.hasText(trimmedKeyword), wrapper -> wrapper
+                        .like(SysUserDO::getUsername, trimmedKeyword)
+                        .or()
+                        .like(SysUserDO::getNickname, trimmedKeyword))
+                .orderByAsc(SysUserDO::getNickname)
+                .orderByAsc(SysUserDO::getUsername));
+
+        SysDeptDO dept = requireDept(deptId, tenantId);
+        String deptName = dept.getName();
+
+        return users.stream()
+                .map(user -> toContactItem(user, deptId, deptName))
+                .toList();
+    }
+
+    private AppContactItemRespVO toContactItem(SysUserDO user, Long deptId, String deptName) {
+        AppContactItemRespVO item = new AppContactItemRespVO();
+        item.setId(user.getId());
+        item.setUsername(user.getUsername());
+        item.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        item.setDeptId(deptId);
+        item.setDeptName(deptName);
+        item.setAvatarText(resolveAvatarText(item.getNickname(), item.getUsername()));
+        return item;
+    }
+
+    private String resolveAvatarText(String nickname, String username) {
+        String source = StringUtils.hasText(nickname) ? nickname.trim() : username;
+        if (!StringUtils.hasText(source)) {
+            return "?";
+        }
+        return source.substring(0, 1);
     }
 
     private Set<Long> filterUserIdsByDataScope(Set<Long> tenantUserIds, Long tenantId) {
