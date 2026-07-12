@@ -11,6 +11,10 @@ export const useProfileStore = defineStore('profile', () => {
   const saving = ref(false)
   const uploading = ref(false)
 
+  function resetForAccountSwitch() {
+    profile.value = null
+  }
+
   async function fetchProfile() {
     loading.value = true
     try {
@@ -62,6 +66,7 @@ export const useProfileStore = defineStore('profile', () => {
     loading,
     saving,
     uploading,
+    resetForAccountSwitch,
     fetchProfile,
     saveNickname,
     uploadAvatar
