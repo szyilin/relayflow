@@ -33,6 +33,7 @@
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
 | infra-storage-config | **archived** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
 | infra-file | **archived** | **done** | 列表/上传/删除/下载 · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | Presigned 直传 + 302 下载；⑧ integrate 完成 |
+| im-direct-chat | **planned** | **ui_ready** | `GET/POST /app-api/im/*` · `/app/messages` | [contract](../../openspec/lanes/im-direct-chat/contract.md) | `-web` Mock；待 `-api` |
 
 ## 实施顺序（system-admin-v1）
 
@@ -48,7 +49,8 @@
 
 | 区域 | 页面 | 说明 |
 |------|------|------|
-| 工作台 | `/app/messages`、`/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
+| 工作台 | `/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
+| 工作台 | `/app/messages` | **im-direct-chat**：UI + Mock，待 `-api` |
 | 管理端 | `/admin` 概览 | 页面内 Mock / 占位 |
 
 ## 参考

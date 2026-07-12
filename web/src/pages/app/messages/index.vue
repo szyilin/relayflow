@@ -1,45 +1,63 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import { useImWebSocket } from '../../../composables/useImWebSocket'
+import { useImStore } from '../../../stores/im'
 
-interface WorkspaceThread {
-  id: string
-  name: string
-  preview: string
-  time: string
-  avatarText: string
-  tag?: string
-  tagColor?: 'bot' | 'official' | 'external'
-  unread?: number
-}
+const im = useImStore()
+const draft = ref('')
+const messageListRef = ref<HTMLElement | null>(null)
 
-const threads = ref<WorkspaceThread[]>([])
-const activeId = ref<string>()
-const keyword = ref('')
+useImWebSocket()
 
-const filtered = computed(() => {
-  const q = keyword.value.trim().toLowerCase()
-  if (!q) {
-    return threads.value
+const active = computed(() => im.activeConversation)
+
+onMounted(async () => {
+  await im.fetchConversations()
+  if (im.filteredConversations.length > 0 && !im.activeConversationId) {
+    await im.selectConversation(im.filteredConversations[0].id)
   }
-  return threads.value.filter(t =>
-    t.name.toLowerCase().includes(q) || t.preview.toLowerCase().includes(q))
 })
 
-function tagClass(tag?: WorkspaceThread['tagColor']) {
-  if (tag === 'bot') {
-    return 'bg-warning/15 text-warning'
+watch(() => im.messages.length, async () => {
+  await nextTick()
+  const el = messageListRef.value
+  if (el) {
+    el.scrollTop = el.scrollHeight
   }
-  if (tag === 'official') {
-    return 'bg-primary/15 text-primary'
-  }
-  if (tag === 'external') {
-    return 'bg-violet-500/15 text-violet-500'
-  }
-  return ''
+})
+
+async function handleSelect(conversationId: string) {
+  await im.selectConversation(conversationId)
 }
 
-const active = computed(() => threads.value.find(t => t.id === activeId.value))
+async function handleSend() {
+  const text = draft.value
+  if (!text.trim() || im.sending) {
+    return
+  }
+  draft.value = ''
+  try {
+    await im.sendText(text)
+  } catch {
+    draft.value = text
+  }
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    void handleSend()
+  }
+}
+
+function isOwnMessage(senderId: string) {
+  return senderId === im.currentUserId()
+}
+
+function formatMessageTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
 </script>
 
 <route lang="yaml">
@@ -54,92 +72,133 @@ meta:
         <h2 class="font-semibold">
           消息
         </h2>
-        <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" />
+        <UBadge v-if="im.usingMock" color="warning" variant="subtle" size="sm">
+          Mock
+        </UBadge>
       </div>
 
       <div class="p-3">
         <UInput
-          v-model="keyword"
+          v-model="im.keyword"
           placeholder="搜索会话、联系人"
           icon="i-lucide-search"
           class="workspace-search"
+          @update:model-value="im.fetchConversations()"
         />
       </div>
 
-      <div v-if="filtered.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+      <div v-if="im.loadingConversations" class="space-y-2 px-3 pb-3">
+        <USkeleton v-for="i in 4" :key="i" class="h-14 w-full" />
+      </div>
+
+      <div v-else-if="im.filteredConversations.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
         <button
-          v-for="thread in filtered"
+          v-for="thread in im.filteredConversations"
           :key="thread.id"
           type="button"
           class="workspace-list-item flex w-full gap-3 px-3 py-2.5 text-left"
-          :data-active="activeId === thread.id"
-          @click="activeId = thread.id"
+          :data-active="im.activeConversationId === thread.id"
+          @click="handleSelect(thread.id)"
         >
-          <UAvatar :text="thread.avatarText" size="md" />
+          <UAvatar :text="thread.avatarText ?? thread.title.slice(0, 1)" size="md" />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <span class="truncate font-medium">{{ thread.name }}</span>
-              <span v-if="thread.tag" class="rounded px-1.5 py-0.5 text-[10px]" :class="tagClass(thread.tagColor)">
-                {{ thread.tag }}
+              <span class="truncate font-medium">{{ thread.title }}</span>
+              <span class="ml-auto shrink-0 text-xs text-[var(--ws-text-muted)]">
+                {{ im.formatRelativeTime(thread.lastMsgAt) }}
               </span>
-              <span class="ml-auto shrink-0 text-xs text-[var(--ws-text-muted)]">{{ thread.time }}</span>
             </div>
             <p class="truncate text-sm text-[var(--ws-text-muted)]">
-              {{ thread.preview }}
+              {{ thread.lastMsgPreview || '暂无消息' }}
             </p>
           </div>
           <span
-            v-if="thread.unread"
+            v-if="thread.unreadCount > 0"
             class="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-error text-[10px] text-white"
           >
-            {{ thread.unread }}
+            {{ thread.unreadCount > 9 ? '9+' : thread.unreadCount }}
           </span>
         </button>
       </div>
 
       <div v-else class="flex flex-1 flex-col items-center justify-center p-6">
-        <UEmpty
-          icon="i-lucide-message-square"
-          title="暂无会话"
-          description="IM 聊天将在后续切片接入"
-        />
+        <UEmpty icon="i-lucide-message-square" title="暂无会话" description="开始与同事发起单聊吧" />
       </div>
     </template>
 
     <div v-if="active" class="flex h-full flex-col">
       <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
-        <UAvatar :text="active.avatarText" />
+        <UAvatar :text="active.avatarText ?? active.title.slice(0, 1)" />
         <div class="min-w-0 flex-1">
           <h1 class="truncate font-semibold">
-            {{ active.name }}
+            {{ active.title }}
           </h1>
           <p class="text-xs text-[var(--ws-text-muted)]">
-            会话详情
+            单聊
           </p>
         </div>
-        <UButton icon="i-lucide-phone" color="neutral" variant="ghost" square />
-        <UButton icon="i-lucide-video" color="neutral" variant="ghost" square />
-        <UButton icon="i-lucide-info" color="neutral" variant="ghost" square />
       </header>
 
-      <div class="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <div ref="messageListRef" class="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <div v-if="im.loadingMessages" class="space-y-3">
+          <USkeleton v-for="i in 5" :key="i" class="h-10 w-2/3" />
+        </div>
+
+        <template v-else-if="im.messages.length">
+          <div
+            v-for="msg in im.messages"
+            :key="msg.id"
+            class="flex"
+            :class="isOwnMessage(msg.senderId) ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              class="max-w-[75%] rounded-2xl px-3 py-2 text-sm"
+              :class="isOwnMessage(msg.senderId)
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
+            >
+              <p class="whitespace-pre-wrap break-words">
+                {{ im.textFromContent(msg.content) }}
+              </p>
+              <p
+                class="mt-1 text-[10px] opacity-70"
+                :class="isOwnMessage(msg.senderId) ? 'text-right' : 'text-left'"
+              >
+                {{ formatMessageTime(msg.createTime) }}
+                <span v-if="msg.localStatus === 'sending'"> · 发送中</span>
+                <span v-else-if="msg.localStatus === 'failed'"> · 失败</span>
+              </p>
+            </div>
+          </div>
+        </template>
+
         <UEmpty
+          v-else
           icon="i-lucide-messages-square"
           title="暂无消息"
-          description="消息内容将在 IM 切片接入后展示"
+          description="发送第一条消息开始对话"
+          class="py-12"
         />
       </div>
 
       <footer class="border-t border-[var(--ws-border-subtle)] p-4">
         <div class="workspace-input-bar flex items-center gap-2 px-3 py-2.5">
-          <UButton icon="i-lucide-plus" color="neutral" variant="ghost" square size="sm" />
           <input
+            v-model="draft"
             class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
-            placeholder="发送消息，@ 提及同事…"
-            disabled
+            placeholder="发送消息，Enter 发送"
+            :disabled="im.sending"
+            @keydown="handleKeydown"
           >
-          <UButton icon="i-lucide-smile" color="neutral" variant="ghost" square size="sm" />
-          <UButton icon="i-lucide-send" color="primary" square size="sm" disabled />
+          <UButton
+            icon="i-lucide-send"
+            color="primary"
+            square
+            size="sm"
+            :loading="im.sending"
+            :disabled="!draft.trim()"
+            @click="handleSend"
+          />
         </div>
       </footer>
     </div>
@@ -154,7 +213,7 @@ meta:
       </div>
       <div class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
         <UIcon name="i-lucide-sparkles" class="size-8 opacity-40" />
-        <p>现在还没有同事在协作</p>
+        <p>在线状态将在后续切片接入</p>
       </div>
     </template>
   </WorkspaceShell>

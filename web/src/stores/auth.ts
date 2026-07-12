@@ -44,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   const storedTenantId = localStorage.getItem(TENANT_KEY)
   const tenantId = ref<number | null>(storedTenantId ? Number(storedTenantId) : null)
   const user = ref<AuthUser | null>(readStoredUser())
+  const userId = ref<number | null>(null)
   const permissions = ref<string[]>([])
   const isAdmin = ref(false)
   const permissionInfoLoaded = ref(false)
@@ -54,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await getPermissionInfo()
     permissions.value = data.permissions
     isAdmin.value = data.isAdmin
+    userId.value = data.userId
     permissionInfoLoaded.value = true
 
     if (user.value) {
@@ -111,6 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     tenantId.value = null
     user.value = null
+    userId.value = null
     permissions.value = []
     isAdmin.value = false
     permissionInfoLoaded.value = false
@@ -123,6 +126,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     tenantId,
     user,
+    userId,
     permissions,
     isAdmin,
     permissionInfoLoaded,
