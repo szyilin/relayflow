@@ -74,9 +74,9 @@
 
 ## 5. 母 change 归档前
 
-- [ ] 5.1 全部子 change archive
-- [ ] 5.2 `openspec archive workspace-tasks-v1`（新建 `openspec/specs/task/spec.md`）
-- [ ] 5.3 `./mvnw verify`（如适用）+ `cd web && pnpm build`
+- [x] 5.1 全部子 change archive
+- [x] 5.2 `openspec archive workspace-tasks-v1`（新建 `openspec/specs/task/spec.md`）
+- [x] 5.3 `./mvnw verify`（如适用）+ `cd web && pnpm build`
 
 ---
 

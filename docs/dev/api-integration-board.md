@@ -47,7 +47,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
 |------|----------|----------|-------------|--------|------|
-| account-sms-verify | planned | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；可选 |
+| account-sms-verify | deferred | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；**暂缓**（前期不实现） |
 
 ## 实施顺序（system-admin-v1）
 
