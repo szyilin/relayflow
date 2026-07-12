@@ -16,7 +16,7 @@
 - [x] 2.0b ② `infra-storage-schema` 已 propose + apply（见 `openspec/changes/infra-storage-schema/`）
 - [x] 2.0c ③ `infra-storage-config-api` 已 propose + apply（见 `openspec/changes/infra-storage-config-api/`）
 - [x] 2.0d ④ `infra-storage-config-web` 已 propose + apply（见 `openspec/changes/infra-storage-config-web/`）
-- [ ] 2.0e ⑤–⑧ 子 change 已 propose + apply（见 archive ③–⑦）
+- [x] 2.0e ⑤–⑧ 子 change 已 propose + apply（见 archive ③–⑦）
 
 ### ① `infra-storage-platform` `[平台]`
 
@@ -124,8 +124,8 @@ Flyway + 权限种子 + codegen。
 
 ## 3. 史诗归档（全部子 change 实施后）
 
-- [ ] 3.1 更新 `AGENTS.md`「下一优先」
-- [ ] 3.2 `openspec archive infra-storage-v1` 合并 spec 至 `openspec/specs/infra/spec.md`
+- [x] 3.1 更新 `AGENTS.md`「下一优先」
+- [x] 3.2 `openspec archive infra-storage-v1` 合并 spec 至 `openspec/specs/infra/spec.md`
 
 ## 不在本 change
 
