@@ -67,7 +67,7 @@ context: |
   实现工作流（必读）：.cursor/rules/implementation-workflow.mdc
   前端优先（业务切片必读）：docs/dev/frontend-first-workflow.md、.cursor/rules/vertical-slice-workflow.mdc
 
-  当前阶段：脚手架与登录 API 已就绪；业务功能按 **前端优先纵向切片**（-web → -api → -integrate）推进。唯一登录页 /app/login。禁止一次实现整套 V1；禁止先堆后端无 UI（[平台] 除外）。
+  当前阶段：脚手架、租户就绪基础（`tenant-ready-foundation`）、登录与 IM/组织纵向切片已就绪；业务功能按 **前端优先纵向切片**（-web → -api → -integrate）推进。唯一登录页 /app/login。禁止一次实现整套 V1；禁止先堆后端无 UI（[平台] 除外）。
 
 rules:
   proposal:

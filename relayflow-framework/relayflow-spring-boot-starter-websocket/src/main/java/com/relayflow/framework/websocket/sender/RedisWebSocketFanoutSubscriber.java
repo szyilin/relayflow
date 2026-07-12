@@ -44,6 +44,9 @@ public class RedisWebSocketFanoutSubscriber implements MessageListener {
             if (instanceIdProvider.getInstanceId().equals(fanout.getSourceInstanceId())) {
                 return;
             }
+            if (fanout.getTenantId() == null || fanout.getUserIds() == null || fanout.getUserIds().isEmpty()) {
+                return;
+            }
             localSender.send(fanout.getTenantId(), fanout.getUserIds(), fanout.getEnvelope());
         } catch (Exception ex) {
             log.debug("Ignore invalid WebSocket fanout message: {}", ex.getMessage());
