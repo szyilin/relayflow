@@ -19,6 +19,9 @@ import com.relayflow.module.system.controller.admin.user.vo.UserUpdateReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateRoleReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateStatusReqVO;
 import com.relayflow.module.system.controller.app.vo.AppContactItemRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserProfileRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserProfileUpdateReqVO;
+import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.convert.UserConvert;
 import com.relayflow.module.system.dal.dataobject.SysDeptDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
@@ -37,7 +40,9 @@ import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.dept.DeptService;
 import com.relayflow.module.system.service.permission.DataScopeHelper;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
+import com.relayflow.module.system.service.permission.PermissionService;
 import com.relayflow.module.system.service.permission.dto.DataScopeResult;
+import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -71,6 +76,52 @@ public class UserServiceImpl implements UserService {
     private final TenantProperties tenantProperties;
     private final DataScopeHelper dataScopeHelper;
     private final PermissionCacheEvictor permissionCacheEvictor;
+    private final TenantService tenantService;
+    private final PermissionService permissionService;
+
+    @Override
+    public AppUserProfileRespVO getMyProfile(Long userId, Long tenantId) {
+        requireTenantUser(userId, tenantId);
+        SysUserDO user = requireUser(userId);
+        SysTenantDO tenant = tenantService.getTenant(tenantId);
+        return buildProfileResponse(user, tenant, userId, tenantId);
+    }
+
+    @Override
+    @Transactional
+    public AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request) {
+        requireTenantUser(userId, tenantId);
+        SysUserDO user = requireUser(userId);
+
+        if (request.getNickname() != null) {
+            String nickname = request.getNickname().trim();
+            if (!StringUtils.hasText(nickname)) {
+                throw new ServiceException(ErrorCodeConstants.USER_NICKNAME_REQUIRED);
+            }
+            user.setNickname(nickname);
+        }
+        if (request.getAvatar() != null) {
+            user.setAvatar(trimToNull(request.getAvatar()));
+        }
+        userMapper.updateById(user);
+
+        SysTenantDO tenant = tenantService.getTenant(tenantId);
+        return buildProfileResponse(user, tenant, userId, tenantId);
+    }
+
+    private AppUserProfileRespVO buildProfileResponse(
+            SysUserDO user, SysTenantDO tenant, Long userId, Long tenantId) {
+        AppUserProfileRespVO response = new AppUserProfileRespVO();
+        response.setUserId(userId);
+        response.setUsername(user.getUsername());
+        response.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        response.setAvatar(user.getAvatar());
+        response.setTenantId(tenantId);
+        response.setTenantName(tenant.getName());
+        response.setTenantVerified(false);
+        response.setAdmin(!permissionService.getPermissionCodes(userId, tenantId).isEmpty());
+        return response;
+    }
 
     @Override
     @Transactional

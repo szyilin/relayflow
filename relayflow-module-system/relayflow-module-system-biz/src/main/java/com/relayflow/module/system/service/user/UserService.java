@@ -12,6 +12,8 @@ import com.relayflow.module.system.controller.admin.user.vo.UserUpdateReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateRoleReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserUpdateStatusReqVO;
 import com.relayflow.module.system.controller.app.vo.AppContactItemRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserProfileRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserProfileUpdateReqVO;
 
 import java.util.List;
 
@@ -36,4 +38,8 @@ public interface UserService {
     PageResult<UserRespVO> getUserPage(UserPageReqVO request);
 
     List<AppContactItemRespVO> listContactsByDept(Long deptId, String keyword);
+
+    AppUserProfileRespVO getMyProfile(Long userId, Long tenantId);
+
+    AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request);
 }

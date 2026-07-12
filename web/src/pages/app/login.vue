@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TenantSummary } from '../../api/app/tenant'
 import { useAuthStore } from '../../stores/auth'
@@ -9,6 +9,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(false)
+const isAddAccount = computed(() => route.query.addAccount === '1')
 const tenantSelection = ref<TenantSummary[] | null>(null)
 const pendingCredentials = ref<{ username: string, password: string } | null>(null)
 
@@ -80,10 +81,12 @@ meta:
         <UIcon name="i-lucide-workflow" class="size-7" />
       </div>
       <h1 class="text-2xl font-semibold">
-        RelayFlow 工作台
+        {{ isAddAccount ? '登录更多账号' : 'RelayFlow 工作台' }}
       </h1>
       <p class="text-sm text-muted">
-        员工协作入口 —— 消息、任务、文档一处搞定
+        {{ isAddAccount
+          ? '使用另一个账号登录，将添加到左下角账号列表，方便随时切换'
+          : '员工协作入口 —— 消息、任务、文档一处搞定' }}
       </p>
     </div>
 
