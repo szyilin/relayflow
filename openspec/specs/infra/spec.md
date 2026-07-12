@@ -1,10 +1,10 @@
 # 基础设施模块规格（infra）
 
-## 目的
+## Purpose
 
 定义文件存储、审计日志、WebSocket 等基础设施能力。
 
-## 需求
+## Requirements
 
 ### 需求：Bootstrap 默认对象存储启动校验
 

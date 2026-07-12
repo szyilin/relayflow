@@ -1,10 +1,10 @@
 # 部署规格（deployment）
 
-## 目的
+## Purpose
 
 定义 RelayFlow 的部署形态、仓库结构与前端技术栈要求。
 
-## 需求
+## Requirements
 
 ### 需求：自托管单节点部署
 
