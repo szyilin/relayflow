@@ -122,6 +122,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/invite/accept': RouteRecordInfo<
+      '/app/invite/accept',
+      '/app/invite/accept',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/app/login': RouteRecordInfo<
       '/app/login',
       '/app/login',
@@ -262,6 +269,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/docs/index.vue': {
       routes:
         | '/app/docs/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/invite/accept.vue': {
+      routes:
+        | '/app/invite/accept'
       views:
         | never
       pathParamNames:

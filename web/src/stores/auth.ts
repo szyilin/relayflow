@@ -81,18 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
         password
       })
 
-      const authUser: AuthUser = {
-        username: trimmedUsername,
-        nickname: trimmedUsername
-      }
-
-      token.value = data.accessToken
-      tenantId.value = data.tenantId
-      user.value = authUser
-      permissionInfoLoaded.value = false
-      persistSession(data.accessToken, data.tenantId, authUser)
-
-      await fetchPermissionInfo()
+      await establishSession(data.accessToken, data.tenantId, trimmedUsername)
 
       return { ok: true }
     } catch (error) {
@@ -102,6 +91,21 @@ export const useAuthStore = defineStore('auth', () => {
 
       return { ok: false, message }
     }
+  }
+
+  async function establishSession(accessToken: string, tenant: number, username: string) {
+    const authUser: AuthUser = {
+      username,
+      nickname: username
+    }
+
+    token.value = accessToken
+    tenantId.value = tenant
+    user.value = authUser
+    permissionInfoLoaded.value = false
+    persistSession(accessToken, tenant, authUser)
+
+    await fetchPermissionInfo()
   }
 
   async function logout() {
@@ -132,6 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissionInfoLoaded,
     isAuthenticated,
     login,
+    establishSession,
     logout,
     fetchPermissionInfo
   }

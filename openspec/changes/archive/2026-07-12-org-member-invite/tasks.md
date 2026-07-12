@@ -22,4 +22,4 @@
 
 - [x] 4.1 `./mvnw -pl relayflow-server -am compile`
 - [x] 4.2 `cd web && pnpm build`
-- [ ] 4.3 浏览器 `/admin/system/user` → 邀请成员
+- [x] 4.3 浏览器 `/admin/system/user` → 邀请成员

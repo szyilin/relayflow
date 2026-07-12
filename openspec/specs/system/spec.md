@@ -331,7 +331,26 @@
 
 ### 需求：用户写操作管理端 API
 
-系统须提供管理端 API，支持创建用户（含部门与角色分配）、查询详情、更新基本信息、更新成员状态、更新主部门与角色绑定；用户分页须按调用者有效 data_scope 过滤。
+系统须提供管理端 API，支持按手机号邀请成员（管理员不可设置账号密码）、创建用户（含部门与角色分配，保留种子管理员场景）、查询详情、更新基本信息、更新成员状态、更新主部门与角色绑定；用户分页须按调用者有效 data_scope 过滤；分页响应须含 `memberStatus` 与 `mobile`。
+
+#### 场景：按手机号邀请成员
+
+- 当 管理员调用 `POST /admin-api/system/user/invite` 并提交有效手机号及可选组织字段
+- 那么 系统创建或复用该手机号对应的全局 `sys_user`，且不接受管理员传入密码
+- 并且 创建 `sys_tenant_user`，状态为 `NOT_JOINED`
+- 并且 在当前租户内分配主部门与角色
+- 并且 该成员在状态变为 `ACTIVE` 之前不得登录本租户
+
+#### 场景：重复邀请已加入成员
+
+- 当 手机号已属于当前租户现有成员
+- 那么 系统以业务错误拒绝邀请
+
+#### 场景：分页响应含成员状态
+
+- 当 管理员查询 `GET /admin-api/system/user/page`
+- 那么 每行包含 `memberStatus`（枚举名）与 `mobile`
+- 并且 `memberStatus` 反映 `sys_tenant_user.status`，含 `NOT_JOINED` 与 `ACTIVE`
 
 #### 场景：创建用户并分配部门与角色
 
@@ -379,6 +398,34 @@
 - 当 已认证工作台成员请求 `GET /app-api/system/user/list-by-dept` 并携带有效 `deptId`
 - 那么 系统返回主部门等于 `deptId` 的用户
 - 并且 每项含名片所需字段（如 id、昵称、部门名、头像字）
+
+### 需求：成员邀请接受
+
+系统须通过公开的工作台 API，允许被邀请用户预览并接受待加入的租户成员关系，设置账号密码，将 `sys_tenant_user.status` 从 `NOT_JOINED` 转为 `ACTIVE`，并签发与登录等效的 JWT。
+
+#### 场景：预览待接受邀请
+
+- 当 客户端以存在默认租户 `NOT_JOINED` 成员关系的手机号调用 `GET /app-api/system/member-invite/preview`
+- 那么 响应包含 `tenantId`、`tenantName`、`nickname`
+- 并且 端点不要求认证
+
+#### 场景：预览不存在
+
+- 当 手机号在默认租户无 `NOT_JOINED` 成员关系
+- 那么 系统返回业务错误
+
+#### 场景：接受邀请并登录
+
+- 当 客户端以有效手机号与密码调用 `POST /app-api/system/member-invite/accept`，且成员为 `NOT_JOINED`
+- 那么 系统写入用户密码 hash
+- 并且 将 `sys_tenant_user.status` 更新为 `ACTIVE`
+- 并且 返回 `accessToken` 与 `tenantId`
+- 并且 后续使用相同凭据登录成功
+
+#### 场景：接受时密码过短
+
+- 当 提交的密码少于 6 个字符
+- 那么 系统以业务错误拒绝
 
 #### 场景：与管理端 API 分离
 
