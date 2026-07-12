@@ -5,8 +5,10 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
+import com.relayflow.module.im.dal.dataobject.ImMessageDO;
 import com.relayflow.module.im.dal.mysql.ImConversationMapper;
 import com.relayflow.module.im.dal.mysql.ImConversationMemberMapper;
+import com.relayflow.module.im.dal.mysql.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.service.message.ImContentHelper;
@@ -33,6 +35,7 @@ public class ImConversationServiceImpl implements ImConversationService {
 
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
+    private final ImMessageMapper messageMapper;
     private final UserApi userApi;
     private final ImContentHelper contentHelper;
 
@@ -160,6 +163,34 @@ public class ImConversationServiceImpl implements ImConversationService {
         if (conversation == null) {
             throw new ServiceException(ErrorCodeConstants.CONVERSATION_NOT_FOUND);
         }
+    }
+
+    @Override
+    @Transactional
+    public void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq) {
+        requireMembership(tenantId, conversationId, userId);
+        ImConversationMemberDO member = conversationMemberMapper.selectOne(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getUserId, userId));
+        if (member == null) {
+            throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
+        }
+
+        long targetReadSeq = readSeq != null ? readSeq : 0L;
+        long currentReadSeq = member.getReadSeq() != null ? member.getReadSeq() : 0L;
+        long newReadSeq = Math.max(currentReadSeq, targetReadSeq);
+
+        Long unreadCount = messageMapper.selectCount(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .gt(ImMessageDO::getSeq, newReadSeq));
+
+        member.setReadSeq(newReadSeq);
+        member.setUnreadCount(unreadCount != null ? unreadCount.intValue() : 0);
+        conversationMemberMapper.updateById(member);
     }
 
     @Override

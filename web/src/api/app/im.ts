@@ -65,15 +65,21 @@ type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId'> & {
   peerUserId?: number | string
 }
 
-type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId'> & {
+type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq'> & {
   id: number | string
   conversationId: number | string
   senderId: number | string
+  seq: number | string
 }
 
-type RawSendMessageResult = Omit<SendMessageResult, 'id' | 'conversationId'> & {
+type RawSendMessageResult = Omit<SendMessageResult, 'id' | 'conversationId' | 'seq'> & {
   id: number | string
   conversationId: number | string
+  seq: number | string
+}
+
+function parseSeq(seq: number | string): number {
+  return typeof seq === 'string' ? Number(seq) : seq
 }
 
 function normalizeConversation(item: RawConversationItem): ConversationItem {
@@ -89,7 +95,8 @@ function normalizeMessage(item: RawMessageItem): MessageItem {
     ...item,
     id: String(item.id),
     conversationId: String(item.conversationId),
-    senderId: String(item.senderId)
+    senderId: String(item.senderId),
+    seq: parseSeq(item.seq)
   }
 }
 
@@ -97,7 +104,8 @@ function normalizeSendResult(item: RawSendMessageResult): SendMessageResult {
   return {
     ...item,
     id: String(item.id),
-    conversationId: String(item.conversationId)
+    conversationId: String(item.conversationId),
+    seq: parseSeq(item.seq)
   }
 }
 
@@ -115,4 +123,8 @@ export function getMessageList(conversationId: string, afterSeq = 0): Promise<Me
 
 export function sendMessage(payload: SendMessagePayload): Promise<SendMessageResult> {
   return post<RawSendMessageResult>('/app-api/im/message/send', payload).then(normalizeSendResult)
+}
+
+export function markConversationRead(conversationId: string, readSeq: number): Promise<void> {
+  return post<void>('/app-api/im/conversation/read', { conversationId, readSeq })
 }

@@ -15,4 +15,6 @@ public interface ImConversationService {
     void lockConversation(Long tenantId, Long conversationId);
 
     List<Long> listOtherMemberUserIds(Long tenantId, Long conversationId, Long senderId);
+
+    void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq);
 }

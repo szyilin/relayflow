@@ -19,14 +19,33 @@ function buildWebSocketUrl(token: string): string {
   return `${protocol}//${window.location.host}/infra/ws?token=${encodeURIComponent(token)}`
 }
 
-function isMessageItem(payload: unknown): payload is MessageItem {
+function parseSeq(seq: unknown): number | null {
+  if (typeof seq === 'number' && Number.isFinite(seq)) {
+    return seq
+  }
+  if (typeof seq === 'string' && seq.trim() !== '') {
+    const parsed = Number(seq)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function normalizeWsMessage(payload: unknown): MessageItem | null {
   if (!payload || typeof payload !== 'object') {
-    return false
+    return null
   }
   const item = payload as Record<string, unknown>
-  return typeof item.id !== 'undefined'
-    && typeof item.conversationId !== 'undefined'
-    && typeof item.seq === 'number'
+  const seq = parseSeq(item.seq)
+  if (typeof item.id === 'undefined' || typeof item.conversationId === 'undefined' || seq == null) {
+    return null
+  }
+  return {
+    ...(item as unknown as MessageItem),
+    id: String(item.id),
+    conversationId: String(item.conversationId),
+    senderId: item.senderId != null ? String(item.senderId) : '',
+    seq
+  }
 }
 
 export function useImWebSocket(handlers: ImWebSocketHandlers) {
@@ -79,8 +98,11 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
   }
 
   function handleEnvelope(envelope: RealtimeEnvelope) {
-    if (envelope.domain === 'im' && envelope.type === 'message.new' && isMessageItem(envelope.payload)) {
-      handlers.onMessageNew(envelope.payload)
+    if (envelope.domain === 'im' && envelope.type === 'message.new') {
+      const message = normalizeWsMessage(envelope.payload)
+      if (message) {
+        handlers.onMessageNew(message)
+      }
     }
   }
 
