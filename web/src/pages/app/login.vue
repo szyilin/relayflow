@@ -10,6 +10,9 @@ const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(false)
 const isAddAccount = computed(() => route.query.addAccount === '1')
+const registerTo = computed(() =>
+  isAddAccount.value ? { path: '/app/register', query: { addAccount: '1' } } : '/app/register'
+)
 const tenantSelection = ref<TenantSummary[] | null>(null)
 const pendingCredentials = ref<{ username: string, password: string } | null>(null)
 
@@ -144,7 +147,7 @@ meta:
       使用企业账号登录；管理员与普通员工同一入口，权限由系统分配
     </p>
     <p v-if="!tenantSelection" class="text-center text-sm text-muted">
-      <RouterLink to="/app/register" class="text-primary hover:underline">
+      <RouterLink :to="registerTo" class="text-primary hover:underline">
         没有账号？注册
       </RouterLink>
     </p>

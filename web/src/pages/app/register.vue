@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { onBeforeMount, reactive, ref } from 'vue'
+import { computed, onBeforeMount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const isAddAccount = computed(() => route.query.addAccount === '1')
+const loginTo = computed(() =>
+  authStore.isAuthenticated || isAddAccount.value
+    ? { path: '/app/login', query: { addAccount: '1' } }
+    : '/app/login'
+)
 const toast = useToast()
 const loading = ref(false)
 
@@ -138,7 +144,7 @@ meta:
 
     <p class="text-center text-sm text-muted">
       已有账号？
-      <RouterLink to="/app/login" class="text-primary hover:underline">
+      <RouterLink :to="loginTo" class="text-primary hover:underline">
         返回登录
       </RouterLink>
     </p>
