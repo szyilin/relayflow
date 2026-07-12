@@ -3,6 +3,7 @@ import { get, post } from '../request'
 export interface AuthLoginReq {
   username: string
   password: string
+  tenantId?: number
 }
 
 export interface AuthLoginResp {

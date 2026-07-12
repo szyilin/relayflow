@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { TenantSummary } from '../../api/app/tenant'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
@@ -8,24 +9,62 @@ const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
 const loading = ref(false)
+const tenantSelection = ref<TenantSummary[] | null>(null)
+const pendingCredentials = ref<{ username: string, password: string } | null>(null)
+
 const form = reactive({
   username: import.meta.env.DEV ? 'admin' : '',
   password: import.meta.env.DEV ? 'admin123' : ''
 })
 
+async function completeLogin(username: string, password: string, selectedTenantId?: number) {
+  const result = await authStore.login(username, password, selectedTenantId)
+  if (result.ok) {
+    tenantSelection.value = null
+    pendingCredentials.value = null
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/messages'
+    await router.replace(redirect)
+    return
+  }
+
+  if ('needTenantSelection' in result && result.needTenantSelection) {
+    tenantSelection.value = result.tenants
+    pendingCredentials.value = result.credentials
+    return
+  }
+
+  toast.add({ title: '登录失败', description: result.message, color: 'error' })
+}
+
 async function onSubmit() {
   loading.value = true
   try {
-    const result = await authStore.login(form.username, form.password)
-    if (!result.ok) {
-      toast.add({ title: '登录失败', description: result.message, color: 'error' })
-      return
-    }
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/app/messages'
-    await router.replace(redirect)
+    await completeLogin(form.username, form.password)
   } finally {
     loading.value = false
   }
+}
+
+async function onSelectTenant(tenant: TenantSummary) {
+  if (!pendingCredentials.value) {
+    return
+  }
+
+  loading.value = true
+  try {
+    await completeLogin(
+      pendingCredentials.value.username,
+      pendingCredentials.value.password,
+      tenant.tenantId
+    )
+  } finally {
+    loading.value = false
+  }
+}
+
+function cancelTenantSelection() {
+  tenantSelection.value = null
+  pendingCredentials.value = null
 }
 </script>
 
@@ -48,10 +87,46 @@ meta:
       </p>
     </div>
 
-    <UCard class="ring-1 ring-default">
+    <UCard v-if="tenantSelection" class="ring-1 ring-default">
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold">
+            选择要进入的企业
+          </h2>
+          <p class="text-sm text-muted">
+            你的账号关联了多个企业，请选择本次要进入的工作台
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <UButton
+            v-for="tenant in tenantSelection"
+            :key="tenant.tenantId"
+            block
+            color="neutral"
+            variant="soft"
+            class="justify-start"
+            :loading="loading"
+            @click="onSelectTenant(tenant)"
+          >
+            <UIcon name="i-lucide-building-2" class="size-4" />
+            <span class="truncate">{{ tenant.tenantName }}</span>
+            <UBadge v-if="tenant.owner" color="primary" variant="subtle" class="ml-auto">
+              我创建的
+            </UBadge>
+          </UButton>
+        </div>
+
+        <UButton block color="neutral" variant="ghost" :disabled="loading" @click="cancelTenantSelection">
+          返回重新登录
+        </UButton>
+      </div>
+    </UCard>
+
+    <UCard v-else class="ring-1 ring-default">
       <form class="space-y-4" @submit.prevent="onSubmit">
         <UFormField label="账号">
-          <UInput v-model="form.username" placeholder="yourname" icon="i-lucide-user" />
+          <UInput v-model="form.username" placeholder="用户名或手机号" icon="i-lucide-user" />
         </UFormField>
         <UFormField label="密码">
           <UInput v-model="form.password" type="password" placeholder="••••••••" icon="i-lucide-lock" />
@@ -62,10 +137,10 @@ meta:
       </form>
     </UCard>
 
-    <p class="text-center text-xs text-muted">
+    <p v-if="!tenantSelection" class="text-center text-xs text-muted">
       使用企业账号登录；管理员与普通员工同一入口，权限由系统分配
     </p>
-    <p class="text-center text-sm text-muted">
+    <p v-if="!tenantSelection" class="text-center text-sm text-muted">
       <RouterLink to="/app/register" class="text-primary hover:underline">
         没有账号？注册
       </RouterLink>

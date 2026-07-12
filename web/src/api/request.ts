@@ -8,11 +8,13 @@ export interface ApiResult<T> {
 
 export class ApiError extends Error {
   readonly code: number
+  readonly data?: unknown
 
-  constructor(code: number, message: string) {
+  constructor(code: number, message: string, data?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.code = code
+    this.data = data
   }
 }
 
@@ -50,7 +52,7 @@ export async function request<T>(path: string, config: AxiosRequestConfig = {}):
 
     const payload = parseApiResult<T>(response.data)
     if (payload.code !== 0) {
-      throw new ApiError(payload.code, payload.msg || '请求失败')
+      throw new ApiError(payload.code, payload.msg || '请求失败', payload.data)
     }
 
     return payload.data
@@ -62,7 +64,7 @@ export async function request<T>(path: string, config: AxiosRequestConfig = {}):
     if (axios.isAxiosError(error) && error.response?.data) {
       try {
         const payload = parseApiResult<T>(error.response.data)
-        throw new ApiError(payload.code, payload.msg || '请求失败')
+        throw new ApiError(payload.code, payload.msg || '请求失败', payload.data)
       } catch (inner) {
         if (inner instanceof ApiError) {
           throw inner
