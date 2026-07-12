@@ -5,7 +5,7 @@ import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { usePermission } from '../../../../composables/usePermission'
 import { getRolePage } from '../../../../api/admin/role'
-import { useDeptStore } from '../../../../stores/dept'
+import { useDeptStore, type DeptTreeNode } from '../../../../stores/dept'
 import { useUserStore, type UserListRecord } from '../../../../stores/user'
 
 const toast = useToast()
@@ -17,6 +17,7 @@ const editOpen = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
 const roleOptions = ref<Array<{ id: string, label: string }>>([])
+const selectedDeptNode = ref<DeptTreeNode | undefined>()
 
 const editForm = reactive({
   id: '',
@@ -48,6 +49,13 @@ const columns: TableColumn<UserListRecord>[] = [{
   header: '操作'
 }]
 
+const selectedDeptId = computed(() => selectedDeptNode.value?.id ?? userStore.deptId)
+
+const createUserLink = computed(() => ({
+  path: '/admin/system/user/create',
+  query: selectedDeptId.value ? { deptId: selectedDeptId.value } : undefined
+}))
+
 const deptOptions = computed(() =>
   deptStore.list.map(item => ({
     label: item.name,
@@ -65,9 +73,13 @@ function toggleRole(roleId: string, checked: boolean) {
   editForm.roleIds = editForm.roleIds.filter(id => id !== roleId)
 }
 
-async function loadPage(options?: { page?: number, keyword?: string }) {
+async function loadPage(options?: { page?: number, keyword?: string, deptId?: string }) {
   try {
-    await userStore.fetchPage(options)
+    await userStore.fetchPage({
+      deptId: options?.deptId ?? selectedDeptId.value,
+      page: options?.page,
+      keyword: options?.keyword
+    })
   } catch {
     toast.add({
       title: '加载失败',
@@ -87,6 +99,32 @@ async function loadOptions() {
       }))
     })
   ])
+}
+
+function selectDefaultDept() {
+  const rootId = deptStore.rootDeptId()
+  if (!rootId) {
+    return undefined
+  }
+  const node = deptStore.findTreeNode(deptStore.tree, rootId)
+  if (node) {
+    selectedDeptNode.value = node
+  }
+  return rootId
+}
+
+function onDeptSelect(_event: unknown, item: DeptTreeNode) {
+  if (item.id === userStore.deptId) {
+    return
+  }
+  selectedDeptNode.value = item
+  void loadPage({ page: 1, deptId: item.id })
+}
+
+async function initDeptAndPage() {
+  await loadOptions()
+  const rootId = selectDefaultDept()
+  await loadPage({ page: 1, deptId: rootId })
 }
 
 async function openEdit(record: UserListRecord) {
@@ -153,12 +191,11 @@ async function toggleStatus(record: UserListRecord) {
 }
 
 onMounted(() => {
-  loadOptions()
-  loadPage()
+  void initDeptAndPage()
 })
 
 watch(() => userStore.page, (page) => {
-  loadPage({ page })
+  void loadPage({ page })
 })
 </script>
 
@@ -177,12 +214,12 @@ meta:
       <div class="space-y-4">
         <AdminPageHeader
           title="用户列表"
-          description="管理系统用户账号与基本信息"
+          description="按部门浏览与管理成员"
         >
           <template #actions>
             <UButton
               v-if="hasPermission('system:user:create')"
-              to="/admin/system/user/create"
+              :to="createUserLink"
               icon="i-lucide-plus"
             >
               新建用户
@@ -190,61 +227,91 @@ meta:
           </template>
         </AdminPageHeader>
 
-        <UCard>
-          <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <UInput
-              v-model="userStore.keyword"
-              placeholder="搜索用户名或昵称"
-              icon="i-lucide-search"
-              class="sm:max-w-xs"
-              @keyup.enter="loadPage({ page: 1, keyword: userStore.keyword })"
-            />
-            <UButton
-              color="neutral"
-              variant="soft"
-              :loading="userStore.loading"
-              @click="loadPage({ page: 1, keyword: userStore.keyword })"
-            >
-              搜索
-            </UButton>
-          </div>
-
-          <UTable :data="userStore.list" :columns="columns" :loading="userStore.loading">
-            <template #actions-cell="{ row }">
-              <div class="flex gap-1">
-                <UButton
-                  v-if="hasPermission('system:user:update')"
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  @click="openEdit(row.original)"
-                >
-                  编辑
-                </UButton>
-                <UButton
-                  v-if="hasPermission('system:user:update')"
-                  size="xs"
-                  :color="row.original.statusCode === 0 ? 'error' : 'primary'"
-                  variant="soft"
-                  @click="toggleStatus(row.original)"
-                >
-                  {{ row.original.statusCode === 0 ? '禁用' : '启用' }}
-                </UButton>
-              </div>
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <UCard class="w-full shrink-0 lg:w-64">
+            <template #header>
+              <h3 class="text-sm font-medium">
+                组织架构
+              </h3>
             </template>
-          </UTable>
 
-          <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-sm text-muted">
-              共 {{ userStore.total }} 条
-            </p>
-            <UPagination
-              v-model:page="userStore.page"
-              :total="userStore.total"
-              :items-per-page="userStore.pageSize"
+            <div v-if="deptStore.loading" class="space-y-2 py-2">
+              <USkeleton v-for="i in 4" :key="i" class="h-7 w-full" />
+            </div>
+
+            <UEmpty
+              v-else-if="deptStore.tree.length === 0"
+              icon="i-lucide-building-2"
+              title="暂无部门"
+              description="请先在部门管理中创建组织架构"
+              class="py-6"
             />
-          </div>
-        </UCard>
+
+            <UTree
+              v-else
+              v-model="selectedDeptNode"
+              :items="deptStore.tree"
+              :get-key="item => item.id"
+              @select="onDeptSelect"
+            />
+          </UCard>
+
+          <UCard class="min-w-0 flex-1">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <UInput
+                v-model="userStore.keyword"
+                placeholder="搜索用户名或昵称"
+                icon="i-lucide-search"
+                class="sm:max-w-xs"
+                @keyup.enter="loadPage({ page: 1, keyword: userStore.keyword })"
+              />
+              <UButton
+                color="neutral"
+                variant="soft"
+                :loading="userStore.loading"
+                @click="loadPage({ page: 1, keyword: userStore.keyword })"
+              >
+                搜索
+              </UButton>
+            </div>
+
+            <UTable :data="userStore.list" :columns="columns" :loading="userStore.loading">
+              <template #actions-cell="{ row }">
+                <div class="flex gap-1">
+                  <UButton
+                    v-if="hasPermission('system:user:update')"
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    @click="openEdit(row.original)"
+                  >
+                    编辑
+                  </UButton>
+                  <UButton
+                    v-if="hasPermission('system:user:update')"
+                    size="xs"
+                    :color="row.original.statusCode === 0 ? 'error' : 'primary'"
+                    variant="soft"
+                    @click="toggleStatus(row.original)"
+                  >
+                    {{ row.original.statusCode === 0 ? '禁用' : '启用' }}
+                  </UButton>
+                </div>
+              </template>
+            </UTable>
+
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p class="text-sm text-muted">
+                共 {{ userStore.total }} 条
+              </p>
+              <UPagination
+                v-model:page="userStore.page"
+                :total="userStore.total"
+                :items-per-page="userStore.pageSize"
+              />
+            </div>
+          </UCard>
+        </div>
       </div>
 
       <UModal v-model:open="editOpen" title="编辑用户">
