@@ -2,16 +2,27 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
 import { useContactsStore, type ContactDeptTreeNode } from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
+import type { ContactItem } from '../../../api/app/contacts'
 
 const router = useRouter()
 const toast = useToast()
 const contacts = useContactsStore()
 const im = useImStore()
+const {
+  open: profileOpen,
+  payload: profileContact,
+  reference: profileReference,
+  content: profileContent,
+  show: showProfilePopover,
+  close: closeProfilePopover
+} = useClickAnchoredPopover<ContactItem>()
 
 const selectedDeptNode = ref<ContactDeptTreeNode | undefined>()
 const searchInput = ref('')
+const activeContactId = ref<string>()
 
 function selectDefaultDept() {
   const rootId = contacts.rootDeptId()
@@ -30,7 +41,8 @@ function onDeptSelect(_event: unknown, item: ContactDeptTreeNode) {
     return
   }
   selectedDeptNode.value = item
-  contacts.selectContact(undefined)
+  activeContactId.value = undefined
+  closeProfilePopover()
   void loadMembers({ deptId: item.id, keyword: '' })
 }
 
@@ -65,10 +77,31 @@ async function initPage() {
 }
 
 function handleSearch() {
+  activeContactId.value = undefined
+  closeProfilePopover()
   void loadMembers({ keyword: searchInput.value })
 }
 
-function openMessage(contact: { id: string, nickname: string, avatarText: string }) {
+function handleContactClick(person: ContactItem, event: MouseEvent) {
+  if (profileOpen.value && activeContactId.value === person.id) {
+    activeContactId.value = undefined
+    closeProfilePopover()
+    return
+  }
+  activeContactId.value = person.id
+  showProfilePopover(person, event)
+}
+
+function handleProfileOpenChange(nextOpen: boolean) {
+  profileOpen.value = nextOpen
+  if (!nextOpen) {
+    activeContactId.value = undefined
+  }
+}
+
+function openMessage(contact: ContactItem) {
+  closeProfilePopover()
+  activeContactId.value = undefined
   im.openDirectChat(contact.id, {
     title: contact.nickname,
     avatarText: contact.avatarText
@@ -139,96 +172,74 @@ meta:
         </div>
       </div>
 
-      <div class="flex min-h-0 flex-1">
-        <div class="min-w-0 flex-1 overflow-y-auto p-3">
-          <div v-if="contacts.loadingMembers" class="space-y-2">
-            <USkeleton v-for="i in 6" :key="i" class="h-14 w-full" />
-          </div>
-
-          <div v-else-if="contacts.members.length" class="space-y-0.5">
-            <button
-              v-for="person in contacts.members"
-              :key="person.id"
-              type="button"
-              class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
-              :data-active="contacts.selectedContactId === person.id"
-              @click="contacts.selectContact(person.id)"
-            >
-              <UAvatar :text="person.avatarText" size="md" />
-              <div class="min-w-0">
-                <p class="truncate font-medium">
-                  {{ person.nickname }}
-                </p>
-                <p class="truncate text-sm text-[var(--ws-text-muted)]">
-                  {{ person.deptName }} · @{{ person.username }}
-                </p>
-              </div>
-            </button>
-          </div>
-
-          <UEmpty
-            v-else
-            icon="i-lucide-users"
-            title="暂无成员"
-            description="该部门下暂无同事，试试选择其他部门"
-            class="py-12"
-          />
+      <div class="min-h-0 flex-1 overflow-y-auto p-3">
+        <div v-if="contacts.loadingMembers" class="space-y-2">
+          <USkeleton v-for="i in 6" :key="i" class="h-14 w-full" />
         </div>
 
-        <aside
-          v-if="contacts.selectedContact"
-          class="hidden w-72 shrink-0 border-l border-[var(--ws-border-subtle)] p-5 lg:block"
-        >
-          <UCard>
-            <div class="flex flex-col items-center gap-3 py-2 text-center">
-              <UAvatar :text="contacts.selectedContact.avatarText" size="3xl" />
+        <div v-else-if="contacts.members.length" class="space-y-0.5">
+          <button
+            v-for="person in contacts.members"
+            :key="person.id"
+            type="button"
+            class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
+            :data-active="activeContactId === person.id"
+            @click="handleContactClick(person, $event)"
+          >
+            <UAvatar :text="person.avatarText" size="md" />
+            <div class="min-w-0">
+              <p class="truncate font-medium">
+                {{ person.nickname }}
+              </p>
+              <p class="truncate text-sm text-[var(--ws-text-muted)]">
+                {{ person.deptName }} · @{{ person.username }}
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <UEmpty
+          v-else
+          icon="i-lucide-users"
+          title="暂无成员"
+          description="该部门下暂无同事，试试选择其他部门"
+          class="py-12"
+        />
+      </div>
+
+      <UPopover
+        :open="profileOpen"
+        :reference="profileReference"
+        :content="profileContent"
+        :ui="{ content: 'p-0 overflow-hidden' }"
+        @update:open="handleProfileOpenChange"
+      >
+        <template #content>
+          <div v-if="profileContact" class="w-64 p-4">
+            <div class="flex flex-col items-center gap-3 text-center">
+              <UAvatar :text="profileContact.avatarText" size="3xl" />
               <div>
                 <h3 class="text-lg font-semibold">
-                  {{ contacts.selectedContact.nickname }}
+                  {{ profileContact.nickname }}
                 </h3>
                 <p class="text-sm text-[var(--ws-text-muted)]">
-                  @{{ contacts.selectedContact.username }}
+                  @{{ profileContact.username }}
                 </p>
               </div>
               <p class="text-sm text-[var(--ws-text-muted)]">
-                {{ contacts.selectedContact.deptName }}
+                {{ profileContact.deptName }}
               </p>
               <UButton
                 icon="i-lucide-message-circle"
                 block
-                @click="openMessage(contacts.selectedContact)"
+                @click="openMessage(profileContact)"
               >
                 消息
               </UButton>
             </div>
-          </UCard>
-        </aside>
-      </div>
-
-      <div
-        v-if="contacts.selectedContact"
-        class="border-t border-[var(--ws-border-subtle)] p-4 lg:hidden"
-      >
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UAvatar :text="contacts.selectedContact.avatarText" size="lg" />
-            <div class="min-w-0 flex-1">
-              <p class="font-semibold">
-                {{ contacts.selectedContact.nickname }}
-              </p>
-              <p class="text-sm text-[var(--ws-text-muted)]">
-                {{ contacts.selectedContact.deptName }}
-              </p>
-            </div>
-            <UButton
-              icon="i-lucide-message-circle"
-              @click="openMessage(contacts.selectedContact)"
-            >
-              消息
-            </UButton>
           </div>
-        </UCard>
-      </div>
+        </template>
+      </UPopover>
     </div>
 
     <template #aside>
