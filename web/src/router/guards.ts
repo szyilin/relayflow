@@ -4,10 +4,17 @@ import { useAuthStore } from '../stores/auth'
 /** 产品唯一登录页 */
 export const LOGIN_PATH = '/app/login'
 
+/** 开放注册页（V2；须 permitAll + 路由放行） */
+export const REGISTER_PATH = '/app/register'
+
 /** 已登录但无管理身份时的引导页 */
 export const NO_ADMIN_ACCESS_PATH = '/app/no-admin-access'
 
-const PUBLIC_PATHS = new Set([LOGIN_PATH])
+const PUBLIC_PATHS = new Set([
+  LOGIN_PATH,
+  REGISTER_PATH,
+  '/app/invite/accept'
+])
 
 async function ensurePermissionInfoLoaded(authStore: ReturnType<typeof useAuthStore>) {
   if (!authStore.isAuthenticated || authStore.permissionInfoLoaded) {
@@ -47,6 +54,10 @@ export function setupAdminGuards(router: Router) {
       }
 
       if (authStore.isAuthenticated && to.path === LOGIN_PATH) {
+        return { path: '/app/messages' }
+      }
+
+      if (authStore.isAuthenticated && to.path === REGISTER_PATH) {
         return { path: '/app/messages' }
       }
 
