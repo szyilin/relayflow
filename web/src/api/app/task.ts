@@ -44,16 +44,16 @@ export async function createTask(payload: { title: string, dueTime?: string | nu
   return String(id)
 }
 
+export async function toggleTaskDone(id: string, done: boolean): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/toggle-done', { id, done })
+}
+
 export async function updateTask(payload: {
   id: string
   title?: string
   dueTime?: string | null
 }): Promise<boolean> {
   return put<boolean>('/app-api/task/item/update', payload)
-}
-
-export async function toggleTaskDone(id: string, done: boolean): Promise<boolean> {
-  return put<boolean>('/app-api/task/item/toggle-done', { id, done })
 }
 
 export async function deleteTask(id: string): Promise<boolean> {

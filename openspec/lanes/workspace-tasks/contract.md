@@ -1,6 +1,6 @@
 # API 契约：workspace-tasks
 
-> **状态**：草案（`-web` lane）  
+> **状态**：已对接（integrate）  
 > **起草**：`workspace-tasks-v1` change  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 

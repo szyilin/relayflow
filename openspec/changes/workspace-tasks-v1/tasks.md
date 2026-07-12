@@ -50,12 +50,12 @@
 
 **依赖**：`task-schema-v1` 完成、`workspace-tasks-web` contract 就绪
 
-- [ ] 3.1 `TaskItemService` + `controller/app/TaskItemController`
-- [ ] 3.2 `GET page`、`POST create`、`PUT update`、`PUT toggle-done`、`DELETE delete`
-- [ ] 3.3 错误码 `TASK_NOT_FOUND`、`TASK_FORBIDDEN`；仅 assignee=当前用户
-- [ ] 3.4 Security：`/app-api/task/**` JWT + 成员身份
-- [ ] 3.5 单元测试 + curl（见 contract）
-- [ ] 3.6 `./mvnw -pl relayflow-server -am compile`
+- [x] 3.1 `TaskItemService` + `controller/app/TaskItemController`
+- [x] 3.2 `GET page`、`POST create`、`PUT update`、`PUT toggle-done`、`DELETE delete`
+- [x] 3.3 错误码 `TASK_NOT_FOUND`、`TASK_FORBIDDEN`；仅 assignee=当前用户
+- [x] 3.4 Security：`/app-api/task/**` JWT + 成员身份
+- [x] 3.5 单元测试 + curl（见 contract）
+- [x] 3.6 `./mvnw -pl relayflow-server -am compile`
 
 **完成后**：看板 api → `ready`；开 `-integrate`。
 
@@ -63,12 +63,12 @@
 
 ## 4. workspace-tasks-integrate（联调）
 
-- [ ] 4.1 `stores/tasks.ts` 去 Mock
-- [ ] 4.2 端到端：新建 → 刷新仍在 → 勾选完成 → 删除
-- [ ] 4.3 多租户：切换企业后任务列表隔离
-- [ ] 4.4 `openspec validate workspace-tasks-v1 --strict`
-- [ ] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
-- [ ] 4.6 看板 `workspace-tasks` → **done**
+- [x] 4.1 `stores/tasks.ts` 去 Mock
+- [x] 4.2 端到端：新建 → 刷新仍在 → 勾选完成 → 删除
+- [x] 4.3 多租户：切换企业后任务列表隔离
+- [x] 4.4 `openspec validate workspace-tasks-v1 --strict`
+- [x] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
+- [x] 4.6 看板 `workspace-tasks` → **done**
 
 ---
 
