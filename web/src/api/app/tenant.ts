@@ -15,8 +15,8 @@ export interface TenantSwitchResp {
   tenantId: number
 }
 
-/** 与后端 ErrorCodeConstants.TENANT_SELECTION_REQUIRED 对齐（tenant-switch-v2-api） */
-export const TENANT_SELECTION_REQUIRED_CODE = 1_001_003_001
+/** 与后端 ErrorCodeConstants.TENANT_SELECTION_REQUIRED 对齐 */
+export const TENANT_SELECTION_REQUIRED_CODE = 1_001_003_003
 
 export function getMyTenantList(): Promise<TenantSummary[]> {
   return get<TenantSummary[]>('/app-api/system/tenant/my-list')

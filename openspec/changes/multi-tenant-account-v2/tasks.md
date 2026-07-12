@@ -107,12 +107,12 @@ curl -s -X POST http://localhost:8080/app-api/system/auth/register \
 
 **依赖**：`tenant-switch-v2-web` contract
 
-- [ ] 6.1 `GET /app-api/system/tenant/my-list`
-- [ ] 6.2 `POST /app-api/system/tenant/switch` → 重签 JWT
-- [ ] 6.3 扩展 `AuthService.login`：mobile 登录、多 tenant、`tenantId` 参数
-- [ ] 6.4 错误码：`TENANT_SELECTION_REQUIRED`、`AUTH_NO_TENANT`、`TENANT_SWITCH_FORBIDDEN`
-- [ ] 6.5 `enabled=true` 时 `TenantWebFilter` 从 JWT 读 tenant（核对现有实现）
-- [ ] 6.6 curl + `./mvnw -pl relayflow-server -am compile`
+- [x] 6.1 `GET /app-api/system/tenant/my-list`
+- [x] 6.2 `POST /app-api/system/tenant/switch` → 重签 JWT
+- [x] 6.3 扩展 `AuthService.login`：mobile 登录、多 tenant、`tenantId` 参数
+- [x] 6.4 错误码：`TENANT_SELECTION_REQUIRED`、`AUTH_NO_TENANT`、`TENANT_SWITCH_FORBIDDEN`
+- [x] 6.5 `enabled=true` 时 `TenantWebFilter` 从 JWT 读 tenant（核对现有实现）
+- [x] 6.6 curl + `./mvnw -pl relayflow-server -am compile`
 
 **curl 示例**：
 
