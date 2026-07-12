@@ -32,6 +32,7 @@ import com.relayflow.module.system.dal.mysql.SysUserMapper;
 import com.relayflow.module.system.dal.mysql.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import com.relayflow.module.system.service.dept.DeptService;
 import com.relayflow.module.system.service.permission.DataScopeHelper;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.permission.dto.DataScopeResult;
@@ -62,6 +63,7 @@ public class UserServiceImpl implements UserService {
     private final SysUserRoleMapper userRoleMapper;
     private final SysDeptMapper deptMapper;
     private final SysRoleMapper roleMapper;
+    private final DeptService deptService;
     private final PasswordEncoder passwordEncoder;
     private final TenantProperties tenantProperties;
     private final DataScopeHelper dataScopeHelper;
@@ -87,7 +89,7 @@ public class UserServiceImpl implements UserService {
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.insert(tenantUser);
 
-        assignDept(tenantId, user.getId(), request.getDeptId());
+        assignDept(tenantId, user.getId(), request.getDeptId(), true);
         assignRoles(tenantId, user.getId(), request.getRoleIds());
         return user.getId();
     }
@@ -147,7 +149,7 @@ public class UserServiceImpl implements UserService {
     public void updateUserDept(UserUpdateDeptReqVO request) {
         Long tenantId = resolveTenantId();
         requireTenantUser(request.getId(), tenantId);
-        assignDept(tenantId, request.getId(), request.getDeptId());
+        assignDept(tenantId, request.getId(), request.getDeptId(), false);
     }
 
     @Override
@@ -234,20 +236,24 @@ public class UserServiceImpl implements UserService {
                 .collect(Collectors.toSet());
     }
 
-    private void assignDept(Long tenantId, Long userId, Long deptId) {
+    private void assignDept(Long tenantId, Long userId, Long deptId, boolean defaultRootIfNull) {
         userDeptMapper.delete(Wrappers.<SysUserDeptDO>lambdaQuery()
                 .eq(SysUserDeptDO::getTenantId, tenantId)
                 .eq(SysUserDeptDO::getUserId, userId));
 
-        if (deptId == null) {
-            return;
+        Long resolvedDeptId = deptId;
+        if (resolvedDeptId == null) {
+            if (!defaultRootIfNull) {
+                throw new ServiceException(ErrorCodeConstants.USER_DEPT_REQUIRED);
+            }
+            resolvedDeptId = deptService.getOrCreateRootDept(tenantId);
         }
 
-        requireDept(deptId, tenantId);
+        requireDept(resolvedDeptId, tenantId);
         SysUserDeptDO relation = new SysUserDeptDO();
         relation.setTenantId(tenantId);
         relation.setUserId(userId);
-        relation.setDeptId(deptId);
+        relation.setDeptId(resolvedDeptId);
         relation.setPrimaryFlag(1);
         userDeptMapper.insert(relation);
     }
