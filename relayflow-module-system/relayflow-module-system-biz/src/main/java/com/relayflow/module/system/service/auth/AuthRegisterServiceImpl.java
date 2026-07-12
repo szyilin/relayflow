@@ -68,11 +68,11 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         }
 
         SysTenantDO tenant = createTenant(tenantName, user.getId());
+        TenantContextHolder.set(tenant.getId());
         createActiveMembership(tenant.getId(), user.getId());
         tenantBootstrapService.bootstrapOwner(tenant.getId(), user.getId());
         activatePendingInvites(user.getId());
 
-        TenantContextHolder.set(tenant.getId());
         String accessToken = jwtTokenService.createAccessToken(
                 user.getId(), user.getUsername(), tenant.getId(), ADMIN_USER_TYPE);
 

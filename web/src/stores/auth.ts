@@ -42,15 +42,6 @@ export type LoginResult =
 
 export type RegisterResult = LoginResult
 
-const MOCK_REGISTER_TENANT_ID = 200001
-
-function shouldUseRegisterMock(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.code === 0 || error.code === 404
-  }
-  return true
-}
-
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
   const storedTenantId = localStorage.getItem(TENANT_KEY)
@@ -125,25 +116,25 @@ export const useAuthStore = defineStore('auth', () => {
         nickname,
         tenantName
       })
-      await establishSession(data.accessToken, data.tenantId, mobile)
+      await establishSession(data.accessToken, data.tenantId, mobile, nickname)
       return { ok: true }
     } catch (error) {
-      if (shouldUseRegisterMock(error)) {
-        await establishSession(`mock-register-token-${Date.now()}`, MOCK_REGISTER_TENANT_ID, mobile)
-        return { ok: true }
-      }
-
       const message = error instanceof ApiError
         ? error.message
-        : '注册失败，请稍后重试'
+        : '注册失败，请确认后端服务已启动后重试'
       return { ok: false, message }
     }
   }
 
-  async function establishSession(accessToken: string, tenant: number, username: string) {
+  async function establishSession(
+    accessToken: string,
+    tenant: number,
+    username: string,
+    nickname?: string
+  ) {
     const authUser: AuthUser = {
       username,
-      nickname: username
+      nickname: nickname?.trim() || username
     }
 
     token.value = accessToken

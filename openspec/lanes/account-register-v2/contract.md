@@ -43,15 +43,10 @@ Content-Type: application/json
 **鉴权**：permitAll  
 **配置**：`tenant.enabled=true` AND `allow-open-register=true`
 
-## 前端 Mock（`-web` 阶段）
+## 前端联调（`-integrate`）
 
-Store 在 API 未就绪（404 / 网络错误）时 Mock 成功：
-
-- `accessToken`: `mock-register-token`
-- `tenantId`: `200001`
-- 跳转 `/app/messages`
-
-## 路由
+- Store 直接调用 `POST /auth/register`，**无 Mock 回退**
+- 注册成功后 `establishSession(accessToken, tenantId, mobile, nickname)`
 
 | 路径 | 说明 |
 |------|------|
@@ -62,6 +57,8 @@ Store 在 API 未就绪（404 / 网络错误）时 Mock 成功：
 ## 验收
 
 ```bash
-cd web && pnpm build
-# 浏览器：/app/login → 注册 → Mock 成功 → /app/messages
+docker compose -f deploy/compose.yml up -d
+./mvnw -pl relayflow-server -am spring-boot:run
+cd web && pnpm dev
+# 浏览器：/app/register → 注册 → /app/messages
 ```
