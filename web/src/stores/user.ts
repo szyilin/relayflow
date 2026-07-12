@@ -1,39 +1,74 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  createUser,
   getUser,
   getUserPage,
+  inviteUser,
   updateUser,
   updateUserDept,
   updateUserRole,
   updateUserStatus,
-  type UserCreatePayload,
   type UserDetail,
   type UserId,
+  type UserInvitePayload,
   type UserPageItem,
   type UserUpdatePayload
 } from '../api/admin/user'
 import { ApiError } from '../api/request'
 
+export type MemberStatusCode = 'ACTIVE' | 'NOT_JOINED' | 'SUSPENDED' | 'PENDING_ACTIVATION' | 'PENDING_LEAVE' | 'LEFT'
+
 export interface UserListRecord {
   id: string
   username: string
   nickname: string
+  mobile: string
   dept: string
-  status: string
+  memberStatus: MemberStatusCode
+  statusLabel: string
+  statusColor: 'success' | 'warning' | 'error' | 'neutral'
   statusCode: number
   createTime: string
 }
 
+const MEMBER_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: '正常',
+  NOT_JOINED: '待同意',
+  SUSPENDED: '已暂停',
+  PENDING_ACTIVATION: '待激活',
+  PENDING_LEAVE: '待离职',
+  LEFT: '已离职'
+}
+
+const MEMBER_STATUS_COLORS: Record<string, UserListRecord['statusColor']> = {
+  ACTIVE: 'success',
+  NOT_JOINED: 'warning',
+  SUSPENDED: 'error',
+  PENDING_ACTIVATION: 'warning',
+  PENDING_LEAVE: 'neutral',
+  LEFT: 'neutral'
+}
+
+function resolveMemberStatus(item: UserPageItem): MemberStatusCode {
+  if (item.memberStatus && item.memberStatus in MEMBER_STATUS_LABELS) {
+    return item.memberStatus as MemberStatusCode
+  }
+  const statusCode = typeof item.status === 'number' ? item.status : 0
+  return statusCode === 0 ? 'ACTIVE' : 'SUSPENDED'
+}
+
 function normalizeUser(item: UserPageItem): UserListRecord {
+  const memberStatus = resolveMemberStatus(item)
   const statusCode = typeof item.status === 'number' ? item.status : 0
   return {
     id: String(item.id),
     username: item.username,
-    nickname: item.nickname,
+    nickname: item.nickname || item.username,
+    mobile: item.mobile ?? '—',
     dept: item.dept ?? '—',
-    status: statusCode === 0 ? '启用' : '禁用',
+    memberStatus,
+    statusLabel: MEMBER_STATUS_LABELS[memberStatus] ?? memberStatus,
+    statusColor: MEMBER_STATUS_COLORS[memberStatus] ?? 'neutral',
     statusCode,
     createTime: item.createTime?.slice(0, 10) ?? '—'
   }
@@ -98,8 +133,8 @@ export const useUserStore = defineStore('user', () => {
     return normalizeDetail(detail)
   }
 
-  async function create(payload: UserCreatePayload) {
-    const id = await createUser(payload)
+  async function invite(payload: UserInvitePayload) {
+    const id = await inviteUser(payload)
     await fetchPage()
     return String(id)
   }
@@ -145,7 +180,7 @@ export const useUserStore = defineStore('user', () => {
     lastError,
     fetchPage,
     fetchDetail,
-    create,
+    invite,
     saveProfile,
     toggleStatus,
     setPage

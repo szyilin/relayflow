@@ -3,7 +3,9 @@ package com.relayflow.module.system.controller.admin.user;
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
+import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
 import com.relayflow.module.system.controller.admin.user.vo.UserCreateReqVO;
+import com.relayflow.module.system.controller.admin.user.vo.UserInviteReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserGetRespVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserPageReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserRespVO;
@@ -57,6 +59,18 @@ public class UserController {
         dto.setDeptId(request.getDeptId());
         dto.setRoleIds(request.getRoleIds());
         return CommonResult.success(userService.createUser(dto));
+    }
+
+    @PreAuthorize("hasAuthority('system:user:create')")
+    @PostMapping("/invite")
+    public CommonResult<Long> inviteMember(@Valid @RequestBody UserInviteReqVO request) {
+        UserInviteReqDTO dto = new UserInviteReqDTO();
+        dto.setMobile(request.getMobile());
+        dto.setNickname(request.getNickname());
+        dto.setEmail(request.getEmail());
+        dto.setDeptId(request.getDeptId());
+        dto.setRoleIds(request.getRoleIds());
+        return CommonResult.success(userService.inviteMember(dto));
     }
 
     @PreAuthorize("hasAuthority('system:user:update')")

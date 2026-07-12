@@ -10,6 +10,7 @@ import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
+import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
 import com.relayflow.module.system.controller.admin.user.vo.UserGetRespVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserPageReqVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserRespVO;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -88,6 +90,48 @@ public class UserServiceImpl implements UserService {
         tenantUser.setTenantId(tenantId);
         tenantUser.setUserId(user.getId());
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
+        tenantUserMapper.insert(tenantUser);
+
+        assignDept(tenantId, user.getId(), request.getDeptId(), true);
+        assignRoles(tenantId, user.getId(), request.getRoleIds());
+        return user.getId();
+    }
+
+    @Override
+    @Transactional
+    public Long inviteMember(UserInviteReqDTO request) {
+        String mobile = trimToNull(request.getMobile());
+        if (!StringUtils.hasText(mobile)) {
+            throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
+        }
+
+        SysUserDO user = userMapper.selectOne(Wrappers.<SysUserDO>lambdaQuery()
+                .eq(SysUserDO::getMobile, mobile));
+        if (user == null) {
+            user = new SysUserDO();
+            user.setUsername(mobile);
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+            String nickname = request.getNickname() != null
+                    ? request.getNickname().trim()
+                    : mobile;
+            user.setNickname(nickname);
+            user.setMobile(mobile);
+            user.setEmail(trimToNull(request.getEmail()));
+            userMapper.insert(user);
+        }
+
+        Long tenantId = resolveTenantId();
+        SysTenantUserDO existingMember = tenantUserMapper.selectOne(Wrappers.<SysTenantUserDO>lambdaQuery()
+                .eq(SysTenantUserDO::getTenantId, tenantId)
+                .eq(SysTenantUserDO::getUserId, user.getId()));
+        if (existingMember != null) {
+            throw new ServiceException(ErrorCodeConstants.USER_ALREADY_MEMBER);
+        }
+
+        SysTenantUserDO tenantUser = new SysTenantUserDO();
+        tenantUser.setTenantId(tenantId);
+        tenantUser.setUserId(user.getId());
+        tenantUser.setStatus(TenantUserStatus.NOT_JOINED);
         tenantUserMapper.insert(tenantUser);
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);

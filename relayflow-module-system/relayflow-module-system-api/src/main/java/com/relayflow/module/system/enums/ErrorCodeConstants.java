@@ -12,6 +12,7 @@ public enum ErrorCodeConstants implements ErrorCode {
     AUTH_LOGIN_USER_DISABLED(1_001_001_002, "账号不可用"),
     USER_NOT_FOUND(1_001_002_001, "用户不存在"),
     USER_USERNAME_EXISTS(1_001_002_002, "用户名已存在"),
+    USER_ALREADY_MEMBER(1_001_002_004, "该用户已是本组织成员"),
     USER_DEPT_REQUIRED(1_001_002_003, "主部门不能为空"),
     TENANT_NOT_FOUND(1_001_003_001, "租户不存在"),
     DEPT_NOT_FOUND(1_001_004_001, "部门不存在"),
