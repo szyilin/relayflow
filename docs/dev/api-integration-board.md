@@ -45,9 +45,13 @@
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
-| 切片 | API 状态 | Web 状态 | 端点 / 页面 | Change | 说明 |
-|------|----------|----------|-------------|--------|------|
-| account-sms-verify | deferred | pending | `auth/sms/send` · `/app/register` | [account-sms-verify](../../openspec/changes/account-sms-verify/proposal.md) | 注册验证码；**暂缓**（前期不实现） |
+（当前无活跃切片；见下方已归档规划。）
+
+## 已归档规划（暂缓实现）
+
+| 切片 | 状态 | Change | 说明 |
+|------|------|--------|------|
+| account-sms-verify | archived / deferred | [archive](../../openspec/changes/archive/2026-07-12-account-sms-verify/proposal.md) | 注册验证码；规格已同步，**前期不实现** |
 
 ## 实施顺序（system-admin-v1）
 

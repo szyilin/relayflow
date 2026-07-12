@@ -57,8 +57,10 @@
 
 ## 4. 归档
 
-- [ ] 4.1 `openspec archive account-sms-verify`（同步 `system`、`web-auth` specs）
-- [ ] 4.2 更新 `AGENTS.md` 下一优先（若本 change 完成后）
+- [x] 4.1 `openspec archive account-sms-verify`（同步 `system`、`web-auth` specs）
+- [x] 4.2 更新 `AGENTS.md` 下一优先（若本 change 完成后）
+
+> **说明**：本 change 仅归档规划规格，**实现暂缓**（前期不开发，避免拖慢迭代）。
 
 ---
 
