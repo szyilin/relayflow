@@ -1,5 +1,6 @@
 # 开发：仅基础设施（PostgreSQL / Redis / MinIO）。
 # 后端、前端在宿主机运行，见 README § 开发。
+# 租户模式环境变量见 deploy/.env.example（RELAYFLOW_TENANT_*）；V2 本地默认由 application-dev.yml 启用。
 
 services:
   postgres:

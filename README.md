@@ -78,6 +78,24 @@ cd web && pnpm install && pnpm dev
 
 默认开发账号：**`admin` / `admin123`**（Flyway 种子数据；生产环境请修改密码）。
 
+### 租户产品模式（V1 / V2）
+
+| 模式 | 配置 | 行为 |
+|------|------|------|
+| **V1 自托管（默认）** | `RELAYFLOW_TENANT_ENABLED=false` | 全员落在默认租户 `id=1`；成员通过管理端邀请 + 注册/接受流程加入 |
+| **V2 多租户** | `enabled=true` + `allow-open-register=true` | 开放注册建企、一账号多企业、工作台企业切换器 |
+
+- **本地开发**：`application-dev.yml` 默认启用 V2（`spring.profiles.active=dev`）。
+- **Docker 部署**：在 `deploy/.env`（参考 [`deploy/.env.example`](deploy/.env.example)）中设置：
+
+```bash
+RELAYFLOW_TENANT_ENABLED=true          # V2 多租户
+RELAYFLOW_TENANT_ALLOW_OPEN_REGISTER=true
+RELAYFLOW_TENANT_DEFAULT_ID=1          # 种子租户，不可删
+```
+
+`compose.prod.yml` 会将上述变量传入 `relayflow-server` 容器。详见 [`docs/dev/product-permission-model.md`](docs/dev/product-permission-model.md) §2.4。
+
 ## 部署（Docker 后端 · 可选）
 
 机器上无 Java 时，可用 Docker 跑 **基础设施 + relayflow-server**；**前端始终在宿主机** `pnpm dev`：
