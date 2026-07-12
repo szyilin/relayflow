@@ -34,6 +34,8 @@
 | infra-storage-config | **archived** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
 | infra-file | **archived** | **done** | 列表/上传/删除/下载 · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | Presigned 直传 + 302 下载；⑧ integrate 完成 |
 | im-direct-chat | **ready** | **done** | `GET/POST /app-api/im/*` · `/app/messages` | [contract](../../openspec/lanes/im-direct-chat/contract.md) | store 无 Mock；REST + WS `message.new` |
+| admin-user-by-dept | **planned** | **pending** | `GET …/user/page?deptId=` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-by-dept/contract.md) | 依赖 `org-member-dept-default`；飞书式左树右表 |
+| workspace-contacts | **planned** | **pending** | `GET /app-api/system/dept/*` · `/app/contacts` | [contract](../../openspec/lanes/workspace-contacts/contract.md) | 依赖组织目录；名片 → IM `peerUserId` |
 
 ## 实施顺序（system-admin-v1）
 
@@ -49,8 +51,8 @@
 
 | 区域 | 页面 | 说明 |
 |------|------|------|
-| 工作台 | `/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
-| 工作台 | `/app/tasks`、`/app/contacts` | 页面内 Mock，无 app-api |
+| 工作台 | `/app/tasks` | 页面内 Mock，无 app-api |
+| 工作台 | `/app/contacts` | 占位空壳；待 `workspace-contacts` |
 | 管理端 | `/admin` 概览 | 页面内 Mock / 占位 |
 
 ## 参考
