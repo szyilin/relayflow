@@ -47,6 +47,17 @@ public class DeptServiceImpl implements DeptService {
     }
 
     @Override
+    public List<DeptRespVO> getEnabledDeptList() {
+        Long tenantId = resolveTenantId();
+        List<SysDeptDO> depts = deptMapper.selectList(Wrappers.<SysDeptDO>lambdaQuery()
+                .eq(SysDeptDO::getTenantId, tenantId)
+                .eq(SysDeptDO::getStatus, 0)
+                .orderByAsc(SysDeptDO::getSort)
+                .orderByAsc(SysDeptDO::getId));
+        return depts.stream().map(DeptConvert::toVo).toList();
+    }
+
+    @Override
     public DeptRespVO getDept(Long id) {
         return DeptConvert.toVo(requireDept(id, resolveTenantId()));
     }

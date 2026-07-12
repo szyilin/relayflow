@@ -16,7 +16,10 @@ const active = computed(() => im.activeConversation)
 
 onMounted(async () => {
   await im.fetchConversations()
-  if (im.filteredConversations.length > 0 && !im.activeConversationId) {
+  if (im.pendingDirectChat || im.activeConversationId) {
+    return
+  }
+  if (im.filteredConversations.length > 0) {
     await im.selectConversation(im.filteredConversations[0].id)
   }
 })

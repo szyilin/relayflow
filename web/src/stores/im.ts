@@ -15,6 +15,12 @@ export type MessageViewItem = MessageItem & {
   localStatus?: 'sending' | 'sent' | 'failed'
 }
 
+export type PendingDirectChat = {
+  peerUserId: string
+  title: string
+  avatarText?: string
+}
+
 function formatRelativeTime(iso?: string): string {
   if (!iso) {
     return ''
@@ -59,9 +65,24 @@ export const useImStore = defineStore('im', () => {
   const loadingMessages = ref(false)
   const sending = ref(false)
   const lastError = ref<string | null>(null)
+  const pendingDirectChat = ref<PendingDirectChat | null>(null)
 
-  const activeConversation = computed(() =>
-    conversations.value.find(item => item.id === activeConversationId.value))
+  const activeConversation = computed(() => {
+    if (activeConversationId.value) {
+      return conversations.value.find(item => item.id === activeConversationId.value)
+    }
+    if (pendingDirectChat.value) {
+      return {
+        id: `pending-${pendingDirectChat.value.peerUserId}`,
+        type: 'direct' as const,
+        title: pendingDirectChat.value.title,
+        avatarText: pendingDirectChat.value.avatarText,
+        peerUserId: pendingDirectChat.value.peerUserId,
+        unreadCount: 0
+      }
+    }
+    return undefined
+  })
 
   const filteredConversations = computed(() => {
     const q = keyword.value.trim().toLowerCase()
@@ -94,6 +115,7 @@ export const useImStore = defineStore('im', () => {
   }
 
   async function selectConversation(conversationId: string) {
+    pendingDirectChat.value = null
     activeConversationId.value = conversationId
     await fetchMessages(conversationId)
 
@@ -152,6 +174,25 @@ export const useImStore = defineStore('im', () => {
     messages.value = [...messages.value, message]
   }
 
+  function openDirectChat(peerUserId: string, meta?: { title?: string, avatarText?: string }) {
+    const existing = conversations.value.find(item =>
+      item.type === 'direct' && item.peerUserId === peerUserId)
+    if (existing) {
+      pendingDirectChat.value = null
+      activeConversationId.value = existing.id
+      void fetchMessages(existing.id)
+      return
+    }
+
+    activeConversationId.value = undefined
+    messages.value = []
+    pendingDirectChat.value = {
+      peerUserId,
+      title: meta?.title ?? meta?.avatarText ?? '会话',
+      avatarText: meta?.avatarText
+    }
+  }
+
   async function sendText(text: string) {
     const trimmed = text.trim()
     const conversation = activeConversation.value
@@ -159,6 +200,7 @@ export const useImStore = defineStore('im', () => {
       return
     }
 
+    const isPending = conversation.id.startsWith('pending-')
     const clientMsgId = crypto.randomUUID()
     const content: MessageContent = {
       version: 1,
@@ -178,17 +220,25 @@ export const useImStore = defineStore('im', () => {
       localStatus: 'sending'
     }
     messages.value = [...messages.value, optimistic]
-    conversation.lastMsgPreview = trimmed
-    conversation.lastMsgAt = optimistic.createTime
+    if (!isPending) {
+      conversation.lastMsgPreview = trimmed
+      conversation.lastMsgAt = optimistic.createTime
+    }
 
     sending.value = true
     try {
       const result = await sendMessage({
-        conversationId: conversation.id,
+        conversationId: isPending ? undefined : conversation.id,
         peerUserId: conversation.peerUserId,
         clientMsgId,
         content
       })
+
+      if (isPending) {
+        pendingDirectChat.value = null
+        activeConversationId.value = result.conversationId
+        await fetchConversations()
+      }
 
       messages.value = messages.value.map(item =>
         item.clientMsgId === clientMsgId
@@ -201,6 +251,12 @@ export const useImStore = defineStore('im', () => {
               localStatus: 'sent'
             }
           : item)
+
+      const updatedConversation = conversations.value.find(item => item.id === result.conversationId)
+      if (updatedConversation) {
+        updatedConversation.lastMsgPreview = trimmed
+        updatedConversation.lastMsgAt = result.createTime
+      }
     } catch (error) {
       messages.value = messages.value.map(item =>
         item.clientMsgId === clientMsgId ? { ...item, localStatus: 'failed' } : item)
@@ -222,9 +278,11 @@ export const useImStore = defineStore('im', () => {
     lastError,
     activeConversation,
     filteredConversations,
+    pendingDirectChat,
     currentUserId,
     fetchConversations,
     selectConversation,
+    openDirectChat,
     fetchMessages,
     handleMessageNew,
     sendText,
