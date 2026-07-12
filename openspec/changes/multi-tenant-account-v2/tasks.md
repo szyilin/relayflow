@@ -66,13 +66,13 @@
 
 **依赖**：`tenant-bootstrap-api` 完成、`account-register-v2-web` contract 就绪
 
-- [ ] 3.1 `TenantProperties` 增加 `allowOpenRegister`
-- [ ] 3.2 `AuthRegisterService` + `POST /app-api/system/auth/register`（permitAll）
-- [ ] 3.3 实现：建 user + tenant + ACTIVE + bootstrap + 激活所有 NOT_JOINED
-- [ ] 3.4 错误码：`USER_MOBILE_EXISTS`、`AUTH_REGISTER_PASSWORD_WEAK`
-- [ ] 3.5 Security 白名单；`enabled=false` 时 register 返回禁用或 404（与 design 一致）
-- [ ] 3.6 curl 验收（见下方示例）
-- [ ] 3.7 `./mvnw -pl relayflow-server -am compile`
+- [x] 3.1 `TenantProperties` 增加 `allowOpenRegister`
+- [x] 3.2 `AuthRegisterService` + `POST /app-api/system/auth/register`（permitAll）
+- [x] 3.3 实现：建 user + tenant + ACTIVE + bootstrap + 激活所有 NOT_JOINED
+- [x] 3.4 错误码：`USER_MOBILE_EXISTS`、`AUTH_REGISTER_PASSWORD_WEAK`
+- [x] 3.5 Security 白名单；`enabled=false` 时 register 返回禁用或 404（与 design 一致）
+- [x] 3.6 curl 验收（见下方示例）
+- [x] 3.7 `./mvnw -pl relayflow-server -am compile`
 
 **curl 示例**：
 
