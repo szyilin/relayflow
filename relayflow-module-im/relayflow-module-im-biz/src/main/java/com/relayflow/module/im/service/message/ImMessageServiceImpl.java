@@ -2,6 +2,7 @@ package com.relayflow.module.im.service.message;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.module.im.controller.app.vo.ContentBlockVO;
 import com.relayflow.module.im.controller.app.vo.MessageContentVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageReqVO;
@@ -18,6 +19,8 @@ import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
+import com.relayflow.module.system.api.user.UserApi;
+import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -25,7 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -33,7 +38,8 @@ import java.util.Objects;
 public class ImMessageServiceImpl implements ImMessageService {
 
     private static final String SENDER_TYPE_USER = "user";
-    private static final String MESSAGE_TYPE_TEXT = "text";
+    private static final String SENDER_TYPE_SYSTEM = "system";
+    private static final String MESSAGE_TYPE_SYSTEM = "system";
 
     private final ImMessageMapper messageMapper;
     private final ImConversationMapper conversationMapper;
@@ -41,6 +47,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final ImConversationService conversationService;
     private final ImContentHelper contentHelper;
     private final RealtimeTransportApi realtimeTransportApi;
+    private final UserApi userApi;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq) {
@@ -54,7 +61,62 @@ public class ImMessageServiceImpl implements ImMessageService {
                         .gt(ImMessageDO::getSeq, cursor)
                         .orderByAsc(ImMessageDO::getSeq));
 
-        return messages.stream().map(this::toMessageItem).toList();
+        Map<Long, String> nicknameByUserId = loadSenderNicknames(messages);
+        return messages.stream()
+                .map(message -> toMessageItem(message, nicknameByUserId))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void sendSystemMessage(Long tenantId, Long conversationId, String text) {
+        if (!StringUtils.hasText(text)) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+        conversationService.lockConversation(tenantId, conversationId);
+
+        MessageContentVO content = new MessageContentVO();
+        content.setVersion(1);
+        ContentBlockVO block = new ContentBlockVO();
+        block.setType("text");
+        block.setText(text.trim());
+        content.setBlocks(List.of(block));
+
+        long nextSeq = nextSeq(tenantId, conversationId);
+        String contentJson = contentHelper.toJson(content);
+        String preview = contentHelper.buildPreview(MESSAGE_TYPE_SYSTEM, content);
+        OffsetDateTime now = OffsetDateTime.now();
+
+        ImMessageDO message = new ImMessageDO();
+        message.setTenantId(tenantId);
+        message.setConversationId(conversationId);
+        message.setSenderId(0L);
+        message.setSenderType(SENDER_TYPE_SYSTEM);
+        message.setType(MESSAGE_TYPE_SYSTEM);
+        message.setContentJson(contentJson);
+        message.setSeq(nextSeq);
+        message.setCreateTime(now);
+        messageMapper.insert(message);
+
+        ImConversationDO conversation = conversationMapper.selectById(conversationId);
+        conversation.setLastMsgId(message.getId());
+        conversation.setLastMsgAt(now);
+        conversation.setLastMsgPreview(preview);
+        conversationMapper.updateById(conversation);
+
+        incrementUnreadForAllMembers(tenantId, conversationId);
+
+        MessageItemRespVO payload = toMessageItem(message, Map.of());
+        RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
+                .domain(ImRealtimeTypes.DOMAIN)
+                .type(ImRealtimeTypes.MESSAGE_NEW)
+                .ts(System.currentTimeMillis())
+                .payload(payload)
+                .build();
+        List<Long> recipients = conversationService.listMemberUserIds(tenantId, conversationId);
+        if (!recipients.isEmpty()) {
+            realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
+        }
     }
 
     @Override
@@ -62,7 +124,9 @@ public class ImMessageServiceImpl implements ImMessageService {
     public SendMessageRespVO sendMessage(Long tenantId, Long userId, SendMessageReqVO request,
                                          RealtimeSendContext realtimeContext) {
         validateSendRequest(request);
-        contentHelper.validateTextContent(request.getContent());
+        String messageType = contentHelper.normalizeMessageType(request.getType());
+        contentHelper.validateUserMessage(request.getType(), request.getContent());
+        contentHelper.enrichDownloadUrls(request.getContent());
 
         ImMessageDO existing = findByClientMsgId(tenantId, request.getClientMsgId());
         if (existing != null) {
@@ -77,7 +141,7 @@ public class ImMessageServiceImpl implements ImMessageService {
 
         long nextSeq = nextSeq(tenantId, conversationId);
         String contentJson = contentHelper.toJson(request.getContent());
-        String preview = contentHelper.buildPreview(request.getContent());
+        String preview = contentHelper.buildPreview(messageType, request.getContent());
         OffsetDateTime now = OffsetDateTime.now();
 
         ImMessageDO message = new ImMessageDO();
@@ -85,7 +149,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         message.setConversationId(conversationId);
         message.setSenderId(userId);
         message.setSenderType(SENDER_TYPE_USER);
-        message.setType(resolveMessageType(request.getType()));
+        message.setType(messageType);
         message.setContentJson(contentJson);
         message.setClientMsgId(request.getClientMsgId().trim());
         message.setSeq(nextSeq);
@@ -135,10 +199,13 @@ public class ImMessageServiceImpl implements ImMessageService {
     }
 
     private String resolveMessageType(String type) {
-        if (!StringUtils.hasText(type) || MESSAGE_TYPE_TEXT.equals(type)) {
-            return MESSAGE_TYPE_TEXT;
-        }
-        throw new ServiceException(ErrorCodeConstants.MESSAGE_SEND_INVALID);
+        return contentHelper.normalizeMessageType(type);
+    }
+
+    private MessageItemRespVO toMessageItem(ImMessageDO message, Map<Long, String> nicknameByUserId) {
+        MessageContentVO content = contentHelper.fromJson(message.getContentJson());
+        contentHelper.enrichDownloadUrls(content);
+        return toMessageItem(message, content, nicknameByUserId);
     }
 
     private ImMessageDO findByClientMsgId(Long tenantId, String clientMsgId) {
@@ -176,6 +243,18 @@ public class ImMessageServiceImpl implements ImMessageService {
         }
     }
 
+    private void incrementUnreadForAllMembers(Long tenantId, Long conversationId) {
+        List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId));
+        for (ImConversationMemberDO member : members) {
+            int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
+            member.setUnreadCount(unread + 1);
+            conversationMemberMapper.updateById(member);
+        }
+    }
+
     private void dispatchRealtime(ImMessageDO message, MessageContentVO content, Long senderId, Long tenantId,
                                   RealtimeSendContext realtimeContext, boolean idempotentReplay) {
         if (realtimeContext != null) {
@@ -194,7 +273,10 @@ public class ImMessageServiceImpl implements ImMessageService {
             return;
         }
 
-        MessageItemRespVO newMessage = toMessageItem(message, content);
+        Map<Long, String> nicknameByUserId = loadSenderNicknames(List.of(message));
+        MessageContentVO enrichedContent = contentHelper.fromJson(message.getContentJson());
+        contentHelper.enrichDownloadUrls(enrichedContent);
+        MessageItemRespVO newMessage = toMessageItem(message, enrichedContent, nicknameByUserId);
         RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
                 .domain(ImRealtimeTypes.DOMAIN)
                 .type(ImRealtimeTypes.MESSAGE_NEW)
@@ -209,11 +291,24 @@ public class ImMessageServiceImpl implements ImMessageService {
         }
     }
 
-    private MessageItemRespVO toMessageItem(ImMessageDO message) {
-        return toMessageItem(message, contentHelper.fromJson(message.getContentJson()));
+    private Map<Long, String> loadSenderNicknames(List<ImMessageDO> messages) {
+        Map<Long, String> nicknameByUserId = new HashMap<>();
+        for (ImMessageDO message : messages) {
+            if (!SENDER_TYPE_USER.equals(message.getSenderType()) || message.getSenderId() == null
+                    || message.getSenderId() <= 0) {
+                continue;
+            }
+            if (nicknameByUserId.containsKey(message.getSenderId())) {
+                continue;
+            }
+            UserBasicDTO user = userApi.getUserBasic(message.getSenderId());
+            nicknameByUserId.put(message.getSenderId(), user.getNickname());
+        }
+        return nicknameByUserId;
     }
 
-    private MessageItemRespVO toMessageItem(ImMessageDO message, MessageContentVO content) {
+    private MessageItemRespVO toMessageItem(ImMessageDO message, MessageContentVO content,
+                                            Map<Long, String> nicknameByUserId) {
         MessageItemRespVO item = new MessageItemRespVO();
         item.setId(message.getId());
         item.setConversationId(message.getConversationId());
@@ -224,6 +319,10 @@ public class ImMessageServiceImpl implements ImMessageService {
         item.setClientMsgId(message.getClientMsgId());
         item.setSeq(message.getSeq());
         item.setCreateTime(message.getCreateTime());
+        if (SENDER_TYPE_USER.equals(message.getSenderType()) && message.getSenderId() != null
+                && message.getSenderId() > 0) {
+            item.setSenderNickname(nicknameByUserId.get(message.getSenderId()));
+        }
         return item;
     }
 

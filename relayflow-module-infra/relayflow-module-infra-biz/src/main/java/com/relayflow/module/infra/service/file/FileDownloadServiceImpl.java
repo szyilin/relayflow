@@ -44,6 +44,11 @@ public class FileDownloadServiceImpl implements FileDownloadService {
                 .build();
     }
 
+    @Override
+    public FileDownloadRedirect resolveMemberDownload(Long fileId) {
+        return resolveAdminDownload(fileId);
+    }
+
     private String createPresignedGetUrl(InfraFileDO file) {
         StorageProviderConfig providerConfig = storageProviderService.resolveProviderConfig(file.getProvider());
         ObjectStorageClient client = clientFactory.getClient(ObjectStorageProviderType.MINIO);

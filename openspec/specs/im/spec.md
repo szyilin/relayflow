@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义单聊、群聊、频道及消息持久化相关行为。
+定义单聊、群聊、频道、消息持久化、附件消息、已读回执与在线状态相关工作台与 API 行为。
 
 ## Requirements
 
@@ -226,3 +226,95 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 - 当 模块调用 `NotifyInboxApi.push(...)`
 - 那么 系统 MAY 抛出「未实现」或使用 documented no-op
 - 并且 不得将通知内容写入 `im_message`
+
+### 需求：群聊 REST API
+
+系统 MUST 提供用户端群聊 REST：建群、邀请成员、查询群成员；群消息 MUST 复用现有 `conversationId` 消息发送/列表接口。
+
+#### 场景：创建群聊
+
+- 给定 已认证的有效组织成员
+- 当 POST `/app-api/im/group/create` 提交有效群名与至少一名成员
+- 那么 系统创建 `im_conversation(type=group)`、`im_group` 及成员关系（创建者为 owner）
+- 并且 返回 `conversationId` 与 `groupId`
+
+#### 场景：邀请成员
+
+- 给定 用户为群成员
+- 当 POST `/app-api/im/group/members/add` 提交新成员 userId 列表
+- 那么 新成员写入 `im_conversation_member`
+- 并且 为每次加入事件持久化一条系统消息
+
+#### 场景：会话列表含群聊
+
+- 给定 用户持有有效 JWT
+- 当 请求 `/app-api/im/conversation/list`
+- 那么 返回 direct 与 group 会话
+- 并且 group 项包含 `memberCount`
+
+#### 场景：群消息展示发送者昵称
+
+- 给定 用户为群成员
+- 当 拉取群会话消息列表
+- 那么 用户消息包含 `senderNickname` 供前端展示
+
+### 需求：文件与图片消息
+
+系统 MUST 接受 `type=image|file` 消息，其 `content_json` 含至少一个引用当前租户有效 `infra_file.fileId` 的 `file` 块；列表响应 MUST 为 file 块填充可下载 URL。
+
+#### 场景：发送图片消息
+
+- 给定 成员发送 `type=image` 且 file 块 mimeType 以 `image/` 开头
+- 当 消息持久化
+- 那么 会话 `lastMsgPreview` 为 `[图片]`
+
+#### 场景：拒绝无效 fileId
+
+- 给定 fileId 不存在或不属于当前租户
+- 当 用户尝试发送附件消息
+- 那么 API 返回明确业务错误
+- 并且 不得插入消息记录
+
+#### 场景：列表填充 downloadUrl
+
+- 给定 消息含 file 块
+- 当 成员请求消息列表
+- 那么 各 file 块包含指向 `/app-api/infra/file/download` 的 `downloadUrl`
+
+### 需求：已读水位查询与推送
+
+系统 MUST 向会话成员暴露各成员 `readSeq`；成员成功上报已读后 MUST 向其他在线成员 fanout `domain=im, type=read.updated`。
+
+#### 场景：查询已读水位
+
+- 给定 用户为会话成员
+- 当 GET `/app-api/im/conversation/read-status?conversationId=`
+- 那么 返回各成员 `userId` 与 `readSeq`
+
+#### 场景：非成员不可查
+
+- 给定 用户非会话成员
+- 当 请求 read-status
+- 那么 系统拒绝并返回业务错误
+
+#### 场景：已读变更推送
+
+- 给定 成员成功调用 `/app-api/im/conversation/read` 且 readSeq 提升
+- 当 fanout 完成
+- 那么 其他会话成员收到 `read.updated` 事件（含 userId、readSeq）
+
+### 需求：批量在线状态
+
+系统 MUST 允许已认证成员批量查询当前租户内用户的在线状态（基于 WebSocket 会话）。
+
+#### 场景：批量查询
+
+- 给定 成员请求 GET `/app-api/im/presence/batch?userIds=`
+- 当 userIds 属于当前租户 ACTIVE 成员
+- 那么 返回各 userId 的 `online` 布尔值
+
+#### 场景：忽略非本租户 ID
+
+- 给定 请求含他租户 userId
+- 当 处理 batch 查询
+- 那么 忽略这些 ID 且不报错

@@ -15,4 +15,5 @@ public class ConversationItemRespVO {
     private OffsetDateTime lastMsgAt;
     private Integer unreadCount;
     private Long peerUserId;
+    private Integer memberCount;
 }

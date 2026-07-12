@@ -6,6 +6,10 @@ export interface ContentBlock {
   type: 'text' | 'file' | 'image' | 'system'
   text?: string
   fileId?: string
+  filename?: string
+  mimeType?: string
+  size?: number
+  downloadUrl?: string
 }
 
 export interface MessageContent {
@@ -22,12 +26,42 @@ export interface ConversationItem {
   lastMsgAt?: string
   unreadCount: number
   peerUserId?: string
+  memberCount?: number
+}
+
+export type GroupMemberRole = 'owner' | 'admin' | 'member'
+
+export interface GroupMemberItem {
+  userId: string
+  nickname: string
+  avatarText: string
+  role: GroupMemberRole
+}
+
+export interface CreateGroupPayload {
+  name: string
+  memberUserIds: string[]
+}
+
+export interface CreateGroupResult {
+  conversationId: string
+  groupId: string
+}
+
+export interface AddGroupMembersPayload {
+  conversationId: string
+  memberUserIds: string[]
+}
+
+export interface AddGroupMembersResult {
+  addedCount: number
 }
 
 export interface MessageItem {
   id: string
   conversationId: string
   senderId: string
+  senderNickname?: string
   senderType: 'user' | 'system' | 'bot' | 'app'
   type: 'text' | 'image' | 'file' | 'system'
   content: MessageContent
@@ -127,4 +161,77 @@ export function sendMessage(payload: SendMessagePayload): Promise<SendMessageRes
 
 export function markConversationRead(conversationId: string, readSeq: number): Promise<void> {
   return post<void>('/app-api/im/conversation/read', { conversationId, readSeq })
+}
+
+export interface ConversationMemberReadStatus {
+  userId: string
+  readSeq: number
+}
+
+export interface ConversationReadStatus {
+  conversationId: string
+  members: ConversationMemberReadStatus[]
+}
+
+type RawConversationMemberReadStatus = Omit<ConversationMemberReadStatus, 'userId' | 'readSeq'> & {
+  userId: number | string
+  readSeq: number | string
+}
+
+type RawConversationReadStatus = Omit<ConversationReadStatus, 'conversationId' | 'members'> & {
+  conversationId: number | string
+  members: RawConversationMemberReadStatus[]
+}
+
+function normalizeReadStatus(result: RawConversationReadStatus): ConversationReadStatus {
+  return {
+    conversationId: String(result.conversationId),
+    members: result.members.map(member => ({
+      userId: String(member.userId),
+      readSeq: parseSeq(member.readSeq)
+    }))
+  }
+}
+
+export function getReadStatus(conversationId: string): Promise<ConversationReadStatus> {
+  return get<RawConversationReadStatus>('/app-api/im/conversation/read-status', {
+    params: { conversationId }
+  }).then(normalizeReadStatus)
+}
+
+export function createGroup(payload: CreateGroupPayload): Promise<CreateGroupResult> {
+  return post<RawCreateGroupResult>('/app-api/im/group/create', payload).then(normalizeCreateGroupResult)
+}
+
+export function addGroupMembers(payload: AddGroupMembersPayload): Promise<AddGroupMembersResult> {
+  return post<AddGroupMembersResult>('/app-api/im/group/members/add', payload)
+}
+
+type RawCreateGroupResult = {
+  conversationId: number | string
+  groupId: number | string
+}
+
+function normalizeCreateGroupResult(result: RawCreateGroupResult): CreateGroupResult {
+  return {
+    conversationId: String(result.conversationId),
+    groupId: String(result.groupId)
+  }
+}
+
+type RawGroupMemberItem = Omit<GroupMemberItem, 'userId'> & {
+  userId: number | string
+}
+
+function normalizeGroupMember(item: RawGroupMemberItem): GroupMemberItem {
+  return {
+    ...item,
+    userId: String(item.userId)
+  }
+}
+
+export function getGroupMembers(conversationId: string): Promise<GroupMemberItem[]> {
+  return get<RawGroupMemberItem[]>('/app-api/im/group/members', {
+    params: { conversationId }
+  }).then(list => list.map(normalizeGroupMember))
 }

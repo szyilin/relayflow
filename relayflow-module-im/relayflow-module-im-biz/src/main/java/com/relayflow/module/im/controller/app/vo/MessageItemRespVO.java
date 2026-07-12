@@ -10,6 +10,7 @@ public class MessageItemRespVO {
     private Long id;
     private Long conversationId;
     private Long senderId;
+    private String senderNickname;
     private String senderType;
     private String type;
     private MessageContentVO content;

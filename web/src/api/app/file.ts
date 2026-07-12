@@ -37,12 +37,12 @@ export function confirmUpload(data: FileUploadConfirmReq): Promise<FileUploadCon
   return post<FileUploadConfirmResp>('/app-api/infra/file/upload-confirm', data)
 }
 
-export async function uploadPublicFile(file: File): Promise<string> {
+async function uploadFileWithAccessLevel(file: File, accessLevel: 'public' | 'private'): Promise<string> {
   const session = await createUploadSession({
     filename: file.name,
     size: file.size,
     mimeType: file.type || 'application/octet-stream',
-    accessLevel: 'public'
+    accessLevel
   })
 
   const headers = new Headers(session.headers ?? {})
@@ -68,4 +68,57 @@ export async function uploadPublicFile(file: File): Promise<string> {
   })
 
   return String(confirmed.fileId)
+}
+
+export async function uploadPublicFile(file: File): Promise<string> {
+  return uploadFileWithAccessLevel(file, 'public')
+}
+
+export async function uploadPrivateFile(file: File): Promise<string> {
+  return uploadFileWithAccessLevel(file, 'private')
+}
+
+const TOKEN_KEY = 'relayflow:admin:access-token'
+
+function apiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+}
+
+function resolveRequestUrl(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  const base = apiBaseUrl()
+  if (base) {
+    return `${base}${path.startsWith('/') ? path : `/${path}`}`
+  }
+  return path.startsWith('/') ? path : `/${path}`
+}
+
+export async function fetchAuthenticatedBlobUrl(path: string): Promise<string> {
+  const token = localStorage.getItem(TOKEN_KEY)
+  const response = await fetch(resolveRequestUrl(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    redirect: 'follow'
+  })
+  if (!response.ok) {
+    throw new Error('附件加载失败')
+  }
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
+export async function downloadAuthenticatedFile(path: string, filename: string): Promise<void> {
+  const blobUrl = await fetchAuthenticatedBlobUrl(path)
+  try {
+    const anchor = document.createElement('a')
+    anchor.href = blobUrl
+    anchor.download = filename
+    anchor.rel = 'noopener'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  } finally {
+    URL.revokeObjectURL(blobUrl)
+  }
 }

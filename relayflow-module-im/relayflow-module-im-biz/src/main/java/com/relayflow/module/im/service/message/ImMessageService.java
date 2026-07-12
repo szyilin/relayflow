@@ -12,4 +12,6 @@ public interface ImMessageService {
     List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq);
 
     SendMessageRespVO sendMessage(Long tenantId, Long userId, SendMessageReqVO request, RealtimeSendContext realtimeContext);
+
+    void sendSystemMessage(Long tenantId, Long conversationId, String text);
 }

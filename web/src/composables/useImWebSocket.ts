@@ -6,6 +6,7 @@ const PING_INTERVAL_MS = 30_000
 
 export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
+  onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
 }
 
 function buildWebSocketUrl(token: string): string {
@@ -102,6 +103,19 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       const message = normalizeWsMessage(envelope.payload)
       if (message) {
         handlers.onMessageNew(message)
+      }
+      return
+    }
+    if (envelope.domain === 'im' && envelope.type === 'read.updated') {
+      const payload = envelope.payload as Record<string, unknown> | undefined
+      if (!payload || handlers.onReadUpdated == null) {
+        return
+      }
+      const conversationId = payload.conversationId != null ? String(payload.conversationId) : ''
+      const userId = payload.userId != null ? String(payload.userId) : ''
+      const readSeq = parseSeq(payload.readSeq)
+      if (conversationId && userId && readSeq != null) {
+        handlers.onReadUpdated({ conversationId, userId, readSeq })
       }
     }
   }

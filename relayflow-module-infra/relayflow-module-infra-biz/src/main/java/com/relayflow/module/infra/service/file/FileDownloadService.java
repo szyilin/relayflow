@@ -7,4 +7,6 @@ public interface FileDownloadService {
     FileDownloadRedirect resolvePublicDownload(Long fileId);
 
     FileDownloadRedirect resolveAdminDownload(Long fileId);
+
+    FileDownloadRedirect resolveMemberDownload(Long fileId);
 }

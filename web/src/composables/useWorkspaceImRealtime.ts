@@ -9,7 +9,8 @@ export function useWorkspaceImRealtime() {
   const im = useImStore()
 
   useImWebSocket({
-    onMessageNew: message => im.handleMessageNew(message)
+    onMessageNew: message => im.handleMessageNew(message),
+    onReadUpdated: payload => im.handleReadUpdated(payload.conversationId, payload.userId, payload.readSeq)
   })
 
   onMounted(() => {
