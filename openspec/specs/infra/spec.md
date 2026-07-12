@@ -214,6 +214,13 @@
 - 当 连接 `/infra/ws`
 - 那么 连接建立成功
 - 并且 会话注册以便投递消息
+- 并且 Session 绑定 JWT 中的 `tenant_id` 与用户 id
+
+#### 场景：Envelope 投递
+
+- 给定 业务模块调用 `RealtimeTransportApi` 向已连接用户推送
+- 当 目标用户在线
+- 那么 客户端收到符合 Envelope 规范的 JSON 消息
 
 ### 需求：WebSocket 发送模式
 
@@ -229,7 +236,112 @@ WebSocket 层应支持通过配置切换 `local` 与 `redis` 发送模式。
 
 - 给定 `relayflow.websocket.sender-type=redis`
 - 当 从某一实例推送消息
-- 那么 经 Redis 订阅的所有实例均可向本地会话投递
+- 那么 经 Redis Pub/Sub channel `t:{tenantId}:ws:fanout`（或等价约定）广播
+- 并且 持有目标用户 Session 的实例完成本地投递
+
+### 需求：WebSocket JSON Envelope
+
+系统必须使用统一的 JSON Envelope 作为 WebSocket 上下行消息格式；Envelope 必须包含 `domain`、`type`、`requestId`、`ts`、`payload` 字段。
+
+#### 场景：上行 Envelope 结构
+
+- 给定 客户端经 `/infra/ws` 发送业务消息
+- 当 服务端解析 JSON
+- 那么 必须能读取 `domain` 与 `type` 以路由至对应 Handler
+- 并且 非法 JSON 或缺少 `domain`/`type` 时须拒绝或关闭连接
+
+#### 场景：下行 Envelope 结构
+
+- 给定 服务端向客户端推送事件
+- 当 消息写出 WebSocket
+- 那么 必须使用相同 Envelope 外壳
+- 并且 `domain` 须与业务语义一致
+
+### 需求：WebSocket 域路由
+
+系统必须按 Envelope 的 `domain` 字段路由至注册的 Domain Handler；V1 须注册 `im` 与 `system`（ping/pong），`notify` 与 `presence` 须注册占位 Handler。
+
+#### 场景：IM 域路由
+
+- 给定 客户端发送 `domain=im, type=message.send`
+- 当 Envelope 到达服务端
+- 那么 必须路由至 IM 模块注册的 Handler
+
+#### 场景：未知域占位
+
+- 给定 客户端发送 `domain=notify` 且 V1 尚未实现通知 Handler
+- 那么 占位 Handler 必须静默忽略或记录 debug 日志
+- 并且 不得导致 WebSocket 连接异常断开
+
+### 需求：WebSocket 租户与用户绑定
+
+系统必须在 WebSocket 握手成功后将 `tenant_id` 与 `user_id` 绑定至 Session；后续投递与在线状态必须带租户维度，禁止跨租户推送。
+
+#### 场景：握手绑定租户
+
+- 给定 JWT 含 `tenant_id=1` 与有效用户 id 且握手成功
+- 那么 Session 注册信息包含 `tenantId=1` 与 `userId`
+- 并且 后续 fanout 仅匹配同租户 Session
+
+#### 场景：跨租户投递拒绝
+
+- 给定 实例尝试向 `tenant_id=2` 的用户推送
+- 当 当前 Session 仅属于 `tenant_id=1`
+- 那么 不得向该 Session 写入消息
+
+### 需求：RealtimeTransport 契约
+
+系统必须在 `infra-api` 暴露 `RealtimeTransportApi`，供业务模块向指定用户投递 Envelope；业务模块不得直接访问 WebSocket SessionRegistry。
+
+#### 场景：向在线用户推送
+
+- 给定 用户在本实例或集群内在线
+- 当 调用 `RealtimeTransportApi.sendToUser(tenantId, userId, envelope)`
+- 那么 目标用户客户端收到 WebSocket 下行消息
+
+#### 场景：查询在线状态
+
+- 给定 Redis 在线 key 存在且未过期
+- 当 调用 `RealtimeTransportApi.isUserOnline(tenantId, userId)`
+- 那么 返回 true
+
+### 需求：RealtimeEventPublisher 契约
+
+系统必须在 `infra-api` 暴露 `RealtimeEventPublisher`，作为各模块发布实时域事件的统一入口。
+
+#### 场景：发布 IM 域事件
+
+- 给定 IM 模块发布 `domain=im` 的 RealtimeEvent
+- 当 调用 `RealtimeEventPublisher.publish(event)`
+- 那么 须触发 IM 相关投递逻辑或委托 IM Handler
+
+#### 场景：发布占位域事件
+
+- 给定 模块发布 `domain=notify` 的 RealtimeEvent
+- 当 V1 占位实现生效
+- 那么 调用成功返回
+- 并且 不要求持久化或推送
+
+### 需求：WebSocket 心跳
+
+系统必须支持 Envelope 级心跳：`domain=system, type=ping` 与 `type=pong`；并须刷新 Redis 在线状态 TTL。
+
+#### 场景：客户端 ping
+
+- 给定 已建立 WebSocket 连接
+- 当 客户端发送 `domain=system, type=ping`
+- 那么 服务端回复 `domain=system, type=pong`
+- 并且 刷新该用户 Redis 在线 key TTL
+
+### 需求：先持久化再 IM WebSocket ACK
+
+当 IM 模块经 WebSocket 处理 `message.send` 时，infra 层仅负责传输；**发送 ACK 必须由 IM 模块在数据库事务提交后触发**。
+
+#### 场景：ACK 时序
+
+- 给定 用户经 WS 发送 IM 消息
+- 当 PostgreSQL 中尚未存在该消息行
+- 那么 不得向发送方下发 `type=message.ack` 成功载荷
 
 ### 需求：基础设施表前缀
 
