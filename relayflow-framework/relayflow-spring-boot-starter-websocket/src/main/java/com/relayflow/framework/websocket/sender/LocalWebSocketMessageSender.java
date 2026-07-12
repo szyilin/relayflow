@@ -3,11 +3,9 @@ package com.relayflow.framework.websocket.sender;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.framework.websocket.core.RealtimeEnvelope;
-import com.relayflow.framework.websocket.core.WebSocketMessageSender;
 import com.relayflow.framework.websocket.core.WebSocketSessionRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -15,14 +13,12 @@ import java.io.IOException;
 import java.util.Collection;
 
 @Slf4j
-@Component
 @RequiredArgsConstructor
-public class LocalWebSocketMessageSender implements WebSocketMessageSender {
+public class LocalWebSocketMessageSender {
 
     private final WebSocketSessionRegistry sessionRegistry;
     private final ObjectMapper objectMapper;
 
-    @Override
     public void send(Long tenantId, Collection<Long> userIds, RealtimeEnvelope envelope) {
         String payload;
         try {

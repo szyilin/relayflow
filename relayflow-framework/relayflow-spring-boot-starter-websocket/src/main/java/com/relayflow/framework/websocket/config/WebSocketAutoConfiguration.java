@@ -23,15 +23,20 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
         WebSocketSessionRegistry.class,
         WebSocketOnlineService.class,
         WebSocketInstanceIdProvider.class,
-        JwtWebSocketHandshakeInterceptor.class,
-        LocalWebSocketMessageSender.class
+        JwtWebSocketHandshakeInterceptor.class
 })
 public class WebSocketAutoConfiguration {
 
     @Bean
+    public LocalWebSocketMessageSender localWebSocketMessageSender(WebSocketSessionRegistry sessionRegistry,
+                                                                   ObjectMapper objectMapper) {
+        return new LocalWebSocketMessageSender(sessionRegistry, objectMapper);
+    }
+
+    @Bean
     @ConditionalOnProperty(prefix = "relayflow.websocket", name = "sender-type", havingValue = "local", matchIfMissing = true)
-    public WebSocketMessageSender localWebSocketMessageSender(LocalWebSocketMessageSender localSender) {
-        return localSender;
+    public WebSocketMessageSender localWebSocketMessageSenderAdapter(LocalWebSocketMessageSender localSender) {
+        return localSender::send;
     }
 
     @Bean

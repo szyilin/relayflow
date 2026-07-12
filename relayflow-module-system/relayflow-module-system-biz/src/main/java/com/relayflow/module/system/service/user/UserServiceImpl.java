@@ -8,6 +8,7 @@ import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
 import com.relayflow.module.system.controller.admin.user.vo.UserGetRespVO;
 import com.relayflow.module.system.controller.admin.user.vo.UserPageReqVO;
@@ -99,6 +100,18 @@ public class UserServiceImpl implements UserService {
         Long deptId = resolvePrimaryDeptId(id, tenantId);
         List<Long> roleIds = loadRoleIds(id, tenantId);
         return UserConvert.toGetVo(user, tenantUser.getStatus(), deptId, roleIds);
+    }
+
+    @Override
+    public UserBasicDTO getUserBasic(Long id) {
+        Long tenantId = resolveTenantId();
+        SysUserDO user = requireUser(id);
+        requireTenantUser(id, tenantId);
+        UserBasicDTO dto = new UserBasicDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        return dto;
     }
 
     @Override

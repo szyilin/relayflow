@@ -32,6 +32,15 @@ export default defineConfig({
       '/admin-api': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/app-api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/infra/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
       }
     }
   }

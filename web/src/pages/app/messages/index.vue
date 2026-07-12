@@ -8,7 +8,9 @@ const im = useImStore()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 
-useImWebSocket()
+const { connected: wsConnected } = useImWebSocket({
+  onMessageNew: message => im.handleMessageNew(message)
+})
 
 const active = computed(() => im.activeConversation)
 
@@ -72,8 +74,8 @@ meta:
         <h2 class="font-semibold">
           消息
         </h2>
-        <UBadge v-if="im.usingMock" color="warning" variant="subtle" size="sm">
-          Mock
+        <UBadge v-if="wsConnected" color="success" variant="subtle" size="sm">
+          在线
         </UBadge>
       </div>
 
