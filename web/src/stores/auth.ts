@@ -21,12 +21,6 @@ const TENANT_KEY = 'relayflow:admin:tenant-id'
 const USER_KEY = 'relayflow:admin:user'
 const TENANTS_KEY = 'relayflow:admin:tenants'
 
-/** `-web` Mock：多企业登录选择 UI 演示账号（`-api` 就绪后由真实 TENANT_SELECTION_REQUIRED 替代） */
-const MOCK_MULTI_TENANT_LOGIN = {
-  username: '13900007777',
-  password: 'pass1234'
-}
-
 function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) {
@@ -68,31 +62,6 @@ function persistUser(authUser: AuthUser) {
   localStorage.setItem(USER_KEY, JSON.stringify(authUser))
 }
 
-function shouldUseTenantApiMock(error: unknown): boolean {
-  if (error instanceof ApiError) {
-    return error.code === 0 || error.code === 404
-  }
-  return true
-}
-
-function buildMockTenants(currentTenantId: number | null): TenantSummary[] {
-  const currentName = currentTenantId === 1 ? '默认企业' : '我的企业'
-  const items: TenantSummary[] = []
-  if (currentTenantId != null) {
-    items.push({
-      tenantId: currentTenantId,
-      tenantName: currentName,
-      owner: currentTenantId !== 1
-    })
-  }
-  if (currentTenantId !== 1) {
-    items.push({ tenantId: 1, tenantName: '默认企业', owner: false })
-  } else {
-    items.push({ tenantId: 200001, tenantName: '演示企业', owner: true })
-  }
-  return items
-}
-
 export type LoginResult =
   | { ok: true }
   | { ok: false, message: string }
@@ -130,34 +99,10 @@ export const useAuthStore = defineStore('auth', () => {
     persistTenants(items)
   }
 
-  function mockTenantSelection(username: string, password: string): LoginResult {
-    return {
-      ok: false,
-      needTenantSelection: true,
-      tenants: [
-        { tenantId: 1, tenantName: '默认企业', owner: false },
-        { tenantId: 200002, tenantName: '王五的企业', owner: true }
-      ],
-      credentials: { username, password }
-    }
-  }
-
   async function fetchMyTenants() {
-    try {
-      const items = await getMyTenantList()
-      setTenants(items)
-      return items
-    } catch (error) {
-      if (!shouldUseTenantApiMock(error)) {
-        throw error
-      }
-      if (tenants.value.length > 0) {
-        return tenants.value
-      }
-      const mockItems = buildMockTenants(tenantId.value)
-      setTenants(mockItems)
-      return mockItems
-    }
+    const items = await getMyTenantList()
+    setTenants(items)
+    return items
   }
 
   async function fetchPermissionInfo() {
@@ -187,15 +132,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const trimmedUsername = username.trim()
-
-    if (
-      import.meta.env.DEV
-      && selectedTenantId === undefined
-      && trimmedUsername === MOCK_MULTI_TENANT_LOGIN.username
-      && password === MOCK_MULTI_TENANT_LOGIN.password
-    ) {
-      return mockTenantSelection(trimmedUsername, password)
-    }
 
     try {
       const data = await loginApi({
@@ -281,12 +217,6 @@ export const useAuthStore = defineStore('auth', () => {
       await fetchMyTenants()
       return { ok: true }
     } catch (error) {
-      if (shouldUseTenantApiMock(error)) {
-        tenantId.value = targetTenantId
-        localStorage.setItem(TENANT_KEY, String(targetTenantId))
-        return { ok: true }
-      }
-
       const message = error instanceof ApiError
         ? error.message
         : '切换企业失败，请稍后重试'

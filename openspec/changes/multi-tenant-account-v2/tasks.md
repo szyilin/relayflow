@@ -132,11 +132,11 @@ curl -s -X POST http://localhost:8080/app-api/system/tenant/switch \
 
 ## 7. tenant-switch-v2-integrate（联调）
 
-- [ ] 7.1 store 接真实 my-list / switch；切换后 `fetchPermissionInfo` 刷新
-- [ ] 7.2 WebSocket：切换 tenant 后断开并重连（携带新 token）
-- [ ] 7.3 端到端：用户 A 拥有 2 企业 → 切换 → 通讯录/消息 tenant 隔离正确
-- [ ] 7.4 `enabled=false` 回归：现有单租户登录/邀请仍正常
-- [ ] 7.5 `pnpm build` + 双模式冒烟
+- [x] 7.1 store 接真实 my-list / switch；切换后 `fetchPermissionInfo` 刷新
+- [x] 7.2 WebSocket：切换 tenant 后断开并重连（携带新 token）
+- [x] 7.3 端到端：用户 A 拥有 2 企业 → 切换 → 通讯录/消息 tenant 隔离正确
+- [x] 7.4 `enabled=false` 回归：现有单租户登录/邀请仍正常（`application.yml` 默认 `enabled=false`，行为未改）
+- [x] 7.5 `pnpm build` + 双模式冒烟
 
 ---
 

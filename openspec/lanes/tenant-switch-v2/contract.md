@@ -71,13 +71,14 @@ Content-Type: application/json
 
 **错误码**：`TENANT_SELECTION_REQUIRED` = `1_001_003_003`（1001003003）
 
-## 前端（`-web` Mock）
+## 前端（`-integrate`）
 
-| 能力 | Mock 行为 |
-|------|-----------|
-| `fetchMyTenants` | API 404/网络错误时回退为本地 `tenants` 或演示双企业 |
-| `switchTenant` | API 未就绪时仅更新本地 `tenantId` |
-| 登录选企业 | DEV 下 `13900007777` / `pass1234` 触发选择 UI；`-api` 后由真实错误码驱动 |
+| 能力 | 行为 |
+|------|------|
+| `fetchMyTenants` | 调用真实 `GET /tenant/my-list` |
+| `switchTenant` | 调用真实 `POST /tenant/switch`，更新 token 后 `fetchPermissionInfo` |
+| 登录选企业 | 由 `TENANT_SELECTION_REQUIRED`（`1001003003`）驱动 |
+| WebSocket | `useImWebSocket` 监听 `auth.token` 变化自动重连 |
 
 ## 浏览器验收
 
@@ -86,7 +87,7 @@ cd web && pnpm build && pnpm dev
 ```
 
 1. 注册或登录后，Rail 品牌下方显示当前企业名；多企业时出现切换器
-2. DEV：`13900007777` + `pass1234` → 登录页出现企业选择 → 选企业后进入工作台
+2. DEV：`13900009126` + `pass1234`（先被邀请再注册）→ 登录页出现企业选择 → 选企业后进入工作台
 
 ## curl（`-api` 阶段）
 

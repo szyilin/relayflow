@@ -2,6 +2,7 @@
 import WorkspaceRail from './WorkspaceRail.vue'
 import WorkspaceResizeHandle from './WorkspaceResizeHandle.vue'
 import AdminColorModeToggle from '../admin/AdminColorModeToggle.vue'
+import { useTenantSwitchReload } from '../../composables/useTenantSwitchReload'
 import { useWorkspacePanelResize } from '../../composables/useWorkspacePanelResize'
 
 defineProps<{
@@ -9,6 +10,7 @@ defineProps<{
 }>()
 
 const { panelWidth, isResizing, startResize } = useWorkspacePanelResize()
+useTenantSwitchReload()
 </script>
 
 <template>

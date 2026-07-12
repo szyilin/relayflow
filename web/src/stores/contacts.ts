@@ -119,6 +119,15 @@ export const useContactsStore = defineStore('contacts', () => {
     selectedContactId.value = contactId
   }
 
+  function resetForTenantSwitch() {
+    depts.value = []
+    members.value = []
+    selectedDeptId.value = undefined
+    selectedContactId.value = undefined
+    keyword.value = ''
+    lastError.value = null
+  }
+
   return {
     depts,
     members,
@@ -134,6 +143,7 @@ export const useContactsStore = defineStore('contacts', () => {
     findTreeNode,
     fetchDepts,
     fetchMembers,
-    selectContact
+    selectContact,
+    resetForTenantSwitch
   }
 })
