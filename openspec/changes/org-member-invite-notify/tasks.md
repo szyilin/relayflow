@@ -18,11 +18,11 @@
 **目标**：`infra_notify` 表 + `NotifyInboxApi` 实现 + codegen DO。  
 **范围**：Java only；无 `web/`。
 
-- [ ] 1.1 Flyway `V0.1.0.{n}__infra_notify.sql`
-- [ ] 1.2 `NotifyInboxApi` + `NotifyInboxServiceImpl`（`infra-api` / `infra-biz`）
-- [ ] 1.3 `./scripts/codegen.sh --module infra --tables infra_notify` → diff 合并 DO/Mapper
-- [ ] 1.4 单元测试：push、按 user/mobile 查询、幂等更新
-- [ ] 1.5 `./mvnw -pl relayflow-server -am compile`
+- [x] 1.1 Flyway `V0.1.0.{n}__infra_notify.sql`
+- [x] 1.2 `NotifyInboxApi` + `NotifyInboxServiceImpl`（`infra-api` / `infra-biz`）
+- [x] 1.3 `./scripts/codegen.sh --module infra --tables infra_notify` → diff 合并 DO/Mapper
+- [x] 1.4 单元测试：push、按 user/mobile 查询、幂等更新
+- [x] 1.5 `./mvnw -pl relayflow-server -am compile`
 
 **验证**：单测 + compile。
 
@@ -34,13 +34,13 @@
 
 **依赖**：`notify-inbox-schema` 完成
 
-- [ ] 2.1 `UserServiceImpl.inviteMember` 成功后调用 `NotifyInboxApi.push(MEMBER_INVITE)`
-- [ ] 2.2 `GET /app-api/system/member-invite/pending?mobile=`（permitAll）
-- [ ] 2.3 `GET /app-api/infra/notify/page`、`unread-count`、`POST .../read`
-- [ ] 2.4 `AuthRegisterServiceImpl` 注册成功后回填 `infra_notify.user_id`
-- [ ] 2.5 Security 白名单 pending；notify 端点 JWT
-- [ ] 2.6 curl 验收（见 `design.md` D4/D5）
-- [ ] 2.7 `./mvnw -pl relayflow-server -am compile`
+- [x] 2.1 `UserServiceImpl.inviteMember` 成功后调用 `NotifyInboxApi.push(MEMBER_INVITE)`
+- [x] 2.2 `GET /app-api/system/member-invite/pending?mobile=`（permitAll）
+- [x] 2.3 `GET /app-api/infra/notify/page`、`unread-count`、`POST .../read`
+- [x] 2.4 `AuthRegisterServiceImpl` 注册成功后回填 `infra_notify.user_id`
+- [x] 2.5 Security 白名单 pending；notify 端点 JWT
+- [x] 2.6 curl 验收（见 `design.md` D4/D5）
+- [x] 2.7 `./mvnw -pl relayflow-server -am compile`
 
 **完成后**：看板 api → `ready`；可开 `-web`。
 

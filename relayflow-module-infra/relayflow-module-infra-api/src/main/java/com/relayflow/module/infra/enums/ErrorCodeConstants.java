@@ -21,7 +21,15 @@ public enum ErrorCodeConstants implements ErrorCode {
     FILE_UPLOAD_SIZE_MISMATCH(2_002_002_005, "确认时文件大小不匹配"),
     FILE_NOT_FOUND(2_002_002_006, "文件不存在"),
     FILE_UPLOAD_INVALID_REQUEST(2_002_002_007, "上传请求参数无效"),
-    FILE_ACCESS_DENIED(2_002_002_008, "无权访问该文件");
+    FILE_ACCESS_DENIED(2_002_002_008, "无权访问该文件"),
+
+    NOTIFY_RECEIVER_REQUIRED(2_002_003_001, "通知接收人不能为空"),
+    NOTIFY_TENANT_REQUIRED(2_002_003_002, "通知租户不能为空"),
+    NOTIFY_TYPE_REQUIRED(2_002_003_003, "通知类型不能为空"),
+    NOTIFY_TITLE_REQUIRED(2_002_003_004, "通知标题不能为空"),
+    NOTIFY_PAYLOAD_INVALID(2_002_003_005, "通知载荷格式无效"),
+    NOTIFY_NOT_FOUND(2_002_003_006, "通知不存在"),
+    NOTIFY_LOGIN_REQUIRED(2_002_003_007, "请先登录");
 
     private final Integer code;
     private final String msg;
