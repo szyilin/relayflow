@@ -533,6 +533,12 @@ public class UserServiceImpl implements UserService {
 
     private Long resolveTenantId() {
         Long tenantId = TenantContextHolder.get();
+        if (tenantProperties.isEnabled()) {
+            if (tenantId == null) {
+                throw new ServiceException(ErrorCodeConstants.TENANT_NOT_FOUND);
+            }
+            return tenantId;
+        }
         return tenantId != null ? tenantId : tenantProperties.getDefaultId();
     }
 }

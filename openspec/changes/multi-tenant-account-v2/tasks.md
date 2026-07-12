@@ -142,11 +142,11 @@ curl -s -X POST http://localhost:8080/app-api/system/tenant/switch \
 
 ## 8. member-invite-v2-migrate（收尾）
 
-- [ ] 8.1 `UserServiceImpl.inviteMember`：`enabled=true` 时 tenant 来自 JWT，不 fallback default-id
-- [ ] 8.2 标记 `member-invite/preview|accept` deprecated（Java `@Deprecated` + 文档）
-- [ ] 8.3 删除或保留后端 endpoint（V2 保留 1 版本兼容，前端不再调用）
-- [ ] 8.4 更新 `openspec/specs/system` 归档前 diff 检查
-- [ ] 8.5 更新 `AGENTS.md` 下一优先说明
+- [x] 8.1 `UserServiceImpl.inviteMember`：`enabled=true` 时 tenant 来自 JWT，不 fallback default-id
+- [x] 8.2 标记 `member-invite/preview|accept` deprecated（Java `@Deprecated` + 文档）
+- [x] 8.3 删除或保留后端 endpoint（V2 保留 1 版本兼容，前端不再调用）
+- [x] 8.4 更新 `openspec/specs/system` 归档前 diff 检查（见 `specs-sync-checklist.md`）
+- [x] 8.5 更新 `AGENTS.md` 下一优先说明
 
 ---
 

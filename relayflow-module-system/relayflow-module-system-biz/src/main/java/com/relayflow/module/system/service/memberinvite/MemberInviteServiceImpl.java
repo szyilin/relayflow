@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
+@Deprecated(since = "0.2.0")
 @RequiredArgsConstructor
 public class MemberInviteServiceImpl implements MemberInviteService {
 
@@ -107,6 +108,12 @@ public class MemberInviteServiceImpl implements MemberInviteService {
 
     private Long resolveTenantId() {
         Long tenantId = TenantContextHolder.get();
+        if (tenantProperties.isEnabled()) {
+            if (tenantId == null) {
+                throw new ServiceException(ErrorCodeConstants.TENANT_NOT_FOUND);
+            }
+            return tenantId;
+        }
         return tenantId != null ? tenantId : tenantProperties.getDefaultId();
     }
 

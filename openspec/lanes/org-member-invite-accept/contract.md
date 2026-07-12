@@ -1,5 +1,8 @@
 # API 契约：org-member-invite-accept
 
+> **状态（V2）**：`tenant.enabled=true` 时 **Deprecated** — 请使用 [`account-register-v2`](../account-register-v2/contract.md) 的 `POST /app-api/system/auth/register`；`/app/invite/accept` 已重定向至 `/app/register`。  
+> **`enabled=false` 自托管**：下列 endpoint 仍可用。
+
 > **变更**：`org-member-invite-accept`  
 > **前置**：[`org-member-invite`](../org-member-invite/contract.md) 已部署
 
