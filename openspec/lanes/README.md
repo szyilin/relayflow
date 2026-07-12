@@ -24,6 +24,10 @@ openspec/lanes/
     contract.md
   admin-user-list/
     contract.md
+  admin-user-by-dept/
+    contract.md
+  workspace-contacts/
+    contract.md
   system-rbac-kernel/
     contract.md
 ```
