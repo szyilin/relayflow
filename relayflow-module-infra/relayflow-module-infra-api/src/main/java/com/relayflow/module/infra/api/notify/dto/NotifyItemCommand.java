@@ -13,5 +13,6 @@ public class NotifyItemCommand {
     private String type;
     private String title;
     private String body;
+    private String dedupeKey;
     private Map<String, Object> payload;
 }

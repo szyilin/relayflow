@@ -20,12 +20,12 @@
 **目标**：`dedupe_key` 列、类型常量、`NotifyItemCommand` 扩展、幂等逻辑。  
 **范围**：Java + Flyway；无 `web/`。
 
-- [ ] 1.1 Flyway `V0.1.0.{n}__infra_notify_dedupe_key.sql`（可空列 + 部分索引）
-- [ ] 1.2 扩展 `InfraNotifyType`：`TASK_DUE` / `TASK_ASSIGNED` / `IM_MENTION` / `APPROVAL_PENDING`
-- [ ] 1.3 `NotifyItemCommand` + DO/Mapper 支持 `dedupeKey`（codegen 或手工合并 DO 字段）
-- [ ] 1.4 `NotifyInboxServiceImpl`：有 `dedupeKey` 时按 tenant+receiver+type+key 未读幂等更新
-- [ ] 1.5 单元测试：dedupe 刷新、无 key 时邀请行为不变
-- [ ] 1.6 `./mvnw -pl relayflow-server -am compile`（含相关 test）
+- [x] 1.1 Flyway `V0.1.0.{n}__infra_notify_dedupe_key.sql`（可空列 + 部分索引）
+- [x] 1.2 扩展 `InfraNotifyType`：`TASK_DUE` / `TASK_ASSIGNED` / `IM_MENTION` / `APPROVAL_PENDING`
+- [x] 1.3 `NotifyItemCommand` + DO/Mapper 支持 `dedupeKey`（codegen 或手工合并 DO 字段）
+- [x] 1.4 `NotifyInboxServiceImpl`：有 `dedupeKey` 时按 tenant+receiver+type+key 未读幂等更新
+- [x] 1.5 单元测试：dedupe 刷新、无 key 时邀请行为不变
+- [x] 1.6 `./mvnw -pl relayflow-server -am compile`（含相关 test）
 
 **验证**：单测 + compile。
 
@@ -36,10 +36,10 @@
 **目标**：`push` 后对在线 `userId` 下发 `domain=notify` / `type=notify.new`。  
 **依赖**：§1（可与 §1 同会话若体量允许）。
 
-- [ ] 2.1 `RealtimeEventPublisherImpl`：`NOTIFY` 走 `sendToUsers`（与 SYSTEM 同源）
-- [ ] 2.2 `NotifyInboxServiceImpl.push` 成功后 publish（payload 含至少 `unreadCount`）
-- [ ] 2.3 `userId == null` 不发 WS；单测/日志覆盖
-- [ ] 2.4 `./mvnw -pl relayflow-module-infra-biz -am test` 或 server compile
+- [x] 2.1 `RealtimeEventPublisherImpl`：`NOTIFY` 走 `sendToUsers`（与 SYSTEM 同源）
+- [x] 2.2 `NotifyInboxServiceImpl.push` 成功后 publish（payload 含至少 `unreadCount`）
+- [x] 2.3 `userId == null` 不发 WS；单测/日志覆盖
+- [x] 2.4 `./mvnw -pl relayflow-module-infra-biz -am test` 或 server compile
 
 **验证**：单元/集成测试或本地双客户端冒烟说明。
 
@@ -49,11 +49,11 @@
 
 **目标**：page 按 type 筛选、`read-all`；可选 unread `byType`。
 
-- [ ] 3.1 `GET /app-api/infra/notify/page?type=` 过滤实现 + VO 透出
-- [ ] 3.2 `POST /app-api/infra/notify/read-all`（可选 body `type`）
-- [ ] 3.3 （可选）`unread-count` 增加 `byType` map
-- [ ] 3.4 Security：仅当前用户数据；curl/单测验收
-- [ ] 3.5 `./mvnw -pl relayflow-server -am compile`
+- [x] 3.1 `GET /app-api/infra/notify/page?type=` 过滤实现 + VO 透出
+- [x] 3.2 `POST /app-api/infra/notify/read-all`（可选 body `type`）
+- [x] 3.3 （可选）`unread-count` 增加 `byType` map
+- [x] 3.4 Security：仅当前用户数据；curl/单测验收
+- [x] 3.5 `./mvnw -pl relayflow-server -am compile`
 
 **完成后**：看板 api → `ready`。
 
@@ -64,12 +64,12 @@
 **目标**：task-biz 到期生产方。  
 **依赖**：§1（NotifyInboxApi + types）。
 
-- [ ] 4.1 `task-biz` pom 依赖 `infra-api`（若尚未）
-- [ ] 4.2 配置 `relayflow.task.due-remind-window`（默认 24h）
-- [ ] 4.3 create/update：窗口内 TODO → `NotifyInboxApi.push(TASK_DUE)` + `dedupeKey=task:{id}` + payload.route
-- [ ] 4.4 `pageMyTasks` lazy 补偿：窗口内缺未读 `TASK_DUE` 则补 push
-- [ ] 4.5 单测：窗口内/外/幂等；禁止依赖 infra-biz
-- [ ] 4.6 `./mvnw -pl relayflow-module-task-biz -am test` 或 server compile
+- [x] 4.1 `task-biz` pom 依赖 `infra-api`（若尚未）
+- [x] 4.2 配置 `relayflow.task.due-remind-window`（默认 24h）
+- [x] 4.3 create/update：窗口内 TODO → `NotifyInboxApi.push(TASK_DUE)` + `dedupeKey=task:{id}` + payload.route
+- [x] 4.4 `pageMyTasks` lazy 补偿：窗口内缺未读 `TASK_DUE` 则补 push
+- [x] 4.5 单测：窗口内/外/幂等；禁止依赖 infra-biz
+- [x] 4.6 `./mvnw -pl relayflow-module-task-biz -am test` 或 server compile
 
 ---
 
@@ -79,11 +79,11 @@
 **依赖**：contract 可先于后端；联调依赖 §2–§4。
 
 - [x] 5.1 起草 `openspec/lanes/notify-inbox-v2/contract.md`（page filter、read-all、WS envelope、TASK_DUE 形状）
-- [ ] 5.2 扩展 `api/app/notify.ts`、`stores/notify.ts`：type 筛选、read-all
-- [ ] 5.3 `WorkspaceNotifyBell`：类型图标、筛选 Chip、全部已读、点击 `payload.route` 跳转
-- [ ] 5.4 接入现有 WS：监听 `notify` / `notify.new` 刷新角标（可抽公共 realtime 监听）
-- [ ] 5.5 空状态与 `MEMBER_INVITE` 说明文案更新
-- [ ] 5.6 `cd web && pnpm build`
+- [x] 5.2 扩展 `api/app/notify.ts`、`stores/notify.ts`：type 筛选、read-all
+- [x] 5.3 `WorkspaceNotifyBell`：类型图标、筛选 Chip、全部已读、点击 `payload.route` 跳转
+- [x] 5.4 接入现有 WS：监听 `notify` / `notify.new` 刷新角标（可抽公共 realtime 监听）
+- [x] 5.5 空状态与 `MEMBER_INVITE` 说明文案更新
+- [x] 5.6 `cd web && pnpm build`
 
 **验证**：`pnpm build`；浏览器路径写入 contract。
 
@@ -93,11 +93,11 @@
 
 ## 6. notify-inbox-v2-integrate（联调）
 
-- [ ] 6.1 前端接真实 filter / read-all / WS（去 Mock）
+- [x] 6.1 前端接真实 filter / read-all / WS（去 Mock）
 - [ ] 6.2 E2E：创建 1h 内到期任务 → 铃铛 `TASK_DUE` → 点击进 `/app/tasks`
 - [ ] 6.3 E2E：已登录用户收到邀请时角标 WS 刷新（若可双会话）
-- [ ] 6.4 `openspec validate notify-inbox-v2 --strict`
-- [ ] 6.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
+- [x] 6.4 `openspec validate notify-inbox-v2 --strict`
+- [x] 6.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
 - [ ] 6.6 看板 `notify-inbox-v2` → **done**
 
 ---

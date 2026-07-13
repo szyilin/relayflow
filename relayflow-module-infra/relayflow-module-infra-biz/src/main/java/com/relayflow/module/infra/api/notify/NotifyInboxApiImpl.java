@@ -20,4 +20,9 @@ public class NotifyInboxApiImpl implements NotifyInboxApi {
     public void backfillUserIdByMobile(String mobile, Long userId) {
         notifyInboxService.backfillUserIdByMobile(mobile, userId);
     }
+
+    @Override
+    public boolean hasUnreadDedupe(Long tenantId, Long userId, String type, String dedupeKey) {
+        return notifyInboxService.hasUnreadDedupe(tenantId, userId, type, dedupeKey);
+    }
 }

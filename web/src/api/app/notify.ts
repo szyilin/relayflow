@@ -1,9 +1,17 @@
 import { get, post } from '../request'
 
+export type NotifyType =
+  | 'MEMBER_INVITE'
+  | 'TASK_DUE'
+  | 'TASK_ASSIGNED'
+  | 'IM_MENTION'
+  | 'APPROVAL_PENDING'
+  | (string & {})
+
 export interface NotifyItem {
   id: string
   tenantId: string
-  type: string
+  type: NotifyType
   title: string
   body: string
   payload?: Record<string, unknown>
@@ -18,6 +26,7 @@ export interface NotifyPageResult {
 
 export interface NotifyUnreadCount {
   unreadCount: number
+  byType?: Record<string, number>
 }
 
 function normalizeNotifyItem(
@@ -39,9 +48,17 @@ export async function getNotifyUnreadCount(): Promise<NotifyUnreadCount> {
   return get<NotifyUnreadCount>('/app-api/infra/notify/unread-count')
 }
 
-export async function getNotifyPage(pageNo = 1, pageSize = 20): Promise<NotifyPageResult> {
+export async function getNotifyPage(
+  pageNo = 1,
+  pageSize = 20,
+  type?: string
+): Promise<NotifyPageResult> {
   const data = await get<NotifyPageResult>('/app-api/infra/notify/page', {
-    params: { pageNo, pageSize }
+    params: {
+      pageNo,
+      pageSize,
+      ...(type ? { type } : {})
+    }
   })
   return {
     list: (data.list ?? []).map(item => normalizeNotifyItem(item as NotifyItem & { id?: string | number })),
@@ -51,4 +68,8 @@ export async function getNotifyPage(pageNo = 1, pageSize = 20): Promise<NotifyPa
 
 export async function markNotifyRead(ids: string[]): Promise<boolean> {
   return post<boolean>('/app-api/infra/notify/read', { ids })
+}
+
+export async function markNotifyReadAll(type?: string): Promise<boolean> {
+  return post<boolean>('/app-api/infra/notify/read-all', type ? { type } : {})
 }

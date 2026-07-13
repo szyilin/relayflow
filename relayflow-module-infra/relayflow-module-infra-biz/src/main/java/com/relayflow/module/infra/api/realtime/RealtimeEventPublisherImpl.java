@@ -26,9 +26,9 @@ public class RealtimeEventPublisherImpl implements RealtimeEventPublisher {
             return;
         }
         switch (domain) {
-            case NOTIFY, PRESENCE -> log.debug("No-op realtime event domain={} type={}", event.domain(), event.type());
+            case NOTIFY, SYSTEM -> pushIfTargets(event);
+            case PRESENCE -> log.debug("No-op realtime event domain={} type={}", event.domain(), event.type());
             case IM -> log.debug("IM realtime event domain={} type={} awaiting im module handler registration", event.domain(), event.type());
-            case SYSTEM -> pushIfTargets(event);
             default -> log.debug("Unhandled realtime event domain={}", event.domain());
         }
     }

@@ -7,6 +7,7 @@ const PING_INTERVAL_MS = 30_000
 export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
   onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
+  onNotifyNew?: (payload: { unreadCount?: number }) => void
 }
 
 function buildWebSocketUrl(token: string): string {
@@ -117,6 +118,12 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       if (conversationId && userId && readSeq != null) {
         handlers.onReadUpdated({ conversationId, userId, readSeq })
       }
+      return
+    }
+    if (envelope.domain === 'notify' && envelope.type === 'notify.new') {
+      const payload = envelope.payload as Record<string, unknown> | undefined
+      const unreadCount = typeof payload?.unreadCount === 'number' ? payload.unreadCount : undefined
+      handlers.onNotifyNew?.({ unreadCount })
     }
   }
 
