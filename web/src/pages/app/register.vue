@@ -1,15 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeMount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeMount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useDebounceFn } from '@vueuse/core'
 import { useAuthStore } from '../../stores/auth'
-import { useNotifyStore } from '../../stores/notify'
 import { isValidMobile, normalizeMobile } from '../../utils/mobile'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const notifyStore = useNotifyStore()
 const isAddAccount = computed(() => route.query.addAccount === '1')
 const loginTo = computed(() =>
   authStore.isAuthenticated || isAddAccount.value
@@ -27,25 +24,10 @@ const form = reactive({
   tenantName: ''
 })
 
-const pendingInvites = computed(() => notifyStore.pendingItems)
-
-const loadPendingInvites = useDebounceFn(async () => {
-  if (!isValidMobile(form.mobile)) {
-    notifyStore.clearPending()
-    return
-  }
-  await notifyStore.fetchPendingByMobile(normalizeMobile(form.mobile.trim()))
-}, 400)
-
-watch(() => form.mobile, () => {
-  void loadPendingInvites()
-})
-
 onBeforeMount(() => {
   if (typeof route.query.mobile === 'string' && !form.mobile) {
     form.mobile = route.query.mobile
   }
-  void loadPendingInvites()
 })
 
 async function onSubmit() {
@@ -92,7 +74,11 @@ async function onSubmit() {
       toast.add({ title: '注册失败', description: result.message, color: 'error' })
       return
     }
-    toast.add({ title: '注册成功', description: `欢迎加入 ${tenantName}`, color: 'success' })
+    const invitedNames = result.invitedTenantNames
+    const description = invitedNames.length
+      ? `已创建 ${tenantName}，并加入 ${invitedNames.join('、')}`
+      : `欢迎加入 ${tenantName}`
+    toast.add({ title: '注册成功', description, color: 'success' })
     await router.replace('/app/messages')
   } finally {
     loading.value = false
@@ -115,26 +101,18 @@ meta:
         注册 RelayFlow
       </h1>
       <p class="text-sm text-muted">
-        创建账号与企业，开始协作；被邀请的手机号注册后将一并激活待加入组织
+        创建账号与企业，开始协作
       </p>
     </div>
 
     <UAlert
-      v-if="pendingInvites.length"
-      color="primary"
+      color="neutral"
       variant="subtle"
-      icon="i-lucide-mail-plus"
-      :title="`你收到 ${pendingInvites.length} 个企业邀请`"
-      description="注册后将自动加入以下组织（同时可创建自己的企业）"
+      icon="i-lucide-info"
+      title="关于企业邀请"
+      description="若你曾被邀请加入某企业，完成注册后将自动激活相应组织。"
       class="text-left"
-    >
-      <ul class="mt-2 space-y-1 text-sm">
-        <li v-for="item in pendingInvites" :key="item.tenantId" class="flex items-center gap-2">
-          <UIcon name="i-lucide-building-2" class="size-4 shrink-0 opacity-70" />
-          <span>{{ item.tenantName }}</span>
-        </li>
-      </ul>
-    </UAlert>
+    />
 
     <UCard class="ring-1 ring-default">
       <form class="space-y-4" @submit.prevent="onSubmit">

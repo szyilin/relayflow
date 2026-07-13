@@ -16,11 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RequiredArgsConstructor
 @RequestMapping("/app-api/system/member-invite")
+@Deprecated(since = "0.2.0", forRemoval = true)
 public class AppMemberInvitePendingController {
 
     private final MemberInvitePendingService memberInvitePendingService;
 
     @GetMapping("/pending")
+    @Deprecated(since = "0.2.0", forRemoval = true)
     public CommonResult<MemberInvitePendingListRespVO> pending(
             @RequestParam @NotBlank(message = "手机号不能为空") String mobile) {
         return CommonResult.success(memberInvitePendingService.listPendingByMobile(MobileUtils.normalize(mobile)));
