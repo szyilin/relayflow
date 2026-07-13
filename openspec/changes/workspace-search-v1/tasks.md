@@ -25,7 +25,7 @@
 - [x] 1.4 `WorkspaceRailHeader`：移除 `disabled`；点击打开 Modal
 - [x] 1.5 `workspace` layout 注册全局快捷键
 - [x] 1.6 `cd web && pnpm build`
-- [ ] 1.7 浏览器：⌘K → Mock 结果 → 点击跳转路径（可先 console 验证 route）
+- [x] 1.7 浏览器：⌘K → 搜索结果 → 点击跳转路径（`/app/contacts?memberId=`、`/app/messages?conversationId=`、`/app/tasks?taskId=`）
 
 **验证**：`pnpm build` + 浏览器路径。
 
@@ -37,13 +37,13 @@
 
 **依赖**：§1 contract 就绪
 
-- [ ] 2.1 `system-api` + `MemberUserApi.searchMembers` + `GET .../member/search`
-- [ ] 2.2 `im-api` + `ImConversationApi.searchConversations` + `GET .../conversation/search`
-- [ ] 2.3 `task-api` + `TaskItemApi.searchTasks` + `GET .../item/search`
-- [ ] 2.4 `infra-biz`：`WorkspaceSearchService` 并行聚合 + `GET /app-api/infra/workspace-search`
-- [ ] 2.5 `infra-biz` pom 依赖三域 `*-api`；禁止直连 Mapper
-- [ ] 2.6 curl 验收三域 + 聚合；单测关键词必填
-- [ ] 2.7 `./mvnw -pl relayflow-server -am compile`
+- [x] 2.1 `system-api` + `MemberUserApi.searchMembers` + `GET .../member/search`
+- [x] 2.2 `im-api` + `ImConversationApi.searchConversations` + `GET .../conversation/search`
+- [x] 2.3 `task-api` + `TaskItemApi.searchTasks` + `GET .../item/search`
+- [x] 2.4 `infra-biz`：`WorkspaceSearchService` 并行聚合 + `GET /app-api/infra/workspace-search`
+- [x] 2.5 `infra-biz` pom 依赖三域 `*-api`；禁止直连 Mapper
+- [x] 2.6 curl 验收三域 + 聚合；单测关键词必填
+- [x] 2.7 `./mvnw -pl relayflow-server -am compile`
 
 **完成后**：看板 api → `ready`。
 
@@ -51,11 +51,11 @@
 
 ## 3. workspace-search-integrate（联调）
 
-- [ ] 3.1 store 去 Mock，接真实聚合 API
-- [ ] 3.2 `/app/contacts`、`/app/messages`、`/app/tasks` 读取 query 并激活上下文
+- [x] 3.1 store 去 Mock，接真实聚合 API
+- [x] 3.2 `/app/contacts`、`/app/messages`、`/app/tasks` 读取 query 并激活上下文
 - [ ] 3.3 E2E：搜成员名 → 进通讯录；搜会话 → 进消息；搜任务 → 进任务
-- [ ] 3.4 `openspec validate workspace-search-v1 --strict`
-- [ ] 3.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
+- [x] 3.4 `openspec validate workspace-search-v1 --strict`
+- [x] 3.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
 - [ ] 3.6 看板 `workspace-search` → **done**
 
 ---

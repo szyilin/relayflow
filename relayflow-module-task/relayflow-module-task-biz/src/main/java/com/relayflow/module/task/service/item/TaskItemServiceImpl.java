@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -40,6 +41,26 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .orderByDesc(TaskItemDO::getCreateTime));
         taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
         return PageResult.of(TaskConvert.toRespList(page.getRecords()), page.getTotal());
+    }
+
+    @Override
+    public List<TaskItemRespVO> searchMyTasks(Long userId, String keyword, int limit) {
+        int safeLimit = clampSearchLimit(limit);
+        String trimmed = keyword.trim();
+        List<TaskItemDO> rows = taskItemMapper.selectList(
+                Wrappers.<TaskItemDO>lambdaQuery()
+                        .eq(TaskItemDO::getAssigneeId, userId)
+                        .like(TaskItemDO::getTitle, trimmed)
+                        .orderByDesc(TaskItemDO::getCreateTime)
+                        .last("LIMIT " + safeLimit));
+        return TaskConvert.toRespList(rows);
+    }
+
+    private static int clampSearchLimit(int limit) {
+        if (limit <= 0) {
+            return 5;
+        }
+        return Math.min(limit, 10);
     }
 
     @Override

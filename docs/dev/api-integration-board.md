@@ -48,7 +48,7 @@
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
 | notify-inbox-v2 | **ready** | **done** | `infra/notify/*`（type 筛选、read-all）、`domain=notify` WS · Rail 铃铛；task `TASK_DUE` | [contract](../../openspec/lanes/notify-inbox-v2/contract.md) | store 无 Mock；§6.2 浏览器 E2E 待冒烟 |
-| workspace-search | planned | **ui_ready** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | Mock 回退；待 `-api` 聚合 REST |
+| workspace-search | **ready** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；深链 query 已接；§3.3 浏览器 E2E 待冒烟 |
 | bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；Flowable 通用审批 + `APPROVAL_PENDING` |
 
 ### V1.1 协作扩展 · 建议实施顺序

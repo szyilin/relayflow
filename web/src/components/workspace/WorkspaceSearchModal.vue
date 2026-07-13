@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useWorkspaceSearchStore } from '../../stores/workspaceSearch'
@@ -16,6 +16,8 @@ const open = defineModel<boolean>('open', { required: true })
 const router = useRouter()
 const searchStore = useWorkspaceSearchStore()
 const { keyword, groups, loading, searched } = storeToRefs(searchStore)
+
+const visibleGroups = computed(() => groups.value.filter(group => group.items.length > 0))
 
 const inputRef = ref<{ inputRef?: HTMLInputElement } | null>(null)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -72,13 +74,13 @@ function groupIcon(type: WorkspaceSearchGroupType) {
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
       </div>
       <UEmpty
-        v-else-if="searched && !groups.length"
+        v-else-if="searched && !visibleGroups.length"
         icon="i-lucide-search-x"
         title="无匹配结果"
         description="试试其他关键词"
       />
       <div v-else class="max-h-[min(24rem,60vh)] space-y-4 overflow-y-auto">
-        <section v-for="group in groups" :key="group.type">
+        <section v-for="group in visibleGroups" :key="group.type">
           <p class="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--ws-text-muted)]">
             {{ group.label }}
           </p>

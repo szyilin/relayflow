@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import { searchMembers } from '../../../api/app/member-search'
 import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
 import { useContactsStore, type ContactDeptTreeNode } from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
@@ -9,6 +10,7 @@ import { usePresenceStore } from '../../../stores/presence'
 import type { ContactItem } from '../../../api/app/contacts'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const contacts = useContactsStore()
 const im = useImStore()
@@ -60,6 +62,25 @@ async function loadMembers(options?: { deptId?: string, keyword?: string }) {
   }
 }
 
+async function focusMemberFromQuery(memberId: string) {
+  try {
+    const results = await searchMembers(memberId, 1)
+    const match = results.find(item => item.id === memberId) ?? results[0]
+    if (!match?.deptId) {
+      activeContactId.value = memberId
+      return
+    }
+    const node = contacts.findTreeNode(contacts.tree, match.deptId)
+    if (node) {
+      selectedDeptNode.value = node
+    }
+    await loadMembers({ deptId: match.deptId, keyword: '' })
+    activeContactId.value = memberId
+  } catch {
+    activeContactId.value = memberId
+  }
+}
+
 async function initPage() {
   try {
     await contacts.fetchDepts()
@@ -75,6 +96,10 @@ async function initPage() {
   if (rootId) {
     searchInput.value = ''
     await loadMembers({ deptId: rootId, keyword: '' })
+  }
+  const memberId = typeof route.query.memberId === 'string' ? route.query.memberId : undefined
+  if (memberId) {
+    await focusMemberFromQuery(memberId)
   }
 }
 
@@ -119,6 +144,13 @@ watch(memberUserIds, (userIds) => {
 
 onMounted(() => {
   void initPage()
+})
+
+watch(() => route.query.memberId, async (raw) => {
+  const memberId = typeof raw === 'string' ? raw : undefined
+  if (memberId) {
+    await focusMemberFromQuery(memberId)
+  }
 })
 
 onUnmounted(() => {
