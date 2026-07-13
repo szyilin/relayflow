@@ -39,6 +39,10 @@ public class RelayflowColumnTypeConvertHandler implements com.baomidou.mybatispl
             return DbColumnType.INTEGER;
         }
 
+        if ("jsonb".equalsIgnoreCase(metaInfo.getTypeName())) {
+            return DbColumnType.STRING;
+        }
+
         return typeRegistry.getColumnType(metaInfo);
     }
 
