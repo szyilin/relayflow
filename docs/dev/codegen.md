@@ -88,6 +88,15 @@ CLI **只读** 以下配置，**不** 加载 `application.yml`、不连 Nacos。
 
 `BaseDO` / `TenantBaseDO` 由工具查询 `information_schema`：表含 `tenant_id` 列 → `TenantBaseDO`，否则 → `BaseDO`。
 
+### PostgreSQL 类型映射（codegen 内置）
+
+| DB 类型 | Java 类型 | 备注 |
+|---------|-----------|------|
+| `timestamptz` | `OffsetDateTime` | |
+| `int2` / `smallint` | `Integer` | 如 `deleted`、`read_flag` |
+| `jsonb` | `String` | 自动加 `@TableField(..., typeHandler = JsonbTypeHandler.class)` |
+| `codegen.yml` → `enum-columns` | 枚举类 | 表.列 → 枚举名 |
+
 ## 目录布局
 
 ```text

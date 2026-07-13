@@ -84,6 +84,9 @@ public final class RelayflowCodegenEngine {
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 
+        JsonbDoPostProcessor.annotate(outputDir, module, tables, config.jdbcUrl(),
+                config.jdbcUsername(), config.jdbcPassword());
+
         pruneNonDalArtifacts(outputDir, module);
     }
 
