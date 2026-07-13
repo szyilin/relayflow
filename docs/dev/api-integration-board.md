@@ -45,7 +45,19 @@
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
-（当前无活跃切片；见下方已归档规划。）
+| 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
+|------|----------|----------|-------------|------|------|
+| notify-inbox-v2 | planned | pending | `infra/notify/*`（type 筛选、read-all）、`domain=notify` WS · Rail 铃铛；task `TASK_DUE` | [contract](../../openspec/lanes/notify-inbox-v2/contract.md) | [change](../../openspec/changes/notify-inbox-v2/proposal.md)；多类型聚合 + 实时 + 任务到期 |
+| workspace-search | planned | pending | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | [change](../../openspec/changes/workspace-search-v1/proposal.md)；成员/会话/任务聚合搜索 |
+| bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；Flowable 通用审批 + `APPROVAL_PENDING` |
+
+### V1.1 协作扩展 · 建议实施顺序
+
+```text
+1. notify-inbox-v2（schema → realtime → api → web → integrate → task-due）
+2. workspace-search-v1（web → api → integrate）     # 可与 notify 后期并行
+3. bpm-v1（schema → web → api → integrate）           # 审批通知依赖 notify 类型目录
+```
 
 ## 已归档规划（暂缓实现）
 

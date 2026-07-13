@@ -28,13 +28,19 @@ context: |
   - relayflow-module-system（api + biz）
   - relayflow-module-infra（api + biz）
   - relayflow-module-im（api + biz）
+  - relayflow-module-task（api + biz）
   - relayflow-server（入口）
-  - relayflow-module-bpm — V1.1 前暂不启用
+  - relayflow-module-bpm — V1.1 规划中（openspec/changes/bpm-v1）；实施 bpm-schema-v1 前 server 不加载
+
+  V1.1 协作扩展（OpenSpec 已立项 · 待实现，建议顺序见 api-integration-board）：
+  - notify-inbox-v2 — 多类型通知中心 + TASK_DUE + WS 实时
+  - workspace-search-v1 — Rail ⌘K 全局搜索（成员/会话/任务）
+  - bpm-v1 — Flowable 通用审批（依赖 notify 类型目录）
 
   模块规则：
   - 各业务域拆分为 *-api（契约）与 *-biz（实现）
   - *-biz 仅可依赖其他 *-api，不得依赖其他 *-biz
-  - 表前缀：sys_、infra_、im_、bpm_
+  - 表前缀：sys_、infra_、im_、task_、bpm_
 
   API 约定：
   - 管理端 REST：/admin-api/{module}/
