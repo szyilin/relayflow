@@ -63,9 +63,6 @@ public class SecurityAutoConfiguration {
                                 "/admin-api/system/auth/login",
                                 "/admin-api/system/tenant/default",
                                 "/app-api/system/auth/register",
-                                "/app-api/system/member-invite/preview",
-                                "/app-api/system/member-invite/pending",
-                                "/app-api/system/member-invite/accept",
                                 "/app-api/infra/file/public/**",
                                 "/infra/ws"
                         ).permitAll()

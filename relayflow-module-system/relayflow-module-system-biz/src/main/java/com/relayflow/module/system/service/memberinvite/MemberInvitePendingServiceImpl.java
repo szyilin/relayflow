@@ -19,6 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 
 @Service
+@Deprecated(since = "0.2.0", forRemoval = true)
 @RequiredArgsConstructor
 public class MemberInvitePendingServiceImpl implements MemberInvitePendingService {
 

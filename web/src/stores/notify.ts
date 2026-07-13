@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getMemberInvitePending, type MemberInvitePendingItem } from '../api/app/member-invite-pending'
 import {
   getNotifyPage,
   getNotifyUnreadCount,
@@ -11,9 +10,6 @@ import {
 import type { NotifyFilterKey } from '../utils/notify'
 
 export const useNotifyStore = defineStore('notify', () => {
-  const pendingItems = ref<MemberInvitePendingItem[]>([])
-  const pendingLoading = ref(false)
-
   const items = ref<NotifyItem[]>([])
   const unreadCount = ref(0)
   const total = ref(0)
@@ -25,25 +21,6 @@ export const useNotifyStore = defineStore('notify', () => {
 
   const activeTypeFilter = computed(() =>
     filterType.value === 'all' ? undefined : filterType.value)
-
-  async function fetchPendingByMobile(mobile: string) {
-    const trimmed = mobile.trim()
-    if (!trimmed) {
-      pendingItems.value = []
-      return
-    }
-    pendingLoading.value = true
-    try {
-      const data = await getMemberInvitePending(trimmed)
-      pendingItems.value = data.items
-    } finally {
-      pendingLoading.value = false
-    }
-  }
-
-  function clearPending() {
-    pendingItems.value = []
-  }
 
   async function fetchUnreadCount() {
     const data = await getNotifyUnreadCount()
@@ -100,8 +77,6 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   return {
-    pendingItems,
-    pendingLoading,
     items,
     unreadCount,
     total,
@@ -109,8 +84,6 @@ export const useNotifyStore = defineStore('notify', () => {
     filterType,
     inboxModalOpen,
     hasUnread,
-    fetchPendingByMobile,
-    clearPending,
     fetchUnreadCount,
     fetchInbox,
     setFilterType,

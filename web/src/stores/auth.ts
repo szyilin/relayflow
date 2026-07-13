@@ -81,7 +81,9 @@ export type LoginResult =
     credentials: { mobile: string, password: string }
   }
 
-export type RegisterResult = Exclude<LoginResult, { needTenantSelection: true }>
+export type RegisterResult =
+  | { ok: true, invitedTenantNames: string[] }
+  | { ok: false, message: string }
 export type SwitchTenantResult = { ok: true } | { ok: false, message: string }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -209,7 +211,10 @@ export const useAuthStore = defineStore('auth', () => {
         await fetchMyTenants()
       }
       await dockSyncAfterSession()
-      return { ok: true }
+      const invitedTenantNames = (data.tenants ?? [])
+        .filter(item => !item.owner)
+        .map(item => item.tenantName)
+      return { ok: true, invitedTenantNames }
     } catch (error) {
       const message = error instanceof ApiError
         ? error.message
