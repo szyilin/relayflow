@@ -1,6 +1,6 @@
 # API 契约：workspace-search
 
-> **状态**：草案（母 change 规划；`workspace-search-web` lane 实施时细化）  
+> **状态**：已对接（integrate）  
 > **起草**：`workspace-search-v1` change  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 

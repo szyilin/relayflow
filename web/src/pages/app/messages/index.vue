@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
@@ -10,6 +11,7 @@ import { usePresenceStore } from '../../../stores/presence'
 
 const im = useImStore()
 const presence = usePresenceStore()
+const route = useRoute()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -36,6 +38,14 @@ function syncPresenceWatch() {
 
 onMounted(async () => {
   await im.fetchConversations()
+  const conversationId = typeof route.query.conversationId === 'string'
+    ? route.query.conversationId
+    : undefined
+  if (conversationId) {
+    await im.selectConversation(conversationId)
+    syncPresenceWatch()
+    return
+  }
   if (im.pendingDirectChat || im.activeConversationId) {
     syncPresenceWatch()
     return
@@ -44,6 +54,13 @@ onMounted(async () => {
     await im.selectConversation(im.filteredConversations[0].id)
   }
   syncPresenceWatch()
+})
+
+watch(() => route.query.conversationId, async (raw) => {
+  const conversationId = typeof raw === 'string' ? raw : undefined
+  if (conversationId) {
+    await im.selectConversation(conversationId)
+  }
 })
 
 onUnmounted(() => {

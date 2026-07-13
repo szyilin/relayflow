@@ -7,9 +7,13 @@ import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 
+import java.util.List;
+
 public interface TaskItemService {
 
     PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request);
+
+    List<TaskItemRespVO> searchMyTasks(Long userId, String keyword, int limit);
 
     Long createTask(Long userId, Long tenantId, TaskItemCreateReqVO request);
 

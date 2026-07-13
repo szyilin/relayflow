@@ -102,6 +102,22 @@ class TaskItemServiceImplTest {
     }
 
     @Test
+    void searchMyTasks_filtersByAssigneeAndTitle() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setTitle("整理周报");
+        row.setStatus(TaskItemStatus.TODO);
+        row.setCreateTime(OffsetDateTime.now());
+        when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
+
+        List<TaskItemRespVO> result = taskItemService.searchMyTasks(USER_ID, "周报", 5);
+
+        assertEquals(1, result.size());
+        assertEquals(TASK_ID, result.get(0).getId());
+        verify(taskItemMapper).selectList(any(Wrapper.class));
+    }
+
+    @Test
     void toggleDone_throwsForbiddenWhenNotAssignee() {
         TaskItemDO row = new TaskItemDO();
         row.setId(TASK_ID);

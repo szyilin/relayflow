@@ -21,6 +21,7 @@ public enum ErrorCodeConstants implements ErrorCode {
     USER_MOBILE_EXISTS(1_001_002_007, "手机号已注册"),
     AUTH_REGISTER_PASSWORD_WEAK(1_001_002_008, "密码至少 6 位"),
     USER_NICKNAME_REQUIRED(1_001_002_009, "昵称不能为空"),
+    SEARCH_KEYWORD_REQUIRED(1_001_002_010, "请输入搜索关键词"),
     TENANT_NOT_FOUND(1_001_003_001, "租户不存在"),
     TENANT_DEFAULT_DELETE_FORBIDDEN(1_001_003_002, "默认租户不可删除"),
     TENANT_SELECTION_REQUIRED(1_001_003_003, "请选择要进入的企业"),
