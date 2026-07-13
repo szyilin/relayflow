@@ -13,6 +13,8 @@ import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mysql.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
+import com.relayflow.module.task.service.notify.TaskDueNotifyService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -38,9 +40,16 @@ class TaskItemServiceImplTest {
 
     @Mock
     private TaskItemMapper taskItemMapper;
+    @Mock
+    private TaskDueNotifyService taskDueNotifyService;
 
     @InjectMocks
     private TaskItemServiceImpl taskItemService;
+
+    @BeforeEach
+    void setUpMocks() {
+        taskItemService = new TaskItemServiceImpl(taskItemMapper, taskDueNotifyService);
+    }
 
     @Test
     void createTask_assignsCurrentUserAsAssigneeAndCreator() {
@@ -58,6 +67,7 @@ class TaskItemServiceImplTest {
         assertEquals(TASK_ID, id);
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).insert(captor.capture());
+        verify(taskDueNotifyService).pushIfDueSoon(any(TaskItemDO.class));
         TaskItemDO saved = captor.getValue();
         assertEquals("整理周报", saved.getTitle());
         assertEquals(USER_ID, saved.getAssigneeId());
@@ -88,6 +98,7 @@ class TaskItemServiceImplTest {
         assertEquals(1, result.getTotal());
         assertEquals(TASK_ID, result.getList().get(0).getId());
         verify(taskItemMapper).selectPage(any(Page.class), any(Wrapper.class));
+        verify(taskDueNotifyService).compensateMissingDueReminders(page.getRecords());
     }
 
     @Test

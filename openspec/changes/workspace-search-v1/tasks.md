@@ -20,11 +20,11 @@
 **目标**：⌘K Modal + 启用 Rail 搜索 + contract 草案。
 
 - [x] 1.1 起草 `openspec/lanes/workspace-search/contract.md`（聚合 API、分组形状、深链 query）
-- [ ] 1.2 `WorkspaceSearchModal.vue` + `useWorkspaceSearchShortcut.ts`
-- [ ] 1.3 `stores/workspaceSearch.ts` + `api/app/workspace-search.ts`（Mock 分组数据）
-- [ ] 1.4 `WorkspaceRailHeader`：移除 `disabled`；点击打开 Modal
-- [ ] 1.5 `workspace` layout 注册全局快捷键
-- [ ] 1.6 `cd web && pnpm build`
+- [x] 1.2 `WorkspaceSearchModal.vue` + `useWorkspaceSearchShortcut.ts`
+- [x] 1.3 `stores/workspaceSearch.ts` + `api/app/workspace-search.ts`（Mock 分组数据）
+- [x] 1.4 `WorkspaceRailHeader`：移除 `disabled`；点击打开 Modal
+- [x] 1.5 `workspace` layout 注册全局快捷键
+- [x] 1.6 `cd web && pnpm build`
 - [ ] 1.7 浏览器：⌘K → Mock 结果 → 点击跳转路径（可先 console 验证 route）
 
 **验证**：`pnpm build` + 浏览器路径。

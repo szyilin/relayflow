@@ -8,6 +8,7 @@ import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.infra.controller.app.notify.vo.NotifyItemRespVO;
 import com.relayflow.module.infra.controller.app.notify.vo.NotifyPageReqVO;
+import com.relayflow.module.infra.controller.app.notify.vo.NotifyReadAllReqVO;
 import com.relayflow.module.infra.controller.app.notify.vo.NotifyReadReqVO;
 import com.relayflow.module.infra.controller.app.notify.vo.NotifyUnreadCountRespVO;
 import com.relayflow.module.infra.convert.NotifyConvert;
@@ -16,12 +17,15 @@ import com.relayflow.module.infra.enums.ErrorCodeConstants;
 import com.relayflow.module.infra.service.notify.NotifyInboxService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.CollectionUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @Validated
@@ -36,7 +40,7 @@ public class AppNotifyController {
     public CommonResult<PageResult<NotifyItemRespVO>> page(@Valid NotifyPageReqVO request) {
         Long userId = requireLoginUserId();
         PageResult<InfraNotifyDO> page = notifyInboxService.pageByUserId(
-                userId, request.getPageNo(), request.getPageSize());
+                userId, request.getType(), request.getPageNo(), request.getPageSize());
         PageResult<NotifyItemRespVO> response = PageResult.of(
                 NotifyConvert.toRespList(page.getList(), objectMapper),
                 page.getTotal());
@@ -48,6 +52,10 @@ public class AppNotifyController {
         Long userId = requireLoginUserId();
         NotifyUnreadCountRespVO response = new NotifyUnreadCountRespVO();
         response.setUnreadCount(notifyInboxService.countUnreadByUserId(userId));
+        Map<String, Long> byType = notifyInboxService.countUnreadGroupByType(userId);
+        if (!CollectionUtils.isEmpty(byType)) {
+            response.setByType(byType);
+        }
         return CommonResult.success(response);
     }
 
@@ -55,6 +63,14 @@ public class AppNotifyController {
     public CommonResult<Boolean> markRead(@Valid @RequestBody NotifyReadReqVO request) {
         Long userId = requireLoginUserId();
         notifyInboxService.markReadByIds(userId, request.getIds());
+        return CommonResult.success(true);
+    }
+
+    @PostMapping("/read-all")
+    public CommonResult<Boolean> markAllRead(@RequestBody(required = false) NotifyReadAllReqVO request) {
+        Long userId = requireLoginUserId();
+        String type = request != null ? request.getType() : null;
+        notifyInboxService.markAllReadByUserId(userId, type);
         return CommonResult.success(true);
     }
 

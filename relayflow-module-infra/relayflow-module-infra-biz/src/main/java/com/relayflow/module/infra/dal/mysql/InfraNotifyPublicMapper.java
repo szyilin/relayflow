@@ -50,20 +50,62 @@ public interface InfraNotifyPublicMapper {
             SELECT COUNT(*) FROM infra_notify
             WHERE user_id = #{userId}
               AND deleted = 0
+              AND (#{type} IS NULL OR type = #{type})
             """)
-    long countByUserId(@Param("userId") Long userId);
+    long countByUserId(@Param("userId") Long userId, @Param("type") String type);
 
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
             SELECT * FROM infra_notify
             WHERE user_id = #{userId}
               AND deleted = 0
+              AND (#{type} IS NULL OR type = #{type})
             ORDER BY create_time DESC
             LIMIT #{pageSize} OFFSET #{offset}
             """)
     List<InfraNotifyDO> selectPageByUserId(@Param("userId") Long userId,
+                                           @Param("type") String type,
                                            @Param("pageSize") int pageSize,
                                            @Param("offset") long offset);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Update("""
+            UPDATE infra_notify
+            SET read_flag = 1,
+                update_time = #{updateTime}
+            WHERE user_id = #{userId}
+              AND read_flag = 0
+              AND deleted = 0
+              AND (#{type} IS NULL OR type = #{type})
+            """)
+    int markAllReadByUserId(@Param("userId") Long userId,
+                            @Param("type") String type,
+                            @Param("updateTime") OffsetDateTime updateTime);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Select("""
+            SELECT type, COUNT(*) AS cnt FROM infra_notify
+            WHERE user_id = #{userId}
+              AND read_flag = 0
+              AND deleted = 0
+            GROUP BY type
+            """)
+    List<InfraNotifyTypeCountRow> countUnreadGroupByType(@Param("userId") Long userId);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Select("""
+            SELECT COUNT(*) FROM infra_notify
+            WHERE tenant_id = #{tenantId}
+              AND user_id = #{userId}
+              AND type = #{type}
+              AND dedupe_key = #{dedupeKey}
+              AND read_flag = 0
+              AND deleted = 0
+            """)
+    long countUnreadDedupe(@Param("tenantId") Long tenantId,
+                           @Param("userId") Long userId,
+                           @Param("type") String type,
+                           @Param("dedupeKey") String dedupeKey);
 
     @InterceptorIgnore(tenantLine = "true")
     @Select("""

@@ -14,6 +14,7 @@ import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mysql.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
+import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +27,7 @@ import java.util.Objects;
 public class TaskItemServiceImpl implements TaskItemService {
 
     private final TaskItemMapper taskItemMapper;
+    private final TaskDueNotifyService taskDueNotifyService;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request) {
@@ -36,6 +38,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .eq(TaskItemDO::getAssigneeId, userId)
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByDesc(TaskItemDO::getCreateTime));
+        taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
         return PageResult.of(TaskConvert.toRespList(page.getRecords()), page.getTotal());
     }
 
@@ -56,6 +59,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdater(userId);
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
+        taskDueNotifyService.pushIfDueSoon(row);
         return row.getId();
     }
 
@@ -78,6 +82,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdater(userId);
         row.setUpdateTime(OffsetDateTime.now());
         taskItemMapper.updateById(row);
+        taskDueNotifyService.pushIfDueSoon(row);
     }
 
     @Override

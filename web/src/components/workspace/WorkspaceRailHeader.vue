@@ -3,15 +3,24 @@ import { computed, onMounted, ref } from 'vue'
 import WorkspaceAccountSwitcher from './WorkspaceAccountSwitcher.vue'
 import WorkspaceNotifyBell from './WorkspaceNotifyBell.vue'
 import WorkspaceProfileCard from './WorkspaceProfileCard.vue'
+import WorkspaceSearchModal from './WorkspaceSearchModal.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
+import { useWorkspaceSearchShortcut } from '../../composables/useWorkspaceSearchShortcut'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
 
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
 
 const profileOpen = ref(false)
+const searchOpen = ref(false)
 const keyword = ref('')
+
+function openSearch() {
+  searchOpen.value = true
+}
+
+useWorkspaceSearchShortcut(searchOpen)
 
 const displayNickname = computed(() =>
   profileStore.profile?.nickname
@@ -94,9 +103,13 @@ onMounted(() => {
       placeholder="搜索 (⌘K)"
       icon="i-lucide-search"
       size="sm"
-      class="workspace-search"
-      disabled
+      class="workspace-search cursor-pointer"
+      readonly
+      @click="openSearch"
+      @keydown.enter.prevent="openSearch"
     />
+
+    <WorkspaceSearchModal v-model:open="searchOpen" />
   </div>
 </template>
 

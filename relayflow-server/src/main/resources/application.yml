@@ -59,3 +59,5 @@ relayflow:
     allowed-origins: "*"
     heartbeat-ttl-seconds: 60
     token-query-param: token
+  task:
+    due-remind-window: 24h

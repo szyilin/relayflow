@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useTasksStore } from '../../../stores/tasks'
 
+const route = useRoute()
 const tasksStore = useTasksStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
+const highlightedTaskId = ref<string | null>(null)
 const toast = useToast()
 
 const createForm = reactive({
@@ -13,8 +16,19 @@ const createForm = reactive({
   dueTime: ''
 })
 
-onMounted(() => {
-  void tasksStore.fetchMyTasks()
+function applyTaskIdFromRoute() {
+  const raw = route.query.taskId
+  const taskId = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null
+  highlightedTaskId.value = taskId?.trim() || null
+}
+
+onMounted(async () => {
+  applyTaskIdFromRoute()
+  await tasksStore.fetchMyTasks()
+})
+
+watch(() => route.query.taskId, () => {
+  applyTaskIdFromRoute()
 })
 
 function formatDue(iso?: string | null) {
@@ -143,7 +157,10 @@ meta:
             <div
               v-for="task in tasksStore.items"
               :key="task.id"
-              class="flex items-center gap-3 rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] px-4 py-3"
+              class="flex items-center gap-3 rounded-lg border px-4 py-3"
+              :class="highlightedTaskId === task.id
+                ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)]'"
             >
               <UCheckbox
                 :model-value="task.status === 'DONE'"

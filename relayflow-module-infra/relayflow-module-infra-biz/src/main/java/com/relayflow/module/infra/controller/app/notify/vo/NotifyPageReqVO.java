@@ -13,4 +13,7 @@ public class NotifyPageReqVO {
     @Min(1)
     @Max(100)
     private Integer pageSize = 20;
+
+    /** Optional notification type filter, e.g. TASK_DUE. */
+    private String type;
 }
