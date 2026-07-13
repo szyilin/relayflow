@@ -47,21 +47,29 @@ public interface InfraNotifyPublicMapper {
 
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
+            <script>
             SELECT COUNT(*) FROM infra_notify
             WHERE user_id = #{userId}
               AND deleted = 0
-              AND (#{type} IS NULL OR type = #{type})
+            <if test="type != null">
+              AND type = #{type}
+            </if>
+            </script>
             """)
     long countByUserId(@Param("userId") Long userId, @Param("type") String type);
 
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
+            <script>
             SELECT * FROM infra_notify
             WHERE user_id = #{userId}
               AND deleted = 0
-              AND (#{type} IS NULL OR type = #{type})
+            <if test="type != null">
+              AND type = #{type}
+            </if>
             ORDER BY create_time DESC
             LIMIT #{pageSize} OFFSET #{offset}
+            </script>
             """)
     List<InfraNotifyDO> selectPageByUserId(@Param("userId") Long userId,
                                            @Param("type") String type,
@@ -70,13 +78,17 @@ public interface InfraNotifyPublicMapper {
 
     @InterceptorIgnore(tenantLine = "true")
     @Update("""
+            <script>
             UPDATE infra_notify
             SET read_flag = 1,
                 update_time = #{updateTime}
             WHERE user_id = #{userId}
               AND read_flag = 0
               AND deleted = 0
-              AND (#{type} IS NULL OR type = #{type})
+            <if test="type != null">
+              AND type = #{type}
+            </if>
+            </script>
             """)
     int markAllReadByUserId(@Param("userId") Long userId,
                             @Param("type") String type,
