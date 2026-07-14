@@ -104,7 +104,8 @@ TT MMM SSS NNN
 
 - 全局 `@ControllerAdvice` 捕获异常并转换为统一响应
 - Controller **不直接返回 DO**；出参使用 RespVO（见 [`code-style.md`](code-style.md)）
-- 跨模块调用仅使用 `*-api` 中的 DTO
+- 跨模块**同步**调用仅使用 `*-api` 中的 DTO
+- 跨模块**异步**副作用走领域消息（评判标准与 Envelope 见 [`cross-domain-messaging.md`](cross-domain-messaging.md)）
 
 ## 与前端路由对齐
 

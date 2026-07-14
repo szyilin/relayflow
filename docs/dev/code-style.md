@@ -27,12 +27,22 @@ Java 后端与 Vue 前端的命名、分层、认证与日志习惯。
 
 | 规则 | V1 | Phase 2 |
 |------|-----|---------|
-| 跨域调用 | 仅 `*-api`（本地 `XxxApiImpl`） | 同接口，换 OpenFeign |
+| 跨域同步 | 仅 `*-api`（本地 `XxxApiImpl`） | 同接口，换 OpenFeign |
+| 跨域异步 | 领域消息（当前 Redis Streams，目标独立 MQ） | 同契约，换 MQ 传输 |
 | 数据访问 | 本域表前缀；禁止跨域 Mapper | 分库，规则不变 |
 | 运行时 | 仅 `relayflow-server` | Gateway + `*-server` |
 
 - 跨模块只传 DTO，不传 VO；Controller **不返回 DO**
 - `admin` 与 `app` 的 VO 分离；Service 层可共用
+- **何时同步 / 何时异步**：必须遵循 [`cross-domain-messaging.md`](cross-domain-messaging.md) 评判标准；不得凭感觉「顺便异步」
+
+### 领域消息（Java 落点）
+
+- 事件类型名、`payload` DTO 放在**产出域** `*-api`（与同步跨域 DTO 同等地位）
+- 业务只注入框架 `DomainEventPublisher`（名称以实现为准），**禁止**在 `*-biz` 中直接操作 Redis Stream / MQ 客户端
+- 消费方在本域注册 Listener；处理须**幂等**（按 `eventId` 或业务唯一键）
+- **禁止**用 Spring `ApplicationEvent` 作为跨域长期契约（进程内演示可以，跨模块正式集成须走领域消息抽象，便于换 MQ）
+- WebSocket 实时推送继续走现有 infra 通道，**不要**与领域消息总线混用
 
 ### biz 包结构
 

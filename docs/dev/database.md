@@ -26,7 +26,7 @@ V1 用 **表前缀** 做逻辑分域，不建多库：
 - `infra_*` 仅 infra 域 Mapper 访问
 - `im_*` 仅 im 域 Mapper 访问
 
-**禁止** im-biz 的 SQL 出现 `sys_` 表；跨域读数据须走 `*-api`（如 `AdminUserApi`），不直连他域表。
+**禁止** im-biz 的 SQL 出现 `sys_` 表；跨域读数据须走 `*-api`（如 `AdminUserApi`），不直连他域表。跨域写副作用若不必与当前请求强一致，走领域消息（见 [`cross-domain-messaging.md`](cross-domain-messaging.md)）。
 
 ## 公共字段
 

@@ -44,9 +44,31 @@ relayflow-server/                     # 唯一运行时入口
 ### 四条耦合铁律（从第一行代码遵守）
 
 1. **依赖方向**：`server → *-biz`；`*-biz → 其他 *-api`；**禁止 `*-biz → *-biz`**
-2. **跨域调用**：只通过 `*-api` 接口（V1 本地 `ApiImpl`，Phase 2 换 Feign，业务代码不改）
-3. **数据分域**：表前缀 `sys_` / `infra_` / `im_`；**禁止** im 的 Mapper 访问 `sys_` 表
+2. **跨域调用**：同步走 `*-api`（V1 本地 `ApiImpl`，Phase 2 换 Feign）；异步走**领域消息**（见 [`cross-domain-messaging.md`](cross-domain-messaging.md)）。禁止跨域直调他域 Service / 直查他域表
+3. **数据分域**：表前缀 `sys_` / `infra_` / `im_` / `bpm_`；**禁止** im 的 Mapper 访问 `sys_` 表
 4. **API 路径**：`/admin-api/{module}/`、`/app-api/{module}/` 与未来 Gateway 路由一致
+
+### 共享内核 vs 业务域
+
+工作台里能看见的导航项，不一定都是「平台内核」。划分如下，避免把身份逻辑塞进各业务模块，也避免业务域互掏库。
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ 共享内核（跨产品复用，偏 platform）                        │
+│  system：登录 / 用户 / 租户 / 组织 / 管理 RBAC             │
+│  infra：文件 / 配置 / 操作日志 / WebSocket 传输 / 领域消息传输 │
+└─────────────────────────────────────────────────────────┘
+        ▲ 同步 *-api 查询身份与能力
+        │ 异步：本域事实 → 领域消息 → 他域消费
+┌───────┴────────┐  ┌────────────┐  ┌─────────────────────┐
+│ im（IM）       │  │ bpm（审批） │  │ 后续官方域…           │
+│ 自有 im_* 表   │  │ 自有 bpm_*  │  │ 各域自有表前缀        │
+└────────────────┘  └────────────┘  └─────────────────────┘
+```
+
+- **内核**：被几乎所有业务依赖（查人、鉴权、传文件、推实时通道）。
+- **业务域**：一等公民官方能力；彼此**只**通过同步 `*-api` 或异步领域消息协作。
+- **同步 / 异步评判标准、Redis→MQ 传输**：见 [`cross-domain-messaging.md`](cross-domain-messaging.md)。
 
 ### 产品面与 API 前缀
 
@@ -65,7 +87,9 @@ relayflow-server/                     # 唯一运行时入口
 
 ### 产品模块 vs 部署单元
 
-工作台导航中的每一项 **≠** 一个微服务。官方能力 → 新 `relayflow-module-*`；是否独立 `*-server` 见 Phase 2 触发条件。第三方集成应用 → **开放平台 API**，不新增 JVM。
+工作台导航中的每一项 **≠** 一个微服务。官方能力 → 新 `relayflow-module-*`；是否独立 `*-server` 见 Phase 2 触发条件。
+
+**开放平台（占位）**：将来第三方应用通过开放平台（OAuth / 公开 HTTP 与事件）接入，是内部 `*-api` 与领域消息契约的**对外投影**，**不**为此新增业务 JVM。V1 不实现开放平台；与 Phase 2「拆微服务」是不同命题。
 
 ## Phase 2：分布式微服务（目标态）
 
@@ -91,6 +115,7 @@ relayflow-server/                     # 唯一运行时入口
 ## 参考
 
 - 产品面与权限：[`product-permission-model.md`](product-permission-model.md)
+- 跨域同步 / 异步与消息传输：[`cross-domain-messaging.md`](cross-domain-messaging.md)
 - 模块与代码风格：[`code-style.md`](code-style.md)
 - 数据库与 Flyway：[`database.md`](database.md)
 - API 约定：[`api.md`](api.md)
