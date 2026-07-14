@@ -1,5 +1,6 @@
 package com.relayflow.module.im.service.presence;
 
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.PresenceBatchRespVO;
 import com.relayflow.module.im.controller.app.vo.PresenceItemRespVO;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
@@ -21,7 +22,8 @@ public class ImPresenceServiceImpl implements ImPresenceService {
     private final RealtimeTransportApi realtimeTransportApi;
 
     @Override
-    public PresenceBatchRespVO batchPresence(Long tenantId, List<Long> userIds) {
+    public PresenceBatchRespVO batchPresence(List<Long> userIds) {
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         List<Long> requested = userIds == null ? List.of() : userIds.stream()
                 .filter(id -> id != null && id > 0)
                 .distinct()

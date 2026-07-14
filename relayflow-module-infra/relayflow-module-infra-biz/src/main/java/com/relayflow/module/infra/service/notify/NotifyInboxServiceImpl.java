@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.infra.api.notify.dto.NotifyItemCommand;
 import com.relayflow.module.infra.api.realtime.RealtimeEventPublisher;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEventDTO;
@@ -124,6 +125,11 @@ public class NotifyInboxServiceImpl implements NotifyInboxService {
     }
 
     @Override
+    public PageResult<InfraNotifyDO> pageMyInbox(String type, int pageNo, int pageSize) {
+        return pageByUserId(SecurityFrameworkUtils.requireLoginUserId(), type, pageNo, pageSize);
+    }
+
+    @Override
     public void markReadByIds(Long userId, List<Long> ids) {
         if (userId == null || ids == null || ids.isEmpty()) {
             return;
@@ -138,11 +144,21 @@ public class NotifyInboxServiceImpl implements NotifyInboxService {
     }
 
     @Override
+    public void markMyReadByIds(List<Long> ids) {
+        markReadByIds(SecurityFrameworkUtils.requireLoginUserId(), ids);
+    }
+
+    @Override
     public void markAllReadByUserId(Long userId, String type) {
         if (userId == null) {
             return;
         }
         notifyPublicMapper.markAllReadByUserId(userId, normalizeTypeFilter(type), OffsetDateTime.now());
+    }
+
+    @Override
+    public void markAllMyRead(String type) {
+        markAllReadByUserId(SecurityFrameworkUtils.requireLoginUserId(), type);
     }
 
     @Override
@@ -157,6 +173,16 @@ public class NotifyInboxServiceImpl implements NotifyInboxService {
             }
         }
         return grouped;
+    }
+
+    @Override
+    public Map<String, Long> countMyUnreadGroupByType() {
+        return countUnreadGroupByType(SecurityFrameworkUtils.requireLoginUserId());
+    }
+
+    @Override
+    public long countMyUnread() {
+        return countUnreadByUserId(SecurityFrameworkUtils.requireLoginUserId());
     }
 
     @Override

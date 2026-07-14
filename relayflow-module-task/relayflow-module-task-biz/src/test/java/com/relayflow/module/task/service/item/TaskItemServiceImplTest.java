@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -14,6 +15,7 @@ import com.relayflow.module.task.dal.mysql.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +23,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -49,6 +53,14 @@ class TaskItemServiceImplTest {
     @BeforeEach
     void setUpMocks() {
         taskItemService = new TaskItemServiceImpl(taskItemMapper, taskDueNotifyService);
+        LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -62,7 +74,7 @@ class TaskItemServiceImplTest {
             return 1;
         });
 
-        Long id = taskItemService.createTask(USER_ID, TENANT_ID, request);
+        Long id = taskItemService.createTask(request);
 
         assertEquals(TASK_ID, id);
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
@@ -93,7 +105,7 @@ class TaskItemServiceImplTest {
         page.setTotal(1);
         when(taskItemMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
 
-        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(USER_ID, request);
+        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
 
         assertEquals(1, result.getTotal());
         assertEquals(TASK_ID, result.getList().get(0).getId());
@@ -130,7 +142,7 @@ class TaskItemServiceImplTest {
         request.setDone(true);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> taskItemService.toggleDone(USER_ID, request));
+                () -> taskItemService.toggleDone(request));
         assertEquals(ErrorCodeConstants.TASK_FORBIDDEN.getCode(), exception.getCode());
     }
 
@@ -139,7 +151,7 @@ class TaskItemServiceImplTest {
         when(taskItemMapper.selectById(TASK_ID)).thenReturn(null);
 
         ServiceException exception = assertThrows(ServiceException.class,
-                () -> taskItemService.deleteTask(USER_ID, TASK_ID));
+                () -> taskItemService.deleteTask(TASK_ID));
         assertEquals(ErrorCodeConstants.TASK_NOT_FOUND.getCode(), exception.getCode());
     }
 
@@ -155,7 +167,7 @@ class TaskItemServiceImplTest {
         request.setId(TASK_ID);
         request.setTitle("新标题");
 
-        taskItemService.updateTask(USER_ID, request);
+        taskItemService.updateTask(request);
 
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).updateById(captor.capture());

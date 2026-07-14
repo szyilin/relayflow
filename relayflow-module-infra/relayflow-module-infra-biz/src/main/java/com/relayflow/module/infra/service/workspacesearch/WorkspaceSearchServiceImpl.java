@@ -1,6 +1,8 @@
 package com.relayflow.module.infra.service.workspacesearch;
 
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.api.conversation.ImConversationApi;
 import com.relayflow.module.im.api.conversation.dto.ConversationSearchRespDTO;
 import com.relayflow.module.infra.controller.app.workspacesearch.vo.WorkspaceSearchGroupRespVO;
@@ -30,7 +32,11 @@ public class WorkspaceSearchServiceImpl implements WorkspaceSearchService {
     private final TaskItemApi taskItemApi;
 
     @Override
-    public WorkspaceSearchRespVO search(Long tenantId, Long userId, String keyword, int limitPerGroup) {
+    public WorkspaceSearchRespVO search(String keyword, int limitPerGroup) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+
         String trimmed = requireKeyword(keyword);
         int limit = clampLimit(limitPerGroup);
 

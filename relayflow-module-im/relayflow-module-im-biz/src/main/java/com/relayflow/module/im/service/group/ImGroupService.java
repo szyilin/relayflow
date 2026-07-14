@@ -10,9 +10,9 @@ import java.util.List;
 
 public interface ImGroupService {
 
-    CreateGroupRespVO createGroup(Long tenantId, Long userId, CreateGroupReqVO request);
+    CreateGroupRespVO createGroup(CreateGroupReqVO request);
 
-    AddGroupMembersRespVO addMembers(Long tenantId, Long userId, AddGroupMembersReqVO request);
+    AddGroupMembersRespVO addMembers(AddGroupMembersReqVO request);
 
-    List<GroupMemberItemRespVO> listMembers(Long tenantId, Long userId, Long conversationId);
+    List<GroupMemberItemRespVO> listMembers(Long conversationId);
 }

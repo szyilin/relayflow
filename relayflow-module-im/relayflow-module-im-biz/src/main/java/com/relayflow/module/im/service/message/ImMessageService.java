@@ -9,9 +9,11 @@ import java.util.List;
 
 public interface ImMessageService {
 
-    List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq);
+    List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq);
 
     SendMessageRespVO sendMessage(Long tenantId, Long userId, SendMessageReqVO request, RealtimeSendContext realtimeContext);
+
+    SendMessageRespVO sendMyMessage(SendMessageReqVO request);
 
     void sendSystemMessage(Long tenantId, Long conversationId, String text);
 }

@@ -3,8 +3,6 @@ package com.relayflow.module.task.controller.app;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
-import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -39,17 +37,15 @@ public class TaskItemController {
 
     @GetMapping("/page")
     public CommonResult<PageResult<TaskItemRespVO>> page(@Valid TaskItemPageReqVO request) {
-        LoginUser loginUser = requireLoginUser();
-        return CommonResult.success(taskItemService.pageMyTasks(loginUser.getUserId(), request));
+        return CommonResult.success(taskItemService.pageMyTasks(request));
     }
 
     @GetMapping("/search")
     public CommonResult<List<TaskSearchItemRespVO>> search(
             @RequestParam("keyword") String keyword,
             @RequestParam(value = "limit", defaultValue = "5") int limit) {
-        LoginUser loginUser = requireLoginUser();
         String trimmed = requireKeyword(keyword);
-        return CommonResult.success(taskItemService.searchMyTasks(loginUser.getUserId(), trimmed, clampLimit(limit))
+        return CommonResult.success(taskItemService.searchMyTasks(trimmed, clampLimit(limit))
                 .stream()
                 .map(this::toSearchItem)
                 .toList());
@@ -82,37 +78,24 @@ public class TaskItemController {
 
     @PostMapping("/create")
     public CommonResult<Long> create(@Valid @RequestBody TaskItemCreateReqVO request) {
-        LoginUser loginUser = requireLoginUser();
-        return CommonResult.success(taskItemService.createTask(
-                loginUser.getUserId(), loginUser.getTenantId(), request));
+        return CommonResult.success(taskItemService.createTask(request));
     }
 
     @PutMapping("/update")
     public CommonResult<Boolean> update(@Valid @RequestBody TaskItemUpdateReqVO request) {
-        LoginUser loginUser = requireLoginUser();
-        taskItemService.updateTask(loginUser.getUserId(), request);
+        taskItemService.updateTask(request);
         return CommonResult.success(true);
     }
 
     @PutMapping("/toggle-done")
     public CommonResult<Boolean> toggleDone(@Valid @RequestBody TaskItemToggleDoneReqVO request) {
-        LoginUser loginUser = requireLoginUser();
-        taskItemService.toggleDone(loginUser.getUserId(), request);
+        taskItemService.toggleDone(request);
         return CommonResult.success(true);
     }
 
     @DeleteMapping("/delete")
     public CommonResult<Boolean> delete(@RequestParam @NotNull Long id) {
-        LoginUser loginUser = requireLoginUser();
-        taskItemService.deleteTask(loginUser.getUserId(), id);
+        taskItemService.deleteTask(id);
         return CommonResult.success(true);
-    }
-
-    private LoginUser requireLoginUser() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            throw new ServiceException(com.relayflow.module.system.enums.ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS);
-        }
-        return loginUser;
     }
 }

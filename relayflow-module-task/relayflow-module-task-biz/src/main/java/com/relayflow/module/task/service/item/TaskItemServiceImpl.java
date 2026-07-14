@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -31,7 +32,11 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskDueNotifyService taskDueNotifyService;
 
     @Override
-    public PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request) {
+    public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
+        return pageMyTasks(SecurityFrameworkUtils.requireLoginUserId(), request);
+    }
+
+    private PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request) {
         String status = normalizeStatusFilter(request.getStatus());
         Page<TaskItemDO> page = taskItemMapper.selectPage(
                 new Page<>(request.getPageNo(), request.getPageSize()),
@@ -41,6 +46,11 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .orderByDesc(TaskItemDO::getCreateTime));
         taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
         return PageResult.of(TaskConvert.toRespList(page.getRecords()), page.getTotal());
+    }
+
+    @Override
+    public List<TaskItemRespVO> searchMyTasks(String keyword, int limit) {
+        return searchMyTasks(SecurityFrameworkUtils.requireLoginUserId(), keyword, limit);
     }
 
     @Override
@@ -64,7 +74,13 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
-    public Long createTask(Long userId, Long tenantId, TaskItemCreateReqVO request) {
+    public Long createTask(TaskItemCreateReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        return createTask(userId, tenantId, request);
+    }
+
+    private Long createTask(Long userId, Long tenantId, TaskItemCreateReqVO request) {
         String title = request.getTitle().trim();
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -85,7 +101,11 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
-    public void updateTask(Long userId, TaskItemUpdateReqVO request) {
+    public void updateTask(TaskItemUpdateReqVO request) {
+        updateTask(SecurityFrameworkUtils.requireLoginUserId(), request);
+    }
+
+    private void updateTask(Long userId, TaskItemUpdateReqVO request) {
         TaskItemDO row = requireOwnedTask(request.getId(), userId);
         boolean changed = false;
 
@@ -107,7 +127,11 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
-    public void toggleDone(Long userId, TaskItemToggleDoneReqVO request) {
+    public void toggleDone(TaskItemToggleDoneReqVO request) {
+        toggleDone(SecurityFrameworkUtils.requireLoginUserId(), request);
+    }
+
+    private void toggleDone(Long userId, TaskItemToggleDoneReqVO request) {
         TaskItemDO row = requireOwnedTask(request.getId(), userId);
         String nextStatus = Boolean.TRUE.equals(request.getDone()) ? TaskItemStatus.DONE : TaskItemStatus.TODO;
         if (Objects.equals(nextStatus, row.getStatus())) {
@@ -120,7 +144,11 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
-    public void deleteTask(Long userId, Long id) {
+    public void deleteTask(Long id) {
+        deleteTask(SecurityFrameworkUtils.requireLoginUserId(), id);
+    }
+
+    private void deleteTask(Long userId, Long id) {
         requireOwnedTask(id, userId);
         taskItemMapper.deleteById(id);
     }

@@ -2,6 +2,8 @@ package com.relayflow.module.im.service.conversation;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationMemberReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
@@ -129,6 +131,12 @@ public class ImConversationServiceImpl implements ImConversationService {
     }
 
     @Override
+    public List<ConversationItemRespVO> listMyConversations(String keyword) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return listConversations(loginUser.getTenantId(), loginUser.getUserId(), keyword);
+    }
+
+    @Override
     @Transactional
     public Long getOrCreateDirectConversation(Long tenantId, Long userId, Long peerUserId) {
         if (peerUserId == null || Objects.equals(userId, peerUserId)) {
@@ -205,7 +213,12 @@ public class ImConversationServiceImpl implements ImConversationService {
 
     @Override
     @Transactional
-    public void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq) {
+    public void markConversationRead(Long conversationId, Long readSeq) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        markConversationRead(loginUser.getTenantId(), loginUser.getUserId(), conversationId, readSeq);
+    }
+
+    private void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq) {
         requireMembership(tenantId, conversationId, userId);
         ImConversationMemberDO member = conversationMemberMapper.selectOne(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
@@ -236,7 +249,12 @@ public class ImConversationServiceImpl implements ImConversationService {
     }
 
     @Override
-    public ConversationReadStatusRespVO getReadStatus(Long tenantId, Long userId, Long conversationId) {
+    public ConversationReadStatusRespVO getReadStatus(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return getReadStatus(loginUser.getTenantId(), loginUser.getUserId(), conversationId);
+    }
+
+    private ConversationReadStatusRespVO getReadStatus(Long tenantId, Long userId, Long conversationId) {
         requireMembership(tenantId, conversationId, userId);
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()

@@ -2,6 +2,8 @@ package com.relayflow.module.im.service.message;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ContentBlockVO;
 import com.relayflow.module.im.controller.app.vo.MessageContentVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
@@ -50,7 +52,12 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final UserApi userApi;
 
     @Override
-    public List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq) {
+    public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return listMessages(loginUser.getTenantId(), loginUser.getUserId(), conversationId, afterSeq);
+    }
+
+    private List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq) {
         conversationService.requireMembership(tenantId, conversationId, userId);
         long cursor = afterSeq != null ? afterSeq : 0L;
 
@@ -180,6 +187,13 @@ public class ImMessageServiceImpl implements ImMessageService {
         SendMessageRespVO response = toSendResponse(message);
         dispatchRealtime(message, request.getContent(), userId, tenantId, realtimeContext, false);
         return response;
+    }
+
+    @Override
+    @Transactional
+    public SendMessageRespVO sendMyMessage(SendMessageReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return sendMessage(loginUser.getTenantId(), loginUser.getUserId(), request, null);
     }
 
     private void validateSendRequest(SendMessageReqVO request) {

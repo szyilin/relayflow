@@ -85,7 +85,13 @@ public class UserServiceImpl implements UserService {
     private final NotifyInboxApi notifyInboxApi;
 
     @Override
-    public AppUserProfileRespVO getMyProfile(Long userId, Long tenantId) {
+    public AppUserProfileRespVO getMyProfile() {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        return getMyProfile(userId, tenantId);
+    }
+
+    private AppUserProfileRespVO getMyProfile(Long userId, Long tenantId) {
         requireTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
         SysTenantDO tenant = tenantService.getTenant(tenantId);
@@ -94,7 +100,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request) {
+    public AppUserProfileRespVO updateMyProfile(AppUserProfileUpdateReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        return updateMyProfile(userId, tenantId, request);
+    }
+
+    private AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request) {
         requireTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
 

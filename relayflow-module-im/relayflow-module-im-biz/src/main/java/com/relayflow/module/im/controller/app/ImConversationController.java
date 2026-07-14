@@ -2,14 +2,12 @@ package com.relayflow.module.im.controller.app;
 
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
-import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.MarkConversationReadReqVO;
 import com.relayflow.module.im.controller.app.vo.ConversationSearchItemRespVO;
 import com.relayflow.module.im.service.conversation.ImConversationService;
-import com.relayflow.module.system.enums.ErrorCodeConstants;
+import com.relayflow.module.im.enums.ErrorCodeConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
@@ -32,19 +30,15 @@ public class ImConversationController {
     @GetMapping("/list")
     public CommonResult<List<ConversationItemRespVO>> listConversations(
             @RequestParam(value = "keyword", required = false) String keyword) {
-        LoginUser loginUser = requireLoginUser();
-        return CommonResult.success(
-                conversationService.listConversations(loginUser.getTenantId(), loginUser.getUserId(), keyword));
+        return CommonResult.success(conversationService.listMyConversations(keyword));
     }
 
     @GetMapping("/search")
     public CommonResult<List<ConversationSearchItemRespVO>> searchConversations(
             @RequestParam("keyword") String keyword,
             @RequestParam(value = "limit", defaultValue = "5") int limit) {
-        LoginUser loginUser = requireLoginUser();
         String trimmed = requireKeyword(keyword);
-        return CommonResult.success(conversationService.listConversations(
-                        loginUser.getTenantId(), loginUser.getUserId(), trimmed).stream()
+        return CommonResult.success(conversationService.listMyConversations(trimmed).stream()
                 .limit(clampLimit(limit))
                 .map(this::toSearchItem)
                 .toList());
@@ -63,7 +57,7 @@ public class ImConversationController {
 
     private String requireKeyword(String keyword) {
         if (!StringUtils.hasText(keyword) || !StringUtils.hasText(keyword.trim())) {
-            throw new ServiceException(com.relayflow.module.im.enums.ErrorCodeConstants.SEARCH_KEYWORD_REQUIRED);
+            throw new ServiceException(ErrorCodeConstants.SEARCH_KEYWORD_REQUIRED);
         }
         return keyword.trim();
     }
@@ -77,27 +71,12 @@ public class ImConversationController {
 
     @PostMapping("/read")
     public CommonResult<Void> markConversationRead(@Valid @RequestBody MarkConversationReadReqVO request) {
-        LoginUser loginUser = requireLoginUser();
-        conversationService.markConversationRead(
-                loginUser.getTenantId(),
-                loginUser.getUserId(),
-                request.getConversationId(),
-                request.getReadSeq());
+        conversationService.markConversationRead(request.getConversationId(), request.getReadSeq());
         return CommonResult.success(null);
     }
 
     @GetMapping("/read-status")
     public CommonResult<ConversationReadStatusRespVO> getReadStatus(@RequestParam Long conversationId) {
-        LoginUser loginUser = requireLoginUser();
-        return CommonResult.success(conversationService.getReadStatus(
-                loginUser.getTenantId(), loginUser.getUserId(), conversationId));
-    }
-
-    private LoginUser requireLoginUser() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            throw new ServiceException(ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS);
-        }
-        return loginUser;
+        return CommonResult.success(conversationService.getReadStatus(conversationId));
     }
 }

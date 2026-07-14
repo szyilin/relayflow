@@ -1,13 +1,9 @@
 package com.relayflow.module.system.controller.admin.auth;
 
-import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
-import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginReqVO;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
-import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.service.auth.AuthService;
 import com.relayflow.module.system.service.permission.PermissionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,11 +40,6 @@ public class AuthController {
 
     @GetMapping("/get-permission-info")
     public CommonResult<AuthPermissionInfoRespVO> getPermissionInfo() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            throw new ServiceException(ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS);
-        }
-        return CommonResult.success(
-                permissionService.getPermissionInfo(loginUser.getUserId(), loginUser.getTenantId()));
+        return CommonResult.success(permissionService.getMyPermissionInfo());
     }
 }

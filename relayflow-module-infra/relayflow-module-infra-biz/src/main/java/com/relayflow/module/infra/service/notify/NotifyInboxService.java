@@ -21,11 +21,21 @@ public interface NotifyInboxService {
 
     PageResult<InfraNotifyDO> pageByUserId(Long userId, String type, int pageNo, int pageSize);
 
+    PageResult<InfraNotifyDO> pageMyInbox(String type, int pageNo, int pageSize);
+
     void markReadByIds(Long userId, List<Long> ids);
+
+    void markMyReadByIds(List<Long> ids);
 
     void markAllReadByUserId(Long userId, String type);
 
+    void markAllMyRead(String type);
+
     Map<String, Long> countUnreadGroupByType(Long userId);
+
+    Map<String, Long> countMyUnreadGroupByType();
+
+    long countMyUnread();
 
     boolean hasUnreadDedupe(Long tenantId, Long userId, String type, String dedupeKey);
 }

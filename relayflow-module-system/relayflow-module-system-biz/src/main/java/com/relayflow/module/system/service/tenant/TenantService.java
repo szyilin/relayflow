@@ -16,5 +16,9 @@ public interface TenantService {
 
     List<AuthRegisterTenantSummaryVO> listMyTenants(Long userId);
 
+    List<AuthRegisterTenantSummaryVO> listMyTenants();
+
     AuthLoginRespVO switchTenant(Long userId, Long tenantId);
+
+    AuthLoginRespVO switchMyTenant(Long tenantId);
 }

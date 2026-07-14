@@ -17,5 +17,7 @@ public interface PermissionService {
 
     AuthPermissionInfoRespVO getPermissionInfo(Long userId, Long tenantId);
 
+    AuthPermissionInfoRespVO getMyPermissionInfo();
+
     List<PermissionRespVO> getPermissionTree();
 }

@@ -11,15 +11,17 @@ import java.util.List;
 
 public interface TaskItemService {
 
-    PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request);
+    PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request);
+
+    List<TaskItemRespVO> searchMyTasks(String keyword, int limit);
 
     List<TaskItemRespVO> searchMyTasks(Long userId, String keyword, int limit);
 
-    Long createTask(Long userId, Long tenantId, TaskItemCreateReqVO request);
+    Long createTask(TaskItemCreateReqVO request);
 
-    void updateTask(Long userId, TaskItemUpdateReqVO request);
+    void updateTask(TaskItemUpdateReqVO request);
 
-    void toggleDone(Long userId, TaskItemToggleDoneReqVO request);
+    void toggleDone(TaskItemToggleDoneReqVO request);
 
-    void deleteTask(Long userId, Long id);
+    void deleteTask(Long id);
 }

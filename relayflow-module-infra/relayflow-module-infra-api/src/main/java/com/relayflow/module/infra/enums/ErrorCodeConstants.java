@@ -29,7 +29,6 @@ public enum ErrorCodeConstants implements ErrorCode {
     NOTIFY_TITLE_REQUIRED(2_002_003_004, "通知标题不能为空"),
     NOTIFY_PAYLOAD_INVALID(2_002_003_005, "通知载荷格式无效"),
     NOTIFY_NOT_FOUND(2_002_003_006, "通知不存在"),
-    NOTIFY_LOGIN_REQUIRED(2_002_003_007, "请先登录"),
 
     SEARCH_KEYWORD_REQUIRED(2_002_004_001, "请输入搜索关键词");
 

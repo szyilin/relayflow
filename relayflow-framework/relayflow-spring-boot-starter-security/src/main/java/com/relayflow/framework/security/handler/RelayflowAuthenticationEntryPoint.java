@@ -1,5 +1,6 @@
 package com.relayflow.framework.security.handler;
 
+import com.relayflow.common.exception.GlobalErrorCodeConstants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
@@ -11,8 +12,10 @@ import java.nio.charset.StandardCharsets;
 
 public class RelayflowAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-    private static final String UNAUTHORIZED_JSON =
-            "{\"code\":2000001002,\"msg\":\"未登录或 Token 无效\",\"data\":null}";
+    private static final String UNAUTHORIZED_JSON = String.format(
+            "{\"code\":%d,\"msg\":\"%s\",\"data\":null}",
+            GlobalErrorCodeConstants.UNAUTHORIZED.getCode(),
+            GlobalErrorCodeConstants.UNAUTHORIZED.getMsg());
 
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
