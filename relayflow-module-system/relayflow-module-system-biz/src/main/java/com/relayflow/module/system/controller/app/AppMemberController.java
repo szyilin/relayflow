@@ -2,12 +2,10 @@ package com.relayflow.module.system.controller.app;
 
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
-import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.framework.security.core.SecurityFrameworkUtils;
-import com.relayflow.module.system.api.user.MemberUserApi;
 import com.relayflow.module.system.api.user.dto.MemberSearchRespDTO;
 import com.relayflow.module.system.controller.app.vo.MemberSearchItemRespVO;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import com.relayflow.module.system.service.member.AppMemberSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,16 +23,14 @@ public class AppMemberController {
     private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 10;
 
-    private final MemberUserApi memberUserApi;
+    private final AppMemberSearchService appMemberSearchService;
 
     @GetMapping("/search")
     public CommonResult<List<MemberSearchItemRespVO>> search(
             @RequestParam("keyword") String keyword,
             @RequestParam(value = "limit", defaultValue = "5") int limit) {
-        LoginUser loginUser = requireLoginUser();
         String trimmed = requireKeyword(keyword);
-        List<MemberSearchRespDTO> items = memberUserApi.searchMembers(
-                loginUser.getTenantId(), trimmed, clampLimit(limit));
+        List<MemberSearchRespDTO> items = appMemberSearchService.searchMembers(trimmed, clampLimit(limit));
         return CommonResult.success(items.stream().map(this::toResp).toList());
     }
 
@@ -66,13 +62,5 @@ public class AppMemberController {
             return DEFAULT_LIMIT;
         }
         return Math.min(limit, MAX_LIMIT);
-    }
-
-    private LoginUser requireLoginUser() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            throw new ServiceException(ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS);
-        }
-        return loginUser;
     }
 }

@@ -10,6 +10,8 @@ public interface ImConversationService {
 
     List<ConversationItemRespVO> listConversations(Long tenantId, Long userId, String keyword);
 
+    List<ConversationItemRespVO> listMyConversations(String keyword);
+
     Long getOrCreateDirectConversation(Long tenantId, Long userId, Long peerUserId);
 
     void requireMembership(Long tenantId, Long conversationId, Long userId);
@@ -18,9 +20,9 @@ public interface ImConversationService {
 
     List<Long> listOtherMemberUserIds(Long tenantId, Long conversationId, Long senderId);
 
-    void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq);
+    void markConversationRead(Long conversationId, Long readSeq);
 
-    ConversationReadStatusRespVO getReadStatus(Long tenantId, Long userId, Long conversationId);
+    ConversationReadStatusRespVO getReadStatus(Long conversationId);
 
     ImConversationDO requireConversation(Long tenantId, Long conversationId);
 

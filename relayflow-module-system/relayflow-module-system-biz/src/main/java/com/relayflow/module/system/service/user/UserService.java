@@ -39,7 +39,7 @@ public interface UserService {
 
     List<AppContactItemRespVO> listContactsByDept(Long deptId, String keyword);
 
-    AppUserProfileRespVO getMyProfile(Long userId, Long tenantId);
+    AppUserProfileRespVO getMyProfile();
 
-    AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request);
+    AppUserProfileRespVO updateMyProfile(AppUserProfileUpdateReqVO request);
 }

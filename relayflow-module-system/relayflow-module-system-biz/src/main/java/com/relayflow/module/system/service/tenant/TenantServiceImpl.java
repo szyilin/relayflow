@@ -5,6 +5,7 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterTenantSummaryVO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
@@ -56,11 +57,21 @@ public class TenantServiceImpl implements TenantService {
     }
 
     @Override
+    public List<AuthRegisterTenantSummaryVO> listMyTenants() {
+        return listMyTenants(SecurityFrameworkUtils.requireLoginUserId());
+    }
+
+    @Override
     public List<AuthRegisterTenantSummaryVO> listMyTenants(Long userId) {
         List<SysTenantUserDO> memberships = loadActiveMemberships(userId);
         return memberships.stream()
                 .map(membership -> toSummary(membership, userId))
                 .toList();
+    }
+
+    @Override
+    public AuthLoginRespVO switchMyTenant(Long tenantId) {
+        return switchTenant(SecurityFrameworkUtils.requireLoginUserId(), tenantId);
     }
 
     @Override

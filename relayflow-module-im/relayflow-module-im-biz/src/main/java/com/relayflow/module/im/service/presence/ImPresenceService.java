@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface ImPresenceService {
 
-    PresenceBatchRespVO batchPresence(Long tenantId, List<Long> userIds);
+    PresenceBatchRespVO batchPresence(List<Long> userIds);
 }

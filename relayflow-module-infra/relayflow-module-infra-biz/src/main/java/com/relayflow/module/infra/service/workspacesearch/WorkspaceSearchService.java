@@ -4,5 +4,5 @@ import com.relayflow.module.infra.controller.app.workspacesearch.vo.WorkspaceSea
 
 public interface WorkspaceSearchService {
 
-    WorkspaceSearchRespVO search(Long tenantId, Long userId, String keyword, int limitPerGroup);
+    WorkspaceSearchRespVO search(String keyword, int limitPerGroup);
 }

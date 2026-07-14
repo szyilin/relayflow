@@ -2,6 +2,7 @@ package com.relayflow.module.system.service.permission;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthPermissionInfoRespVO;
 import com.relayflow.module.system.controller.admin.permission.vo.PermissionRespVO;
 import com.relayflow.module.system.convert.PermissionConvert;
@@ -85,6 +86,12 @@ public class PermissionServiceImpl implements PermissionService {
                         .thenComparing(SysRoleDO::getId))
                 .map(this::toRoleSimple)
                 .toList();
+    }
+
+    @Override
+    public AuthPermissionInfoRespVO getMyPermissionInfo() {
+        var loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return getPermissionInfo(loginUser.getUserId(), loginUser.getTenantId());
     }
 
     @Override

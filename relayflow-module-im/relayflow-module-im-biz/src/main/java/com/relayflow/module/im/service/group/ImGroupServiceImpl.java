@@ -2,6 +2,8 @@ package com.relayflow.module.im.service.group;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.AddGroupMembersReqVO;
 import com.relayflow.module.im.controller.app.vo.AddGroupMembersRespVO;
 import com.relayflow.module.im.controller.app.vo.CreateGroupReqVO;
@@ -45,7 +47,12 @@ public class ImGroupServiceImpl implements ImGroupService {
 
     @Override
     @Transactional
-    public CreateGroupRespVO createGroup(Long tenantId, Long userId, CreateGroupReqVO request) {
+    public CreateGroupRespVO createGroup(CreateGroupReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return createGroup(loginUser.getTenantId(), loginUser.getUserId(), request);
+    }
+
+    private CreateGroupRespVO createGroup(Long tenantId, Long userId, CreateGroupReqVO request) {
         String name = normalizeGroupName(request.getName());
         List<Long> memberUserIds = normalizeMemberUserIds(userId, request.getMemberUserIds());
         validateMembersExist(memberUserIds);
@@ -81,7 +88,12 @@ public class ImGroupServiceImpl implements ImGroupService {
 
     @Override
     @Transactional
-    public AddGroupMembersRespVO addMembers(Long tenantId, Long userId, AddGroupMembersReqVO request) {
+    public AddGroupMembersRespVO addMembers(AddGroupMembersReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return addMembers(loginUser.getTenantId(), loginUser.getUserId(), request);
+    }
+
+    private AddGroupMembersRespVO addMembers(Long tenantId, Long userId, AddGroupMembersReqVO request) {
         ImGroupDO group = requireGroup(tenantId, request.getConversationId());
         conversationService.requireMembership(tenantId, group.getConversationId(), userId);
 
@@ -113,7 +125,12 @@ public class ImGroupServiceImpl implements ImGroupService {
     }
 
     @Override
-    public List<GroupMemberItemRespVO> listMembers(Long tenantId, Long userId, Long conversationId) {
+    public List<GroupMemberItemRespVO> listMembers(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return listMembers(loginUser.getTenantId(), loginUser.getUserId(), conversationId);
+    }
+
+    private List<GroupMemberItemRespVO> listMembers(Long tenantId, Long userId, Long conversationId) {
         requireGroup(tenantId, conversationId);
         conversationService.requireMembership(tenantId, conversationId, userId);
 

@@ -1,12 +1,8 @@
 package com.relayflow.module.im.controller.app;
 
-import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
-import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.PresenceBatchRespVO;
 import com.relayflow.module.im.service.presence.ImPresenceService;
-import com.relayflow.module.system.enums.ErrorCodeConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,9 +22,7 @@ public class ImPresenceController {
 
     @GetMapping("/batch")
     public CommonResult<PresenceBatchRespVO> batchPresence(@RequestParam("userIds") String userIds) {
-        LoginUser loginUser = requireLoginUser();
-        List<Long> ids = parseUserIds(userIds);
-        return CommonResult.success(presenceService.batchPresence(loginUser.getTenantId(), ids));
+        return CommonResult.success(presenceService.batchPresence(parseUserIds(userIds)));
     }
 
     private List<Long> parseUserIds(String userIds) {
@@ -47,13 +41,5 @@ public class ImPresenceController {
             }
         }
         return ids;
-    }
-
-    private LoginUser requireLoginUser() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            throw new ServiceException(ErrorCodeConstants.AUTH_LOGIN_BAD_CREDENTIALS);
-        }
-        return loginUser;
     }
 }

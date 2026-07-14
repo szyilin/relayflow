@@ -1,6 +1,7 @@
 package com.relayflow.module.infra.service.workspacesearch;
 
 import com.relayflow.common.exception.ServiceException;
+import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.module.im.api.conversation.ImConversationApi;
 import com.relayflow.module.im.api.conversation.dto.ConversationSearchRespDTO;
 import com.relayflow.module.infra.enums.ErrorCodeConstants;
@@ -8,11 +9,15 @@ import com.relayflow.module.system.api.user.MemberUserApi;
 import com.relayflow.module.system.api.user.dto.MemberSearchRespDTO;
 import com.relayflow.module.task.api.item.TaskItemApi;
 import com.relayflow.module.task.api.item.dto.TaskSearchRespDTO;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
@@ -38,10 +43,22 @@ class WorkspaceSearchServiceImplTest {
     @InjectMocks
     private WorkspaceSearchServiceImpl workspaceSearchService;
 
+    @BeforeEach
+    void setLoginUser() {
+        LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void search_rejectsBlankKeyword() {
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> workspaceSearchService.search(TENANT_ID, USER_ID, "   ", 5));
+                () -> workspaceSearchService.search("   ", 5));
         assertEquals(ErrorCodeConstants.SEARCH_KEYWORD_REQUIRED.getCode(), ex.getCode());
     }
 
@@ -67,7 +84,7 @@ class WorkspaceSearchServiceImplTest {
                 .thenReturn(List.of(conversation));
         when(taskItemApi.searchTasks(eq(TENANT_ID), eq(USER_ID), eq("张"), eq(5))).thenReturn(List.of(task));
 
-        var result = workspaceSearchService.search(TENANT_ID, USER_ID, "张", 5);
+        var result = workspaceSearchService.search("张", 5);
 
         assertEquals("张", result.getKeyword());
         assertEquals(3, result.getGroups().size());
