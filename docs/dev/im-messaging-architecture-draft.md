@@ -141,6 +141,13 @@ Bot / channel ────────────────► 仅 schema 预
 
 > **没有第二条业务写路径**；触达统一经 IM 的 Bot 能力。
 
+### 3.3 Bot 归属：平台主体 vs 启用关系
+
+**Bot 本身是平台级主体**，由 `im_bot` 等表维护（Flyway 种子 + 后续管理）；定义挂在平台目录，**不归属某个 tenant**。成员能否看见、能否被推送，取决于在该企业下的 **enablement** 关系。
+
+**V1**：仅平台内置系统 Bot（见 §13），`mandatory` / `default_on` 策略下成员入企自动具备 user enable，全员可触达。  
+**后期**（本阶段不实现、本文不展开）：成员按需启用外部 Bot；schema 可预留 `opt_in` / `installable`，产品另立项。
+
 ---
 
 ## 4. 目标原则
@@ -159,7 +166,7 @@ Bot / channel ────────────────► 仅 schema 预
 - **安装 / 启用（Enablement / Install）**
 - **可见性（Visibility）**
 
-少用「订阅」作为主术语。
+少用「订阅」作为主术语。启用关系分 **tenant 层**（企业是否允许）与 **user 层**（成员是否已具备资格；V1 由入企自动写入），见 §7。
 
 ---
 
@@ -182,7 +189,7 @@ Bot / channel ────────────────► 仅 schema 预
                          │ 会话归属
 ┌────────────────────────▼────────────────────────────────┐
 │ IM Context（本企业内的聊天世界）                           │
-│   conversation / message / bot enablement / unread      │
+│   conversation / message / bot tenant·user enablement / unread      │
 │   永远带着 tenant_id                                      │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -258,59 +265,77 @@ group:      Users… + optional Bots   （@Bot → Runtime）
 
 ```text
 ┌─────────────────────────────────────┐
-│ Bot Definition（平台/租户目录）         │
+│ Bot Definition（平台目录 · im_bot）   │
 │  code, name, avatar,                 │
 │  scope, enable_policy,               │
 │  capabilities[], handler_kind        │
+│  V1：种子数据维护系统默认 Bot           │
 └─────────────────┬───────────────────┘
-                  │ 启用到企业
-┌─────────────────▼───────────────────┐
-│ Bot Enablement（每企业）               │
-│  (tenant_id, bot_id, status,         │
-│   enabled_by, config_json)           │
-└─────────────────┬───────────────────┘
-                  │ 需要对话时
-┌─────────────────▼───────────────────┐
-│ bot_dm Conversation                   │
-│  unique (tenant_id, bot_id, user_id) │
-│  lazy create on first send / ensure  │
-└─────────────────────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        ▼                   ▼
+┌───────────────────┐ ┌───────────────────────────┐
+│ Tenant Enablement │ │ User Enablement            │
+│ (tenant, bot)     │ │ (tenant, user, bot)        │
+│ 企业侧开通/策略     │ │ V1：入企时自动写入（系统 Bot）│
+└─────────┬─────────┘ └─────────────┬─────────────┘
+          │                         │
+          └───────────┬─────────────┘
+                      │ 需要对话时
+┌─────────────────────▼─────────────────────────────────┐
+│ bot_dm Conversation                                   │
+│  unique (tenant_id, bot_id, user_id)                 │
+│  lazy create on first send / open / @Bot（ensure）     │
+└─────────────────────────────────────────────────────┘
 ```
 
-**不建议**把「用户订阅表」当作主模型：多数场景是**企业启用了某 Bot → 成员可见并可被推送**；私信会话**懒创建（ensure）**即可。
+**Enablement 分 tenant 与 user 两层**（均需落表），由 `enable_policy` 决定如何写入。**V1 只走系统 Bot 路径**：
+
+| 路径 | 谁决定 | 谁可见 / 可被推送 | V1 典型 |
+|------|--------|-------------------|---------|
+| **Tenant + 全员策略** | 平台种子 + `mandatory` / `default_on` | 该 tenant 下所有 ACTIVE 成员（入企自动 user enable） | 任务助手、审批助手、组织助手 |
+| **平台强制扇出** | 平台 | 各 tenant 下按 fanout 规则 | 安全中心、跨企业邀请 |
+
+私信会话一律 **懒创建（ensure）**，不预建空会话。`ImBotApi.send` 前须校验目标 `(tenant, user)` 已具备 user enable（V1 系统 Bot 由入企流程自动满足）。
 
 ### 7.2 scope（作用域）
 
-| scope | 含义 | 谁决定启用 | 投递默认 |
-|-------|------|------------|----------|
-| `tenant` | 任务 / 审批 / 组织助手 | 租户启用（可默认全开） | 只写**事件所在 tenant** |
-| `identity_fanout` | 账号安全、跨企业邀请等 | 平台强制；各企业侧自动 enable | Identity 事件 → **每个 ACTIVE membership 各投一次** |
-| `installable` | 将来自定义应用 Bot | 管理员安装 | 仅安装企业 |
+| scope | 含义 | V1 |
+|-------|------|-----|
+| `tenant` | 任务 / 审批 / 组织助手 | ✅ 种子 Bot + 入企自动 user enable |
+| `identity_fanout` | 账号安全、跨企业邀请等 | ✅ 平台强制；各 tenant 自动 user enable |
+| `installable` | 外部可安装 Bot | ❌ **仅占位**；见 §7.6 |
+
+投递默认：`tenant` 只写**事件所在 tenant**；`identity_fanout` → **每个 ACTIVE membership 各投一次**。
 
 ### 7.3 enable_policy（启用策略）
 
-| 策略 | 行为 |
-|------|------|
-| `mandatory` | 成员 ACTIVE 时自动 enable；不可关闭（如安全中心、组织助手） |
-| `default_on` | 企业默认开，管理员可关 |
-| `opt_in` | 显式安装才出现（自定义 Bot） |
+| 策略 | tenant 层 | user 层 | V1 行为 |
+|------|-----------|---------|---------|
+| `mandatory` | 平台/租户强制开通 | 入企 ACTIVE 时**自动**写入 user enable | 全员可见、可推送；不可关闭 |
+| `default_on` | 企业默认开通 | 入企 ACTIVE 时**自动**写入 user enable | 管理员可关 tenant 层；关闭后全员不可见 |
+| `opt_in` | — | — | ❌ **仅占位**；见 §7.6 |
 
-### 7.4 强制可触达：何时「绑定」发生
+**V1 要点**：系统 Bot 用 `mandatory` / `default_on`，入企自动补齐 user enable，无需每人手动操作，也**不等于**「企业开了 Bot 定义就全员自动有」——须显式写入 user enable 记录（可由入企钩子批量完成）。
+
+### 7.4 何时发生 Enablement 与会话 ensure（V1）
 
 ```text
 1. 用户加入企业（membership → ACTIVE）
-   → 对该 tenant 所有 mandatory / default_on Bot：写入 Enablement
-   → 不强制立刻建会话（避免无意义空会话）
+   → 对该 tenant 已 tenant-enable 的 mandatory / default_on 系统 Bot：
+     自动写入 user enable(tenant, user, bot)
+   → 不强制立刻建 bot_dm（避免无意义空会话）
 
 2. 首次 ImBotApi.send / 用户打开 Bot / 用户 @Bot
+   → 校验 user enable 存在（入企流程已满足）
    → ensure bot_dm(tenant, bot, user)
 
 3. Identity 扇出事件（invite / security）
    → 枚举 user 的 ACTIVE tenants
-   → 每个 tenant：ensure Enablement + ensure bot_dm + insert message
+   → 每个 tenant：ensure user enable + ensure bot_dm + insert message
 ```
 
-「所有账号都要能被某机器人私信」= **平台 mandatory + 入企自动 enable + 发送时 ensure 会话**，而不是神秘的全局绑定表。
+平台内置系统 Bot：`mandatory` / `default_on` + 入企自动 user enable + 发送时 ensure 会话。
 
 ### 7.5 同一 API，不同 Fanout
 
@@ -326,8 +351,12 @@ ImBotApi.send(SendCommand)
 |------|--------|--------|
 | A 企业管理员改了角色 | `system` @ tenant A | `{ tenantId:A, userId }` |
 | A 企业任务到期 | `task` | `{ tenantId:A, userId }` |
-| B 企业邀请你（人正在 A） | `system` | `{ userId, fanout: ALL_ACTIVE }` → A、C… 各一条 bot_dm |
+| B 企业邀请你（人正在 A） | `system` | `{ userId, fanout:ALL_ACTIVE }` → A、C… 各一条 bot_dm |
 | 密码异常等 | security | 同上 fanout（或仅当前 JWT tenant，产品可选，见 §17） |
+
+### 7.6 后期扩展（V1 不实现）
+
+schema / 枚举可预留 `scope=installable`、`enable_policy=opt_in`、`handler_kind=webhook`，供将来外部 Bot 与 Runtime 扩展；**本阶段无对应产品入口与 API**，细节另立项，本文不展开。
 
 ---
 
@@ -458,7 +487,7 @@ relayflow-module-im
 ┌───────────────────────────────▼──────────────────────────────────┐
 │ L3 IM 域（im-biz）                                                 │
 │  ConversationService │ MessageService │ GroupService              │
-│  BotService（目录/启用/ensure会话）│ BotIngress │ BotRuntime        │
+│  BotService（目录/tenant·user 启用/ensure 会话）│ BotIngress │ BotRuntime        │
 │  Presence（可并列）                                                │
 └───────────────┬───────────────────────────────┬──────────────────┘
                 │ 持久化                         │ im-api
@@ -506,7 +535,9 @@ relayflow-module-im
 
 ---
 
-## 13. 平台 Bot 起步清单（建议）
+## 13. 平台 Bot 起步清单（V1）
+
+经 `im_bot` 种子数据维护；成员入企自动 user enable。
 
 | code | scope | policy | 职责 |
 |------|-------|--------|------|
@@ -516,7 +547,7 @@ relayflow-module-im
 | `account-security` | identity_fanout | mandatory | 安全、登录异常等 |
 | `invite-helper` | identity_fanout | mandatory | 跨企业邀请提醒 |
 
-自定义 Bot：`handler_kind=webhook` + `scope=installable`，**仅占位契约**。
+外部 / 自定义 Bot：见 §7.6，V1 不实现。
 
 ---
 
@@ -530,7 +561,7 @@ task-biz → ImBotApi.send(
   target={tenantId:A, userId:U},
   card=TASK_DUE, dedupeKey=task:{id})
 
-→ ensure enablement + bot_dm(A, task-bot, U)
+→ ensure user enablement + bot_dm(A, task-bot, U)
 → insert im_message sender=bot
 → WS → U 在企业 A 的客户端
 ```
@@ -562,9 +593,9 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 | 单聊发送人/接收人清晰 | **采纳** → `direct` |
 | 机器人像特殊用户 | **采纳语义**；物理上用 `im_bot`，不进 `sys_user` |
 | 群是聚合空间，@Bot，无真人接收端 | **采纳** → Runtime |
-| 企业订阅 vs 个人订阅混乱 | **改写**：无「个人无租户 inbox」；用 **tenant enablement + identity fanout** |
-| 强制可触达何时绑定 | **采纳并具体化**：入企 enable + 发送时 ensure 会话 |
-| 处理接口先定、自定义占位 | **采纳** → platform / webhook SPI |
+| 企业订阅 vs 个人订阅混乱 | **改写**：无「个人无租户 inbox」；用 **tenant + user 双层 enablement**（`enable_policy` 分叉）+ identity fanout |
+| 强制可触达何时绑定 | **采纳并具体化**：V1 系统 Bot 入企自动 user enable；发送时 ensure 会话 |
+| Runtime SPI 占位 | **采纳** → V1 以 `platform` / `noop` 为主；`webhook` 仅占位（§7.6） |
 
 ---
 
@@ -573,7 +604,8 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 - 不为 Bot 建平行 `sys_user`
 - 不建无 `tenant_id` 的全局聊天库
 - 不把群环境 `system` 文案与业务 Bot 推送混成一种对外 API
-- V1 不做自定义 webhook 实装、不做频道、不做交互卡片 callback（卡片展示可先做）
+- V1 不做外部 Bot 安装入口、不做自定义 webhook 实装
+- 不做频道、不做交互卡片 callback（卡片展示可先做）
 - Rail **不是**第二写模型
 - 不为「看起来解耦」再拆独立 `module-bot`（除非后续体量证明必要）
 
@@ -609,7 +641,7 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 1. 用本草案开 / 充实 OpenSpec change（proposal + design + specs delta + tasks）。  
 2. 修订 `openspec/specs/im/spec.md` 与 `infra` 中 Notify 相关「禁止写入 im_message」等冲突条款。  
 3. 按纵向切片推进（建议顺序示例）：  
-   - schema：`im_bot` / enablement / `bot_dm`（或 conversation type 扩展）  
+   - schema：`im_bot`（种子）/ tenant enablement / user enablement / `bot_dm`（或 conversation type 扩展）  
    - `ImBotApi` + ensure 会话 + 幂等  
    - 迁移：`MEMBER_INVITE` / `TASK_DUE` 改走 Bot  
    - 前端：会话列表纳入 bot_dm；Rail 改造或下线  
@@ -624,8 +656,9 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 |------|------|
 | Identity | 全局账号 `sys_user` |
 | Membership | 企业成员关系 `sys_tenant_user` |
-| Bot Definition | 机器人目录定义 |
-| Bot Enablement | 某企业启用某机器人 |
+| Bot Definition | 平台级机器人目录定义（不归属某个 tenant） |
+| Tenant Enablement | 某企业是否允许/开通某机器人（组织策略层） |
+| User Enablement | 某成员在某企业下是否授权/可用某机器人（`(tenant, user, bot)`） |
 | bot_dm | 用户与机器人在某企业下的一对一会话 |
 | Outbound | 业务主动经 Bot 触达用户 |
 | Inbound | 用户向 Bot 发消息 / @Bot，由 Runtime 处理 |
