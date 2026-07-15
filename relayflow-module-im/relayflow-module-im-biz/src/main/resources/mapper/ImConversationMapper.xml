@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.im.dal.mysql.ImConversationMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.relayflow.module.im.dal.dataobject.ImConversationDO">
+        <result column="id" property="id" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="creator" property="creator" />
+        <result column="create_time" property="createTime" />
+        <result column="updater" property="updater" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+        <result column="type" property="type" />
+        <result column="title" property="title" />
+        <result column="avatar_file_id" property="avatarFileId" />
+        <result column="last_msg_id" property="lastMsgId" />
+        <result column="last_msg_at" property="lastMsgAt" />
+        <result column="last_msg_preview" property="lastMsgPreview" />
+        <result column="settings_json" property="settingsJson" />
+        <result column="direct_peer_low" property="directPeerLow" />
+        <result column="direct_peer_high" property="directPeerHigh" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        creator,
+        create_time,
+        updater,
+        update_time,
+        deleted,
+        type, title, avatar_file_id, last_msg_id, last_msg_at, last_msg_preview, settings_json, direct_peer_low, direct_peer_high
+    </sql>
+
+</mapper>

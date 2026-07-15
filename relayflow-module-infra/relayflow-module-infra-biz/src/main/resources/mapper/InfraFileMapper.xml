@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.infra.dal.mysql.InfraFileMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.relayflow.module.infra.dal.dataobject.InfraFileDO">
+        <result column="id" property="id" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="creator" property="creator" />
+        <result column="create_time" property="createTime" />
+        <result column="updater" property="updater" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+        <result column="provider" property="provider" />
+        <result column="storage_uri" property="storageUri" />
+        <result column="object_key" property="objectKey" />
+        <result column="original_name" property="originalName" />
+        <result column="mime_type" property="mimeType" />
+        <result column="size" property="size" />
+        <result column="sha256" property="sha256" />
+        <result column="access_level" property="accessLevel" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        creator,
+        create_time,
+        updater,
+        update_time,
+        deleted,
+        provider, storage_uri, object_key, original_name, mime_type, size, sha256, access_level
+    </sql>
+
+</mapper>
