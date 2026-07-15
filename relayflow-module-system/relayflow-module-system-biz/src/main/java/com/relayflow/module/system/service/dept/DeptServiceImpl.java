@@ -43,7 +43,7 @@ public class DeptServiceImpl implements DeptService {
                 .eq(SysDeptDO::getTenantId, tenantId)
                 .orderByAsc(SysDeptDO::getSort)
                 .orderByAsc(SysDeptDO::getId));
-        return depts.stream().map(DeptConvert::toVo).toList();
+        return depts.stream().map(DeptConvert.INSTANCE::toVo).toList();
     }
 
     @Override
@@ -54,12 +54,12 @@ public class DeptServiceImpl implements DeptService {
                 .eq(SysDeptDO::getStatus, 0)
                 .orderByAsc(SysDeptDO::getSort)
                 .orderByAsc(SysDeptDO::getId));
-        return depts.stream().map(DeptConvert::toVo).toList();
+        return depts.stream().map(DeptConvert.INSTANCE::toVo).toList();
     }
 
     @Override
     public DeptRespVO getDept(Long id) {
-        return DeptConvert.toVo(requireDept(id, resolveTenantId()));
+        return DeptConvert.INSTANCE.toVo(requireDept(id, resolveTenantId()));
     }
 
     @Override

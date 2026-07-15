@@ -215,7 +215,7 @@ public class UserServiceImpl implements UserService {
         SysTenantUserDO tenantUser = requireTenantUser(id, tenantId);
         Long deptId = resolvePrimaryDeptId(id, tenantId);
         List<Long> roleIds = loadRoleIds(id, tenantId);
-        return UserConvert.toGetVo(user, tenantUser.getStatus(), deptId, roleIds);
+        return UserConvert.INSTANCE.toGetVo(user, tenantUser.getStatus(), deptId, roleIds);
     }
 
     @Override
@@ -254,7 +254,7 @@ public class UserServiceImpl implements UserService {
     public void updateUserStatus(UserUpdateStatusReqVO request) {
         Long tenantId = resolveTenantId();
         SysTenantUserDO tenantUser = requireTenantUser(request.getId(), tenantId);
-        tenantUser.setStatus(UserConvert.toMemberStatus(request.getStatus()));
+        tenantUser.setStatus(UserConvert.INSTANCE.toMemberStatus(request.getStatus()));
         tenantUserMapper.updateById(tenantUser);
     }
 
@@ -329,7 +329,7 @@ public class UserServiceImpl implements UserService {
         Map<Long, String> deptNameByUserId = loadPrimaryDeptNames(tenantId, pageUserIds);
 
         List<UserRespVO> list = records.stream()
-                .map(user -> UserConvert.toVo(
+                .map(user -> UserConvert.INSTANCE.toVo(
                         user,
                         statusByUserId.getOrDefault(user.getId(), TenantUserStatus.ACTIVE),
                         deptNameByUserId.getOrDefault(user.getId(), null)))

@@ -128,7 +128,7 @@ public class PermissionServiceImpl implements PermissionService {
                         .eq(SysPermissionDO::getTenantId, tenantId)
                         .orderByAsc(SysPermissionDO::getSort)
                         .orderByAsc(SysPermissionDO::getId));
-        return PermissionConvert.buildTree(permissions);
+        return PermissionConvert.INSTANCE.buildTree(permissions);
     }
 
     private Long resolveTenantId() {

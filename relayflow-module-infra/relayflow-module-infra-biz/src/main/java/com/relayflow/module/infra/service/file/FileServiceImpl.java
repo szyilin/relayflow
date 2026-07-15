@@ -38,7 +38,7 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public FileRespDTO getFile(Long fileId) {
-        return FileConvert.toDto(requireFile(fileId));
+        return FileConvert.INSTANCE.toDto(requireFile(fileId));
     }
 
     @Override
@@ -53,7 +53,7 @@ public class FileServiceImpl implements FileService {
                                 request.getKeyword() != null ? request.getKeyword().trim() : null)
                         .orderByDesc(InfraFileDO::getCreateTime));
         return PageResult.of(
-                page.getRecords().stream().map(FileConvert::toListItem).toList(),
+                page.getRecords().stream().map(FileConvert.INSTANCE::toListItem).toList(),
                 page.getTotal());
     }
 

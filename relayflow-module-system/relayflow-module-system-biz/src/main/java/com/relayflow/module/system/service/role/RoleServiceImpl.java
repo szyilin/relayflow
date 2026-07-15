@@ -68,7 +68,7 @@ public class RoleServiceImpl implements RoleService {
                         .orderByAsc(SysRoleDO::getId));
 
         List<RoleRespVO> list = page.getRecords().stream()
-                .map(RoleConvert::toVo)
+                .map(RoleConvert.INSTANCE::toVo)
                 .toList();
         return PageResult.of(list, page.getTotal());
     }
@@ -77,7 +77,7 @@ public class RoleServiceImpl implements RoleService {
     public RoleRespVO getRole(Long id) {
         Long tenantId = resolveTenantId();
         SysRoleDO role = requireRole(id, tenantId);
-        RoleRespVO vo = RoleConvert.toVo(role);
+        RoleRespVO vo = RoleConvert.INSTANCE.toVo(role);
         vo.setPermissionIds(loadPermissionIds(id, tenantId));
         vo.setDeptIds(loadDeptIds(id, tenantId));
         return vo;

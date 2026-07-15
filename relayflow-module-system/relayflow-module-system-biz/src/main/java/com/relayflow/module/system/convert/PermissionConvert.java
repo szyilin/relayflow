@@ -2,6 +2,8 @@ package com.relayflow.module.system.convert;
 
 import com.relayflow.module.system.controller.admin.permission.vo.PermissionRespVO;
 import com.relayflow.module.system.dal.dataobject.SysPermissionDO;
+import org.mapstruct.Mapper;
+import org.mapstruct.factory.Mappers;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -9,12 +11,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class PermissionConvert {
+@Mapper
+public interface PermissionConvert {
 
-    private PermissionConvert() {
-    }
+    PermissionConvert INSTANCE = Mappers.getMapper(PermissionConvert.class);
 
-    public static List<PermissionRespVO> buildTree(List<SysPermissionDO> permissions) {
+    PermissionRespVO toVo(SysPermissionDO permission);
+
+    default List<PermissionRespVO> buildTree(List<SysPermissionDO> permissions) {
         Map<Long, PermissionRespVO> nodeById = new HashMap<>();
         for (SysPermissionDO permission : permissions) {
             nodeById.put(permission.getId(), toVo(permission));
@@ -48,16 +52,5 @@ public final class PermissionConvert {
                 sortTree(node.getChildren());
             }
         }
-    }
-
-    private static PermissionRespVO toVo(SysPermissionDO permission) {
-        PermissionRespVO vo = new PermissionRespVO();
-        vo.setId(permission.getId());
-        vo.setParentId(permission.getParentId());
-        vo.setName(permission.getName());
-        vo.setCode(permission.getCode());
-        vo.setType(permission.getType());
-        vo.setSort(permission.getSort());
-        return vo;
     }
 }
