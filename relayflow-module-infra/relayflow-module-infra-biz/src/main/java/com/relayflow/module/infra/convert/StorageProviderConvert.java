@@ -3,27 +3,27 @@ package com.relayflow.module.infra.convert;
 import com.relayflow.module.infra.controller.admin.storage.vo.StorageProviderRespVO;
 import com.relayflow.module.infra.dal.dataobject.InfraStorageProviderDO;
 import com.relayflow.module.infra.service.storage.model.StorageProviderConfigJson;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
 
-public final class StorageProviderConvert {
+@Mapper
+public interface StorageProviderConvert {
 
-    private StorageProviderConvert() {
-    }
+    StorageProviderConvert INSTANCE = Mappers.getMapper(StorageProviderConvert.class);
 
-    public static StorageProviderRespVO toVo(InfraStorageProviderDO row, StorageProviderConfigJson configJson) {
-        StorageProviderRespVO vo = new StorageProviderRespVO();
-        vo.setProvider(row.getProvider());
-        vo.setStatus(row.getStatus());
-        vo.setIsDefault(Integer.valueOf(1).equals(row.getIsDefault()));
-        if (configJson != null) {
-            vo.setEndpoint(configJson.getEndpoint());
-            vo.setBucket(configJson.getBucket());
-            vo.setAccessKey(configJson.getAccessKey());
-            vo.setUseSsl(Boolean.TRUE.equals(configJson.getUseSsl()));
-            vo.setPathPrefix(configJson.getPathPrefix());
-            vo.setSecretKeyConfigured(configJson.getSecretKeyEnc() != null && !configJson.getSecretKeyEnc().isBlank());
-        } else {
-            vo.setSecretKeyConfigured(false);
-        }
-        return vo;
+    @Mapping(target = "isDefault", expression = "java(Integer.valueOf(1).equals(row.getIsDefault()))")
+    @Mapping(target = "endpoint", source = "configJson.endpoint")
+    @Mapping(target = "bucket", source = "configJson.bucket")
+    @Mapping(target = "accessKey", source = "configJson.accessKey")
+    @Mapping(target = "useSsl", source = "configJson.useSsl")
+    @Mapping(target = "pathPrefix", source = "configJson.pathPrefix")
+    @Mapping(target = "secretKeyConfigured", expression = "java(isSecretKeyConfigured(configJson))")
+    StorageProviderRespVO toVo(InfraStorageProviderDO row, StorageProviderConfigJson configJson);
+
+    default boolean isSecretKeyConfigured(StorageProviderConfigJson configJson) {
+        return configJson != null
+                && configJson.getSecretKeyEnc() != null
+                && !configJson.getSecretKeyEnc().isBlank();
     }
 }

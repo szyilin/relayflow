@@ -19,12 +19,12 @@ public class TenantController {
 
     @GetMapping("/default")
     public CommonResult<TenantRespVO> getDefaultTenant() {
-        return CommonResult.success(TenantConvert.toVo(tenantService.getDefaultTenant()));
+        return CommonResult.success(TenantConvert.INSTANCE.toVo(tenantService.getDefaultTenant()));
     }
 
     @GetMapping("/current")
     public CommonResult<TenantRespVO> getCurrentTenant() {
         Long tenantId = TenantContextHolder.get();
-        return CommonResult.success(TenantConvert.toVo(tenantService.getTenant(tenantId)));
+        return CommonResult.success(TenantConvert.INSTANCE.toVo(tenantService.getTenant(tenantId)));
     }
 }

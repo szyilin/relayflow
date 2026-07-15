@@ -58,7 +58,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                 .orderByDesc(InfraStorageProviderDO::getIsDefault)
                 .orderByAsc(InfraStorageProviderDO::getProvider));
         List<StorageProviderRespVO> providers = rows.stream()
-                .map(row -> StorageProviderConvert.toVo(row, parseConfigJson(row.getConfigJson())))
+                .map(row -> StorageProviderConvert.INSTANCE.toVo(row, parseConfigJson(row.getConfigJson())))
                 .toList();
         StorageConfigRespVO response = new StorageConfigRespVO();
         response.setBootstrap(buildBootstrapSummary());

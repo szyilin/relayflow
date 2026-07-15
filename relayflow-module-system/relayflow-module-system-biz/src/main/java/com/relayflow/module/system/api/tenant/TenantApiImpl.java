@@ -14,11 +14,11 @@ public class TenantApiImpl implements TenantApi {
 
     @Override
     public TenantRespDTO getTenant(Long tenantId) {
-        return TenantConvert.toDto(tenantService.getTenant(tenantId));
+        return TenantConvert.INSTANCE.toDto(tenantService.getTenant(tenantId));
     }
 
     @Override
     public TenantRespDTO getDefaultTenant() {
-        return TenantConvert.toDto(tenantService.getDefaultTenant());
+        return TenantConvert.INSTANCE.toDto(tenantService.getDefaultTenant());
     }
 }

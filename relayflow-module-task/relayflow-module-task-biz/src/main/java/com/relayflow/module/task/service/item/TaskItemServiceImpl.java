@@ -45,7 +45,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByDesc(TaskItemDO::getCreateTime));
         taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
-        return PageResult.of(TaskConvert.toRespList(page.getRecords()), page.getTotal());
+        return PageResult.of(TaskConvert.INSTANCE.toRespList(page.getRecords()), page.getTotal());
     }
 
     @Override
@@ -63,7 +63,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .like(TaskItemDO::getTitle, trimmed)
                         .orderByDesc(TaskItemDO::getCreateTime)
                         .last("LIMIT " + safeLimit));
-        return TaskConvert.toRespList(rows);
+        return TaskConvert.INSTANCE.toRespList(rows);
     }
 
     private static int clampSearchLimit(int limit) {

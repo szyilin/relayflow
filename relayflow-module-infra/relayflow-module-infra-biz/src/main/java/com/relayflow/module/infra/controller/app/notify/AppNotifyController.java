@@ -37,7 +37,7 @@ public class AppNotifyController {
         PageResult<InfraNotifyDO> page = notifyInboxService.pageMyInbox(
                 request.getType(), request.getPageNo(), request.getPageSize());
         PageResult<NotifyItemRespVO> response = PageResult.of(
-                NotifyConvert.toRespList(page.getList(), objectMapper),
+                NotifyConvert.INSTANCE.toRespList(page.getList(), objectMapper),
                 page.getTotal());
         return CommonResult.success(response);
     }

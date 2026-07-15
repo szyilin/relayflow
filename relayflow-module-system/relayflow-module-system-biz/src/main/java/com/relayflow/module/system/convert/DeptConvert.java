@@ -2,21 +2,13 @@ package com.relayflow.module.system.convert;
 
 import com.relayflow.module.system.controller.admin.dept.vo.DeptRespVO;
 import com.relayflow.module.system.dal.dataobject.SysDeptDO;
+import org.mapstruct.Mapper;
+import org.mapstruct.factory.Mappers;
 
-public final class DeptConvert {
+@Mapper
+public interface DeptConvert {
 
-    private DeptConvert() {
-    }
+    DeptConvert INSTANCE = Mappers.getMapper(DeptConvert.class);
 
-    public static DeptRespVO toVo(SysDeptDO dept) {
-        DeptRespVO vo = new DeptRespVO();
-        vo.setId(dept.getId());
-        vo.setParentId(dept.getParentId());
-        vo.setName(dept.getName());
-        vo.setSort(dept.getSort());
-        vo.setLeaderUserId(dept.getLeaderUserId());
-        vo.setStatus(dept.getStatus());
-        vo.setCreateTime(dept.getCreateTime());
-        return vo;
-    }
+    DeptRespVO toVo(SysDeptDO dept);
 }
