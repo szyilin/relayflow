@@ -4,7 +4,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CLI entry: generate DO/Mapper for explicitly listed tables into a temp output directory.
+ * CLI entry: emit an untrimmed MyBatis-Plus reference suite (DO + Mapper.java + Mapper.xml)
+ * for explicitly listed tables into a temp directory for diff against {@code *-biz/src/}.
  */
 public final class RelayflowCodegenCli {
 
@@ -34,7 +35,12 @@ public final class RelayflowCodegenCli {
         RelayflowCodegenEngine.generate(config, module, baseTables, options.outputDir(), false);
         RelayflowCodegenEngine.generate(config, module, tenantTables, options.outputDir(), true);
 
-        System.out.println("[relayflow-codegen] done. Review diff, then copy into module target/generated-sources/mybatis/ if OK.");
+        System.out.println("[relayflow-codegen] done. This directory is a DIFF REFERENCE only (not Git truth).");
+        System.out.println("[relayflow-codegen] Compare against *-biz/src/ then merge fields incrementally:");
+        System.out.println("[relayflow-codegen]   *DO.java / *Mapper.java  → src/main/java/.../dal/");
+        System.out.println("[relayflow-codegen]   *Mapper.xml              → src/main/resources/mapper/");
+        System.out.println("[relayflow-codegen] NEVER overwrite *ExtMapper* / *PublicMapper* (custom SQL).");
+        System.out.println("[relayflow-codegen]   See docs/dev/codegen.md");
         System.out.println("[relayflow-codegen]   base tables:   " + baseTables);
         System.out.println("[relayflow-codegen]   tenant tables: " + tenantTables);
     }

@@ -1,6 +1,7 @@
 package com.relayflow.tools.codegen;
 
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
+import com.baomidou.mybatisplus.generator.config.OutputFile;
 import com.baomidou.mybatisplus.generator.config.TemplateType;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
 import org.flywaydb.core.Flyway;
@@ -8,13 +9,19 @@ import org.flywaydb.core.Flyway;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Runs MyBatis-Plus generator for a user-supplied table list.
+ * Output is a full, untrimmed reference suite (DO + Mapper.java + Mapper.xml)
+ * intended for diff against managed files under {@code *-biz/src/}.
  */
 public final class RelayflowCodegenEngine {
 
     private static final String AUTHOR = "relayflow-codegen";
+
+    /** XML files land under {@code <output>/mapper/} for easy diff vs {@code src/main/resources/mapper/}. */
+    private static final String XML_SUBDIR = "mapper";
 
     private static final List<String> BASE_SUPER_COLUMNS = List.of(
             "id", "creator", "create_time", "updater", "update_time", "deleted"
@@ -43,6 +50,8 @@ public final class RelayflowCodegenEngine {
         }
 
         Files.createDirectories(outputDir);
+        Path xmlDir = outputDir.resolve(XML_SUBDIR);
+        Files.createDirectories(xmlDir);
 
         String superClass = tenantScoped
                 ? "com.relayflow.common.dal.TenantBaseDO"
@@ -61,7 +70,8 @@ public final class RelayflowCodegenEngine {
                 .packageConfig(builder -> builder
                         .parent(module.packageParent())
                         .entity(module.entityPackage())
-                        .mapper(module.mapperPackage()))
+                        .mapper(module.mapperPackage())
+                        .pathInfo(Map.of(OutputFile.xml, xmlDir.toString())))
                 .strategyConfig(builder -> builder
                         .addInclude(tables)
                         .entityBuilder()
@@ -73,14 +83,15 @@ public final class RelayflowCodegenEngine {
                         .addSuperEntityColumns(superColumns)
                         .mapperBuilder()
                         .enableMapperAnnotation()
+                        .enableBaseResultMap()
+                        .enableBaseColumnList()
                         .enableFileOverride()
                         .formatMapperFileName("%sMapper")
-                        .disableMapperXml())
+                        .formatXmlFileName("%sMapper"))
                 .templateConfig(builder -> builder
                         .disable(TemplateType.SERVICE)
                         .disable(TemplateType.SERVICE_IMPL)
-                        .disable(TemplateType.CONTROLLER)
-                        .disable(TemplateType.XML))
+                        .disable(TemplateType.CONTROLLER))
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute();
 
@@ -92,11 +103,14 @@ public final class RelayflowCodegenEngine {
 
     /**
      * MP 3.5 may still emit controller/service stubs even when templates are disabled; remove them.
+     * Never delete {@link #XML_SUBDIR} — that holds reference Mapper.xml files.
      */
     private static void pruneNonDalArtifacts(Path outputDir, CodegenConfig.ModuleConfig module) throws Exception {
         String base = module.packageParent().replace('.', '/');
         deleteIfExists(outputDir.resolve(base + "/controller"));
         deleteIfExists(outputDir.resolve(base + "/service"));
+        // Legacy layout leftover name "mapper" as Java package — only delete if it is under package tree,
+        // not the top-level XML_SUBDIR which is also named "mapper".
         deleteIfExists(outputDir.resolve(base + "/mapper"));
     }
 

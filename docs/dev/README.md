@@ -11,7 +11,7 @@
 | [api.md](api.md) | 统一响应、错误码、分页、HTTP 状态；与前端路由对齐 |
 | [database.md](database.md) | 表前缀、V1 单库分域、公共字段、雪花 ID、Flyway 命名 |
 | [code-style.md](code-style.md) | Java 分层、跨域 `*-api`、领域消息落点、VO/DTO、JWT/RBAC、前端路由 |
-| [codegen.md](codegen.md) | **DO/Mapper CLI 生成**：按需 `--tables`、临时目录、diff 后合并 |
+| [codegen.md](codegen.md) | **DO/Mapper/XML**：CLI 临时参照 → diff 合入 `src/`；自定义 SQL 用 ExtMapper |
 | [vertical-slice-workflow.md](vertical-slice-workflow.md) | **纵向切片**：后端 API + `web/` 同批交付、tasks 模板、推荐路线 |
 | [git-and-idea.md](git-and-idea.md) | **Git 纳入/忽略清单**、IntelliJ IDEA 导入与 Maven Wrapper |
 
