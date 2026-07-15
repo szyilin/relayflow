@@ -2,7 +2,7 @@ package com.relayflow.module.system.api.tenant;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
-import com.relayflow.module.system.dal.mysql.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

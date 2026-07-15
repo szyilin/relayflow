@@ -15,22 +15,22 @@ modules:
   system:
     package-parent: com.relayflow.module.system
     entity-package: dal.dataobject
-    mapper-package: dal.mysql
+    mapper-package: dal.mapper
     enum-package: com.relayflow.module.system.enums
   infra:
     package-parent: com.relayflow.module.infra
     entity-package: dal.dataobject
-    mapper-package: dal.mysql
+    mapper-package: dal.mapper
     enum-package: com.relayflow.module.infra.enums
   im:
     package-parent: com.relayflow.module.im
     entity-package: dal.dataobject
-    mapper-package: dal.mysql
+    mapper-package: dal.mapper
     enum-package: com.relayflow.module.im.enums
   task:
     package-parent: com.relayflow.module.task
     entity-package: dal.dataobject
-    mapper-package: dal.mysql
+    mapper-package: dal.mapper
     enum-package: com.relayflow.module.task.enums
 
 # Optional: table.column -> Enum simple name (under module enum-package)

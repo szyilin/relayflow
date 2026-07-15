@@ -6,12 +6,12 @@ import com.relayflow.module.system.dal.dataobject.SysRoleDO;
 import com.relayflow.module.system.dal.dataobject.SysRolePermissionDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
-import com.relayflow.module.system.dal.mysql.SysPermissionMapper;
-import com.relayflow.module.system.dal.mysql.SysRoleMapper;
-import com.relayflow.module.system.dal.mysql.SysRolePermissionMapper;
-import com.relayflow.module.system.dal.mysql.SysTenantMapper;
-import com.relayflow.module.system.dal.mysql.SysUserDeptMapper;
-import com.relayflow.module.system.dal.mysql.SysUserRoleMapper;
+import com.relayflow.module.system.dal.mapper.SysPermissionMapper;
+import com.relayflow.module.system.dal.mapper.SysRoleMapper;
+import com.relayflow.module.system.dal.mapper.SysRolePermissionMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantMapper;
+import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
+import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.RoleType;
 import com.relayflow.module.system.service.dept.DeptService;
@@ -158,7 +158,7 @@ class TenantBootstrapServiceTest {
                 org.mockito.ArgumentMatchers.any());
 
         return new PermissionServiceImpl(
-                org.mockito.Mockito.mock(com.relayflow.module.system.dal.mysql.SysUserMapper.class),
+                org.mockito.Mockito.mock(com.relayflow.module.system.dal.mapper.SysUserMapper.class),
                 userRoleMapper,
                 roleMapper,
                 rolePermissionMapper,

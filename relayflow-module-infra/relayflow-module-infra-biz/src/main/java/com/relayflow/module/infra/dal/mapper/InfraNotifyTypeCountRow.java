@@ -1,4 +1,4 @@
-package com.relayflow.module.infra.dal.mysql;
+package com.relayflow.module.infra.dal.mapper;
 
 import lombok.Data;
 

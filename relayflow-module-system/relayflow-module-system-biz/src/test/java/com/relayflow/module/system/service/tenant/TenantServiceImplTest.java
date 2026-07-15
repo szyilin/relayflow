@@ -2,7 +2,7 @@ package com.relayflow.module.system.service.tenant;
 
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.tenant.config.TenantProperties;
-import com.relayflow.module.system.dal.mysql.SysTenantMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

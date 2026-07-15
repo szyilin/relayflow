@@ -1,7 +1,7 @@
-package com.relayflow.module.im.dal.mysql;
+package com.relayflow.module.infra.dal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.relayflow.module.im.dal.dataobject.ImChannelDO;
+import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-07-15
  */
 @Mapper
-public interface ImChannelMapper extends BaseMapper<ImChannelDO> {
+public interface InfraFileMapper extends BaseMapper<InfraFileDO> {
 
 }
 

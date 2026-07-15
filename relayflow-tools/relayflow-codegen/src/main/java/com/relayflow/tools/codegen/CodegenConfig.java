@@ -86,7 +86,7 @@ public final class CodegenConfig {
         return new ModuleConfig(
                 string(module, "package-parent", ""),
                 string(module, "entity-package", "dal.dataobject"),
-                string(module, "mapper-package", "dal.mysql"),
+                string(module, "mapper-package", "dal.mapper"),
                 string(module, "enum-package", "")
         );
     }

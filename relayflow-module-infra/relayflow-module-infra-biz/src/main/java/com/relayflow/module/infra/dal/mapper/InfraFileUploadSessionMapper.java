@@ -1,4 +1,4 @@
-package com.relayflow.module.infra.dal.mysql;
+package com.relayflow.module.infra.dal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.relayflow.module.infra.dal.dataobject.InfraFileUploadSessionDO;

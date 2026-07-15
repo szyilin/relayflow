@@ -12,7 +12,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 import com.relayflow.module.task.convert.TaskConvert;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
-import com.relayflow.module.task.dal.mysql.TaskItemMapper;
+import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
