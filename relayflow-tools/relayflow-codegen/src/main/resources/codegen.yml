@@ -1,6 +1,7 @@
 # RelayFlow codegen defaults (NOT Spring Boot application config).
 # JDBC: environment variables override these values (see docs/dev/codegen.md).
 # Table names are passed via CLI --tables only (never listed here).
+# Output is a temp DIFF REFERENCE (DO + Mapper.java + Mapper.xml) → merge into *-biz/src/.
 
 jdbc:
   url: jdbc:postgresql://localhost:5432/relayflow

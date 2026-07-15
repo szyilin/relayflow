@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# RelayFlow selective MyBatis-Plus codegen -> temp directory (for human/AI diff before merge).
+# RelayFlow selective MyBatis-Plus codegen -> temp DIFF REFERENCE
+# (DO + Mapper.java + Mapper.xml). Diff against *-biz/src/, then merge fields.
+# Do NOT treat output as Git truth; never overwrite *ExtMapper* / *PublicMapper*.
+# See docs/dev/codegen.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

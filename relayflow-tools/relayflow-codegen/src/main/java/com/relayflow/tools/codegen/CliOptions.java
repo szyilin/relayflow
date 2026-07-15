@@ -74,13 +74,17 @@ public final class CliOptions {
 
     private static void printHelp() {
         System.out.println("""
-                RelayFlow MyBatis-Plus codegen (selective tables -> temp directory)
+                RelayFlow MyBatis-Plus codegen — selective tables -> temp DIFF REFERENCE
+
+                Emits untrimmed *DO.java, *Mapper.java, *Mapper.xml for comparison against
+                managed files under *-biz/src/ (see docs/dev/codegen.md). Custom SQL stays in
+                *ExtMapper* / *PublicMapper* (never merge those from this output).
 
                 Usage:
                   relayflow-codegen --module <key> --tables <t1,t2,...> [options]
 
                 Options:
-                  -m, --module <key>     Module key from codegen.yml (system, infra, im)
+                  -m, --module <key>     Module key from codegen.yml (system, infra, im, task)
                   -t, --tables <list>    Comma-separated PostgreSQL table names (required)
                   -o, --output <dir>     Output directory (default: .relayflow/codegen-out/<timestamp>/)
                   --config <file>        Custom YAML (else codegen.local.yml, else classpath codegen.yml)
