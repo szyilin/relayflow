@@ -2,7 +2,7 @@ package com.relayflow.module.system.service.permission;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
-import com.relayflow.module.system.dal.mysql.SysUserRoleMapper;
+import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;

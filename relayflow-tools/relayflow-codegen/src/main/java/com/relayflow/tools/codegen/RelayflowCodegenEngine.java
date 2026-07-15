@@ -109,9 +109,8 @@ public final class RelayflowCodegenEngine {
         String base = module.packageParent().replace('.', '/');
         deleteIfExists(outputDir.resolve(base + "/controller"));
         deleteIfExists(outputDir.resolve(base + "/service"));
-        // Legacy layout leftover name "mapper" as Java package — only delete if it is under package tree,
-        // not the top-level XML_SUBDIR which is also named "mapper".
-        deleteIfExists(outputDir.resolve(base + "/mapper"));
+        // Do NOT delete package tree .../dal/mapper — that is the real Mapper.java output
+        // (XML lives under top-level XML_SUBDIR "mapper/", which is outside the package tree).
     }
 
     private static void deleteIfExists(Path dir) throws Exception {

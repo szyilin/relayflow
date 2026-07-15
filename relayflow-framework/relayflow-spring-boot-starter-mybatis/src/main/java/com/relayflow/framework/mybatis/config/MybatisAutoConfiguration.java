@@ -4,6 +4,6 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 
 @AutoConfiguration
-@MapperScan("com.relayflow.module.**.dal.mysql")
+@MapperScan("com.relayflow.module.**.dal.mapper")
 public class MybatisAutoConfiguration {
 }

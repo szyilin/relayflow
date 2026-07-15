@@ -1,7 +1,7 @@
-package com.relayflow.module.system.dal.mysql;
+package com.relayflow.module.im.dal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.relayflow.module.system.dal.dataobject.SysRoleDO;
+import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-07-15
  */
 @Mapper
-public interface SysRoleMapper extends BaseMapper<SysRoleDO> {
+public interface ImConversationMemberMapper extends BaseMapper<ImConversationMemberDO> {
 
 }
 

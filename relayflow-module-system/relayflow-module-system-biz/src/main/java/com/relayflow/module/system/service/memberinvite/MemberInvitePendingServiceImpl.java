@@ -7,8 +7,8 @@ import com.relayflow.module.system.controller.app.vo.MemberInvitePendingListResp
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
-import com.relayflow.module.system.dal.mysql.SysTenantUserMapper;
-import com.relayflow.module.system.dal.mysql.SysUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;

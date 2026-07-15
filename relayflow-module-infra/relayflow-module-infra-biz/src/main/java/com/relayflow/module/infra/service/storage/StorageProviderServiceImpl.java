@@ -21,8 +21,8 @@ import com.relayflow.module.infra.controller.admin.storage.vo.StorageTestConnect
 import com.relayflow.module.infra.convert.StorageProviderConvert;
 import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
 import com.relayflow.module.infra.dal.dataobject.InfraStorageProviderDO;
-import com.relayflow.module.infra.dal.mysql.InfraFileMapper;
-import com.relayflow.module.infra.dal.mysql.InfraStorageProviderMapper;
+import com.relayflow.module.infra.dal.mapper.InfraFileMapper;
+import com.relayflow.module.infra.dal.mapper.InfraStorageProviderMapper;
 import com.relayflow.module.infra.enums.ErrorCodeConstants;
 import com.relayflow.module.infra.service.storage.model.StorageProviderConfigJson;
 import lombok.RequiredArgsConstructor;

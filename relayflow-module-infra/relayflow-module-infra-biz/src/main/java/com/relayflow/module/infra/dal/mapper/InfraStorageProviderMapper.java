@@ -1,7 +1,7 @@
-package com.relayflow.module.system.dal.mysql;
+package com.relayflow.module.infra.dal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
+import com.relayflow.module.infra.dal.dataobject.InfraStorageProviderDO;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-07-15
  */
 @Mapper
-public interface SysTenantUserMapper extends BaseMapper<SysTenantUserDO> {
+public interface InfraStorageProviderMapper extends BaseMapper<InfraStorageProviderDO> {
 
 }
 

@@ -16,7 +16,7 @@ import com.relayflow.module.infra.controller.admin.file.vo.FileUploadSessionCrea
 import com.relayflow.module.infra.controller.admin.file.vo.FileUploadSessionRespVO;
 import com.relayflow.module.infra.dal.dataobject.InfraFileDO;
 import com.relayflow.module.infra.dal.dataobject.InfraFileUploadSessionDO;
-import com.relayflow.module.infra.dal.mysql.InfraFileUploadSessionMapper;
+import com.relayflow.module.infra.dal.mapper.InfraFileUploadSessionMapper;
 import com.relayflow.module.infra.enums.ErrorCodeConstants;
 import com.relayflow.module.infra.service.storage.StorageProviderService;
 import lombok.RequiredArgsConstructor;
