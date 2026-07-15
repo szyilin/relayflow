@@ -1,0 +1,660 @@
+# IM 即时通讯架构草案（待确认）
+
+> **状态**：系统分析草案，**尚未落地代码 / OpenSpec 规格**。  
+> **用途**：汇总讨论结论，便于审阅与逐条指正。确认前不改动实现。  
+> **整理日期**：2026-07-15  
+> **相关现状**：`openspec/specs/im/spec.md`、`infra` 通知、`notify-inbox-v2`、空壳 change `workspace-notify-system-thread`  
+> **历史设计**：`openspec/changes/archive/2026-07-12-im-platform-foundation/design.md`（双通道真源，本草案拟修订其「通知不落 im_message」铁律）
+
+---
+
+## 目录
+
+1. [问题动机](#1-问题动机)
+2. [现状架构（as-is）](#2-现状架构as-is)
+3. [飞书对照与概念澄清](#3-飞书对照与概念澄清)
+4. [目标原则](#4-目标原则)
+5. [三层主体：身份 / 成员 / IM 上下文](#5-三层主体身份--成员--im-上下文)
+6. [参与者与会话类型](#6-参与者与会话类型)
+7. [机器人模型](#7-机器人模型)
+8. [消息与实时](#8-消息与实时)
+9. [Bot Runtime（入站处理）](#9-bot-runtime入站处理)
+10. [跨域调用组织](#10-跨域调用组织)
+11. [完整分层图](#11-完整分层图)
+12. [与现状资产的映射（删 / 留 / 迁）](#12-与现状资产的映射删--留--迁)
+13. [平台 Bot 起步清单](#13-平台-bot-起步清单)
+14. [端到端示例](#14-端到端示例)
+15. [对讨论建议的取舍](#15-对讨论建议的取舍)
+16. [刻意不做](#16-刻意不做)
+17. [待拍板事项](#17-待拍板事项)
+18. [后续工作建议](#18-后续工作建议)
+
+---
+
+## 1. 问题动机
+
+当前「业务触达」与「IM 会话」被拆成两条通道：
+
+- 人聊 / 群聊 / 群内环境文案 → `im_*`
+- 邀请 / 任务到期 /（规划中）审批待办 → `infra_notify` + Rail 铃铛
+
+这与飞书常见模型不一致：飞书侧大量「系统通知 / 业务提醒」表现为**应用机器人向用户发的会话消息**，而不是独立于 IM 的第二套收件箱写模型。
+
+本草案目标：
+
+1. 把**业务触达统一收进 IM 的 Bot 能力**；
+2. 澄清多企业下「账号级 vs 企业级」投递；
+3. 给其它模块一个唯一、合理的跨域 API；
+4. 标明应删除 / 废弃的双通道资产；
+5. 为将来自定义机器人预留 Runtime 接口（先占位）。
+
+---
+
+## 2. 现状架构（as-is）
+
+### 2.1 双通道总览
+
+```text
+┌─────────────── 业务模块 ───────────────┐
+│  system（邀请）  task（到期）  bpm（规划） │
+└────────────┬──────────────┬────────────┘
+             │              │
+             ▼              ▼（几乎没有）
+    NotifyInboxApi      ImMessageApi（规格有，代码基本无）
+             │
+             ▼
+      infra_notify 表
+      WS domain=notify
+      Rail 铃铛
+
+人 ↔ 人 / 群聊 ──────────────► im_message
+群「XX 加入」 ────────────────► im_message (sender_type=system)
+Bot / channel ────────────────► 仅 schema 预留，无产品
+```
+
+| 通道 | 存储 | 用户可见 | 谁在写 |
+|------|------|----------|--------|
+| **IM** | `im_*` | `/app/messages` | 用户 + 群内 system 文案 |
+| **Notify Inbox** | `infra_notify` | Rail 铃铛 | `system` / `task` 经 `NotifyInboxApi` |
+
+设计来源：`im-platform-foundation` 事件分类表将「审批 / 任务 / @」归入 notify，并写明**通知不得写入 `im_message`**。因此问题不是实现跑偏，而是**产品抽象把业务触达与会话拆开了**。
+
+### 2.2 IM 模块现状要点
+
+| 项 | 现状 |
+|----|------|
+| 表 | `im_conversation` / `im_conversation_member` / `im_message` / `im_group` / `im_channel`（channel 仅 schema） |
+| 会话 type | DB：`direct \| group \| channel`；Java 枚举目前主要用 DIRECT、GROUP |
+| `sender_type` | 预留 `user \| system \| bot \| app`；实现主要是 **user + system** |
+| 系统消息 | `ImMessageService.sendSystemMessage`（biz 内部）；调用方主要为群加入 |
+| Bot | **无产品**：无 bot 表、无服务、无管理 |
+| 跨域 API | `ImConversationApi` 仅有搜索等；`getOrCreateDirect` / `ImMessageApi` 规格有、实现缺口大 |
+| 实时 | WS `domain=im`（`message.new`、`read.updated` 等） |
+
+### 2.3 Notify Inbox 现状要点
+
+| 项 | 现状 |
+|----|------|
+| 表 | `infra_notify`（含 `dedupe_key`） |
+| 类型目录 | `MEMBER_INVITE`、`TASK_DUE` 已用；`TASK_ASSIGNED` / `IM_MENTION` / `APPROVAL_PENDING` 预留 |
+| API | `NotifyInboxApi.push` / `backfillUserIdByMobile` / `hasUnreadDedupe` |
+| REST | `/app-api/infra/notify/*` |
+| 实时 | WS `domain=notify`，`notify.new` |
+| 生产方 | `system-biz`（邀请）、`task-biz`（到期）；bpm 规划消费 notify |
+
+### 2.4 跨域触发方式
+
+- 当前以 **同步 `*-api`** 为主，**不是**领域事件总线。
+- `docs/dev/cross-domain-messaging.md` 描述了异步领域消息，但业务 notify/IM 触达尚未系统用起来。
+- IM **没有**对外业务写入口；群 system 文案只在 im-biz 内部。
+
+### 2.5 已知缺口与重叠
+
+| 缺口 | 说明 |
+|------|------|
+| 双通道 | 聊天 ≠ 产品收件箱，用户心智与飞书不一致 |
+| 「system」一词过载 | IM 群内文案 vs Notify 业务提醒，同名不同仓 |
+| Bot 未落地 | schema/spec 预留而已 |
+| `ImMessageApi` 缺失 | 跨模块卡片/系统投递进会话受阻 |
+| Spec 漂移 | `im/spec.md` 仍写 NotifyInboxApi V1 占位、且禁止写入 `im_message` |
+| 空壳 change | `workspace-notify-system-thread` 无 proposal/tasks，方向未建模 |
+
+---
+
+## 3. 飞书对照与概念澄清
+
+### 3.1 飞书常见做法（对齐目标）
+
+1. **机器人是会话参与者**（可私信、可进群）。
+2. **业务通知 ≈ 某机器人发给你的一条（或卡片）消息**。
+3. 顶部铃铛多半是**未读聚合 / 快捷入口**，真源仍是机器人会话中的消息。
+4. 群里「张三加入了群」仍是**会话内环境文案**，一般不当作独立「通知产品」。
+
+### 3.2 必须拆开的两个概念
+
+| 概念 | 飞书直觉 | 本草案归属 |
+|------|----------|------------|
+| **会话环境消息** | 「XX 加入群」 | `sender_type=system`，只活在该群时间线 |
+| **业务触达** | 任务 / 审批 / 邀请机器人私信 | `sender_type=bot`，写入 User↔Bot 会话 |
+
+「没有系统通知」更准确的说法是：
+
+> **没有第二条业务写路径**；触达统一经 IM 的 Bot 能力。
+
+---
+
+## 4. 目标原则
+
+| # | 原则 | 含义 |
+|---|------|------|
+| P1 | **参与者两类** | `User`（真人）与 `Bot`（特殊主体）；都可作为 `sender` |
+| P2 | **会话是唯一聊天真源** | 单聊 / 群 / Bot 私信 / 频道，都落在 `im_conversation` + `im_message` |
+| P3 | **无第二条业务通知总线** | 废弃以 `infra_notify` 为真源的写路径；业务触达 = Bot 发消息 |
+| P4 | **IM 永远在企业上下文中** | 与产品模型一致：JWT 必有 `tenant_id`；`im_*` 必有 `tenant_id`；不存在「无主账号 inbox」 |
+| P5 | **Bot 没有人类接收端** | 入站消息交给 **Bot Runtime**，不是推给真人客户端 |
+| P6 | **跨域只调 `im-api`** | `system` / `task` / `bpm` 不直写 `im_*`，不依赖 `im-biz` |
+
+「订阅」易与推送/邮件混淆。本草案优先使用行业更常见的说法：
+
+- **安装 / 启用（Enablement / Install）**
+- **可见性（Visibility）**
+
+少用「订阅」作为主术语。
+
+---
+
+## 5. 三层主体：身份 / 成员 / IM 上下文
+
+这是解开「账号级机器人 vs 企业级机器人」混乱的关键。
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ Identity（身份）  sys_user                                │
+│   登录凭据、手机号；跨企业同一人                             │
+│   ❌ 不挂 im_conversation / im_message                     │
+└────────────────────────┬────────────────────────────────┘
+                         │ 1 : N
+┌────────────────────────▼────────────────────────────────┐
+│ Membership（企业成员） sys_tenant_user                     │
+│   (tenant_id, user_id, status)                          │
+│   工作台永远处在「当前选中的企业」                         │
+└────────────────────────┬────────────────────────────────┘
+                         │ 会话归属
+┌────────────────────────▼────────────────────────────────┐
+│ IM Context（本企业内的聊天世界）                           │
+│   conversation / message / bot enablement / unread      │
+│   永远带着 tenant_id                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+与飞书及现有 `product-permission-model` 对齐：
+
+- 一账号可多企业；
+- 任一时刻必在某一企业（JWT `tenant_id`）；
+- 聊天列表、未读、Bot 会话都是**当前企业视角**。
+
+### 5.1 对「账号级通知」的改写
+
+| 直觉说法 | 更合理的系统表述 |
+|----------|------------------|
+| 「账号安全中心」属于账号 | **Bot 目录可平台级**；**消息仍写入各企业下的 Bot 会话**（按策略扇出） |
+| 「机器人给所有企业都发了」 | **一次 Identity 事件 → 对每个 ACTIVE membership 各投递一次** |
+| 「像发给两个不同账号」 | **像发给两个收件上下文**：`(T_A, U)` 与 `(T_B, U)`，同 `user_id`、不同 `tenant_id` |
+| 「角色变更只该出现在 A」 | **Tenant 作用域事件**：只投递 `(T_A, U)` |
+
+**结论**：没有「无 tenant 的 IM 表」。若将来要「身份全局聚合页」，也是**读模型**聚合各企业未读，而不是第三张通知写表。
+
+从 Bot API 视角：**始终面向 `(tenantId, userId)`**；全企业扇出只是调用方或框架循环，不是「一个无租户超级会话」。
+
+---
+
+## 6. 参与者与会话类型
+
+### 6.1 Participant
+
+```text
+Participant
+  ├── User   subject_type=user, subject_id=userId
+  └── Bot    subject_type=bot,  subject_id=botId
+```
+
+- 消息：`sender_type` + `sender_id` 表示谁发出。
+- 单聊「接收方」由**会话成员**决定谁能看见，不必在每条消息上再造接收人字段（direct 场景语义仍清晰：两人互为 peer）。
+
+### 6.2 Conversation types
+
+| type | 成员 | 谁能发 | 说明 |
+|------|------|--------|------|
+| `direct` | 恰好 2 个 User | 两名 User | 普通用户私信，发送人/接收人清晰 |
+| `bot_dm` | 1 User + 1 Bot | User 可问；Bot 可答/主动推 | **业务触达主通道** |
+| `group` | N User + 可选若干 Bot | User；Bot 需被 @ 或规则触发才回 | 聚合聊天空间 |
+| `channel` | 后置 | 后置 | 与通知重构无关，保持预留 |
+
+群内「张三加入」继续用 **`sender_type=system`**（环境文案），不是 Bot，也不走业务触达总线。
+
+```text
+direct:     User A ←→ User B
+bot_dm:     User U ←→ Bot X          （X 无真人在线端）
+group:      Users… + optional Bots   （@Bot → Runtime）
+```
+
+### 6.3 Bot 为何「像用户」却不是 `sys_user`
+
+| | User | Bot |
+|--|------|-----|
+| 出现在成员列表 | ✅ | ✅ |
+| 可作 sender | ✅ | ✅ |
+| 有 JWT / 可登录客户端 | ✅ | ❌ |
+| 收消息去哪 | 用户客户端 + WS | **Bot Runtime** |
+| 是否占 `sys_user` | ✅ | ❌（独立 `im_bot`，避免污染账号体系） |
+
+**交互语义上是参与者，身份体系上不是真人账号。**
+
+---
+
+## 7. 机器人模型
+
+### 7.1 目录、启用、会话（取代含糊的「绑定/订阅」）
+
+```text
+┌─────────────────────────────────────┐
+│ Bot Definition（平台/租户目录）         │
+│  code, name, avatar,                 │
+│  scope, enable_policy,               │
+│  capabilities[], handler_kind        │
+└─────────────────┬───────────────────┘
+                  │ 启用到企业
+┌─────────────────▼───────────────────┐
+│ Bot Enablement（每企业）               │
+│  (tenant_id, bot_id, status,         │
+│   enabled_by, config_json)           │
+└─────────────────┬───────────────────┘
+                  │ 需要对话时
+┌─────────────────▼───────────────────┐
+│ bot_dm Conversation                   │
+│  unique (tenant_id, bot_id, user_id) │
+│  lazy create on first send / ensure  │
+└─────────────────────────────────────┘
+```
+
+**不建议**把「用户订阅表」当作主模型：多数场景是**企业启用了某 Bot → 成员可见并可被推送**；私信会话**懒创建（ensure）**即可。
+
+### 7.2 scope（作用域）
+
+| scope | 含义 | 谁决定启用 | 投递默认 |
+|-------|------|------------|----------|
+| `tenant` | 任务 / 审批 / 组织助手 | 租户启用（可默认全开） | 只写**事件所在 tenant** |
+| `identity_fanout` | 账号安全、跨企业邀请等 | 平台强制；各企业侧自动 enable | Identity 事件 → **每个 ACTIVE membership 各投一次** |
+| `installable` | 将来自定义应用 Bot | 管理员安装 | 仅安装企业 |
+
+### 7.3 enable_policy（启用策略）
+
+| 策略 | 行为 |
+|------|------|
+| `mandatory` | 成员 ACTIVE 时自动 enable；不可关闭（如安全中心、组织助手） |
+| `default_on` | 企业默认开，管理员可关 |
+| `opt_in` | 显式安装才出现（自定义 Bot） |
+
+### 7.4 强制可触达：何时「绑定」发生
+
+```text
+1. 用户加入企业（membership → ACTIVE）
+   → 对该 tenant 所有 mandatory / default_on Bot：写入 Enablement
+   → 不强制立刻建会话（避免无意义空会话）
+
+2. 首次 ImBotApi.send / 用户打开 Bot / 用户 @Bot
+   → ensure bot_dm(tenant, bot, user)
+
+3. Identity 扇出事件（invite / security）
+   → 枚举 user 的 ACTIVE tenants
+   → 每个 tenant：ensure Enablement + ensure bot_dm + insert message
+```
+
+「所有账号都要能被某机器人私信」= **平台 mandatory + 入企自动 enable + 发送时 ensure 会话**，而不是神秘的全局绑定表。
+
+### 7.5 同一 API，不同 Fanout
+
+```text
+ImBotApi.send(SendCommand)
+  botCode, content, dedupeKey?,
+  target: { tenantId, userId }                         // 最常用：本企业
+  // 或
+  target: { userId, fanout: ALL_ACTIVE_MEMBERSHIPS }   // Identity 事件
+```
+
+| 场景 | 调用方 | target |
+|------|--------|--------|
+| A 企业管理员改了角色 | `system` @ tenant A | `{ tenantId:A, userId }` |
+| A 企业任务到期 | `task` | `{ tenantId:A, userId }` |
+| B 企业邀请你（人正在 A） | `system` | `{ userId, fanout: ALL_ACTIVE }` → A、C… 各一条 bot_dm |
+| 密码异常等 | security | 同上 fanout（或仅当前 JWT tenant，产品可选，见 §17） |
+
+---
+
+## 8. 消息与实时
+
+### 8.1 Message 模型（目标）
+
+```text
+im_message
+  conversation_id, seq, client_msg_id
+  sender_type: user | bot | system
+  sender_id:   userId | botId | 0
+  type: text | image | file | card | system
+  content_json (Content Blocks)
+  tenant_id
+```
+
+| sender_type | 用途 |
+|-------------|------|
+| `user` | 真人发送 |
+| `bot` | 业务触达与 Bot 回复 |
+| `system` | **仅**会话环境文案（加群等）；**禁止**业务模块当通知总线 |
+
+幂等（承接现 `dedupe_key` 思路）：  
+`(tenant_id, bot_id, user_id, dedupe_key)` 在未读/约定窗口内唯一。
+
+### 8.2 实时
+
+```text
+落库成功 → RealtimeTransport
+  domain=im
+  type=message.new | read.updated | …
+  目标：会话内 User 成员（Bot 成员不推客户端）
+```
+
+`domain=notify`：**目标态不再作为业务真源**。若保留 Rail，只作为 bot_dm 未读的**读聚合**（可选）。
+
+---
+
+## 9. Bot Runtime（入站处理）
+
+Bot 收消息不是人收，而是入站管道。
+
+```text
+                    ┌──────────────────────┐
+  User → bot_dm 或   │   Bot Ingress         │
+  group @Bot         │  (im-biz)             │
+                    └──────────┬───────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │ Bot Runtime          │
+                    │  resolve bot + cfg   │
+                    │  dispatch by kind    │
+                    └──────────┬───────────┘
+           ┌───────────────────┼───────────────────┐
+           ▼                   ▼                   ▼
+    platform_handler    outbound_webhook     (future) …
+    （内置能力）          （自定义 Bot 占位）
+           │                   │
+           └─────────┬─────────┘
+                     ▼
+              回复到同一 conversation
+              （经 MessageService / ImBotApi）
+```
+
+### 9.1 handler_kind
+
+| kind | V1 | 说明 |
+|------|----|------|
+| `platform` | ✅ | 内置 Handler；可为 noop inbound，只消费主动推送 |
+| `webhook` | 占位 | 自定义 Bot：HTTP 回调外部；签名、重试、超时写入契约，实现后置 |
+| `noop` | ✅ | 仅主动推送、不处理入站（大量系统助手如此） |
+
+### 9.2 两套入口必须分开
+
+| 入口 | 谁发起 | 典型 |
+|------|--------|------|
+| **Outbound（主动触达）** | 业务模块 → `ImBotApi.send` | 任务到期、角色变更、邀请 |
+| **Inbound（对话能力）** | 用户发消息 / @Bot → Runtime | 「查待办」、自定义 webhook |
+
+前期系统机器人可以 **几乎只有 Outbound + noop inbound**；Ingress / Runtime SPI 仍要先定，方便以后自定义 Bot。
+
+### 9.3 模块归属（建议）
+
+```text
+relayflow-module-im
+  ├── Bot Definition / Enablement / Conversation ensure
+  ├── ImBotApi（跨域唯一业务触达入口）
+  ├── Bot Ingress
+  └── Bot Runtime SPI（platform handlers；厚业务也可听领域事件再调 ImBotApi）
+
+自定义 / 外部能力：im-api 上 Webhook 契约占位
+```
+
+业务域（task/bpm）**不要**实现「收 @」；它们产出事实 → 最终 **`ImBotApi.send`**。
+
+---
+
+## 10. 跨域调用组织
+
+| 模式 | 何时 | 例子 |
+|------|------|------|
+| **同步 `ImBotApi.send`** | 与当前请求强相关、要立刻可见 | 邀请创建后推一条 |
+| **本域事件 → im 消费 → send** | 一对多副作用、不阻塞主路径 | `task.due` / `bpm.todo.created`（对齐 `cross-domain-messaging.md`） |
+| **群内 system 文案** | 仅 im 内部 | 加群；**不对** task/bpm 开放成通知 API |
+
+推荐：**对外业务触达只暴露 `ImBotApi`**。  
+`sendSystemMessage`（或等价）仅限会话环境语义。
+
+模块依赖约束不变：
+
+- 同步跨域：`*-api`
+- 异步跨域：领域消息
+- 禁止 `*-biz → *-biz`、禁止直写他域表
+
+---
+
+## 11. 完整分层图
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│ L4 产品面                                                         │
+│  /app/messages：direct / group / bot_dm 同一会话列表                │
+│  Rail（可选）：仅聚合 bot_dm 未读 → 跳进会话                         │
+│  无独立「通知中心表」作为写模型                                       │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │ REST + WS domain=im
+┌───────────────────────────────▼──────────────────────────────────┐
+│ L3 IM 域（im-biz）                                                 │
+│  ConversationService │ MessageService │ GroupService              │
+│  BotService（目录/启用/ensure会话）│ BotIngress │ BotRuntime        │
+│  Presence（可并列）                                                │
+└───────────────┬───────────────────────────────┬──────────────────┘
+                │ 持久化                         │ im-api
+                ▼                               ▼
+         im_conversation                  ImBotApi
+         im_message                       ImConversationApi
+         im_group / im_bot…               ImMessageApi（环境文案）
+                │
+┌───────────────▼──────────────────────────────────────────────────┐
+│ L2/L1：RealtimeEventPublisher / RealtimeTransport / WS             │
+└──────────────────────────────────────────────────────────────────┘
+
+跨域：
+  system-biz ──send──► ImBotApi
+  task-biz   ──send──► ImBotApi
+  bpm-biz    ──send──► ImBotApi
+  （禁止再以 NotifyInboxApi 作为主写路径）
+```
+
+### 11.1 三种组织方式比较（模块怎么放）
+
+| 方案 | 做法 | 评价 |
+|------|------|------|
+| **A. Bot 沉到 IM（推荐）** | Bot 实体 + `ImBotApi` 均在 `module-im`；`infra` 只保留传输 | 产品叙事统一，少一个横切域 |
+| **B. 通知变 Facade** | `NotifyInboxApi` 内部改调 `ImBotApi`，表逐步废弃 | 过渡期友好，防双写回潮需纪律 |
+| **C. 独立 bot 模块** | `module-bot` | V1 过度拆分，不推荐 |
+
+**推荐 A**；若迁移风险大，可短时 B，但 Facade 不得长期成为第二真源。
+
+---
+
+## 12. 与现状资产的映射（删 / 留 / 迁）
+
+| 现状资产 | 目标态建议 |
+|----------|------------|
+| `infra_notify` + `NotifyInboxApi` + `domain=notify` 业务写 | **写路径废弃/冻结**；历史可迁成 bot_dm 或按策略丢弃 |
+| Rail 铃铛 UI | **可留**：改为 bot_dm 未读聚合 + deep link；**禁止**第二套 push 写 API |
+| `ImMessageService.sendSystemMessage`（群加入） | **保留**，语义收窄为会话环境消息 |
+| `sender_type=bot` 预留 | **落地为产品能力** |
+| `im_channel` | 与通知重构无关，继续后置 |
+| `ImMessageApi` / `getOrCreateDirect` 规格缺口 | 环境文案与会话 API 补齐；业务触达走 `ImBotApi` |
+| 规格「通知不得写入 im_message」 | **修订**：业务触达必须写入 bot 会话消息 |
+| `notify-inbox-v2` / `bpm` 的 `APPROVAL_PENDING` | 改为 Bot card + deep link |
+| 空壳 `workspace-notify-system-thread` | 可承接本架构的 OpenSpec change（或改名） |
+
+---
+
+## 13. 平台 Bot 起步清单（建议）
+
+| code | scope | policy | 职责 |
+|------|-------|--------|------|
+| `org-assistant` | tenant | mandatory | 成员 / 角色 / 部门等组织事件 |
+| `task-bot` | tenant | default_on | 到期、指派 |
+| `approval-bot` | tenant | default_on | 待办审批（bpm） |
+| `account-security` | identity_fanout | mandatory | 安全、登录异常等 |
+| `invite-helper` | identity_fanout | mandatory | 跨企业邀请提醒 |
+
+自定义 Bot：`handler_kind=webhook` + `scope=installable`，**仅占位契约**。
+
+---
+
+## 14. 端到端示例
+
+### 14.1 本企业任务到期
+
+```text
+task-biz → ImBotApi.send(
+  botCode=task-bot,
+  target={tenantId:A, userId:U},
+  card=TASK_DUE, dedupeKey=task:{id})
+
+→ ensure enablement + bot_dm(A, task-bot, U)
+→ insert im_message sender=bot
+→ WS → U 在企业 A 的客户端
+```
+
+### 14.2 跨企业邀请（人正在 A）
+
+```text
+system-biz（B 的邀请）→ ImBotApi.send(
+  botCode=invite-helper,
+  target={userId:U, fanout:ALL_ACTIVE_MEMBERSHIPS},
+  …)
+
+→ 对 T_A、T_C… 各写一条 bot_dm
+→ 用户在 A 也能看到「B 邀请了你」
+```
+
+### 14.3 群里 @自定义 Bot（将来）
+
+```text
+User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消息
+```
+
+---
+
+## 15. 对讨论建议的取舍
+
+| 讨论点 | 判断 |
+|--------|------|
+| 单聊发送人/接收人清晰 | **采纳** → `direct` |
+| 机器人像特殊用户 | **采纳语义**；物理上用 `im_bot`，不进 `sys_user` |
+| 群是聚合空间，@Bot，无真人接收端 | **采纳** → Runtime |
+| 企业订阅 vs 个人订阅混乱 | **改写**：无「个人无租户 inbox」；用 **tenant enablement + identity fanout** |
+| 强制可触达何时绑定 | **采纳并具体化**：入企 enable + 发送时 ensure 会话 |
+| 处理接口先定、自定义占位 | **采纳** → platform / webhook SPI |
+
+---
+
+## 16. 刻意不做（防过度设计）
+
+- 不为 Bot 建平行 `sys_user`
+- 不建无 `tenant_id` 的全局聊天库
+- 不把群环境 `system` 文案与业务 Bot 推送混成一种对外 API
+- V1 不做自定义 webhook 实装、不做频道、不做交互卡片 callback（卡片展示可先做）
+- Rail **不是**第二写模型
+- 不为「看起来解耦」再拆独立 `module-bot`（除非后续体量证明必要）
+
+---
+
+## 17. 待拍板事项
+
+确认架构并开工前，需要产品/负责人明确：
+
+1. **Rail 铃铛**  
+   - A：去掉，消息列表即全部触达  
+   - B：保留，仅作 bot_dm 未读聚合入口（推荐若已习惯铃铛）
+
+2. **Identity 扇出默认策略**（邀请 / 安全类）  
+   - A：所有 ACTIVE 企业各投一条  
+   - B：仅当前 JWT tenant（+ 其它站外渠道，若有）
+
+3. **迁移姿态**  
+   - A：硬切——停写 `infra_notify`，迁或丢历史  
+   - B：软切——短时 Facade（`NotifyInboxApi` → `ImBotApi`）再删表
+
+4. **群内 Bot**  
+   - V1 是否只要 `bot_dm`（用户↔Bot 私信），群 @Bot 全部后置？
+
+5. **OpenSpec 载体**  
+   - 沿用 `workspace-notify-system-thread`  
+   - 或新建更名 change（如 `im-bot-notify-unified`）
+
+---
+
+## 18. 后续工作建议（确认后）
+
+1. 用本草案开 / 充实 OpenSpec change（proposal + design + specs delta + tasks）。  
+2. 修订 `openspec/specs/im/spec.md` 与 `infra` 中 Notify 相关「禁止写入 im_message」等冲突条款。  
+3. 按纵向切片推进（建议顺序示例）：  
+   - schema：`im_bot` / enablement / `bot_dm`（或 conversation type 扩展）  
+   - `ImBotApi` + ensure 会话 + 幂等  
+   - 迁移：`MEMBER_INVITE` / `TASK_DUE` 改走 Bot  
+   - 前端：会话列表纳入 bot_dm；Rail 改造或下线  
+   - 冻结并删除 `infra_notify` 写路径  
+4. **确认前**：不改业务代码、不改 Flyway、不改规格主真源（除非另有指示）。
+
+---
+
+## 附录 A：术语表
+
+| 术语 | 含义 |
+|------|------|
+| Identity | 全局账号 `sys_user` |
+| Membership | 企业成员关系 `sys_tenant_user` |
+| Bot Definition | 机器人目录定义 |
+| Bot Enablement | 某企业启用某机器人 |
+| bot_dm | 用户与机器人在某企业下的一对一会话 |
+| Outbound | 业务主动经 Bot 触达用户 |
+| Inbound | 用户向 Bot 发消息 / @Bot，由 Runtime 处理 |
+| Fanout | Identity 事件向多个 `(tenant, user)` 上下文投递 |
+| 环境 system 消息 | 群内非真人、非业务触达的文案事件 |
+
+## 附录 B：文档关系
+
+| 文档 | 关系 |
+|------|------|
+| 本文 | **目标态草案**（待确认） |
+| `im-platform-foundation/design.md` | 历史双通道真源；本草案拟修订其 notify 铁律 |
+| `docs/dev/product-permission-model.md` | 企业上下文 / JWT tenant 真源 |
+| `docs/dev/cross-domain-messaging.md` | 同步 API vs 异步领域事件 |
+| `openspec/specs/im/spec.md` | 现行 IM 行为规格（有漂移，确认后改） |
+| `openspec/specs/infra/spec.md` | 现行 notify 规格（确认后收缩/迁移） |
+
+---
+
+## 附录 C：指正区（审阅时填写）
+
+> 可直接在本文件追加批注，或按章节编号列出修改意见。
+
+```text
+（审阅意见写这里）
+
+§  ：
+意见：
+
+§  ：
+意见：
+```
