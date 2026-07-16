@@ -94,7 +94,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`workspace-profile-card-web`（工作台资料名片 UI）。群 Bot / 卡片子 change（`im-bot-group-member` → `im-bot-runtime-platform` → `im-bot-group-mention` → `im-bot-interactive-card`）已完成，可 archive。`bpm-v1` 已 **deferred 归档**（短期内不做审批）。产方迁移与 `workspace-search-v1`、`notify-inbox-v2`、`im-bot-notify-foundation` 已 archive。
+**下一优先**：`user-preference-integrate`（设置窗 ↔ 偏好 API 正式联调；尚未立项）。资料名片 / 设置窗 / 偏好 API / 默认数据惯例已 archive。群 Bot / 卡片子 change（`im-bot-group-member` → `im-bot-runtime-platform` → `im-bot-group-mention` → `im-bot-interactive-card`）已完成，可 archive。`bpm-v1` 已 **deferred 归档**（短期内不做审批）。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

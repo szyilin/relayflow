@@ -80,5 +80,5 @@
 
 - 根部门 ensure：`org-member-dept-default` 等归档 design
 - 系统 Bot 触达策略：`im-bot-reach-policy-v1`
-- 用户偏好：`openspec/changes/user-preference-api/`
-- 设置 UI：`openspec/changes/workspace-settings-web/`
+- 用户偏好：`openspec/changes/archive/2026-07-16-user-preference-api/`
+- 设置 UI：`openspec/changes/archive/2026-07-16-workspace-settings-web/`
