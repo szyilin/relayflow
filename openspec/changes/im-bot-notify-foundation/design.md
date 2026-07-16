@@ -59,8 +59,8 @@ im_bot_user_enablement    # (tenant_id, user_id, bot_id)
 
 | code | 职责 |
 |------|------|
-| `org-assistant` | 组织/角色等 |
-| `invite-helper` | 跨企邀请提醒 |
+| `org-assistant` | 组织/角色/**成员邀请**等 |
+| `invite-helper` | **已退役**（邀请归 `org-assistant`，见 `im-bot-invite-migrate`） |
 | `task-bot` | 任务到期/指派 |
 | `approval-bot` | 审批待办 |
 | `account-security` | 安全类（可选首批种子） |
@@ -129,7 +129,7 @@ Outbound 业务触达 **不依赖** G1–G3，可先靠 bot_dm 上线。
 ```text
 im-bot-schema-api          # 若母 change 只落规格，则 schema+api 独立；推荐母 change 含平台地基 tasks
 im-bot-dm-web              # 会话列表 bot_dm UI
-im-bot-invite-migrate      # system 邀请 → invite-helper
+im-bot-invite-migrate      # system 邀请 → org-assistant（废弃 invite-helper）
 im-bot-task-due-migrate    # task 到期 → task-bot
 im-bot-group-member        # 群挂 Bot
 im-bot-group-mention       # @Bot Ingress

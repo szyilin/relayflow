@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class ImBotSendCommand {
 
-    /** Stable bot code, e.g. {@code invite-helper}, {@code task-bot}. */
+    /** Stable bot code, e.g. {@code org-assistant}, {@code task-bot}. */
     private String botCode;
 
     /** Plain text body (required for foundation text delivery). */

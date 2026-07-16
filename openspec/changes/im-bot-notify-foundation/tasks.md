@@ -52,7 +52,7 @@
 
 ## 7. 后续子 change（本母 change 勾选表示「已开单/已拆分」，非一次实现）
 
-- [ ] 7.1 开 `im-bot-invite-migrate`：`MEMBER_INVITE` → `invite-helper` + 选定 SINGLE/fanout
+- [x] 7.1 开 `im-bot-invite-migrate`：`MEMBER_INVITE` → `org-assistant`（含邀请；废弃 `invite-helper`）+ `ALL_ACTIVE_MEMBERSHIPS`
 - [ ] 7.2 开 `im-bot-task-due-migrate`：`TASK_DUE` → `task-bot`（承接并替代 notify-inbox-v2 产方 tasks）
 - [ ] 7.3 修订 `bpm-v1`：触达改为 `approval-bot` + `ImBotApi`，去掉对 `infra_notify` 类型目录依赖
 - [ ] 7.4 开 `im-bot-group-member`：群挂载/移除 Bot（G1）

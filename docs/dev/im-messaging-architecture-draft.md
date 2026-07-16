@@ -541,11 +541,12 @@ relayflow-module-im
 
 | code | scope | policy | 职责 |
 |------|-------|--------|------|
-| `org-assistant` | tenant | mandatory | 成员 / 角色 / 部门等组织事件 |
+| `org-assistant` | tenant | default_on | 成员 / 角色 / 部门 / **成员邀请** 等组织事件 |
 | `task-bot` | tenant | default_on | 到期、指派 |
 | `approval-bot` | tenant | default_on | 待办审批（bpm） |
 | `account-security` | identity_fanout | mandatory | 安全、登录异常等 |
-| `invite-helper` | identity_fanout | mandatory | 跨企业邀请提醒 |
+
+> `invite-helper` 已退役：邀请统一走 `org-assistant`（见 `im-bot-invite-migrate`）。
 
 外部 / 自定义 Bot：见 §7.6，V1 不实现。
 
@@ -570,11 +571,11 @@ task-biz → ImBotApi.send(
 
 ```text
 system-biz（B 的邀请）→ ImBotApi.send(
-  botCode=invite-helper,
+  botCode=org-assistant,
   target={userId:U, fanout:ALL_ACTIVE_MEMBERSHIPS},
   …)
 
-→ 对 T_A、T_C… 各写一条 bot_dm
+→ 对 T_A、T_C… 各写一条 bot_dm（组织助手）
 → 用户在 A 也能看到「B 邀请了你」
 ```
 

@@ -48,6 +48,7 @@
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
 | **im-bot-notify-foundation** | planned | pending | `ImBotApi` · `bot_dm` · `/app/messages`；**删除** Rail 铃铛与 `infra_notify` | 见母 change | [change](../../openspec/changes/im-bot-notify-foundation/proposal.md)；**当前优先** |
+| **im-bot-invite-migrate** | **ready** | n/a | 邀请 → `org-assistant`（废弃 `invite-helper`） | 见 change | [change](../../openspec/changes/im-bot-invite-migrate/proposal.md)；无 ACTIVE 企业时跳过 Bot，靠注册 banner |
 | workspace-search | **ready** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；深链 query 已接；§3.3 浏览器 E2E 待冒烟 |
 | bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达将改走 `approval-bot`（修订中） |
 
