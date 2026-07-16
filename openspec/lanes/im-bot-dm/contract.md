@@ -48,7 +48,7 @@
 
 content blocks 可含 `type=deeplink`（`route` / `entityType` / `entityId`）；V1 UI 可先只渲染 text 块。
 
-**卡片占位（地基 §8）**：`im_message.type` 与 content blocks 预留 `card`（及未来 `actions`）；地基期产方发 **text + deeplink** 即可。可交互 card callback（鉴权、超时、幂等）**不在地基实现**，见后续 `im-bot-interactive-card`；**禁止**回潮 `infra_notify` 双写。
+**卡片（地基 §8 占位 + 设计已定）**：`im_message.type` / content blocks 预留 `card`；地基期产方发 **text + deeplink** 即可。可交互协议（进程内 SPI、`open_url` / `callback(+form)`、统一 `POST …/card/action`）见实现文档 [`docs/dev/im-bot-interactive-card.md`](../../../docs/dev/im-bot-interactive-card.md)；实装 change `im-bot-interactive-card`。**禁止**回潮 `infra_notify` 双写。
 
 ### POST /app-api/im/message/send · read
 

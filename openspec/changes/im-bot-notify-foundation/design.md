@@ -103,8 +103,8 @@ Outbound 业务触达 **不依赖** G1–G3，可先靠 bot_dm 上线。
 ### D7 — 可交互卡片占位
 
 - `im_message.type` / content blocks 预留 `card`（及后续 `actions`）。
-- 契约文档注明：飞书向可交互 card + callback **后续切片**细化（鉴权、超时、幂等）。
 - 地基期允许产方先发 **text + deep link**（`route` / `entityType` / `entityId`），不阻塞迁移。
+- **实现约定（2026-07-16 已定）**：见 [`docs/dev/im-bot-interactive-card.md`](../../../docs/dev/im-bot-interactive-card.md) — 平台内系统 Bot 走进程内 `CardActionHandler`（非开放平台回调 URL）；behavior 仅 `open_url` + `callback`（可带 form）；与 Bot Runtime 对话入站分开；实装 change `im-bot-interactive-card`。
 
 ### D8 — 与进行中 OpenSpec 的关系
 

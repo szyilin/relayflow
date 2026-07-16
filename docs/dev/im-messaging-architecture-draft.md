@@ -26,8 +26,9 @@
 14. [端到端示例](#14-端到端示例)
 15. [对讨论建议的取舍](#15-对讨论建议的取舍)
 16. [刻意不做](#16-刻意不做)
-17. [待拍板事项](#17-待拍板事项)
-18. [后续工作建议](#18-后续工作建议)
+17. [已拍板事项](#17-已拍板事项)
+18. [后续工作](#18-后续工作)
+19. [可交互卡片](#19-可交互卡片)
 
 ---
 
@@ -603,9 +604,11 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 - 不建无 `tenant_id` 的全局聊天库
 - 不把群环境 `system` 文案与业务 Bot 推送混成一种对外 API
 - V1 不做外部 Bot 安装入口、不做自定义 webhook 实装
-- 不做频道、不做交互卡片 callback（卡片展示可先做）
+- 不做频道（与卡片无关）
+- 地基期不做交互卡片 callback **实装**（协议与分期见 §19 / [`im-bot-interactive-card.md`](im-bot-interactive-card.md)）
 - Rail **不是**第二写模型
 - 不为「看起来解耦」再拆独立 `module-bot`（除非后续体量证明必要）
+- 平台内系统 Bot **不做**飞书式回调 URL / 验签配置面
 
 ---
 
@@ -618,13 +621,30 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 | 3 | 迁移姿态 | **硬切重写**：删 `infra_notify`；`0.x` 不考虑数据兼容 |
 | 4 | 群内 Bot | **本版本规划并分期做成**（G0→G3，见 OpenSpec design） |
 | 5 | OpenSpec 载体 | **`im-bot-notify-foundation`**；空壳已删 |
-| 6 | 卡片 | **规划可交互 card**；细节后续 `im-bot-interactive-card` |
+| 6 | 卡片 | **协议已定**（§19）；实装 change `im-bot-interactive-card`；平台内 SPI，非开放平台回调 URL |
 
 ---
 
-## 18. 后续工作（已立项）
+## 18. 后续工作
 
-执行清单见 [`openspec/changes/im-bot-notify-foundation/tasks.md`](../../openspec/changes/im-bot-notify-foundation/tasks.md)。建议顺序：平台 schema + `ImBotApi` + 删 notify/Rail → bot_dm UI → 产方迁移 → 群 Bot → 可交互卡片。
+执行清单见 [`openspec/changes/im-bot-notify-foundation/tasks.md`](../../openspec/changes/im-bot-notify-foundation/tasks.md)。建议顺序：产方迁移（task-due / bpm 触达）→ 群 Bot → **可交互卡片**（见 §19）。
+
+---
+
+## 19. 可交互卡片
+
+实现约定全文：[**`im-bot-interactive-card.md`**](im-bot-interactive-card.md)。摘要：
+
+1. **平台内系统 Bot**：发卡 `ImBotApi`；点击 `POST /app-api/im/card/action` → **进程内** `CardActionHandler`（按 `actionKey` 路由）。不配置回调 URL。
+2. **Behavior**：仅 `open_url`（前端跳转）与 `callback`（可带 `form` / `formValues`）。跳转 / 一键操作 / 表单提交均覆盖。
+3. **与 Bot Runtime 分开**：对话入站 ≠ 卡片动作入站。
+4. **分期**：V1a 只读+跳转 → V1b callback+SPI（建议首闭环 approval-bot）→ V1c 换卡/过期/幂等 → V2 webhook。
+
+```text
+业务域 ──send(card)──► ImBotApi
+用户点击 callback ──► CardActionIngress ──SPI──► bpm/task/system Handler
+用户点击 open_url ──► 前端路由（不打 action API）
+```
 
 ---
 
@@ -640,6 +660,8 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 | bot_dm | 用户与机器人在某企业下的一对一会话 |
 | Outbound | 业务主动经 Bot 触达用户 |
 | Inbound | 用户向 Bot 发消息 / @Bot，由 Runtime 处理 |
+| Card Action | 用户点击卡片按钮 / 提交表单，由 CardActionIngress 处理 |
+| actionKey | 卡片 callback 的全局路由键（如 `bpm.approval.approve`） |
 | Fanout | Identity 事件向多个 `(tenant, user)` 上下文投递 |
 | 环境 system 消息 | 群内非真人、非业务触达的文案事件 |
 
@@ -647,12 +669,13 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 
 | 文档 | 关系 |
 |------|------|
-| 本文 | **目标态草案**（待确认） |
-| `im-platform-foundation/design.md` | 历史双通道真源；本草案拟修订其 notify 铁律 |
+| 本文 | IM 架构目标态（已拍板） |
+| [`im-bot-interactive-card.md`](im-bot-interactive-card.md) | **可交互卡片实现约定** |
+| `im-platform-foundation/design.md` | 历史双通道真源；已被本方向修订 |
 | `docs/dev/product-permission-model.md` | 企业上下文 / JWT tenant 真源 |
 | `docs/dev/cross-domain-messaging.md` | 同步 API vs 异步领域事件 |
-| `openspec/specs/im/spec.md` | 现行 IM 行为规格（有漂移，确认后改） |
-| `openspec/specs/infra/spec.md` | 现行 notify 规格（确认后收缩/迁移） |
+| `openspec/specs/im/spec.md` | IM 行为规格（含 Bot / card 占位） |
+| `openspec/specs/infra/spec.md` | infra；notify 收件箱需求已移除 |
 
 ---
 
