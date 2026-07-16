@@ -1,5 +1,7 @@
 # 提案：审批工作流 V1（bpm-v1 · 母 change · 执行路线图）
 
+> **状态：deferred（2026-07-16）** — 规划与 contract 草案已就绪，**短期内不实现**。已从 active changes 归档（`--skip-specs`，未合入主 specs）。恢复时从本 archive 取出或另开子切片即可。
+
 ## Why
 
 [`bootstrap-v1-foundation`](../archive/2026-06-30-bootstrap-v1-foundation/design.md) 将 **审批工作流** 标为 **V1.1** 能力；当前仓库 **无** `relayflow-module-bpm` 实现，工作台也无审批入口。飞书「审批」是办公面核心：**发起申请 → 待我审批 → 结果通知**。

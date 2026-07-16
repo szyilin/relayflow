@@ -56,7 +56,6 @@
 | **im-bot-runtime-platform** | **ready** | n/a | Bot Runtime SPI · noop/platform · webhook stub | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；Ingress 可测入口已就绪 |
 | **im-bot-group-mention** | **ready** | **done** | 群 @Bot → Ingress | [contract](../../openspec/lanes/im-group-bot-mention/contract.md) | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；事务提交后 best-effort |
 | **im-bot-interactive-card** | **ready** | **done** | card 发送 · `/app-api/im/card/action` · `/app/messages` | [contract](../../openspec/lanes/im-interactive-card/contract.md) | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md)；邀请卡 `system.member.invite.accept` |
-| bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达已修订为 `approval-bot` + `ImBotApi` |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
@@ -67,10 +66,10 @@
 ### V1.1 协作扩展 · 建议实施顺序
 
 ```text
-1. 产方迁移：invite ✅ / task-due ✅；bpm-v1 触达规格 ✅ → `approval-bot`（实现随 bpm-approval-api）
-2. 群 Bot / card 实现：group-member → runtime-platform → group-mention → interactive-card（§7 已开单）
-3. bpm-v1（schema → web → api；触达走 approval-bot）
-4. im-bot-notify-foundation / im-bot-task-due-migrate ✅ archived（§7 子 change 已开单）
+1. 产方迁移：invite ✅ / task-due ✅
+2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅（可 archive）
+3. workspace-profile-card-web（当前）
+4. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
 ## 已归档规划（暂缓实现）
@@ -78,6 +77,7 @@
 | 切片 | 状态 | Change | 说明 |
 |------|------|--------|------|
 | account-sms-verify | archived / deferred | [archive](../../openspec/changes/archive/2026-07-12-account-sms-verify/proposal.md) | 注册验证码；规格已同步，**前期不实现** |
+| bpm-approval / bpm-v1 | archived / deferred | [archive](../../openspec/changes/archive/2026-07-16-bpm-v1/proposal.md) | Flowable 通用审批；规划+contract 草案已就绪，**短期内不实现**；恢复时从 archive 取出 |
 
 ## 实施顺序（system-admin-v1）
 

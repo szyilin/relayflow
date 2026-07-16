@@ -30,12 +30,12 @@ context: |
   - relayflow-module-im（api + biz）
   - relayflow-module-task（api + biz）
   - relayflow-server（入口）
-  - relayflow-module-bpm — V1.1 规划中（openspec/changes/bpm-v1）；实施 bpm-schema-v1 前 server 不加载
+  - relayflow-module-bpm — V1.1 deferred（archive/2026-07-16-bpm-v1）；恢复前 server 不加载
 
-  V1.1 协作扩展（OpenSpec 已立项 · 待实现，建议顺序见 api-integration-board）：
-  - notify-inbox-v2 — 多类型通知中心 + TASK_DUE + WS 实时
-  - workspace-search-v1 — Rail ⌘K 全局搜索（成员/会话/任务）
-  - bpm-v1 — Flowable 通用审批（依赖 notify 类型目录）
+  V1.1 协作扩展（已归档 / deferred，见 api-integration-board）：
+  - notify-inbox-v2 — archived / SUPERSEDED（写真源改 Bot）
+  - workspace-search-v1 — archived（已实现）
+  - bpm-v1 — deferred（Flowable 通用审批；短期内不实现）
 
   模块规则：
   - 各业务域拆分为 *-api（契约）与 *-biz（实现）
