@@ -25,6 +25,10 @@
         </dependency>
         <dependency>
             <groupId>com.relayflow</groupId>
+            <artifactId>relayflow-module-im-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.relayflow</groupId>
             <artifactId>relayflow-spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>

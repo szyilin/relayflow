@@ -9,9 +9,7 @@ import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import com.relayflow.module.infra.api.notify.NotifyInboxApi;
-import com.relayflow.module.infra.api.notify.dto.NotifyItemCommand;
-import com.relayflow.module.infra.enums.InfraNotifyType;
+import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
 import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
@@ -82,7 +80,7 @@ public class UserServiceImpl implements UserService {
     private final PermissionCacheEvictor permissionCacheEvictor;
     private final TenantService tenantService;
     private final PermissionService permissionService;
-    private final NotifyInboxApi notifyInboxApi;
+    private final ImBotApi imBotApi;
 
     @Override
     public AppUserProfileRespVO getMyProfile() {
@@ -159,6 +157,7 @@ public class UserServiceImpl implements UserService {
         tenantUser.setUserId(user.getId());
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.insert(tenantUser);
+        imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);
         assignRoles(tenantId, user.getId(), request.getRoleIds());
@@ -204,7 +203,7 @@ public class UserServiceImpl implements UserService {
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);
         assignRoles(tenantId, user.getId(), request.getRoleIds());
-        pushMemberInviteNotify(tenantId, user, mobile);
+        // Invite reminder will be re-wired via ImBotApi + invite-helper (im-bot-invite-migrate).
         return user.getId();
     }
 
@@ -618,34 +617,4 @@ public class UserServiceImpl implements UserService {
         return tenantId != null ? tenantId : tenantProperties.getDefaultId();
     }
 
-    private void pushMemberInviteNotify(Long tenantId, SysUserDO invitee, String mobile) {
-        SysTenantDO tenant = tenantService.getTenant(tenantId);
-        String inviterNickname = resolveInviterNickname();
-        String tenantName = tenant.getName();
-
-        NotifyItemCommand command = new NotifyItemCommand();
-        command.setTenantId(tenantId);
-        command.setUserId(invitee.getId());
-        command.setMobile(mobile);
-        command.setType(InfraNotifyType.MEMBER_INVITE);
-        command.setTitle("企业邀请");
-        command.setBody(inviterNickname + " 邀请你加入 " + tenantName);
-        command.setPayload(Map.of(
-                "tenantId", tenantId,
-                "tenantName", tenantName,
-                "inviterNickname", inviterNickname));
-        notifyInboxApi.push(command);
-    }
-
-    private String resolveInviterNickname() {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            return "管理员";
-        }
-        SysUserDO inviter = userMapper.selectById(loginUser.getUserId());
-        if (inviter != null && StringUtils.hasText(inviter.getNickname())) {
-            return inviter.getNickname();
-        }
-        return "管理员";
-    }
 }

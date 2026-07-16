@@ -5,6 +5,7 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 import com.relayflow.module.system.controller.app.vo.MemberInvitePreviewRespVO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
@@ -35,6 +36,7 @@ public class MemberInviteServiceImpl implements MemberInviteService {
     private final TenantProperties tenantProperties;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final ImBotApi imBotApi;
 
     @Override
     public MemberInvitePreviewRespVO preview(String mobile) {
@@ -64,6 +66,7 @@ public class MemberInviteServiceImpl implements MemberInviteService {
 
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.updateById(tenantUser);
+        imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
 
         TenantContextHolder.set(tenantId);
         String accessToken = jwtTokenService.createAccessToken(
