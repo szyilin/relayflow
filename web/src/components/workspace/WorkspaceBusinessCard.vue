@@ -325,8 +325,9 @@ function onMessage() {
         {{ signatureDisplay }}
       </p>
 
+      <!-- actions: peer = 消息+语音+视频；self = 仅消息（备忘） -->
       <div
-        v-if="isPeer"
+        v-if="isPeer || isSelf"
         class="mt-4 flex items-start justify-center gap-5"
       >
         <button
@@ -339,26 +340,28 @@ function onMessage() {
           </span>
           <span>消息</span>
         </button>
-        <button
-          type="button"
-          class="workspace-business-card__action"
-          @click="onPlaceholder('语音通话')"
-        >
-          <span class="workspace-business-card__action-icon">
-            <UIcon name="i-lucide-phone" class="size-5" />
-          </span>
-          <span>语音</span>
-        </button>
-        <button
-          type="button"
-          class="workspace-business-card__action"
-          @click="onPlaceholder('视频通话')"
-        >
-          <span class="workspace-business-card__action-icon">
-            <UIcon name="i-lucide-video" class="size-5" />
-          </span>
-          <span>视频</span>
-        </button>
+        <template v-if="isPeer">
+          <button
+            type="button"
+            class="workspace-business-card__action"
+            @click="onPlaceholder('语音通话')"
+          >
+            <span class="workspace-business-card__action-icon">
+              <UIcon name="i-lucide-phone" class="size-5" />
+            </span>
+            <span>语音</span>
+          </button>
+          <button
+            type="button"
+            class="workspace-business-card__action"
+            @click="onPlaceholder('视频通话')"
+          >
+            <span class="workspace-business-card__action-icon">
+              <UIcon name="i-lucide-video" class="size-5" />
+            </span>
+            <span>视频</span>
+          </button>
+        </template>
       </div>
 
       <button

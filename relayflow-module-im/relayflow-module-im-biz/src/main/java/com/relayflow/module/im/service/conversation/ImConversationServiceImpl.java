@@ -172,9 +172,11 @@ public class ImConversationServiceImpl implements ImConversationService {
     @Override
     @Transactional
     public Long getOrCreateDirectConversation(Long tenantId, Long userId, Long peerUserId) {
-        if (peerUserId == null || Objects.equals(userId, peerUserId)) {
+        if (peerUserId == null) {
             throw new ServiceException(ErrorCodeConstants.PEER_USER_INVALID);
         }
+        boolean selfChat = Objects.equals(userId, peerUserId);
+        // Validate peer exists (self or other tenant member lookup via userApi).
         userApi.getUserBasic(peerUserId);
 
         long low = Math.min(userId, peerUserId);
@@ -188,7 +190,9 @@ public class ImConversationServiceImpl implements ImConversationService {
                         .eq(ImConversationDO::getDirectPeerHigh, high));
         if (existing != null) {
             ensureMembership(tenantId, existing.getId(), userId);
-            ensureMembership(tenantId, existing.getId(), peerUserId);
+            if (!selfChat) {
+                ensureMembership(tenantId, existing.getId(), peerUserId);
+            }
             return existing.getId();
         }
 
@@ -211,12 +215,16 @@ public class ImConversationServiceImpl implements ImConversationService {
                 throw ex;
             }
             ensureMembership(tenantId, raced.getId(), userId);
-            ensureMembership(tenantId, raced.getId(), peerUserId);
+            if (!selfChat) {
+                ensureMembership(tenantId, raced.getId(), peerUserId);
+            }
             return raced.getId();
         }
 
         createMember(tenantId, conversation.getId(), userId);
-        createMember(tenantId, conversation.getId(), peerUserId);
+        if (!selfChat) {
+            createMember(tenantId, conversation.getId(), peerUserId);
+        }
         return conversation.getId();
     }
 
@@ -390,6 +398,12 @@ public class ImConversationServiceImpl implements ImConversationService {
                     .filter(memberId -> !Objects.equals(memberId, userId))
                     .findFirst()
                     .orElse(null);
+            // Self-DIRECT: single member, pair key low==high==me.
+            if (peerUserId == null
+                    && Objects.equals(conversation.getDirectPeerLow(), conversation.getDirectPeerHigh())
+                    && Objects.equals(conversation.getDirectPeerLow(), userId)) {
+                peerUserId = userId;
+            }
             if (peerUserId != null) {
                 peerByConversation.put(conversation.getId(), peerUserId);
             }
