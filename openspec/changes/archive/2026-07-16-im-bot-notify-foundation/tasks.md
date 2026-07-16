@@ -55,10 +55,10 @@
 - [x] 7.1 开 `im-bot-invite-migrate`：`MEMBER_INVITE` → `org-assistant`（含邀请；废弃 `invite-helper`）+ `ALL_ACTIVE_MEMBERSHIPS`
 - [x] 7.2 开 `im-bot-task-due-migrate`：`TASK_DUE` → `task-bot`（承接并替代 notify-inbox-v2 产方 tasks）
 - [x] 7.3 修订 `bpm-v1`：触达改为 `approval-bot` + `ImBotApi`，去掉对 `infra_notify` 类型目录依赖
-- [ ] 7.4 开 `im-bot-group-member`：群挂载/移除 Bot（G1）
-- [ ] 7.5 开 `im-bot-group-mention`：@Bot → Ingress（G2）
-- [ ] 7.6 开 `im-bot-runtime-platform`：Runtime SPI + platform/noop（G3）
-- [ ] 7.7 开 `im-bot-interactive-card`：飞书向可交互卡片 + callback（细节届时定）
+- [x] 7.4 开 `im-bot-group-member`：群挂载/移除 Bot（G1）
+- [x] 7.5 开 `im-bot-group-mention`：@Bot → Ingress（G2）
+- [x] 7.6 开 `im-bot-runtime-platform`：Runtime SPI + platform/noop（G3）
+- [x] 7.7 开 `im-bot-interactive-card`：飞书向可交互卡片 + callback（细节届时定）
 
 ## 8. 卡片占位（地基内最小）
 

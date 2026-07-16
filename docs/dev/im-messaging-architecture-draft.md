@@ -1,6 +1,6 @@
 # IM 即时通讯架构草案（已拍板）
 
-> **状态**：**已拍板**。可执行真源 → OpenSpec change [`im-bot-notify-foundation`](../../openspec/changes/im-bot-notify-foundation/proposal.md)（proposal / design / specs / tasks）。  
+> **状态**：**已拍板 · 地基已 archive**。可执行真源 → OpenSpec archive [`im-bot-notify-foundation`](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/proposal.md)；主规格见 `openspec/specs/im`。后续实现：`im-bot-group-member` / `im-bot-group-mention` / `im-bot-runtime-platform` / `im-bot-interactive-card`。  
 > **用途**：背景与概念长文；实现以 OpenSpec tasks 为准。  
 > **整理日期**：2026-07-15 · **拍板**：2026-07-15/16  
 > **相关**：`openspec/specs/im|infra|system|task|web-auth` delta 见上述 change；`notify-inbox-v2` 写真源 **SUPERSEDED**；空壳 `workspace-notify-system-thread` 已删除  
@@ -627,7 +627,7 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 
 ## 18. 后续工作
 
-执行清单见 [`openspec/changes/im-bot-notify-foundation/tasks.md`](../../openspec/changes/im-bot-notify-foundation/tasks.md)。建议顺序：产方迁移（task-due / bpm 触达）→ 群 Bot → **可交互卡片**（见 §19）。
+执行清单见 archive [`im-bot-notify-foundation/tasks.md`](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/tasks.md)（§7 子 change 已开单）。建议实现顺序：`im-bot-group-member` → `im-bot-runtime-platform` → `im-bot-group-mention` → **可交互卡片**（见 §19）。
 
 ---
 

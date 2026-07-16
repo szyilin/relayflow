@@ -292,9 +292,45 @@ The system MUST expose `ImBotApi` in `relayflow-module-im-api` as the sole write
 - **WHEN** `send` repeats the same dedupeKey
 - **THEN** the system MUST NOT create another unread business message
 
+### Requirement: System sender semantics narrowed
+
+Messages with `sender_type=system` MUST only represent in-conversation environment copy (e.g. member joined a group). They MUST NOT be used as a cross-module business notification bus. Business reach MUST use `sender_type=bot` via `ImBotApi` (or Bot Runtime outbound replies).
+
+#### Scenario: Group join remains system
+
+- **GIVEN** a successful group member invite inside im-biz
+- **WHEN** the join tip is persisted
+- **THEN** `sender_type=system`
+- **AND** business modules MUST NOT be required to call `ImBotApi` for that tip
+
+### Requirement: Group bot membership and mention (phased)
+
+The system MUST allow bots as group conversation members. When a user @mentions a bot in a group, after message persistence the system MUST invoke Bot Ingress and dispatch via Bot Runtime by `handler_kind`. V1 MUST implement `platform` and `noop`; `webhook` MAY be a stub. Group bot delivery MAY be phased across `im-bot-group-member` / `im-bot-group-mention` / `im-bot-runtime-platform`, but these requirements apply in this version. Outbound `ImBotApi` MUST NOT be blocked on unfinished group-bot steps.
+
+#### Scenario: Attach bot to group
+
+- **GIVEN** a group conversation and an enabled bot
+- **WHEN** an authorized action adds the bot as a member
+- **THEN** `im_conversation_member` records the bot member
+- **AND** member/list APIs can distinguish bots from users
+
+#### Scenario: Mention triggers ingress
+
+- **GIVEN** a group with a bot member and a user message mentioning that bot
+- **WHEN** the message is persisted
+- **THEN** Bot Ingress/Runtime is invoked
+- **AND** the system MUST NOT push a human-client WS envelope to the bot (bots have no login client)
+
+#### Scenario: noop inbound
+
+- **GIVEN** a bot with `handler_kind=noop`
+- **WHEN** a user messages its `bot_dm` or @mentions it
+- **THEN** Runtime MAY produce no reply
+- **AND** Outbound `ImBotApi.send` for that bot MUST still work
+
 ### Requirement: Card content placeholder
 
-The message content model MUST reserve a `card` shape (and future interactive `actions`) for Feishu-like interactive cards. Foundation MAY allow text plus deep-link metadata first. Full interactive callback auth/timeout/idempotency belongs to a later slice and MUST NOT resurrect a parallel notify write model.
+The message content model MUST reserve a `card` shape (and future interactive `actions`) for Feishu-like interactive cards. Foundation MAY allow text plus deep-link metadata first. Full interactive callback auth/timeout/idempotency belongs to a later slice (`im-bot-interactive-card`) and MUST NOT resurrect a parallel notify write model.
 
 #### Scenario: Text reach allowed
 
