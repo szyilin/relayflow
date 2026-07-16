@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { LOGIN_PATH } from '../../router/guards'
 import { useAccountDockStore, type AccountDockEntry } from '../../stores/accountDock'
 import { useAuthStore } from '../../stores/auth'
 import { avatarTextFromName, resolveAvatarUrl, tenantTileColor } from '../../utils/avatar'
@@ -67,6 +68,19 @@ async function switchEntry(entry: AccountDockEntry) {
   try {
     const result = await authStore.switchToDockEntry(entry)
     if (!result.ok) {
+      open.value = false
+      if (result.forceLogin) {
+        toast.add({
+          title: '登录已失效',
+          description: result.message,
+          color: 'warning'
+        })
+        await router.replace({
+          path: LOGIN_PATH,
+          query: { redirect: route.fullPath }
+        })
+        return
+      }
       toast.add({ title: '切换失败', description: result.message, color: 'error' })
       return
     }

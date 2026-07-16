@@ -20,10 +20,21 @@ const inviteMembersOpen = ref(false)
 
 const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
+const isBotDmActive = computed(() => active.value?.type === 'bot_dm')
 const groupMemberIds = computed(() => im.groupMembers.map(member => member.userId))
 const directPeerUserId = computed(() =>
   active.value?.type === 'direct' ? active.value.peerUserId : undefined)
 const directPeerOnline = computed(() => presence.isOnline(directPeerUserId.value))
+
+function conversationAvatarIcon(type: string) {
+  if (type === 'group') {
+    return 'i-lucide-users'
+  }
+  if (type === 'bot_dm') {
+    return 'i-lucide-bot'
+  }
+  return undefined
+}
 
 function syncPresenceWatch() {
   const userIds: string[] = []
@@ -111,9 +122,12 @@ function formatMessageTime(iso: string) {
   return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function conversationSubtitle(thread: { type: string, memberCount?: number }) {
+function conversationSubtitle(thread: { type: string, memberCount?: number, botCode?: string }) {
   if (thread.type === 'group') {
     return `群聊 · ${thread.memberCount ?? 0} 人`
+  }
+  if (thread.type === 'bot_dm') {
+    return '助手'
   }
   return '单聊'
 }
@@ -123,6 +137,13 @@ function headerSubtitle() {
     return ''
   }
   return conversationSubtitle(active.value)
+}
+
+function showSenderNickname(msg: { senderId: string, senderNickname?: string, senderType: string }) {
+  if (isOwnMessage(msg.senderId) || !msg.senderNickname) {
+    return false
+  }
+  return isGroupActive.value || isBotDmActive.value || msg.senderType === 'bot'
 }
 
 function openFilePicker() {
@@ -212,7 +233,7 @@ meta:
         >
           <UAvatar
             :text="thread.avatarText ?? thread.title.slice(0, 1)"
-            :icon="thread.type === 'group' ? 'i-lucide-users' : undefined"
+            :icon="conversationAvatarIcon(thread.type)"
             size="md"
           />
           <div class="min-w-0 flex-1">
@@ -224,6 +245,7 @@ meta:
             </div>
             <p class="truncate text-sm text-[var(--ws-text-muted)]">
               <span v-if="thread.type === 'group'" class="mr-1 text-xs">[群]</span>
+              <span v-else-if="thread.type === 'bot_dm'" class="mr-1 text-xs">[助手]</span>
               {{ thread.lastMsgPreview || '暂无消息' }}
             </p>
           </div>
@@ -237,7 +259,7 @@ meta:
       </div>
 
       <div v-else class="flex flex-1 flex-col items-center justify-center p-6">
-        <UEmpty icon="i-lucide-message-square" title="暂无会话" description="开始与同事发起单聊或建群吧" />
+        <UEmpty icon="i-lucide-message-square" title="暂无会话" description="开始与同事发起单聊、建群，或查看来自助手的消息" />
       </div>
     </template>
 
@@ -245,7 +267,7 @@ meta:
       <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
         <UAvatar
           :text="active.avatarText ?? active.title.slice(0, 1)"
-          :icon="active.type === 'group' ? 'i-lucide-users' : undefined"
+          :icon="conversationAvatarIcon(active.type)"
         />
         <div class="min-w-0 flex-1">
           <h1 class="truncate font-semibold">
@@ -295,7 +317,7 @@ meta:
                   : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
               >
                 <p
-                  v-if="isGroupActive && !isOwnMessage(msg.senderId) && msg.senderNickname"
+                  v-if="showSenderNickname(msg)"
                   class="mb-1 text-xs font-medium opacity-80"
                 >
                   {{ msg.senderNickname }}
@@ -435,6 +457,32 @@ meta:
           description="邀请同事加入群聊"
           class="p-6"
         />
+      </template>
+
+      <template v-else-if="isBotDmActive && active">
+        <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
+          助手
+        </div>
+        <div class="p-4">
+          <div class="flex items-center gap-3 rounded-lg bg-[var(--ws-input-bar-bg)] px-3 py-2.5">
+            <UAvatar
+              :text="active.avatarText ?? active.title.slice(0, 1)"
+              icon="i-lucide-bot"
+              size="sm"
+            />
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium">
+                {{ active.title }}
+              </p>
+              <p class="text-xs text-[var(--ws-text-muted)]">
+                组织与业务提醒
+              </p>
+            </div>
+          </div>
+          <p class="mt-3 text-xs leading-relaxed text-[var(--ws-text-muted)]">
+            未读提醒会出现在会话列表角标中，不再使用独立通知铃铛。
+          </p>
+        </div>
       </template>
 
       <template v-else>

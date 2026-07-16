@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { register as registerApi, type AuthRegisterReq } from '../api/app/auth-register'
 import {
   getMyTenantList,
+  isStaleSessionApiError,
   parseTenantSelectionPayload,
   switchTenant as switchTenantApi,
   TENANT_SELECTION_REQUIRED_CODE,
@@ -84,7 +85,9 @@ export type LoginResult =
 export type RegisterResult =
   | { ok: true, invitedTenantNames: string[] }
   | { ok: false, message: string }
-export type SwitchTenantResult = { ok: true } | { ok: false, message: string }
+export type SwitchTenantResult =
+  | { ok: true }
+  | { ok: false, message: string, forceLogin?: boolean }
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
@@ -240,10 +243,65 @@ export const useAuthStore = defineStore('auth', () => {
       await dockSyncAfterSession()
       return { ok: true }
     } catch (error) {
+      if (error instanceof ApiError && isStaleSessionApiError(error)) {
+        return invalidateStaleAccountSession(targetTenantId, error.message)
+      }
       const message = error instanceof ApiError
         ? error.message
         : '切换企业失败，请稍后重试'
       return { ok: false, message }
+    }
+  }
+
+  /**
+   * 清库 / 成员关系失效后：去掉该账号 Dock 残留；若无其他可用账号则清本地会话并要求重新登录。
+   */
+  async function invalidateStaleAccountSession(
+    staleTenantId?: string,
+    serverMessage?: string
+  ): Promise<SwitchTenantResult> {
+    const { useAccountDockStore } = await import('./accountDock')
+    const dock = useAccountDockStore()
+    const staleUserId = userId.value
+
+    if (staleUserId != null && staleTenantId) {
+      dock.removeEntry(`${staleUserId}:${staleTenantId}`)
+    }
+
+    try {
+      await fetchPermissionInfo()
+      const items = await fetchMyTenants()
+      if (items.length === 0) {
+        throw new Error('no tenants')
+      }
+      await dockSyncAfterSession()
+      return {
+        ok: false,
+        message: serverMessage || '该企业已失效，已从列表移除'
+      }
+    } catch {
+      if (staleUserId != null) {
+        const remaining = dock.removeByUserId(staleUserId)
+        if (remaining.length > 0) {
+          try {
+            await restoreDockEntry(remaining[0])
+            return {
+              ok: false,
+              message: '该账号登录已失效，已切换到其他账号'
+            }
+          } catch {
+            // fall through to full clear
+          }
+        }
+      }
+
+      dock.clearAll()
+      clearLocalSession()
+      return {
+        ok: false,
+        message: '登录已失效，请重新登录',
+        forceLogin: true
+      }
     }
   }
 
@@ -341,9 +399,39 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await restoreDockEntry(entry)
       return { ok: true as const }
-    } catch {
+    } catch (error) {
       const { useAccountDockStore } = await import('./accountDock')
-      useAccountDockStore().removeEntry(entry.key)
+      const dock = useAccountDockStore()
+      dock.removeEntry(entry.key)
+
+      if (error instanceof ApiError && isStaleSessionApiError(error)) {
+        const remaining = dock.removeByUserId(entry.userId)
+        if (remaining.length === 0 && !token.value) {
+          clearLocalSession()
+          return {
+            ok: false as const,
+            message: '登录已失效，请重新登录',
+            forceLogin: true
+          }
+        }
+        if (remaining.length === 0 && token.value) {
+          // 切走的账号已废，当前会话仍在
+          return {
+            ok: false as const,
+            message: '该账号登录已失效，已从列表移除'
+          }
+        }
+      }
+
+      if (!token.value) {
+        clearLocalSession()
+        return {
+          ok: false as const,
+          message: '登录已失效，请重新登录',
+          forceLogin: true
+        }
+      }
+
       return { ok: false as const, message: '登录已过期，请重新登录' }
     }
   }
