@@ -8,7 +8,7 @@ const icon = computed(() => colorMode.value === 'dark' ? 'i-lucide-moon' : 'i-lu
 const label = computed(() => colorMode.value === 'dark' ? '切换浅色' : '切换深色')
 
 function toggle() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
+  colorMode.value = colorMode.value === 'dark' ? 'light' : 'dark'
 }
 </script>
 

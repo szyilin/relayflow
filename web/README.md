@@ -1,58 +1,29 @@
-# Vue Dashboard Template
+# RelayFlow Web
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+员工工作台（`/app`）与管理后台（`/admin`）的前端，基于 Vue 3 + Nuxt UI v4 + Vite。
 
-Get started with the Vite + Vue dashboard template with multiple pages, collapsible sidebar, keyboard shortcuts, light & dark mode, command palette and more, powered by [Nuxt UI](https://ui.nuxt.com).
-
-- [Live demo](https://dashboard-vue-template.nuxt.dev)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/vue)
-
-<a href="https://dashboard-vue-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/vue/dashboard-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/vue/dashboard-light.png">
-    <img alt="Vue Dashboard Template" src="https://ui.nuxt.com/assets/templates/vue/dashboard-light.png">
-  </picture>
-</a>
-
-> The dashboard template for Nuxt is on https://github.com/nuxt-ui-templates/dashboard.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- --no-modules -t ui-vue/dashboard
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=dashboard-vue&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fdashboard-vue&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fvue%2Fdashboard-dark.png&demo-url=https%3A%2F%2Fdashboard-vue-template.nuxt.dev%2F&demo-title=Vue%20Dashboard%20Template&demo-description=A%20dashboard%20template%20with%20multi-column%20layout%20for%20building%20sophisticated%20admin%20interfaces.)
-
-## Setup
-
-Make sure to install the dependencies:
+## 开发
 
 ```bash
 pnpm install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:5173`:
-
-```bash
 pnpm dev
 ```
 
-## Production
+默认通过 Vite proxy 转发 `/admin-api`、`/app-api`、`/infra/ws` 到 `http://localhost:8080`。
 
-Build the application for production:
+## 验证
 
 ```bash
 pnpm build
+pnpm typecheck   # 会按需生成 auto-imports.d.ts / components.d.ts
+pnpm lint
 ```
 
-Locally preview production build:
+## 约定
 
-```bash
-pnpm preview
-```
+- 唯一登录页：`/app/login`（管理端 `/admin/login` 会重定向）
+- HTTP：`src/api/request.ts`（axios）；会话键见 `src/utils/session-storage.ts`
+- 页面数据优先：Page → Pinia Store → `api/admin|app/*`
+- UI：Nuxt UI v4；管理端路由必须以 `/admin` 开头
+
+详见仓库根目录 `docs/dev/code-style.md`、`docs/dev/frontend-first-workflow.md`。

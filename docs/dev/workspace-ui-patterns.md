@@ -50,16 +50,17 @@ web/src/
 | Shell | `show-aside` 开启右栏 |
 | Panel | 会话列表 + 搜索 + `.workspace-list-item` |
 | Main | 会话头 + 占位内容 + 底部 `.workspace-input-bar` |
-| 数据 | `useXxxStore`（原型阶段 store 内 Mock 回退） |
+| 数据 | `useXxxStore`（`-web` 阶段可在 store 内用临时数据；integrate 后只走 API） |
 
 ## 数据层约定（对接 API）
 
 ```text
 Page → Pinia Store → api/admin|app/* → axios request.ts
-                      ↘ mocks/*（仅 store 内 isApiUnavailable 回退）
 ```
 
-**禁止** 页面直接 `import mocks/`。
+**禁止** 页面直接 `import mocks/`。仓库不保留常驻 `web/src/mocks/`；勿再实现已废弃的 `isApiUnavailable` 全局 Mock 回退。
+
+多账号切换（`stores/accountDock.ts`）会在 `localStorage` 缓存多个 JWT，属工作台产品能力，不是通用「前端风格」模板。
 
 示范：
 

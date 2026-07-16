@@ -25,7 +25,7 @@ const editForm = reactive({
   nickname: '',
   mobile: '',
   email: '',
-  deptId: null as string | null,
+  deptId: undefined as string | undefined,
   roleIds: [] as string[]
 })
 
@@ -138,7 +138,7 @@ async function openEdit(record: UserListRecord) {
     editForm.nickname = detail.nickname ?? ''
     editForm.mobile = detail.mobile ?? ''
     editForm.email = detail.email ?? ''
-    editForm.deptId = detail.deptId ?? null
+    editForm.deptId = detail.deptId ?? undefined
     editForm.roleIds = [...detail.roleIds]
   } catch (error) {
     editOpen.value = false

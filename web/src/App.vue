@@ -17,9 +17,7 @@ watchEffect(() => {
 </script>
 
 <template>
-  <Suspense>
-    <UApp>
-      <RouterView />
-    </UApp>
-  </Suspense>
+  <UApp>
+    <RouterView />
+  </UApp>
 </template>

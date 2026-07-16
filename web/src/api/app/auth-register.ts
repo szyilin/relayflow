@@ -9,7 +9,7 @@ export interface AuthRegisterReq {
 }
 
 export interface AuthRegisterTenantSummary {
-  tenantId: number
+  tenantId: string | number
   tenantName: string
   owner: boolean
 }

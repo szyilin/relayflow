@@ -40,7 +40,7 @@
 | im-message-file | **ready** | **done** | `POST …/message/send` (file/image) · `/app/messages` | [contract](../../openspec/lanes/im-message-file/contract.md) | private 上传 + JWT 预览/下载 |
 | im-read-receipt | **ready** | **done** | `GET …/conversation/read-status` · `/app/messages` | [contract](../../openspec/lanes/im-read-receipt/contract.md) | 单聊「已读」+ WS `read.updated` |
 | im-presence | **ready** | **done** | `GET …/im/presence/batch` · messages/contacts | [contract](../../openspec/lanes/im-presence/contract.md) | 30s REST 轮询；WS push 留后续 |
-| org-member-invite-notify | **ready** | **done** | `member-invite/pending` · `infra/notify/*` · `/app/register`、Rail 铃铛 | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
+| org-member-invite-notify | **ready** | **done** | `member-invite` · `/app/register`（触达改走 Bot DM，见 im-bot） | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
 | workspace-tasks | **ready** | **done** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | store 无 Mock |
 
 ## 规划中（OpenSpec 已立项 · 待实现）

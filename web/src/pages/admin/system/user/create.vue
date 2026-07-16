@@ -22,7 +22,7 @@ const form = reactive({
   nickname: '',
   mobile: '',
   email: '',
-  deptId: null as string | null,
+  deptId: undefined as string | undefined,
   roleIds: [] as string[]
 })
 
@@ -51,7 +51,7 @@ async function loadOptions() {
     if (queryDeptId && deptStore.list.some(item => item.id === queryDeptId)) {
       form.deptId = queryDeptId
     } else {
-      form.deptId = deptStore.rootDeptId() ?? null
+      form.deptId = deptStore.rootDeptId() ?? undefined
     }
     const roles = await getRolePage({ pageNo: 1, pageSize: 100 })
     roleOptions.value = roles.list.map(item => ({

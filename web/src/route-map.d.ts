@@ -122,6 +122,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/forbidden': RouteRecordInfo<
+      '/app/forbidden',
+      '/app/forbidden',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/app/invite/accept': RouteRecordInfo<
       '/app/invite/accept',
       '/app/invite/accept',
@@ -276,6 +283,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/docs/index.vue': {
       routes:
         | '/app/docs/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/forbidden.vue': {
+      routes:
+        | '/app/forbidden'
       views:
         | never
       pathParamNames:

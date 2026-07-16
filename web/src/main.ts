@@ -11,6 +11,9 @@ import ui from '@nuxt/ui/vue-plugin'
 
 import App from './App.vue'
 import { setupAdminGuards } from './router/guards'
+import { migrateLegacySessionKeys } from './utils/session-storage'
+
+migrateLegacySessionKeys()
 
 const app = createApp(App)
 const pinia = createPinia()

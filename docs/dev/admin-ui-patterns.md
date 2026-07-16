@@ -15,7 +15,7 @@ web/src/
 │   └── AdminPageHeader.vue
 ├── composables/useAdminNav.ts # sidebar 导航单源
 ├── pages/admin/               # 管理端页面
-├── stores/                    # Pinia（页面不 import mocks/）
+├── stores/                    # Pinia
 └── api/admin/                 # axios 封装下的管理端 API
 ```
 
@@ -27,25 +27,16 @@ web/src/
 |------|------|
 | Sidebar | `UDashboardGroup` + `UDashboardSidebar`（可折叠、可拖拽） |
 | 品牌 | workflow 图标 + RelayFlow |
-| 导航分组 | 概览 → 系统管理 → 基础设施；底栏「设计预览」 |
+| 导航分组 | 概览 → 系统管理 → 基础设施；**仅 DEV** 底栏「设计预览」 |
 | Active 项 | 左 2px primary + 浅 primary 背景 |
 | 用户区 | Sidebar footer `AdminUserMenu` |
 | 内容 | 各页 `UDashboardPanel` + `AdminNavbar` |
 
 **Navbar**（`AdminNavbar.vue`）：左侧 `UDashboardSidebarCollapse` + 页面标题；右侧租户名 + `AdminUserMenu`。
 
-## 认证页 `/admin/login`
+## 认证
 
-**文件**：`layouts/auth.vue` + `pages/admin/login.vue`
-
-| 项 | 规范 |
-|----|------|
-| Layout | `meta.layout: auth` |
-| 桌面 | 左品牌渐变 + 右表单 |
-| 移动 | 单列，顶部品牌 |
-| 表单 | `UCard` + `UFormField` + `UInput` + 主按钮 `UButton` block |
-| 提交 | store `login()`；成功 → `/admin` 或 `redirect` query |
-| 提示 | 底部固定文案；后端不可用时 store 自动 Mock 回退 |
+**唯一登录页**：`/app/login`（`/admin/login` 重定向至此）。成功后默认进入工作台 `/app/messages`，管理后台入口在工作台内按 `isAdmin` 展示。
 
 ## 概览页 `/admin`
 
@@ -54,8 +45,7 @@ web/src/
 | 项 | 规范 |
 |----|------|
 | 结构 | `UDashboardPanel` → `AdminNavbar` → body |
-| 统计 | 4 列 `UCard`，图标在 `rounded-lg bg-primary/10` 容器 |
-| 快捷入口 | `UButton` `variant="soft"` 链到子模块 |
+| 内容 | 当前为占位 `UEmpty`；后续再补统计/快捷入口 |
 
 ## 列表页 `/admin/system/user`
 
@@ -104,16 +94,15 @@ web/src/
 **文件**：`pages/admin/design-preview.vue`
 
 - 展示 token 色板与常用组件组合
-- 在 sidebar **底部** dev 链访问，不作为产品主菜单项
+- **仅 `import.meta.env.DEV`** 时出现在 sidebar 底栏；生产构建不展示
 
-## Mock → API 替换（login-slice 起）
+## 接 API
 
-| 层 | 原型 | 接 API |
-|----|------|--------|
-| 数据 | `mocks/` + Pinia store | `web/src/api/admin/*.ts` + store |
-| 登录 token | `localStorage` mock key | JWT + 同上 key 或统一 auth 模块 |
-| 租户名 | `stores/tenant.ts` mock | `GET /admin-api/system/tenant/default` |
-| 页面 template | **保留** | 不改布局，只改 script 数据来源 |
+| 层 | 约定 |
+|----|------|
+| 数据 | `web/src/api/admin/*.ts` + Pinia store |
+| 登录 token | `web/src/utils/session-storage.ts`（`relayflow:access-token` 等） |
+| 页面 template | 接 API 时尽量保留布局，只改 script 数据来源 |
 
 ## 参考
 
