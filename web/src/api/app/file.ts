@@ -1,4 +1,5 @@
 import { post } from '../request'
+import { getAccessToken } from '../../utils/session-storage'
 
 export interface FileUploadSessionCreateReq {
   filename: string
@@ -64,7 +65,7 @@ async function uploadFileWithAccessLevel(file: File, accessLevel: 'public' | 'pr
   const confirmed = await confirmUpload({
     uploadId: session.uploadId,
     size: file.size,
-    etag: etag?.replaceAll('"', '')
+    etag: etag?.replace(/"/g, '')
   })
 
   return String(confirmed.fileId)
@@ -77,8 +78,6 @@ export async function uploadPublicFile(file: File): Promise<string> {
 export async function uploadPrivateFile(file: File): Promise<string> {
   return uploadFileWithAccessLevel(file, 'private')
 }
-
-const TOKEN_KEY = 'relayflow:admin:access-token'
 
 function apiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
@@ -96,7 +95,7 @@ function resolveRequestUrl(path: string): string {
 }
 
 export async function fetchAuthenticatedBlobUrl(path: string): Promise<string> {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = getAccessToken()
   const response = await fetch(resolveRequestUrl(path), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     redirect: 'follow'

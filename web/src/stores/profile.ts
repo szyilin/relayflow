@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { getMyProfile, updateMyProfile, type UserProfile } from '../api/app/profile'
 import { uploadPublicFile } from '../api/app/file'
+import { setSessionItem } from '../utils/session-storage'
 import { useAccountDockStore } from './accountDock'
 import { useAuthStore } from './auth'
 
@@ -56,7 +57,7 @@ export const useProfileStore = defineStore('profile', () => {
       auth.user.nickname = updated.nickname
       auth.user.avatar = updated.avatar
       auth.user = { ...auth.user }
-      localStorage.setItem('relayflow:admin:user', JSON.stringify(auth.user))
+      setSessionItem('user', JSON.stringify(auth.user))
     }
     useAccountDockStore().updateCurrentProfile(updated.nickname, updated.avatar)
   }

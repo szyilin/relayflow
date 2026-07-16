@@ -14,10 +14,10 @@ alwaysApply: false
 ## 应当
 
 - 使用 `WorkspaceShell` + `workspace.css`；**禁止**混用管理端 `UDashboardSidebar` / `--admin-*`
-- 页面 → **Store** → `api/`；Mock 回退只在 store 内（`isApiUnavailable`）
+- 页面 → **Store** → `api/`；`-web` 临时假数据只放 store，integrate 删除
 - HTTP 走 `web/src/api/request.ts`（axios）
 
 ## 禁止
 
-- 页面直接 `import mocks/`
+- 页面直接 `import mocks/`；常驻 `web/src/mocks/`；已废弃的 `isApiUnavailable` 全局回退
 - 引入 Element Plus 等第二套 UI 库

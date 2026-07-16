@@ -1,4 +1,5 @@
 import { del, get, post } from '../request'
+import { getAccessToken } from '../../utils/session-storage'
 
 export type FileAccessLevel = 'public' | 'private'
 
@@ -67,11 +68,9 @@ export function confirmUpload(data: UploadConfirmPayload): Promise<UploadConfirm
   return post<UploadConfirmResponse>('/admin-api/infra/file/confirm', data)
 }
 
-const TOKEN_KEY = 'relayflow:admin:access-token'
-
 export async function openAdminFileDownload(id: string | number): Promise<void> {
   const baseURL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = getAccessToken()
   const response = await fetch(`${baseURL}/admin-api/infra/file/${id}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     redirect: 'manual'

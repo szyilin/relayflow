@@ -18,18 +18,18 @@ alwaysApply: false
 ## 应当
 
 - 只编辑 **`web/`** 与当前 **`*-web`** change 文档
-- 实现 **页面 + Store**；API 未就绪时 store 内 **Mock 回退**（`isApiUnavailable`）
+- 实现 **页面 + Store**；API 未就绪时 store 内可用临时本地数据撑 UI（**integrate 必须删除**）；勿再实现已废弃的 `isApiUnavailable` / 常驻 `mocks/`
 - **起草** `openspec/lanes/{slice}/contract.md`（路径、字段、鉴权、curl）
 - 更新看板 **`web → in_progress / ui_ready`**
-- 完成前 **`cd web && pnpm build`**
+- 完成前 **`cd web && pnpm build && pnpm typecheck`**
 - API 调用走 `web/src/api/admin/` 或 `app/`；页面 **不得** import `mocks/`
 
 ## 禁止
 
-- 在 UI 未 `pnpm build` 通过前 archive `-web`
+- 在 UI 未 `pnpm build` + `pnpm typecheck` 通过前 archive `-web`
 - 未起草 contract 就要求 `-api` 实现（除非 tasks 写明沿用已有 API）
 - 修改 Java（`vite.config` proxy、`VITE_*` 除外）
 
 ## 会话开场白（建议）
 
-> Using change: `<slice>-web`（前端 lane · 第一步）。先做 UI + Mock + contract 草案。
+> Using change: `<slice>-web`（前端 lane · 第一步）。先做 UI + contract 草案；临时数据仅放 store。

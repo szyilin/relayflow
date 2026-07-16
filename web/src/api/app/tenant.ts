@@ -1,7 +1,5 @@
 import { get, post } from '../request'
 
-import { idsEqual, normalizeId } from '../utils/id'
-
 export interface TenantSummary {
   tenantId: string
   tenantName: string

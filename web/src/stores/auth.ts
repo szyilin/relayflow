@@ -13,6 +13,11 @@ import { getPermissionInfo, login as loginApi, logout as logoutApi } from '../ap
 import { ApiError } from '../api/request'
 import { idsEqual, normalizeId } from '../utils/id'
 import { isValidMobile, normalizeMobile } from '../utils/mobile'
+import {
+  clearSessionStorage,
+  getSessionItem,
+  setSessionItem
+} from '../utils/session-storage'
 
 export interface AuthUser {
   username: string
@@ -20,13 +25,8 @@ export interface AuthUser {
   avatar?: string
 }
 
-const TOKEN_KEY = 'relayflow:admin:access-token'
-const TENANT_KEY = 'relayflow:admin:tenant-id'
-const USER_KEY = 'relayflow:admin:user'
-const TENANTS_KEY = 'relayflow:admin:tenants'
-
 function readStoredUser(): AuthUser | null {
-  const raw = localStorage.getItem(USER_KEY)
+  const raw = getSessionItem('user')
   if (!raw) {
     return null
   }
@@ -39,7 +39,7 @@ function readStoredUser(): AuthUser | null {
 }
 
 function readStoredTenants(): TenantSummary[] {
-  const raw = localStorage.getItem(TENANTS_KEY)
+  const raw = getSessionItem('tenants')
   if (!raw) {
     return []
   }
@@ -59,17 +59,17 @@ function readStoredTenants(): TenantSummary[] {
 }
 
 function persistSession(accessToken: string, tenant: string, authUser: AuthUser) {
-  localStorage.setItem(TOKEN_KEY, accessToken)
-  localStorage.setItem(TENANT_KEY, tenant)
-  localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+  setSessionItem('accessToken', accessToken)
+  setSessionItem('tenantId', tenant)
+  setSessionItem('user', JSON.stringify(authUser))
 }
 
 function persistTenants(items: TenantSummary[]) {
-  localStorage.setItem(TENANTS_KEY, JSON.stringify(items))
+  setSessionItem('tenants', JSON.stringify(items))
 }
 
 function persistUser(authUser: AuthUser) {
-  localStorage.setItem(USER_KEY, JSON.stringify(authUser))
+  setSessionItem('user', JSON.stringify(authUser))
 }
 
 export type LoginResult =
@@ -90,9 +90,8 @@ export type SwitchTenantResult =
   | { ok: false, message: string, forceLogin?: boolean }
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
-  const storedTenantId = localStorage.getItem(TENANT_KEY)
-  const tenantId = ref<string | null>(normalizeId(storedTenantId))
+  const token = ref<string | null>(getSessionItem('accessToken'))
+  const tenantId = ref<string | null>(normalizeId(getSessionItem('tenantId')))
   const user = ref<AuthUser | null>(readStoredUser())
   const tenants = ref<TenantSummary[]>(readStoredTenants())
   const userId = ref<string | null>(null)
@@ -207,7 +206,11 @@ export const useAuthStore = defineStore('auth', () => {
         tenantName
       })
       if (data.tenants?.length) {
-        setTenants(data.tenants)
+        setTenants(data.tenants.map(item => ({
+          tenantId: String(item.tenantId),
+          tenantName: item.tenantName,
+          owner: item.owner
+        })))
       }
       await establishSession(data.accessToken, String(data.tenantId), mobile, nickname)
       if (!data.tenants?.length) {
@@ -374,10 +377,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissions.value = []
     isAdmin.value = false
     permissionInfoLoaded.value = false
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(TENANT_KEY)
-    localStorage.removeItem(USER_KEY)
-    localStorage.removeItem(TENANTS_KEY)
+    clearSessionStorage()
   }
 
   async function dockSyncAfterSession() {

@@ -27,13 +27,15 @@ RelayFlow 管理端 UI 已定调（B · Clean Enterprise）。**新增或修改 
 - 主操作用 `UButton color="primary"`；反馈用 `useToast()`
 - 图标 Lucide（`i-lucide-*`）；语义色用 Nuxt UI class，**禁止**页面级 hex
 - 接 API 时 **只改 store / `api/admin/`**，保留 template 与壳层
+- 设计预览等开发工具链 **仅 DEV** 出现在 sidebar
 
 ## 禁止
 
 - 在已有等价 Nuxt UI 组件时手写大量自定义样式
-- 原型/demo 路由（customers、inbox 等）进入产品 sidebar
-- 管理端页面直接 `fetch` 裸 URL（须走 `web/src/api/admin/`）
+- 原型/demo 路由进入**生产**产品 sidebar（DEV 底栏设计预览除外）
+- 管理端页面直接 `fetch` 裸 URL（须走 `web/src/api/admin/`；presigned 上传等例外在 api/composable 层）
 - 接 API 时重写 login 页 layout 或整体壳层（除非新开 UI change）
+- 再引入常驻 `web/src/mocks/` 或已废弃的 `isApiUnavailable` 全局回退
 
 ## 组件映射
 
@@ -46,11 +48,4 @@ RelayFlow 管理端 UI 已定调（B · Clean Enterprise）。**新增或修改 
 | 确认 | `UModal` |
 | 加载 | `USkeleton`、按钮 `loading` |
 
-## Store 替换约定
-
-| Store | 原型 | login-slice / shell-slice |
-|-------|------|---------------------------|
-| `stores/auth.ts` | `mocks/auth.ts` | `api/admin/auth.ts` + JWT |
-| `stores/tenant.ts` | `mocks/tenant.ts` | `api/admin/tenant.ts` |
-
-页面 **不得** import `mocks/`；仅 store 层封装。
+页面数据走 Store → `api/admin/*`；类型可从 `api/` import。

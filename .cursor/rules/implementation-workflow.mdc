@@ -90,7 +90,7 @@ scaffold-maven-parent → scaffold-framework → scaffold-server
 
 结束：
 - [ ] 仅完成 tasks 中勾选项对应范围
-- [ ] 运行本 change 适用的验证命令（见 AGENTS.md）；**含 web/ 必须 `pnpm build`**
+- [ ] 运行本 change 适用的验证命令（见 AGENTS.md）；**含 web/ 必须 `pnpm build` + `pnpm typecheck`**
 - [ ] 有 UI 的切片：说明浏览器验证路径
 - [ ] 未请求则不 git commit / push
 
@@ -99,7 +99,7 @@ scaffold-maven-parent → scaffold-framework → scaffold-server
 ```bash
 openspec validate <change-name> --strict
 ./mvnw -pl relayflow-server -am compile    # 后端
-cd web && pnpm install && pnpm build        # 含 web/ 的切片必跑
+cd web && pnpm install && pnpm build && pnpm typecheck  # 含 web/ 的切片必跑
 docker compose -f deploy/compose.yml config # Compose 语法
 ```
 

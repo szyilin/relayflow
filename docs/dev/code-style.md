@@ -175,7 +175,7 @@ Profile：`local` / `dev` / `prod`。JWT secret、MinIO 密钥等 **禁止** 写
 
 技术栈：Vue 3、TypeScript（严格模式）、Vite、**Nuxt UI v4**、Pinia、Vue Router。
 
-**业务功能**按 [vertical-slice-workflow.md](vertical-slice-workflow.md) 与后端同批交付；有 UI 的 change 必须包含 `web/` tasks 与 `pnpm build` 验证。
+**业务功能**按 [vertical-slice-workflow.md](vertical-slice-workflow.md) 与后端同批交付；有 UI 的 change 必须包含 `web/` tasks 与 `pnpm build` + `pnpm typecheck` 验证。
 
 ### 目录
 
@@ -232,9 +232,9 @@ web/src/
 |----|------|
 | HTTP 客户端 | **axios**（`web/src/api/request.ts` 统一封装） |
 | 响应格式 | `{ code, msg, data }`；`code === 0` 成功 |
-| 页面数据 | **Page → Pinia Store → `api/admin/*` 或 `api/app/*`** |
-| Mock 回退 | 仅在 store 内、`isApiUnavailable(error)` 时回退 `mocks/` |
-| 禁止 | 页面直接 `import mocks/` |
+| 页面数据 | **Page → Pinia Store → `api/admin/*` 或 `api/app/*`**（类型可从 `api/*` 直接 import；下载等一次性工具函数可在页面调用，业务列表/写操作仍走 store） |
+| 临时 Mock | 仅 `-web` 阶段、且只在 **store 内**；**integrate 后删除**。仓库不再保留常驻 `web/src/mocks/` |
+| 禁止 | 页面直接 `import mocks/`；发明全局 `isApiUnavailable` 自动回退（已废弃） |
 
 公共页（如入口 `/`、404）可不在 `/admin` 或 `/app` 下。
 
@@ -242,10 +242,14 @@ web/src/
 
 - `<script setup lang="ts">`；禁止 `any`
 - API 层统一处理 `{ code, msg, data }`；`code === 0` 为成功
-- 401 → 跳转登录；403 → 无权限页
+- **401**（HTTP 或业务码）→ 清会话并跳转 `/app/login`（由 `request.ts` 统一处理）
+- **403**（HTTP 或业务码）→ 跳转 `/app/forbidden`（由 `request.ts` 统一处理；管理身份不足仍用 `/app/no-admin-access`）
+- 会话键：`relayflow:access-token` 等（见 `web/src/utils/session-storage.ts`）；同一 JWT 服务工作台与管理端
+- 超管权限码含 `*:*:*` 时，前端 `hasPermission` 应放行
 - 权限码不散落在组件 magic string 中
 - UI 以 Nuxt UI 组件为主；禁止 Element Plus 作为主 UI 层
 - 禁止 React；前端代码不得放在 `web/` 外
+- 含 `web/` 的切片验证：`pnpm build` **且** `pnpm typecheck`（`auto-imports.d.ts` / `components.d.ts` 为本地生成、gitignore；typecheck 会按需生成）
 
 ### 管理端 UI（已定调）
 

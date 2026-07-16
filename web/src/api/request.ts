@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios'
+import { clearSessionStorage, getAccessToken } from '../utils/session-storage'
 
 export interface ApiResult<T> {
   code: number
@@ -18,7 +19,67 @@ export class ApiError extends Error {
   }
 }
 
-const TOKEN_KEY = 'relayflow:admin:access-token'
+const LOGIN_PATH = '/app/login'
+const FORBIDDEN_PATH = '/app/forbidden'
+
+const AUTH_PATH_MARKERS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/logout'
+]
+
+let handlingUnauthorized = false
+let handlingForbidden = false
+
+function requestUrl(config?: AxiosRequestConfig): string {
+  return `${config?.baseURL ?? ''}${config?.url ?? ''}`
+}
+
+function isAuthEndpoint(config?: AxiosRequestConfig): boolean {
+  const url = requestUrl(config)
+  return AUTH_PATH_MARKERS.some(marker => url.includes(marker))
+}
+
+function currentPath(): string {
+  return window.location.pathname
+}
+
+function redirectToLogin(): void {
+  if (handlingUnauthorized) {
+    return
+  }
+  if (currentPath() === LOGIN_PATH || currentPath() === '/app/register') {
+    return
+  }
+  handlingUnauthorized = true
+  clearSessionStorage()
+  const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+  window.location.assign(`${LOGIN_PATH}?redirect=${redirect}`)
+}
+
+function redirectToForbidden(): void {
+  if (handlingForbidden) {
+    return
+  }
+  if (currentPath() === FORBIDDEN_PATH || currentPath() === LOGIN_PATH) {
+    return
+  }
+  handlingForbidden = true
+  window.location.assign(FORBIDDEN_PATH)
+}
+
+function handleAuthFailure(error: ApiError, config?: AxiosRequestConfig): void {
+  if (isAuthEndpoint(config)) {
+    return
+  }
+  if (error.code === 401) {
+    redirectToLogin()
+    return
+  }
+  if (error.code === 403) {
+    redirectToForbidden()
+  }
+}
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? '',
@@ -28,7 +89,7 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = getAccessToken()
   if (token && config.headers && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -52,7 +113,9 @@ export async function request<T>(path: string, config: AxiosRequestConfig = {}):
 
     const payload = parseApiResult<T>(response.data)
     if (payload.code !== 0) {
-      throw new ApiError(payload.code, payload.msg || '请求失败', payload.data)
+      const error = new ApiError(payload.code, payload.msg || '请求失败', payload.data)
+      handleAuthFailure(error, { ...config, url: path })
+      throw error
     }
 
     return payload.data
@@ -64,7 +127,9 @@ export async function request<T>(path: string, config: AxiosRequestConfig = {}):
     if (axios.isAxiosError(error) && error.response?.data) {
       try {
         const payload = parseApiResult<T>(error.response.data)
-        throw new ApiError(payload.code, payload.msg || '请求失败', payload.data)
+        const apiError = new ApiError(payload.code, payload.msg || '请求失败', payload.data)
+        handleAuthFailure(apiError, error.config)
+        throw apiError
       } catch (inner) {
         if (inner instanceof ApiError) {
           throw inner
@@ -73,7 +138,14 @@ export async function request<T>(path: string, config: AxiosRequestConfig = {}):
     }
 
     if (axios.isAxiosError(error)) {
-      throw new ApiError(error.response?.status ?? 0, '服务响应格式错误')
+      const status = error.response?.status ?? 0
+      const apiError = new ApiError(status, status === 401
+        ? '登录已失效，请重新登录'
+        : status === 403
+          ? '没有权限执行此操作'
+          : '服务响应格式错误')
+      handleAuthFailure(apiError, error.config)
+      throw apiError
     }
 
     throw error

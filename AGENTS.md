@@ -86,7 +86,7 @@ relayflow/
 1. 读 `openspec/changes/<active-change>/tasks.md` — 本次唯一范围
 2. 读 [`docs/dev/frontend-first-workflow.md`](docs/dev/frontend-first-workflow.md) 与 [`vertical-slice-workflow.md`](docs/dev/vertical-slice-workflow.md)
 3. 读 `.cursor/rules/implementation-workflow.mdc` 与 `vertical-slice-workflow.mdc`
-4. 实现后验证：`mvn compile`；含 `web/` 时 **`pnpm build`**；有 UI 时写明浏览器路径
+4. 实现后验证：`mvn compile`；含 `web/` 时 **`pnpm build` + `pnpm typecheck`**；有 UI 时写明浏览器路径
 5. 未经 change 文件夹，不得直接改 `openspec/specs/`
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。

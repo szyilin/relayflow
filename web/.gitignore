@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Auto-generated type declarations
+# Auto-generated type declarations（pnpm hash 路径，勿提交；`pnpm typecheck` / `pnpm build` 会生成）
 auto-imports.d.ts
 components.d.ts
 tsconfig.app.tsbuildinfo

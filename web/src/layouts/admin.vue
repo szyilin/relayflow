@@ -103,6 +103,7 @@ onMounted(async () => {
         </template>
 
         <UNavigationMenu
+          v-if="devLinks.length"
           :collapsed="collapsed"
           :items="devLinks"
           orientation="vertical"

@@ -22,7 +22,7 @@ const form = reactive({
   password: import.meta.env.DEV ? '123456' : ''
 })
 
-async function completeLogin(mobile: string, password: string, selectedTenantId?: number) {
+async function completeLogin(mobile: string, password: string, selectedTenantId?: string) {
   const result = await authStore.login(mobile, password, selectedTenantId)
   if (result.ok) {
     tenantSelection.value = null
@@ -38,7 +38,9 @@ async function completeLogin(mobile: string, password: string, selectedTenantId?
     return
   }
 
-  toast.add({ title: '登录失败', description: result.message, color: 'error' })
+  if ('message' in result) {
+    toast.add({ title: '登录失败', description: result.message, color: 'error' })
+  }
 }
 
 async function onSubmit() {
