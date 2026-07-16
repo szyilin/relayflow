@@ -3,7 +3,7 @@ import { get, post } from '../request'
 export type ConversationType = 'direct' | 'group' | 'channel' | 'bot_dm'
 
 export interface ContentBlock {
-  type: 'text' | 'file' | 'image' | 'system' | 'deeplink' | 'card'
+  type: 'text' | 'file' | 'image' | 'system' | 'deeplink' | 'card' | 'mention'
   text?: string
   fileId?: string
   filename?: string
@@ -19,6 +19,10 @@ export interface ContentBlock {
   cardTitle?: string
   cardSummary?: string
   actions?: unknown[]
+  /** Present when type=mention. */
+  subjectType?: 'user' | 'bot'
+  subjectId?: string
+  botCode?: string
 }
 
 export interface MessageContent {

@@ -12,6 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 @Component
 public class ImContentHelper {
 
@@ -23,6 +28,8 @@ public class ImContentHelper {
     public static final String BLOCK_TYPE_FILE = "file";
     /** Reserved card block; interactive actions deferred to later slice. */
     public static final String BLOCK_TYPE_CARD = "card";
+    public static final String BLOCK_TYPE_MENTION = "mention";
+    public static final String MENTION_SUBJECT_BOT = "bot";
 
     private static final String APP_FILE_DOWNLOAD_PREFIX = "/app-api/infra/file/download?fileId=";
 
@@ -157,7 +164,8 @@ public class ImContentHelper {
         }
         StringBuilder preview = new StringBuilder();
         for (ContentBlockVO block : content.getBlocks()) {
-            if ("text".equals(block.getType()) && StringUtils.hasText(block.getText())) {
+            if (("text".equals(block.getType()) || BLOCK_TYPE_MENTION.equals(block.getType()))
+                    && StringUtils.hasText(block.getText())) {
                 if (!preview.isEmpty()) {
                     preview.append(' ');
                 }
@@ -169,6 +177,34 @@ public class ImContentHelper {
             return text.substring(0, 512);
         }
         return text;
+    }
+
+    /**
+     * Structured bot mentions from content blocks (source of truth for Ingress).
+     * Dedupes by botCode then subjectId.
+     */
+    public List<ContentBlockVO> extractBotMentionBlocks(MessageContentVO content) {
+        if (content == null || CollectionUtils.isEmpty(content.getBlocks())) {
+            return List.of();
+        }
+        List<ContentBlockVO> mentions = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (ContentBlockVO block : content.getBlocks()) {
+            if (!BLOCK_TYPE_MENTION.equals(block.getType())) {
+                continue;
+            }
+            if (!MENTION_SUBJECT_BOT.equals(block.getSubjectType())) {
+                continue;
+            }
+            String key = StringUtils.hasText(block.getBotCode())
+                    ? "code:" + block.getBotCode().trim()
+                    : (block.getSubjectId() != null ? "id:" + block.getSubjectId() : null);
+            if (key == null || !seen.add(key)) {
+                continue;
+            }
+            mentions.add(block);
+        }
+        return mentions;
     }
 
     public String firstAvatarChar(String displayName) {

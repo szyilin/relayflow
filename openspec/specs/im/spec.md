@@ -360,6 +360,33 @@ The IM module MUST provide a Bot Runtime that dispatches inbound bot events by c
 - **THEN** only User members may receive `domain=im` client envelopes
 - **AND** Bot subjects MUST NOT be treated as login clients
 
+### Requirement: Group bot mention ingress
+
+After a user message is persisted in a group that has bot members, if the message content mentions one or more of those bots (structured `mention` blocks are the source of truth), the system MUST invoke Bot Ingress for each mentioned bot that is an active group member. Ingress MUST hand off to Bot Runtime dispatch. The system MUST NOT push a human-client realtime envelope targeted at the bot subject. Persistence of the user message MUST NOT be rolled back if Ingress/Runtime fails (best-effort inbound).
+
+#### Scenario: Mention triggers ingress
+
+- **GIVEN** a group with bot X as a member
+- **AND** a user message whose content mentions bot X
+- **WHEN** the message is persisted successfully
+- **THEN** Bot Ingress is invoked for bot X
+- **AND** Bot Runtime dispatch is attempted
+- **AND** the system MUST NOT push a human-client WS envelope to the bot
+
+#### Scenario: Mention of non-member bot is ignored
+
+- **GIVEN** a message mentions bot Y that is not an active member of the group
+- **WHEN** the message is persisted
+- **THEN** Ingress MUST NOT dispatch Runtime for bot Y as a group mention
+- **AND** the user message remains visible to human members
+
+#### Scenario: Ingress failure does not drop user message
+
+- **GIVEN** Bot Runtime throws or times out after a valid mention
+- **WHEN** inbound handling fails
+- **THEN** the original user message remains persisted
+- **AND** the failure is logged server-side
+
 ### Requirement: Card content placeholder
 
 The message content model MUST reserve a `card` shape (and future interactive `actions`) for Feishu-like interactive cards. Foundation MAY allow text plus deep-link metadata first. Full interactive callback auth/timeout/idempotency belongs to a later slice (`im-bot-interactive-card`) and MUST NOT resurrect a parallel notify write model.
