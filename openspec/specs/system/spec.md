@@ -603,17 +603,35 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 ### Requirement: Member invite notification trigger
 
-The system SHALL create an in-app notification when an administrator successfully invites a member by mobile.
+The system SHALL attempt to deliver a user-visible invite reminder via `ImBotApi.send` with bot code `org-assistant` when an administrator successfully invites a member by mobile. The system MUST NOT write `infra_notify`, call `NotifyInboxApi`, or use bot code `invite-helper`. Invite persistence (membership / dept / roles) MUST succeed independently of Bot delivery. If `ImBotApi.send` fails, the invite API MUST still return success and MUST NOT expose Bot enablement or delivery errors to the client.
 
-#### Scenario: Invite pushes MEMBER_INVITE notify
+#### Scenario: Invite pushes org-assistant bot_dm to active memberships
 
-- **WHEN** `POST /admin-api/system/user/invite` succeeds and creates or updates a `NOT_JOINED` membership
-- **THEN** the system pushes a `MEMBER_INVITE` notification including tenant name and inviter display name in the payload
+- **WHEN** `POST /admin-api/system/user/invite` succeeds and creates a `NOT_JOINED` membership
+- **AND** the invitee already has at least one `ACTIVE` tenant membership
+- **THEN** the system calls `ImBotApi.send` with `botCode=org-assistant` and target scope `ALL_ACTIVE_MEMBERSHIPS`
+- **AND** the message text includes the inviting tenant name and inviter display name
+- **AND** `dedupeKey` is stable per inviting tenant (e.g. `MEMBER_INVITE:{tenantId}`)
+- **AND** on success the reminder is persisted as `im_message` with `sender_type=bot`
 
-#### Scenario: Duplicate invite refreshes notification
+#### Scenario: Invite with no active membership skips bot delivery
 
-- **WHEN** the same mobile already has an unread `MEMBER_INVITE` notification for the same tenant
-- **THEN** the system updates the existing notification instead of creating duplicate unread rows
+- **WHEN** the invitee has no `ACTIVE` memberships
+- **THEN** the invite membership is still created successfully
+- **AND** the system MUST NOT fail the invite solely because no bot_dm could be delivered
+- **AND** pending invite preview / registration banner remains available
+
+#### Scenario: Duplicate invite refreshes via dedupe
+
+- **WHEN** the same mobile/user already has an in-window invite reminder for the same inviting tenant under the same dedupe key
+- **THEN** the system refreshes or ignores per `ImBotApi` dedupe rules instead of creating duplicate unread bot messages
+
+#### Scenario: Invite succeeds even when bot delivery fails
+
+- **WHEN** `POST /admin-api/system/user/invite` creates a `NOT_JOINED` membership
+- **AND** `ImBotApi.send` throws or returns a delivery failure
+- **THEN** the invite API response is still success (`code=0`)
+- **AND** the client MUST NOT receive a Bot-not-enabled error for that invite
 
 ### Requirement: Public pending invite preview for registration
 

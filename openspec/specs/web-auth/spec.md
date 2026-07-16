@@ -175,20 +175,15 @@ The registration page SHALL display pending enterprise invitations when a mobile
 - **WHEN** the mobile field is empty
 - **THEN** the invite banner is not shown
 
-### Requirement: Workspace notification entry
+### Requirement: Workspace reaches users via IM bot conversations
 
-The workspace shell SHALL provide a notification entry with unread badge for authenticated users.
+The workspace product surface MUST present business reachability (invites, task due, approvals, etc.) as Bot conversations / messages under `/app/messages`, not as a separate notification bell inbox.
 
-#### Scenario: Notification bell with unread count
+#### Scenario: No notification bell in shell
 
-- **WHEN** an authenticated user opens the workspace shell and has unread notifications
-- **THEN** the rail shows a notification control with unread count
-- **AND** opening it lists recent `MEMBER_INVITE` notifications
-
-#### Scenario: No bell when logged out
-
-- **WHEN** the user is not authenticated
-- **THEN** the workspace notification entry is not rendered
+- **WHEN** an authenticated user opens the workspace shell
+- **THEN** the rail MUST NOT render a notification-bell control backed by `infra_notify` or equivalent parallel inbox
+- **AND** unread business reminders are visible via IM conversation list unread state for `bot_dm`
 
 ### Requirement: Registration SMS verification UI
 

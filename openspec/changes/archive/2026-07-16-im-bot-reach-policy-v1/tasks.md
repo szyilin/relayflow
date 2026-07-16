@@ -28,4 +28,4 @@
 ## 5. 验证
 
 - [x] 5.1 `./mvnw … UserServiceImplInviteTest` + `relayflow-server` compile 通过
-- [ ] 5.2 浏览器/API：新注册企业邀请已有 ACTIVE 用户 → 邀请成功无红 toast；有 ACTIVE 时组织助手可收消息
+- [x] 5.2 浏览器/API：新注册企业邀请已有 ACTIVE 用户 → 邀请成功无红 toast；有 ACTIVE 时组织助手可收消息（2026-07-16 冒烟通过）

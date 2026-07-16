@@ -18,7 +18,11 @@ public class ImContentHelper {
     public static final String MESSAGE_TYPE_TEXT = "text";
     public static final String MESSAGE_TYPE_IMAGE = "image";
     public static final String MESSAGE_TYPE_FILE = "file";
+    /** Reserved for Feishu-like interactive cards; callbacks deferred to im-bot-interactive-card. */
+    public static final String MESSAGE_TYPE_CARD = "card";
     public static final String BLOCK_TYPE_FILE = "file";
+    /** Reserved card block; interactive actions deferred to later slice. */
+    public static final String BLOCK_TYPE_CARD = "card";
 
     private static final String APP_FILE_DOWNLOAD_PREFIX = "/app-api/infra/file/download?fileId=";
 

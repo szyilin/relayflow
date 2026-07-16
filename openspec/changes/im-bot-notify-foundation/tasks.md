@@ -9,7 +9,7 @@
 - [x] 1.2 在 `docs/dev/im-messaging-architecture-draft.md` 固化已拍板结论（Rail 去掉、硬切删表、群 Bot 分期、卡片后置细节、扇出由调用方选择/默认 SINGLE），状态改为「已拍板 · 真源见本 OpenSpec」
 - [x] 1.3 更新 `docs/dev/api-integration-board.md`：本地基升为优先；标注 `notify-inbox-v2` 写真源 **SUPERSEDED**；调整 V1.1 建议顺序
 - [x] 1.4 更新 `AGENTS.md`「下一优先」指向 `im-bot-notify-foundation`（取代 notify 扩写优先）
-- [x] 1.5 在 `openspec/changes/notify-inbox-v2/proposal.md` 顶部增加 SUPERSEDED 说明并指向本 change（未完成 notify 扩写 tasks 不再实施）
+- [x] 1.5 在 `openspec/changes/archive/2026-07-16-notify-inbox-v2/proposal.md` 顶部增加 SUPERSEDED 说明并指向本 change（未完成 notify 扩写 tasks 不再实施）
 - [x] 1.6 `openspec validate im-bot-notify-foundation --strict` 通过
 
 ## 2. [平台] Schema：删 notify + Bot 表
@@ -41,7 +41,7 @@
 - [x] 5.1 移除工作台 Rail 通知铃铛入口、notify store 业务拉取与 `notify.new` 订阅
 - [x] 5.2 清理 `/app-api/infra/notify` 前端 API 客户端；注册页 pending invite banner **保留**
 - [x] 5.3 `cd web && pnpm build` 通过
-- [ ] 5.4 浏览器冒烟：登录工作台无铃铛；`/app/messages` 人聊仍可用
+- [x] 5.4 浏览器冒烟：登录工作台无铃铛；`/app/messages` 人聊仍可用（2026-07-16 冒烟通过）
 
 ## 6. 前端：bot_dm 可见（可与 §3 联调或开子 change `im-bot-dm-web`）
 
@@ -62,11 +62,11 @@
 
 ## 8. 卡片占位（地基内最小）
 
-- [ ] 8.1 在消息 content 契约/枚举预留 `card`（及 actions 注释）；实现允许 text + deep link 发送
-- [ ] 8.2 文档注明交互 callback **不做**于地基；禁止回潮 notify
+- [x] 8.1 在消息 content 契约/枚举预留 `card`（及 actions 注释）；实现允许 text + deep link 发送
+- [x] 8.2 文档注明交互 callback **不做**于地基；禁止回潮 notify
 
 ## 9. 收尾
 
-- [ ] 9.1 同步修订 `docs/dev/` 中仍写「通知不得写入 im_message」或 Rail 铃铛为写真源的过时描述
-- [ ] 9.2 归档本 change 前：`openspec` 主规格同步（im/infra/system/task/web-auth）
-- [ ] 9.3 处理 `notify-inbox-v2`：abort archive 或文档化废弃后移入 archive
+- [x] 9.1 同步修订 `docs/dev/` 中仍写「通知不得写入 im_message」或 Rail 铃铛为写真源的过时描述
+- [x] 9.2 归档本 change 前：`openspec` 主规格同步（im/infra/system/task/web-auth）
+- [x] 9.3 处理 `notify-inbox-v2`：abort archive 或文档化废弃后移入 archive

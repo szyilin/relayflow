@@ -3,7 +3,7 @@ import { get, post } from '../request'
 export type ConversationType = 'direct' | 'group' | 'channel' | 'bot_dm'
 
 export interface ContentBlock {
-  type: 'text' | 'file' | 'image' | 'system' | 'deeplink'
+  type: 'text' | 'file' | 'image' | 'system' | 'deeplink' | 'card'
   text?: string
   fileId?: string
   filename?: string
@@ -14,6 +14,11 @@ export interface ContentBlock {
   route?: string
   entityType?: string
   entityId?: string
+  /** Reserved for type=card; interactive callbacks deferred to im-bot-interactive-card. */
+  cardTemplate?: string
+  cardTitle?: string
+  cardSummary?: string
+  actions?: unknown[]
 }
 
 export interface MessageContent {

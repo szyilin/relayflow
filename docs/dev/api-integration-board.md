@@ -42,14 +42,14 @@
 | im-presence | **ready** | **done** | `GET …/im/presence/batch` · messages/contacts | [contract](../../openspec/lanes/im-presence/contract.md) | 30s REST 轮询；WS push 留后续 |
 | org-member-invite-notify | **ready** | **done** | `member-invite` · `/app/register`（触达改走 Bot DM，见 im-bot） | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
 | workspace-tasks | **ready** | **done** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | store 无 Mock |
+| im-bot-invite-migrate | **archived** | n/a | 邀请 → `org-assistant` · `ALL_ACTIVE_MEMBERSHIPS` | 见 archive | [archive](../../openspec/changes/archive/2026-07-16-im-bot-invite-migrate/proposal.md) |
+| im-bot-reach-policy-v1 | **archived** | n/a | `im_bot.type` · system 免订阅 · 并集 · 产方 catch | 见 archive | [archive](../../openspec/changes/archive/2026-07-16-im-bot-reach-policy-v1/proposal.md) |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **im-bot-notify-foundation** | partial | **ui_ready** | `ImBotApi` · `bot_dm` · `/app/messages`；**删除** Rail 铃铛与 `infra_notify` | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [change](../../openspec/changes/im-bot-notify-foundation/proposal.md)；§6 bot_dm UI 已落地 |
-| **im-bot-invite-migrate** | **ready** | n/a | 邀请 → `org-assistant`（废弃 `invite-helper`） | 见 change | [change](../../openspec/changes/im-bot-invite-migrate/proposal.md)；无 ACTIVE 企业时跳过 Bot，靠注册 banner |
-| **im-bot-reach-policy-v1** | **ready** | n/a | `im_bot.type` · system 免订阅 · 并集 · 产方 catch | 见 change | [change](../../openspec/changes/im-bot-reach-policy-v1/proposal.md)；代码已落地，待浏览器冒烟 |
+| **im-bot-notify-foundation** | **ready** | **done** | `ImBotApi` · `bot_dm` · `/app/messages`；**删除** Rail 铃铛与 `infra_notify` | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [change](../../openspec/changes/im-bot-notify-foundation/proposal.md)；§2–§9 收尾完成；主规格已 sync；待母 change archive |
 | workspace-search | **ready** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；深链 query 已接；§3.3 浏览器 E2E 待冒烟 |
 | bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达将改走 `approval-bot`（修订中） |
 
@@ -57,14 +57,14 @@
 
 | 切片 | 状态 | 说明 |
 |------|------|------|
-| notify-inbox-v2 | **SUPERSEDED** | 写真源改为 Bot/`im_message`；见 [im-bot-notify-foundation](../../openspec/changes/im-bot-notify-foundation/proposal.md)。已落地的铃铛/`infra_notify` 代码将在地基切片中拆除 |
+| notify-inbox-v2 | **archived / SUPERSEDED** | 写真源改为 Bot/`im_message`；见 [archive](../../openspec/changes/archive/2026-07-16-notify-inbox-v2/proposal.md) |
 
 ### V1.1 协作扩展 · 建议实施顺序
 
 ```text
-1. im-bot-notify-foundation（schema → ImBotApi → 删 notify/Rail → bot_dm UI）
-2. 产方迁移：invite / task-due → ImBotApi；其后群 Bot、interactive card
-3. workspace-search-v1（可与地基后期并行）
+1. im-bot-notify-foundation — §2–§9 收尾完成；主规格已 sync；待母 change archive
+2. 产方迁移：invite ✅ / task-due → ImBotApi；其后群 Bot、interactive card
+3. workspace-search-v1（可与 ② 并行 · E2E 冒烟待做）
 4. bpm-v1（schema → web → api；触达走 approval-bot，不依赖 infra_notify）
 ```
 
