@@ -1,7 +1,7 @@
 # API 契约：bpm-approval
 
-> **状态**：草案（母 change 规划；`bpm-approval-web` lane 实施时细化）  
-> **起草**：`bpm-v1` change  
+> **状态**：草案 · **deferred**（母 change 已归档；短期内不实现）  
+> **起草**：`bpm-v1` → [archive](../../changes/archive/2026-07-16-bpm-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **前置**：统一登录、多租户 JWT；待办触达走 `approval-bot` + `ImBotApi`（见 [`im-bot-dm/contract.md`](../im-bot-dm/contract.md)）
 
