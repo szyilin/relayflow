@@ -38,7 +38,7 @@ openspec archive <change-name>
 | **跨域同步/异步与领域消息** | [docs/dev/cross-domain-messaging.md](docs/dev/cross-domain-messaging.md) | **跨域副作用、发事件 / 用 Redis·MQ 前** |
 | **默认数据初始化（A/B/C）** | [docs/dev/default-data-provisioning.md](docs/dev/default-data-provisioning.md) | **入企 ensure、用户/企业偏好、默认是否预插行前** |
 | API 响应、错误码、分页 | [docs/dev/api.md](docs/dev/api.md) | 写 Controller / 前端 API 层 |
-| 数据库、Flyway、公共字段 | [docs/dev/database.md](docs/dev/database.md) | 写迁移、DO、Mapper |
+| 数据库、Flyway、公共字段 | [docs/dev/database.md](docs/dev/database.md) | 写迁移、DO、Mapper；**含 `0.x` 可破坏性改表（须先征得同意）** |
 | **DO/Mapper 代码生成** | [docs/dev/codegen.md](docs/dev/codegen.md) | **改表后 CLI 临时参照 → diff 合入 `src/`（禁止从零手写 DO）** |
 | 分层命名、JWT、前端结构 | [docs/dev/code-style.md](docs/dev/code-style.md) | 写业务代码 |
 | **产品面 / 权限模型** | [product-permission-model.md](docs/dev/product-permission-model.md) | **写 auth、路由、RBAC、工作台/管理端准入前** |
@@ -94,7 +94,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`user-preference-integrate`（设置窗 ↔ 偏好 API 正式联调；尚未立项）。资料名片 / 设置窗 / 偏好 API / 默认数据惯例已 archive。群 Bot / 卡片子 change（`im-bot-group-member` → `im-bot-runtime-platform` → `im-bot-group-mention` → `im-bot-interactive-card`）已完成，可 archive。`bpm-v1` 已 **deferred 归档**（短期内不做审批）。
+**下一优先**：`workspace-business-card-web` / `workspace-business-card-api`（名片已落库，可 archive）。`user-preference-integrate` 仍可做。群 Bot 子 change 可 archive。`bpm-v1` deferred。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

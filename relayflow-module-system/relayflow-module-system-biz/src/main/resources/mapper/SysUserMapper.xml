@@ -16,6 +16,8 @@
         <result column="mobile" property="mobile" />
         <result column="email" property="email" />
         <result column="avatar" property="avatar" />
+        <result column="signature" property="signature" />
+        <result column="cover_file_id" property="coverFileId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -26,7 +28,7 @@
         updater,
         update_time,
         deleted,
-        username, password, nickname, mobile, email, avatar
+        username, password, nickname, mobile, email, avatar, signature, cover_file_id
     </sql>
 
 </mapper>

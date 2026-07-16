@@ -101,7 +101,18 @@ public class UserServiceImpl implements UserService {
     }
 
     private AppUserProfileRespVO getMyProfile(Long userId, Long tenantId) {
-        requireTenantUser(userId, tenantId);
+        requireActiveTenantUser(userId, tenantId);
+        SysUserDO user = requireUser(userId);
+        SysTenantDO tenant = tenantService.getTenant(tenantId);
+        return buildProfileResponse(user, tenant, userId, tenantId);
+    }
+
+    @Override
+    public AppUserProfileRespVO getMemberProfile(Long userId) {
+        Long viewerId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireActiveTenantUser(viewerId, tenantId);
+        requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
         SysTenantDO tenant = tenantService.getTenant(tenantId);
         return buildProfileResponse(user, tenant, userId, tenantId);
@@ -116,7 +127,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request) {
-        requireTenantUser(userId, tenantId);
+        requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
 
         if (request.getNickname() != null) {
@@ -128,6 +139,12 @@ public class UserServiceImpl implements UserService {
         }
         if (request.getAvatar() != null) {
             user.setAvatar(trimToNull(request.getAvatar()));
+        }
+        if (request.getSignature() != null) {
+            user.setSignature(request.getSignature().trim());
+        }
+        if (request.getCoverFileId() != null) {
+            user.setCoverFileId(trimToNull(request.getCoverFileId()));
         }
         userMapper.updateById(user);
 
@@ -142,6 +159,8 @@ public class UserServiceImpl implements UserService {
         response.setUsername(user.getUsername());
         response.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
         response.setAvatar(user.getAvatar());
+        response.setSignature(user.getSignature() != null ? user.getSignature() : "");
+        response.setCoverFileId(user.getCoverFileId());
         response.setTenantId(tenantId);
         response.setTenantName(tenant.getName());
         response.setTenantVerified(false);
@@ -517,6 +536,14 @@ public class UserServiceImpl implements UserService {
                 .eq(SysTenantUserDO::getTenantId, tenantId)
                 .eq(SysTenantUserDO::getUserId, userId));
         if (tenantUser == null) {
+            throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
+        }
+        return tenantUser;
+    }
+
+    private SysTenantUserDO requireActiveTenantUser(Long userId, Long tenantId) {
+        SysTenantUserDO tenantUser = requireTenantUser(userId, tenantId);
+        if (tenantUser.getStatus() != TenantUserStatus.ACTIVE) {
             throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
         }
         return tenantUser;

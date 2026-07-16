@@ -64,6 +64,7 @@ onMounted(() => {
       <UPopover
         v-model:open="profileOpen"
         :content="{ side: 'right', align: 'start', sideOffset: 10 }"
+        :ui="{ content: 'p-0 overflow-hidden' }"
       >
         <button
           type="button"
