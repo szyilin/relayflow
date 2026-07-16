@@ -18,6 +18,7 @@ import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.enums.ImMemberRole;
+import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImMessageService;
 import com.relayflow.module.system.api.user.UserApi;
@@ -138,13 +139,14 @@ public class ImGroupServiceImpl implements ImGroupService {
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
                         .orderByAsc(ImConversationMemberDO::getJoinTime));
 
         List<GroupMemberItemRespVO> items = new ArrayList<>();
         for (ImConversationMemberDO member : members) {
-            UserBasicDTO user = userApi.getUserBasic(member.getUserId());
+            UserBasicDTO user = userApi.getUserBasic(member.getSubjectId());
             GroupMemberItemRespVO item = new GroupMemberItemRespVO();
-            item.setUserId(member.getUserId());
+            item.setUserId(member.getSubjectId());
             item.setNickname(user.getNickname());
             item.setAvatarText(firstAvatarChar(user.getNickname()));
             item.setRole(member.getRole());
@@ -210,9 +212,10 @@ public class ImGroupServiceImpl implements ImGroupService {
         return new LinkedHashSet<>(conversationMemberMapper.selectList(
                         Wrappers.<ImConversationMemberDO>lambdaQuery()
                                 .eq(ImConversationMemberDO::getTenantId, tenantId)
-                                .eq(ImConversationMemberDO::getConversationId, conversationId))
+                                .eq(ImConversationMemberDO::getConversationId, conversationId)
+                                .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER))
                 .stream()
-                .map(ImConversationMemberDO::getUserId)
+                .map(ImConversationMemberDO::getSubjectId)
                 .toList());
     }
 
@@ -220,7 +223,8 @@ public class ImGroupServiceImpl implements ImGroupService {
         ImConversationMemberDO member = new ImConversationMemberDO();
         member.setTenantId(tenantId);
         member.setConversationId(conversationId);
-        member.setUserId(userId);
+        member.setSubjectType(ImMemberSubjectType.USER);
+        member.setSubjectId(userId);
         member.setRole(role);
         member.setReadSeq(0L);
         member.setUnreadCount(0);

@@ -36,6 +36,7 @@ class RelayflowTenantLineHandlerTest {
         assertTrue(handler.ignoreTable("sys_tenant"));
         assertTrue(handler.ignoreTable("sys_tenant_user"));
         assertTrue(handler.ignoreTable("sys_user"));
+        assertTrue(handler.ignoreTable("im_bot"));
     }
 
     @Test
