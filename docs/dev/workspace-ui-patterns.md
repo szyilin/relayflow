@@ -45,7 +45,7 @@ web/src/
 | 占位项 | 文案旁 `（占位）`；点击 toast「功能即将推出」 |
 | 登录更多账号 | `WorkspaceMoreAccountsPanel`：分组「我的企业」（`my-list`/`switchTenant`）+「本机已登录账号」（Account Dock）；底部「加入企业」占位、「创建新账号」→ `/app/register?addAccount=1` |
 | 设置 | `WorkspaceSettingsPanel`：主题（浅色/深色/跟随系统，复用 `useAdminColorMode`）+ 其余占位 |
-| 认证页主题 | `workspace-auth` / `auth` layout 可保留独立主题开关 |
+| 认证页主题 | 登录/注册页不展示主题开关；后续随账号用户配置加载（未做） |
 
 ## 全局搜索（⌘K / Rail）
 
