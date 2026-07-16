@@ -41,6 +41,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -158,7 +159,13 @@ class UserServiceImplInviteTest {
         verify(imBotApi).send(captor.capture());
         ImBotSendCommand command = captor.getValue();
         assertEquals("org-assistant", command.getBotCode());
-        assertEquals("张三 邀请你加入 Acme", command.getText());
+        assertNull(command.getText());
+        assertNotNull(command.getCard());
+        assertEquals("generic.v1", command.getCard().getTemplate());
+        assertEquals("邀请加入企业", command.getCard().getHeader().getTitle());
+        assertEquals("Acme", command.getCard().getHeader().getSubtitle());
+        assertEquals("system.member.invite.accept",
+                command.getCard().getActions().get(0).getBehavior().getActionKey());
         assertEquals("MEMBER_INVITE:42", command.getDedupeKey());
         assertEquals("tenant", command.getEntityType());
         assertEquals("42", command.getEntityId());

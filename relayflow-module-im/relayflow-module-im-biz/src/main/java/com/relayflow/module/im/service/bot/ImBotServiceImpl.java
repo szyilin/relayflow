@@ -9,6 +9,7 @@ import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
 import com.relayflow.module.im.controller.app.vo.ContentBlockVO;
 import com.relayflow.module.im.controller.app.vo.MessageContentVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
+import com.relayflow.module.im.service.card.ImBotCardSupport;
 import com.relayflow.module.im.dal.dataobject.ImBotDO;
 import com.relayflow.module.im.dal.dataobject.ImBotTenantEnablementDO;
 import com.relayflow.module.im.dal.dataobject.ImBotUserEnablementDO;
@@ -52,6 +53,7 @@ public class ImBotServiceImpl implements ImBotService {
     private static final int BOT_STATUS_ENABLED = 1;
     private static final int TENANT_ENABLED = 1;
     private static final String MESSAGE_TYPE_TEXT = "text";
+    private static final String MESSAGE_TYPE_CARD = ImContentHelper.MESSAGE_TYPE_CARD;
     private static final String BLOCK_TYPE_TEXT = "text";
     private static final String BLOCK_TYPE_DEEPLINK = "deeplink";
     private static final String DEDUPE_CLIENT_PREFIX = "bot-dedupe:";
@@ -157,8 +159,9 @@ public class ImBotServiceImpl implements ImBotService {
             conversationService.lockConversation(tenantId, conversationId);
 
             MessageContentVO content = buildContent(command);
+            String messageType = resolveMessageType(command);
             String contentJson = contentHelper.toJson(content);
-            String preview = contentHelper.buildPreview(MESSAGE_TYPE_TEXT, content);
+            String preview = contentHelper.buildPreview(messageType, content);
             OffsetDateTime now = OffsetDateTime.now();
             long nextSeq = nextSeq(tenantId, conversationId);
 
@@ -167,7 +170,7 @@ public class ImBotServiceImpl implements ImBotService {
             message.setConversationId(conversationId);
             message.setSenderId(bot.getId());
             message.setSenderType(ImSenderType.BOT);
-            message.setType(MESSAGE_TYPE_TEXT);
+            message.setType(messageType);
             message.setContentJson(contentJson);
             if (StringUtils.hasText(command.getDedupeKey())) {
                 message.setClientMsgId(buildDedupeClientMsgId(bot.getId(), userId, command.getDedupeKey()));
@@ -333,16 +336,27 @@ public class ImBotServiceImpl implements ImBotService {
 
     private void validateCommand(ImBotSendCommand command) {
         if (command == null || !StringUtils.hasText(command.getBotCode())
-                || !StringUtils.hasText(command.getText())
                 || command.getTarget() == null
                 || command.getTarget().getUserId() == null) {
             throw new ServiceException(ErrorCodeConstants.BOT_SEND_INVALID);
+        }
+        boolean hasText = StringUtils.hasText(command.getText());
+        boolean hasCard = command.getCard() != null;
+        if (!hasText && !hasCard) {
+            throw new ServiceException(ErrorCodeConstants.BOT_SEND_INVALID);
+        }
+        if (hasCard) {
+            ImBotCardSupport.validate(command.getCard());
         }
         String scope = resolveScope(command.getTarget());
         if (!ImBotSendTarget.SCOPE_SINGLE.equals(scope)
                 && !ImBotSendTarget.SCOPE_ALL_ACTIVE_MEMBERSHIPS.equals(scope)) {
             throw new ServiceException(ErrorCodeConstants.BOT_SEND_INVALID);
         }
+    }
+
+    private String resolveMessageType(ImBotSendCommand command) {
+        return command.getCard() != null ? MESSAGE_TYPE_CARD : MESSAGE_TYPE_TEXT;
     }
 
     private String resolveScope(ImBotSendTarget target) {
@@ -356,6 +370,11 @@ public class ImBotServiceImpl implements ImBotService {
         MessageContentVO content = new MessageContentVO();
         content.setVersion(1);
         List<ContentBlockVO> blocks = new ArrayList<>();
+        if (command.getCard() != null) {
+            blocks.add(ImBotCardSupport.toContentBlock(command.getCard()));
+            content.setBlocks(blocks);
+            return content;
+        }
         ContentBlockVO text = new ContentBlockVO();
         text.setType(BLOCK_TYPE_TEXT);
         text.setText(command.getText().trim());

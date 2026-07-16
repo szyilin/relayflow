@@ -14,15 +14,77 @@ export interface ContentBlock {
   route?: string
   entityType?: string
   entityId?: string
-  /** Reserved for type=card; interactive callbacks deferred to im-bot-interactive-card. */
-  cardTemplate?: string
-  cardTitle?: string
-  cardSummary?: string
-  actions?: unknown[]
+  /** Present when type=card ({@code generic.v1}). */
+  schema?: number
+  cardId?: string
+  template?: string
+  header?: CardHeader
+  fields?: CardField[]
+  actions?: CardActionItem[]
+  meta?: CardMeta
   /** Present when type=mention. */
   subjectType?: 'user' | 'bot'
   subjectId?: string
   botCode?: string
+}
+
+export interface CardHeader {
+  title: string
+  subtitle?: string
+}
+
+export interface CardField {
+  label: string
+  value: string
+}
+
+export interface CardFormField {
+  name: string
+  label: string
+  required?: boolean
+  control?: 'text' | 'textarea'
+}
+
+export interface CardBehavior {
+  type: 'open_url' | 'callback'
+  route?: string
+  actionKey?: string
+  payload?: Record<string, unknown>
+  form?: CardFormField[]
+}
+
+export interface CardActionItem {
+  id: string
+  label: string
+  style?: 'default' | 'primary' | 'danger' | string
+  behavior: CardBehavior
+}
+
+export interface CardMeta {
+  expiresAt?: string
+  source?: {
+    domain?: string
+    entityType?: string
+    entityId?: string
+  }
+}
+
+export interface CardActionPayload {
+  messageId: string
+  conversationId: string
+  actionId: string
+  actionKey: string
+  payload?: Record<string, unknown>
+  formValues?: Record<string, unknown>
+  clientActionId: string
+}
+
+export interface CardActionResult {
+  toast?: {
+    type?: string
+    content?: string
+  }
+  message?: MessageItem
 }
 
 export interface MessageContent {
@@ -104,7 +166,7 @@ export interface MessageItem {
   senderId: string
   senderNickname?: string
   senderType: 'user' | 'system' | 'bot' | 'app'
-  type: 'text' | 'image' | 'file' | 'system'
+  type: 'text' | 'image' | 'file' | 'system' | 'card'
   content: MessageContent
   clientMsgId?: string
   seq: number
@@ -309,4 +371,16 @@ export function addGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBo
 
 export function removeGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBotRemoveResult> {
   return post<GroupBotRemoveResult>('/app-api/im/group/bots/remove', payload)
+}
+
+export function postCardAction(payload: CardActionPayload): Promise<CardActionResult> {
+  return post<CardActionResult>('/app-api/im/card/action', payload).then((result) => {
+    if (result?.message) {
+      return {
+        ...result,
+        message: normalizeMessage(result.message as unknown as RawMessageItem)
+      }
+    }
+    return result
+  })
 }

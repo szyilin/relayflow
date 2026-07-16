@@ -91,6 +91,11 @@ function messagePreviewFromContent(type: MessageItem['type'], content: MessageCo
     const fileBlock = fileBlockFromContent(content)
     return fileBlock?.filename ? `[文件] ${fileBlock.filename}` : '[文件]'
   }
+  if (type === 'card') {
+    const card = content.blocks.find(block => block.type === 'card')
+    const title = card?.header?.title?.trim()
+    return title ? `[卡片] ${title}` : '[卡片]'
+  }
   return textFromContent(content)
 }
 
@@ -323,6 +328,28 @@ export const useImStore = defineStore('im', () => {
     if (activeConversationId.value === conversationId) {
       void reportConversationRead(conversationId, message.seq)
     }
+  }
+
+  function handleMessageUpdated(raw: MessageItem) {
+    const message = normalizeIncomingMessage(raw)
+    const conversationId = message.conversationId
+    const preview = messagePreviewFromContent(message.type, message.content)
+    const conversation = conversations.value.find(item => item.id === conversationId)
+    if (conversation) {
+      conversation.lastMsgPreview = preview
+    }
+    if (activeConversationId.value !== conversationId) {
+      return
+    }
+    const index = messages.value.findIndex(item => item.id === message.id)
+    if (index >= 0) {
+      messages.value = messages.value.map(item =>
+        item.id === message.id ? { ...message, localStatus: item.localStatus ?? 'sent' } : item)
+    }
+  }
+
+  function applyMessageUpdate(message: MessageItem) {
+    handleMessageUpdated(message)
   }
 
   async function createGroup(name: string, members: GroupMemberCandidate[]) {
@@ -652,6 +679,8 @@ export const useImStore = defineStore('im', () => {
     removeGroupBot,
     isCurrentUserGroupOwner,
     handleMessageNew,
+    handleMessageUpdated,
+    applyMessageUpdate,
     handleReadUpdated,
     fetchReadStatus,
     isMessageReadByPeer,

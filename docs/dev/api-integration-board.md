@@ -55,7 +55,7 @@
 | **im-bot-group-member** | **ready** | **done** | 群挂/移除 Bot · 成员列表含 Bot | [contract](../../openspec/lanes/im-group-bot/contract.md) | [change](../../openspec/changes/im-bot-group-member/proposal.md)；G1；群主侧栏添加/移除 |
 | **im-bot-runtime-platform** | **ready** | n/a | Bot Runtime SPI · noop/platform · webhook stub | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；Ingress 可测入口已就绪 |
 | **im-bot-group-mention** | **ready** | **done** | 群 @Bot → Ingress | [contract](../../openspec/lanes/im-group-bot-mention/contract.md) | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；事务提交后 best-effort |
-| **im-bot-interactive-card** | planned | pending | card 发送 · `/app-api/im/card/action` · `/app/messages` | 待起草 | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md) |
+| **im-bot-interactive-card** | **ready** | **done** | card 发送 · `/app-api/im/card/action` · `/app/messages` | [contract](../../openspec/lanes/im-interactive-card/contract.md) | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md)；邀请卡 `system.member.invite.accept` |
 | bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达已修订为 `approval-bot` + `ImBotApi` |
 
 ### SUPERSEDED（不再按旧写真源扩写）
