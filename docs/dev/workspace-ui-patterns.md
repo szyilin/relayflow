@@ -33,7 +33,8 @@ web/src/
 | 列表栏 | `#panel` slot；右缘可拖拽调宽 |
 | 主区 | 默认 slot；聊天/任务/文档内容 |
 | 右栏 | 可选 `#aside`（默认关闭；消息/通讯录不展示「活跃状态」） |
-| 主题 | **不**浮在壳层右上角；从资料名片 → 设置（`WorkspaceSettingsPanel`）切换 |
+| 主题 | **不**浮在壳层右上角；从资料名片 → **设置窗**切换 |
+| 设置窗 | `WorkspaceSettingsPanel`：宽 UModal；左栏分类 + 右栏「通用」 |
 
 ## 资料名片与个人入口
 
@@ -44,8 +45,18 @@ web/src/
 | 菜单顺序 | 个性签名（占位）、我的个人名片（占位）、登录更多账号、设置、退出登录；管理后台（`isAdmin`）置底 |
 | 占位项 | 文案旁 `（占位）`；点击 toast「功能即将推出」 |
 | 登录更多账号 | `WorkspaceMoreAccountsPanel`：分组「我的企业」（`my-list`/`switchTenant`）+「本机已登录账号」（Account Dock）；底部「加入企业」占位、「创建新账号」→ `/app/register?addAccount=1` |
-| 设置 | `WorkspaceSettingsPanel`：主题（浅色/深色/跟随系统，复用 `useAdminColorMode`）+ 其余占位 |
-| 认证页主题 | 登录/注册页不展示主题开关；后续随账号用户配置加载（未做） |
+| 设置 | 关闭名片后打开独立设置窗（见下）；不在 popover 内嵌迷你设置 |
+| 认证页主题 | 登录/注册页不展示主题开关；后续随账号用户配置加载（`user-preference-api`） |
+
+## 工作台设置窗
+
+| 项 | 规范 |
+|----|------|
+| 入口 | 名片「设置」→ `WorkspaceRailHeader` 打开 `WorkspaceSettingsPanel` |
+| 布局 | 左栏分类（账号与安全、通用、隐私、通知、快捷键）；右栏内容；默认「通用」 |
+| 通用 | 主题模式（跟随系统/浅色/深色 + 预览）、主题色色点、会话气泡布局（左对齐/左右分布） |
+| 数据 | `stores/userPreference`（本地默认 + localStorage；契约见 [`user-preference/contract.md`](../../openspec/lanes/user-preference/contract.md)） |
+| 占位分类 | 右侧空态「功能即将推出（占位）」+ toast |
 
 ## 全局搜索（⌘K / Rail）
 
@@ -73,6 +84,7 @@ web/src/
 | Panel | 会话列表 + 搜索 + `.workspace-list-item` |
 | Main | 会话头 + 消息流 + 底部 `.workspace-input-bar` |
 | 会话头 | 单聊不展示「单聊」副标题；群聊保留人数；群成员经会话头「成员」按钮打开模态 |
+| 气泡布局 | 读 `userPreference.chatBubbleLayout`：`split` 己方右对方左；`left` 全部左对齐 |
 | 数据 | `useXxxStore`（`-web` 阶段可在 store 内用临时数据；integrate 后只走 API） |
 
 ## 通讯录页 `/app/contacts`
