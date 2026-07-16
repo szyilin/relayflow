@@ -48,6 +48,7 @@ import com.relayflow.module.system.service.permission.PermissionService;
 import com.relayflow.module.system.service.permission.dto.DataScopeResult;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     private static final String ORG_ASSISTANT_BOT_CODE = "org-assistant";
@@ -652,7 +654,13 @@ public class UserServiceImpl implements UserService {
         command.setEntityType("tenant");
         command.setEntityId(String.valueOf(invitingTenantId));
         command.setTarget(target);
-        imBotApi.send(command);
+        try {
+            imBotApi.send(command);
+        } catch (Exception ex) {
+            // Best-effort reach: invite membership must succeed even if Bot delivery fails.
+            log.warn("Invite bot message failed: invitingTenantId={}, inviteeUserId={}, botCode={}",
+                    invitingTenantId, invitee.getId(), ORG_ASSISTANT_BOT_CODE, ex);
+        }
     }
 
     private String resolveInviterNickname() {

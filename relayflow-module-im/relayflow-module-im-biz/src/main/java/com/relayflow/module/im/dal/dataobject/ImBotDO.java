@@ -39,6 +39,10 @@ public class ImBotDO extends BaseDO {
     @TableField("scope")
     private String scope;
 
+    /** {@code system} | {@code tenant} — see ImBotType. */
+    @TableField("type")
+    private String type;
+
     @TableField("enable_policy")
     private String enablePolicy;
 
