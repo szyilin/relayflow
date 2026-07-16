@@ -11,9 +11,11 @@ import { downloadAuthenticatedFile } from '../../../api/app/file'
 import type { MessageItem } from '../../../api/app/im'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
+import { useUserPreferenceStore } from '../../../stores/userPreference'
 
 const im = useImStore()
 const presence = usePresenceStore()
+const preference = useUserPreferenceStore()
 const route = useRoute()
 const toast = useToast()
 const draft = ref('')
@@ -188,6 +190,13 @@ function handleKeydown(event: KeyboardEvent) {
 
 function isOwnMessage(senderId: string) {
   return senderId === im.currentUserId()
+}
+
+function messageRowJustify(senderId: string) {
+  if (preference.chatBubbleLayout === 'left') {
+    return 'justify-start'
+  }
+  return isOwnMessage(senderId) ? 'justify-end' : 'justify-start'
 }
 
 function formatMessageTime(iso: string) {
@@ -393,7 +402,7 @@ meta:
             <div
               v-else-if="cardBlock(msg)"
               class="flex"
-              :class="isOwnMessage(msg.senderId) ? 'justify-end' : 'justify-start'"
+              :class="messageRowJustify(msg.senderId)"
             >
               <div class="max-w-[75%] space-y-1">
                 <p
@@ -416,7 +425,7 @@ meta:
             <div
               v-else
               class="flex"
-              :class="isOwnMessage(msg.senderId) ? 'justify-end' : 'justify-start'"
+              :class="messageRowJustify(msg.senderId)"
             >
               <div
                 class="ws-msg-bubble max-w-[75%] px-3.5 py-2 text-sm"

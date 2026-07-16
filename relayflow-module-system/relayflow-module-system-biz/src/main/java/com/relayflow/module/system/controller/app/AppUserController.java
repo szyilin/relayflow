@@ -2,8 +2,11 @@ package com.relayflow.module.system.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.system.controller.app.vo.AppContactItemRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserPreferenceRespVO;
+import com.relayflow.module.system.controller.app.vo.AppUserPreferenceUpdateReqVO;
 import com.relayflow.module.system.controller.app.vo.AppUserProfileRespVO;
 import com.relayflow.module.system.controller.app.vo.AppUserProfileUpdateReqVO;
+import com.relayflow.module.system.service.preference.UserPreferenceService;
 import com.relayflow.module.system.service.user.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -25,6 +28,7 @@ import java.util.List;
 public class AppUserController {
 
     private final UserService userService;
+    private final UserPreferenceService userPreferenceService;
 
     @GetMapping("/list-by-dept")
     public CommonResult<List<AppContactItemRespVO>> listContactsByDept(
@@ -42,5 +46,16 @@ public class AppUserController {
     public CommonResult<AppUserProfileRespVO> updateMyProfile(
             @Valid @RequestBody AppUserProfileUpdateReqVO request) {
         return CommonResult.success(userService.updateMyProfile(request));
+    }
+
+    @GetMapping("/preference")
+    public CommonResult<AppUserPreferenceRespVO> getMyPreference() {
+        return CommonResult.success(userPreferenceService.getMyPreference());
+    }
+
+    @PutMapping("/preference")
+    public CommonResult<AppUserPreferenceRespVO> updateMyPreference(
+            @Valid @RequestBody AppUserPreferenceUpdateReqVO request) {
+        return CommonResult.success(userPreferenceService.updateMyPreference(request));
     }
 }

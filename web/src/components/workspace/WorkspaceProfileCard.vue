@@ -2,7 +2,6 @@
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import WorkspaceMoreAccountsPanel from './WorkspaceMoreAccountsPanel.vue'
-import WorkspaceSettingsPanel from './WorkspaceSettingsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
@@ -13,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
+  'open-settings': []
 }>()
 
 const router = useRouter()
@@ -20,7 +20,7 @@ const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const toast = useToast()
 
-type PanelView = 'main' | 'settings' | 'more-accounts'
+type PanelView = 'main' | 'more-accounts'
 const panelView = ref<PanelView>('main')
 
 const editingNickname = ref(false)
@@ -142,6 +142,11 @@ async function logout() {
   await router.replace('/app/login')
 }
 
+function openSettings() {
+  close()
+  emit('open-settings')
+}
+
 function openAdmin() {
   close()
   void router.push('/admin')
@@ -149,13 +154,8 @@ function openAdmin() {
 </script>
 
 <template>
-  <WorkspaceSettingsPanel
-    v-if="panelView === 'settings'"
-    @back="panelView = 'main'"
-  />
-
   <WorkspaceMoreAccountsPanel
-    v-else-if="panelView === 'more-accounts'"
+    v-if="panelView === 'more-accounts'"
     @back="panelView = 'main'"
     @close="close"
   />
@@ -256,7 +256,7 @@ function openAdmin() {
       <button
         type="button"
         class="workspace-profile-action"
-        @click="panelView = 'settings'"
+        @click="openSettings"
       >
         <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
         <span>设置</span>

@@ -2,20 +2,28 @@
 import { computed, onMounted, ref } from 'vue'
 import WorkspaceProfileCard from './WorkspaceProfileCard.vue'
 import WorkspaceSearchModal from './WorkspaceSearchModal.vue'
+import WorkspaceSettingsPanel from './WorkspaceSettingsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
+import { useUserPreferenceStore } from '../../stores/userPreference'
 import { useWorkspaceSearchShortcut } from '../../composables/useWorkspaceSearchShortcut'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
 
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
+const preferenceStore = useUserPreferenceStore()
 
 const profileOpen = ref(false)
+const settingsOpen = ref(false)
 const searchOpen = ref(false)
 const keyword = ref('')
 
 function openSearch() {
   searchOpen.value = true
+}
+
+function openSettings() {
+  settingsOpen.value = true
 }
 
 useWorkspaceSearchShortcut(searchOpen)
@@ -38,6 +46,9 @@ onMounted(() => {
   if (!authStore.isAuthenticated) {
     return
   }
+
+  preferenceStore.hydrateFromLocal()
+  void preferenceStore.fetchFromServer()
 
   void Promise.all([
     authStore.fetchMyTenants().catch(() => {}),
@@ -71,7 +82,10 @@ onMounted(() => {
         </button>
 
         <template #content>
-          <WorkspaceProfileCard v-model:open="profileOpen" />
+          <WorkspaceProfileCard
+            v-model:open="profileOpen"
+            @open-settings="openSettings"
+          />
         </template>
       </UPopover>
 
@@ -104,6 +118,7 @@ onMounted(() => {
     />
 
     <WorkspaceSearchModal v-model:open="searchOpen" />
+    <WorkspaceSettingsPanel v-model:open="settingsOpen" />
   </div>
 </template>
 
