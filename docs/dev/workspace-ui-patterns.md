@@ -29,11 +29,23 @@ web/src/
 | 区域 | 实现 |
 |------|------|
 | 画布 | `workspace-shell` + `--ws-canvas-bg` + gap |
-| 左导航 | 固定宽卡片：品牌、**可点搜索**、图标+文字菜单、底部用户 |
+| 左导航 | 固定宽卡片：品牌、**可点搜索**、图标+文字菜单；顶部 `WorkspaceRailHeader`（头像+昵称同轴） |
 | 列表栏 | `#panel` slot；右缘可拖拽调宽 |
 | 主区 | 默认 slot；聊天/任务/文档内容 |
-| 右栏 | 可选 `#aside`（如消息页「活跃状态」） |
-| 主题 | 右上角 `AdminColorModeToggle` |
+| 右栏 | 可选 `#aside`（默认关闭；消息/通讯录不展示「活跃状态」） |
+| 主题 | **不**浮在壳层右上角；从资料名片 → 设置（`WorkspaceSettingsPanel`）切换 |
+
+## 资料名片与个人入口
+
+| 项 | 规范 |
+|----|------|
+| 触发 | Rail 点击当前用户头像 → `WorkspaceProfileCard` |
+| 头部 | 头像左、昵称+企业名右（同一水平轴）；可编辑昵称、更换头像 |
+| 菜单顺序 | 个性签名（占位）、我的个人名片（占位）、登录更多账号、设置、退出登录；管理后台（`isAdmin`）置底 |
+| 占位项 | 文案旁 `（占位）`；点击 toast「功能即将推出」 |
+| 登录更多账号 | `WorkspaceMoreAccountsPanel`：分组「我的企业」（`my-list`/`switchTenant`）+「本机已登录账号」（Account Dock）；底部「加入企业」占位、「创建新账号」→ `/app/register?addAccount=1` |
+| 设置 | `WorkspaceSettingsPanel`：主题（浅色/深色/跟随系统，复用 `useAdminColorMode`）+ 其余占位 |
+| 认证页主题 | `workspace-auth` / `auth` layout 可保留独立主题开关 |
 
 ## 全局搜索（⌘K / Rail）
 
@@ -57,10 +69,19 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `show-aside` 开启右栏 |
+| Shell | 不开启 `show-aside`（无「活跃状态」右栏） |
 | Panel | 会话列表 + 搜索 + `.workspace-list-item` |
-| Main | 会话头 + 占位内容 + 底部 `.workspace-input-bar` |
+| Main | 会话头 + 消息流 + 底部 `.workspace-input-bar` |
+| 会话头 | 单聊不展示「单聊」副标题；群聊保留人数；群成员经会话头「成员」按钮打开模态 |
 | 数据 | `useXxxStore`（`-web` 阶段可在 store 内用临时数据；integrate 后只走 API） |
+
+## 通讯录页 `/app/contacts`
+
+| 项 | 规范 |
+|----|------|
+| Shell | 不开启 `show-aside`（无「活跃状态」右栏） |
+| Panel | 部门树 |
+| Main | 成员列表；列表项可保留在线点（presence 数据层保留） |
 
 ## 数据层约定（对接 API）
 

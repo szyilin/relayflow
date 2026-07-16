@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import WorkspaceMoreAccountsPanel from './WorkspaceMoreAccountsPanel.vue'
+import WorkspaceSettingsPanel from './WorkspaceSettingsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
@@ -17,6 +19,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const toast = useToast()
+
+type PanelView = 'main' | 'settings' | 'more-accounts'
+const panelView = ref<PanelView>('main')
 
 const editingNickname = ref(false)
 const nicknameDraft = ref('')
@@ -38,6 +43,7 @@ const avatarText = computed(() => avatarTextFromName(displayNickname.value))
 
 watch(() => props.open, (next) => {
   if (next) {
+    panelView.value = 'main'
     void profileStore.fetchProfile().catch(() => {
       toast.add({ title: '加载资料失败', description: '请稍后重试', color: 'error' })
     })
@@ -47,6 +53,14 @@ watch(() => props.open, (next) => {
 
 function close() {
   emit('update:open', false)
+}
+
+function onPlaceholder(label: string) {
+  toast.add({
+    title: '功能即将推出',
+    description: `${label}（占位）`,
+    color: 'neutral'
+  })
 }
 
 async function startEditNickname() {
@@ -135,11 +149,22 @@ function openAdmin() {
 </script>
 
 <template>
-  <div class="workspace-profile-card w-72 p-4">
-    <div class="flex flex-col items-center gap-3 border-b border-[var(--ws-border-subtle)] pb-4">
+  <WorkspaceSettingsPanel
+    v-if="panelView === 'settings'"
+    @back="panelView = 'main'"
+  />
+
+  <WorkspaceMoreAccountsPanel
+    v-else-if="panelView === 'more-accounts'"
+    @back="panelView = 'main'"
+    @close="close"
+  />
+
+  <div v-else class="workspace-profile-card w-72 p-4">
+    <div class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] pb-4">
       <button
         type="button"
-        class="group relative"
+        class="group relative shrink-0"
         :disabled="profileStore.uploading"
         @click="pickAvatar"
       >
@@ -147,19 +172,19 @@ function openAdmin() {
           :src="avatarUrl"
           :alt="displayNickname"
           :text="avatarText"
-          size="3xl"
+          size="xl"
           class="ring-2 ring-primary/20"
         />
         <span
           class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity group-hover:opacity-100"
         >
-          <UIcon name="i-lucide-camera" class="size-5 text-white" />
+          <UIcon name="i-lucide-camera" class="size-4 text-white" />
         </span>
         <span
           v-if="profileStore.uploading"
           class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50"
         >
-          <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-white" />
+          <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin text-white" />
         </span>
       </button>
       <input
@@ -170,7 +195,7 @@ function openAdmin() {
         @change="onAvatarSelected"
       >
 
-      <div class="w-full text-center">
+      <div class="min-w-0 flex-1">
         <div v-if="editingNickname" class="flex items-center gap-1">
           <UInput
             ref="nicknameInput"
@@ -185,32 +210,57 @@ function openAdmin() {
         <button
           v-else
           type="button"
-          class="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-[var(--ws-rail-hover)]"
+          class="group inline-flex max-w-full items-center gap-1.5 rounded-md px-0.5 py-0.5 hover:bg-[var(--ws-rail-hover)]"
           @click="startEditNickname"
         >
-          <span class="truncate text-base font-semibold">{{ displayNickname }}</span>
+          <span class="truncate text-base font-semibold leading-tight">{{ displayNickname }}</span>
           <UIcon
             name="i-lucide-pencil"
             class="size-3.5 shrink-0 text-[var(--ws-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
           />
         </button>
-      </div>
-
-      <div class="flex flex-wrap items-center justify-center gap-1.5">
-        <span class="text-sm text-[var(--ws-text-muted)]">{{ displayTenantName }}</span>
+        <p class="mt-0.5 truncate text-sm text-[var(--ws-text-muted)]">
+          {{ displayTenantName }}
+        </p>
       </div>
     </div>
 
-    <div class="space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-2">
+    <div class="space-y-0.5 pt-2">
       <button
-        v-if="authStore.isAdmin"
         type="button"
         class="workspace-profile-action"
-        @click="openAdmin"
+        @click="onPlaceholder('个性签名')"
       >
-        <UIcon name="i-lucide-shield" class="size-4 shrink-0" />
-        <span>管理后台</span>
-        <UIcon name="i-lucide-external-link" class="ml-auto size-3.5 text-[var(--ws-text-muted)]" />
+        <UIcon name="i-lucide-pen-line" class="size-4 shrink-0" />
+        <span>个性签名</span>
+        <span class="ml-auto text-xs text-[var(--ws-text-muted)]">（占位）</span>
+      </button>
+      <button
+        type="button"
+        class="workspace-profile-action"
+        @click="onPlaceholder('我的个人名片')"
+      >
+        <UIcon name="i-lucide-contact" class="size-4 shrink-0" />
+        <span>我的个人名片</span>
+        <span class="ml-auto text-xs text-[var(--ws-text-muted)]">（占位）</span>
+      </button>
+      <button
+        type="button"
+        class="workspace-profile-action"
+        @click="panelView = 'more-accounts'"
+      >
+        <UIcon name="i-lucide-users" class="size-4 shrink-0" />
+        <span>登录更多账号</span>
+        <UIcon name="i-lucide-chevron-right" class="ml-auto size-3.5 text-[var(--ws-text-muted)]" />
+      </button>
+      <button
+        type="button"
+        class="workspace-profile-action"
+        @click="panelView = 'settings'"
+      >
+        <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
+        <span>设置</span>
+        <UIcon name="i-lucide-chevron-right" class="ml-auto size-3.5 text-[var(--ws-text-muted)]" />
       </button>
       <button
         type="button"
@@ -219,6 +269,21 @@ function openAdmin() {
       >
         <UIcon name="i-lucide-log-out" class="size-4 shrink-0" />
         <span>退出登录</span>
+      </button>
+    </div>
+
+    <div
+      v-if="authStore.isAdmin"
+      class="mt-1 space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-2"
+    >
+      <button
+        type="button"
+        class="workspace-profile-action"
+        @click="openAdmin"
+      >
+        <UIcon name="i-lucide-shield" class="size-4 shrink-0" />
+        <span>管理后台</span>
+        <UIcon name="i-lucide-external-link" class="ml-auto size-3.5 text-[var(--ws-text-muted)]" />
       </button>
     </div>
   </div>

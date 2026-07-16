@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import WorkspaceAccountSwitcher from './WorkspaceAccountSwitcher.vue'
 import WorkspaceProfileCard from './WorkspaceProfileCard.vue'
 import WorkspaceSearchModal from './WorkspaceSearchModal.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -50,7 +49,7 @@ onMounted(() => {
 
 <template>
   <div class="space-y-3 border-b border-[var(--ws-border-subtle)] p-3">
-    <div class="flex items-start gap-2.5">
+    <div class="flex items-center gap-2.5">
       <UPopover
         v-model:open="profileOpen"
         :content="{ side: 'right', align: 'start', sideOffset: 10 }"
@@ -76,13 +75,10 @@ onMounted(() => {
         </template>
       </UPopover>
 
-      <div class="min-w-0 flex-1 pt-0.5">
-        <div class="flex items-center gap-0.5">
-          <span class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">
-            {{ displayNickname }}
-          </span>
-          <WorkspaceAccountSwitcher />
-        </div>
+      <div class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-semibold leading-tight">
+          {{ displayNickname }}
+        </span>
 
         <UTooltip
           :text="tenantName"
