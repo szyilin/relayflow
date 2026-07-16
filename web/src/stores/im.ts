@@ -1,15 +1,19 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  addGroupBot as addGroupBotRequest,
   addGroupMembers,
   createGroup as createGroupRequest,
   getConversationList,
+  getGroupBotCatalog,
   getGroupMembers,
   getMessageList,
   getReadStatus,
   markConversationRead,
+  removeGroupBot as removeGroupBotRequest,
   sendMessage,
   type ConversationItem,
+  type GroupBotCatalogItem,
   type GroupMemberItem,
   type MessageContent,
   type MessageItem
@@ -358,6 +362,46 @@ export const useImStore = defineStore('im', () => {
     return result
   }
 
+  async function fetchGroupBotCatalog(conversationId: string): Promise<GroupBotCatalogItem[]> {
+    return getGroupBotCatalog(conversationId)
+  }
+
+  async function addGroupBot(conversationId: string, botCode: string) {
+    const result = await addGroupBotRequest({ conversationId, botCode })
+    await Promise.all([
+      fetchGroupMembers(conversationId),
+      fetchMessages(conversationId),
+      fetchConversations()
+    ])
+    const conversation = conversations.value.find(item => item.id === conversationId)
+    if (conversation?.type === 'group') {
+      conversation.memberCount = groupMembers.value.length
+    }
+    return result
+  }
+
+  async function removeGroupBot(conversationId: string, botCode: string) {
+    const result = await removeGroupBotRequest({ conversationId, botCode })
+    await Promise.all([
+      fetchGroupMembers(conversationId),
+      fetchMessages(conversationId),
+      fetchConversations()
+    ])
+    const conversation = conversations.value.find(item => item.id === conversationId)
+    if (conversation?.type === 'group') {
+      conversation.memberCount = groupMembers.value.length
+    }
+    return result
+  }
+
+  function isCurrentUserGroupOwner(): boolean {
+    const me = currentUserId()
+    return groupMembers.value.some(member =>
+      member.subjectType === 'user'
+      && member.userId === me
+      && member.role === 'owner')
+  }
+
   function openDirectChat(peerUserId: string, meta?: { title?: string, avatarText?: string }) {
     const existing = conversations.value.find(item =>
       item.type === 'direct' && item.peerUserId === peerUserId)
@@ -587,6 +631,10 @@ export const useImStore = defineStore('im', () => {
     fetchGroupMembers,
     createGroup,
     inviteGroupMembers,
+    fetchGroupBotCatalog,
+    addGroupBot,
+    removeGroupBot,
+    isCurrentUserGroupOwner,
     handleMessageNew,
     handleReadUpdated,
     fetchReadStatus,

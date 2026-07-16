@@ -124,6 +124,19 @@
   border-radius: 0.875rem;
 }
 
+/* 消息气泡：主体大圆角 + 发送侧一角略收，避免四角等圆的机械感 */
+.ws-msg-bubble {
+  border-radius: 1.125rem;
+}
+
+.ws-msg-bubble--in {
+  border-bottom-left-radius: 0.25rem;
+}
+
+.ws-msg-bubble--out {
+  border-bottom-right-radius: 0.25rem;
+}
+
 .workspace-auth-bg {
   background:
     radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in oklab, var(--ui-primary) 18%, transparent), transparent),

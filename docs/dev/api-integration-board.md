@@ -52,7 +52,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **im-bot-group-member** | planned | pending | 群挂/移除 Bot · 成员列表含 Bot | 待起草 | [change](../../openspec/changes/im-bot-group-member/proposal.md)；G1 |
+| **im-bot-group-member** | **ready** | **done** | 群挂/移除 Bot · 成员列表含 Bot | [contract](../../openspec/lanes/im-group-bot/contract.md) | [change](../../openspec/changes/im-bot-group-member/proposal.md)；G1；群主侧栏添加/移除 |
 | **im-bot-runtime-platform** | planned | n/a | Bot Runtime SPI · noop/platform | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；建议先于/并行 mention |
 | **im-bot-group-mention** | planned | pending | 群 @Bot → Ingress | 待起草 | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；依赖 G1 + Runtime |
 | **im-bot-interactive-card** | planned | pending | card 发送 · `/app-api/im/card/action` · `/app/messages` | 待起草 | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md) |

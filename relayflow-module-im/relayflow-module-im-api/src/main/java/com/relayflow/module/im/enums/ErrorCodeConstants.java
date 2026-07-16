@@ -23,7 +23,8 @@ public enum ErrorCodeConstants implements ErrorCode {
     BOT_NOT_FOUND(1_003_004_001, "机器人不存在或已停用"),
     BOT_NOT_ENABLED_FOR_TENANT(1_003_004_002, "机器人未在该企业启用"),
     BOT_NOT_ENABLED_FOR_USER(1_003_004_003, "用户未启用该机器人"),
-    BOT_SEND_INVALID(1_003_004_004, "机器人发送参数无效");
+    BOT_SEND_INVALID(1_003_004_004, "机器人发送参数无效"),
+    GROUP_OWNER_REQUIRED(1_003_003_006, "仅群主可管理群内机器人");
 
     private final Integer code;
     private final String msg;

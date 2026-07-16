@@ -8,14 +8,25 @@ import com.relayflow.module.im.controller.app.vo.AddGroupMembersReqVO;
 import com.relayflow.module.im.controller.app.vo.AddGroupMembersRespVO;
 import com.relayflow.module.im.controller.app.vo.CreateGroupReqVO;
 import com.relayflow.module.im.controller.app.vo.CreateGroupRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotAddRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotCatalogItemRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotMembershipReqVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotRemoveRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupMemberItemRespVO;
+import com.relayflow.module.im.dal.dataobject.ImBotDO;
+import com.relayflow.module.im.dal.dataobject.ImBotTenantEnablementDO;
+import com.relayflow.module.im.dal.dataobject.ImBotUserEnablementDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
 import com.relayflow.module.im.dal.dataobject.ImGroupDO;
+import com.relayflow.module.im.dal.mapper.ImBotMapper;
+import com.relayflow.module.im.dal.mapper.ImBotTenantEnablementMapper;
+import com.relayflow.module.im.dal.mapper.ImBotUserEnablementMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
 import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
+import com.relayflow.module.im.enums.ImBotType;
 import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
@@ -30,18 +41,28 @@ import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ImGroupServiceImpl implements ImGroupService {
 
+    private static final int BOT_STATUS_ENABLED = 1;
+    private static final int TENANT_ENABLED = 1;
+
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
     private final ImGroupMapper groupMapper;
+    private final ImBotMapper botMapper;
+    private final ImBotTenantEnablementMapper tenantEnablementMapper;
+    private final ImBotUserEnablementMapper userEnablementMapper;
     private final ImConversationService conversationService;
     private final ImMessageService messageService;
     private final UserApi userApi;
@@ -73,9 +94,9 @@ public class ImGroupServiceImpl implements ImGroupService {
         group.setCreator(userId);
         groupMapper.insert(group);
 
-        insertMember(tenantId, conversation.getId(), userId, ImMemberRole.OWNER, userId);
+        insertUserMember(tenantId, conversation.getId(), userId, ImMemberRole.OWNER, userId);
         for (Long memberUserId : memberUserIds) {
-            insertMember(tenantId, conversation.getId(), memberUserId, ImMemberRole.MEMBER, userId);
+            insertUserMember(tenantId, conversation.getId(), memberUserId, ImMemberRole.MEMBER, userId);
             UserBasicDTO member = userApi.getUserBasic(memberUserId);
             messageService.sendSystemMessage(tenantId, conversation.getId(),
                     member.getNickname() + " 加入了群聊");
@@ -113,7 +134,7 @@ public class ImGroupServiceImpl implements ImGroupService {
             if (existingMemberIds.contains(memberUserId)) {
                 continue;
             }
-            insertMember(tenantId, group.getConversationId(), memberUserId, ImMemberRole.MEMBER, userId);
+            insertUserMember(tenantId, group.getConversationId(), memberUserId, ImMemberRole.MEMBER, userId);
             UserBasicDTO member = userApi.getUserBasic(memberUserId);
             messageService.sendSystemMessage(tenantId, group.getConversationId(),
                     member.getNickname() + " 加入了群聊");
@@ -139,20 +160,117 @@ public class ImGroupServiceImpl implements ImGroupService {
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
-                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
                         .orderByAsc(ImConversationMemberDO::getJoinTime));
+
+        List<Long> botIds = members.stream()
+                .filter(m -> ImMemberSubjectType.BOT.equals(m.getSubjectType()))
+                .map(ImConversationMemberDO::getSubjectId)
+                .distinct()
+                .toList();
+        Map<Long, ImBotDO> botsById = loadBotsById(botIds);
 
         List<GroupMemberItemRespVO> items = new ArrayList<>();
         for (ImConversationMemberDO member : members) {
-            UserBasicDTO user = userApi.getUserBasic(member.getSubjectId());
             GroupMemberItemRespVO item = new GroupMemberItemRespVO();
-            item.setUserId(member.getSubjectId());
-            item.setNickname(user.getNickname());
-            item.setAvatarText(firstAvatarChar(user.getNickname()));
             item.setRole(member.getRole());
+            if (ImMemberSubjectType.BOT.equals(member.getSubjectType())) {
+                ImBotDO bot = botsById.get(member.getSubjectId());
+                if (bot == null) {
+                    continue;
+                }
+                item.setSubjectType(ImMemberSubjectType.BOT);
+                item.setBotId(bot.getId());
+                item.setBotCode(bot.getCode());
+                item.setNickname(bot.getName());
+                item.setAvatarText(firstAvatarChar(bot.getName()));
+            } else {
+                UserBasicDTO user = userApi.getUserBasic(member.getSubjectId());
+                item.setSubjectType(ImMemberSubjectType.USER);
+                item.setUserId(member.getSubjectId());
+                item.setNickname(user.getNickname());
+                item.setAvatarText(firstAvatarChar(user.getNickname()));
+            }
             items.add(item);
         }
         return items;
+    }
+
+    @Override
+    public List<GroupBotCatalogItemRespVO> listBotCatalog(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        requireGroup(tenantId, conversationId);
+        conversationService.requireMembership(tenantId, conversationId, userId);
+
+        Set<Long> memberBotIds = loadMemberBotIds(tenantId, conversationId);
+        List<ImBotDO> systemBots = botMapper.selectList(
+                Wrappers.<ImBotDO>lambdaQuery()
+                        .eq(ImBotDO::getStatus, BOT_STATUS_ENABLED)
+                        .eq(ImBotDO::getType, ImBotType.SYSTEM)
+                        .orderByAsc(ImBotDO::getId));
+
+        List<GroupBotCatalogItemRespVO> items = new ArrayList<>();
+        for (ImBotDO bot : systemBots) {
+            GroupBotCatalogItemRespVO item = new GroupBotCatalogItemRespVO();
+            item.setBotId(bot.getId());
+            item.setBotCode(bot.getCode());
+            item.setName(bot.getName());
+            item.setAvatarText(firstAvatarChar(bot.getName()));
+            item.setAlreadyMember(memberBotIds.contains(bot.getId()));
+            items.add(item);
+        }
+        return items;
+    }
+
+    @Override
+    @Transactional
+    public GroupBotAddRespVO addBot(GroupBotMembershipReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImGroupDO group = requireGroup(tenantId, request.getConversationId());
+        requireOwner(tenantId, group.getConversationId(), userId);
+
+        ImBotDO bot = requireActiveBot(request.getBotCode());
+        requireReachable(tenantId, userId, bot);
+
+        GroupBotAddRespVO response = new GroupBotAddRespVO();
+        if (findBotMember(tenantId, group.getConversationId(), bot.getId()) != null) {
+            response.setAdded(false);
+            return response;
+        }
+
+        insertBotMember(tenantId, group.getConversationId(), bot.getId(), userId);
+        messageService.sendSystemMessage(tenantId, group.getConversationId(),
+                bot.getName() + " 加入了群聊");
+        response.setAdded(true);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public GroupBotRemoveRespVO removeBot(GroupBotMembershipReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImGroupDO group = requireGroup(tenantId, request.getConversationId());
+        requireOwner(tenantId, group.getConversationId(), userId);
+
+        ImBotDO bot = requireBotByCode(request.getBotCode());
+        ImConversationMemberDO membership = findBotMember(tenantId, group.getConversationId(), bot.getId());
+
+        GroupBotRemoveRespVO response = new GroupBotRemoveRespVO();
+        if (membership == null) {
+            response.setRemoved(false);
+            return response;
+        }
+
+        conversationMemberMapper.deleteById(membership.getId());
+        messageService.sendSystemMessage(tenantId, group.getConversationId(),
+                bot.getName() + " 离开了群聊");
+        response.setRemoved(true);
+        return response;
     }
 
     public ImGroupDO requireGroup(Long tenantId, Long conversationId) {
@@ -168,6 +286,102 @@ public class ImGroupServiceImpl implements ImGroupService {
             throw new ServiceException(ErrorCodeConstants.GROUP_NOT_FOUND);
         }
         return group;
+    }
+
+    private void requireOwner(Long tenantId, Long conversationId, Long userId) {
+        ImConversationMemberDO membership = conversationMemberMapper.selectOne(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
+        if (membership == null) {
+            throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
+        }
+        if (!ImMemberRole.OWNER.equals(membership.getRole())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_OWNER_REQUIRED);
+        }
+    }
+
+    private ImBotDO requireActiveBot(String botCode) {
+        ImBotDO bot = requireBotByCode(botCode);
+        if (!Objects.equals(bot.getStatus(), BOT_STATUS_ENABLED)) {
+            throw new ServiceException(ErrorCodeConstants.BOT_NOT_FOUND);
+        }
+        return bot;
+    }
+
+    private ImBotDO requireBotByCode(String botCode) {
+        if (!StringUtils.hasText(botCode)) {
+            throw new ServiceException(ErrorCodeConstants.BOT_NOT_FOUND);
+        }
+        ImBotDO bot = botMapper.selectOne(
+                Wrappers.<ImBotDO>lambdaQuery()
+                        .eq(ImBotDO::getCode, botCode.trim()));
+        if (bot == null) {
+            throw new ServiceException(ErrorCodeConstants.BOT_NOT_FOUND);
+        }
+        return bot;
+    }
+
+    private void requireReachable(Long tenantId, Long userId, ImBotDO bot) {
+        if (ImBotType.isSystem(bot.getType())) {
+            return;
+        }
+        if (isTenantEnabled(tenantId, bot.getId()) || isUserEnabled(tenantId, userId, bot.getId())) {
+            return;
+        }
+        throw new ServiceException(ErrorCodeConstants.BOT_NOT_ENABLED_FOR_TENANT);
+    }
+
+    private boolean isTenantEnabled(Long tenantId, Long botId) {
+        ImBotTenantEnablementDO enablement = tenantEnablementMapper.selectOne(
+                Wrappers.<ImBotTenantEnablementDO>lambdaQuery()
+                        .eq(ImBotTenantEnablementDO::getTenantId, tenantId)
+                        .eq(ImBotTenantEnablementDO::getBotId, botId)
+                        .eq(ImBotTenantEnablementDO::getEnabled, TENANT_ENABLED));
+        return enablement != null;
+    }
+
+    private boolean isUserEnabled(Long tenantId, Long userId, Long botId) {
+        Long count = userEnablementMapper.selectCount(
+                Wrappers.<ImBotUserEnablementDO>lambdaQuery()
+                        .eq(ImBotUserEnablementDO::getTenantId, tenantId)
+                        .eq(ImBotUserEnablementDO::getUserId, userId)
+                        .eq(ImBotUserEnablementDO::getBotId, botId));
+        return count != null && count > 0;
+    }
+
+    private ImConversationMemberDO findBotMember(Long tenantId, Long conversationId, Long botId) {
+        return conversationMemberMapper.selectOne(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.BOT)
+                        .eq(ImConversationMemberDO::getSubjectId, botId));
+    }
+
+    private Set<Long> loadMemberBotIds(Long tenantId, Long conversationId) {
+        return conversationMemberMapper.selectList(
+                        Wrappers.<ImConversationMemberDO>lambdaQuery()
+                                .eq(ImConversationMemberDO::getTenantId, tenantId)
+                                .eq(ImConversationMemberDO::getConversationId, conversationId)
+                                .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.BOT))
+                .stream()
+                .map(ImConversationMemberDO::getSubjectId)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private Map<Long, ImBotDO> loadBotsById(List<Long> botIds) {
+        if (botIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ImBotDO> bots = botMapper.selectBatchIds(botIds);
+        Map<Long, ImBotDO> map = new HashMap<>();
+        for (ImBotDO bot : bots) {
+            map.put(bot.getId(), bot);
+        }
+        return map;
     }
 
     private String normalizeGroupName(String name) {
@@ -219,13 +433,28 @@ public class ImGroupServiceImpl implements ImGroupService {
                 .toList());
     }
 
-    private void insertMember(Long tenantId, Long conversationId, Long userId, String role, Long creator) {
+    private void insertUserMember(Long tenantId, Long conversationId, Long userId, String role, Long creator) {
         ImConversationMemberDO member = new ImConversationMemberDO();
         member.setTenantId(tenantId);
         member.setConversationId(conversationId);
         member.setSubjectType(ImMemberSubjectType.USER);
         member.setSubjectId(userId);
         member.setRole(role);
+        member.setReadSeq(0L);
+        member.setUnreadCount(0);
+        member.setJoinTime(OffsetDateTime.now());
+        member.setPinned(0);
+        member.setCreator(creator);
+        conversationMemberMapper.insert(member);
+    }
+
+    private void insertBotMember(Long tenantId, Long conversationId, Long botId, Long creator) {
+        ImConversationMemberDO member = new ImConversationMemberDO();
+        member.setTenantId(tenantId);
+        member.setConversationId(conversationId);
+        member.setSubjectType(ImMemberSubjectType.BOT);
+        member.setSubjectId(botId);
+        member.setRole(ImMemberRole.MEMBER);
         member.setReadSeq(0L);
         member.setUnreadCount(0);
         member.setJoinTime(OffsetDateTime.now());
