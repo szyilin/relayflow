@@ -58,7 +58,7 @@
 - [ ] 3.1 `BpmApprovalService`：submit / todo page / mine page / get / approve / reject
 - [ ] 3.2 `AppBpmController` under `/app-api/bpm`
 - [ ] 3.3 默认审批人解析（`system-api` 查 super_admin 或文档策略）
-- [ ] 3.4 `NotifyInboxApi.push(APPROVAL_PENDING)` on 新待办（`infra-api` only）
+- [ ] 3.4 新待办：`ImBotApi.send(approval-bot, SINGLE)` + `dedupeKey` + deep link（`im-api` only；best-effort）
 - [ ] 3.5 单测：提交、通过、驳回、无权；curl 示例写入 contract
 - [ ] 3.6 `./mvnw -pl relayflow-module-bpm-biz -am test` 或 server compile
 
@@ -70,7 +70,7 @@
 
 - [ ] 4.1 前端去 Mock，接真实 API
 - [ ] 4.2 E2E：A 提交 → B 待办 → 通过 → A 状态已批准
-- [ ] 4.3 （可选）与 `notify-inbox-v2` 联调：B 铃铛 `APPROVAL_PENDING` + 点击进审批
+- [ ] 4.3 （可选）与 messages 联调：B 的 `approval-bot` bot_dm 出现待办提醒 + deep link 进审批
 - [ ] 4.4 `openspec validate bpm-v1 --strict`
 - [ ] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
 - [ ] 4.6 看板 `bpm-approval` → **done**
@@ -94,7 +94,7 @@ Session 3   §3 api
 Session 4   §4 integrate + §5 归档
 ```
 
-**依赖提示**：§3.4 通知联调最好在 [`notify-inbox-v2`](../../notify-inbox-v2/proposal.md) §1–§2 完成后做；无 notify V2 时待办列表仍须可用。
+**依赖提示**：§3.4 触达依赖 [`im-bot-notify-foundation`](../im-bot-notify-foundation/proposal.md) 已落地的 `ImBotApi` / `approval-bot`；Bot 投递失败时待办列表仍须可用。
 
 ## 后续 change
 
@@ -102,7 +102,7 @@ Session 4   §4 integrate + §5 归档
 |--------|------|
 | `bpm-designer-v1` | 管理端流程设计 |
 | `bpm-form-attach` | 动态表单 + 附件 |
-| `notify-inbox-v2` | `APPROVAL_PENDING` 类型目录 |
+| `im-bot-interactive-card` | 审批同意/拒绝卡片回调（后置） |
 
 ---
 
