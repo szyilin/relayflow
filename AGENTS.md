@@ -93,7 +93,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：① **产方迁移**（`im-bot-task-due-migrate`：`task-due` → `task-bot`；`bpm-v1` 触达修订 → `approval-bot`）→ ② 群 Bot / 可交互卡片 → ③ **`workspace-search-v1`** E2E 冒烟 + 归档（可与 ① 并行）→ ④ **`bpm-v1`** 主体实现。`im-bot-notify-foundation` §8–§9 收尾已完成（主规格 sync、`notify-inbox-v2` 已 archive）；`im-bot-invite-migrate`、`im-bot-reach-policy-v1` 已 archive。
+**下一优先**：① **产方迁移**（`im-bot-task-due-migrate`：`task-due` → `task-bot`；`bpm-v1` 触达修订 → `approval-bot`）→ ② 群 Bot / 可交互卡片 → ③ **`bpm-v1`** 主体实现。`workspace-search-v1`、`im-bot-invite-migrate`、`im-bot-reach-policy-v1`、`notify-inbox-v2` 已 archive；`im-bot-notify-foundation` §8–§9 收尾已完成（主规格 sync；母 change 待 §7 子 change 开完后 archive）。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 
