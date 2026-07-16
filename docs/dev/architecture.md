@@ -116,6 +116,7 @@ relayflow-server/                     # 唯一运行时入口
 
 - 产品面与权限：[`product-permission-model.md`](product-permission-model.md)
 - 跨域同步 / 异步与消息传输：[`cross-domain-messaging.md`](cross-domain-messaging.md)
+- **默认数据 A/B/C 惯例**：[`default-data-provisioning.md`](default-data-provisioning.md)
 - 模块与代码风格：[`code-style.md`](code-style.md)
 - 数据库与 Flyway：[`database.md`](database.md)
 - API 约定：[`api.md`](api.md)

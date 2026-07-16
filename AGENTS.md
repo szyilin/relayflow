@@ -36,6 +36,7 @@ openspec archive <change-name>
 | Git、Commit、版本号 | [CONTRIBUTING.md](CONTRIBUTING.md) | 提交代码前；**改版本号 / Flyway 前缀前必读** |
 | 后端架构（V1 单体 / Phase 2 微服务） | [docs/dev/architecture.md](docs/dev/architecture.md) | **写模块依赖、跨域调用前** |
 | **跨域同步/异步与领域消息** | [docs/dev/cross-domain-messaging.md](docs/dev/cross-domain-messaging.md) | **跨域副作用、发事件 / 用 Redis·MQ 前** |
+| **默认数据初始化（A/B/C）** | [docs/dev/default-data-provisioning.md](docs/dev/default-data-provisioning.md) | **入企 ensure、用户/企业偏好、默认是否预插行前** |
 | API 响应、错误码、分页 | [docs/dev/api.md](docs/dev/api.md) | 写 Controller / 前端 API 层 |
 | 数据库、Flyway、公共字段 | [docs/dev/database.md](docs/dev/database.md) | 写迁移、DO、Mapper |
 | **DO/Mapper 代码生成** | [docs/dev/codegen.md](docs/dev/codegen.md) | **改表后 CLI 临时参照 → diff 合入 `src/`（禁止从零手写 DO）** |
