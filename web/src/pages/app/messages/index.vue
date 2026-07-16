@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
@@ -12,19 +13,58 @@ import { usePresenceStore } from '../../../stores/presence'
 const im = useImStore()
 const presence = usePresenceStore()
 const route = useRoute()
+const toast = useToast()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const createGroupOpen = ref(false)
 const inviteMembersOpen = ref(false)
+const addGroupBotOpen = ref(false)
+const removingBotCode = ref<string | null>(null)
 
 const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
 const isBotDmActive = computed(() => active.value?.type === 'bot_dm')
-const groupMemberIds = computed(() => im.groupMembers.map(member => member.userId))
+const isGroupOwner = computed(() => im.isCurrentUserGroupOwner())
+const groupMemberIds = computed(() =>
+  im.groupMembers
+    .filter(member => member.subjectType === 'user' && member.userId)
+    .map(member => member.userId!))
 const directPeerUserId = computed(() =>
   active.value?.type === 'direct' ? active.value.peerUserId : undefined)
 const directPeerOnline = computed(() => presence.isOnline(directPeerUserId.value))
+
+function memberRowKey(member: { subjectType: string, userId?: string, botId?: string, botCode?: string }) {
+  if (member.subjectType === 'bot') {
+    return `bot:${member.botId ?? member.botCode}`
+  }
+  return `user:${member.userId}`
+}
+
+function memberRoleLabel(member: { subjectType: string, role: string }) {
+  if (member.subjectType === 'bot') {
+    return '机器人'
+  }
+  return member.role === 'owner' ? '群主' : '成员'
+}
+
+async function handleRemoveGroupBot(botCode: string) {
+  if (!active.value || active.value.type !== 'group') {
+    return
+  }
+  removingBotCode.value = botCode
+  try {
+    await im.removeGroupBot(active.value.id, botCode)
+    toast.add({ title: '已移除机器人', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '移除失败',
+      color: 'error'
+    })
+  } finally {
+    removingBotCode.value = null
+  }
+}
 
 function conversationAvatarIcon(type: string) {
   if (type === 'group') {
@@ -311,10 +351,10 @@ meta:
               :class="isOwnMessage(msg.senderId) ? 'justify-end' : 'justify-start'"
             >
               <div
-                class="max-w-[75%] rounded-2xl px-3 py-2 text-sm"
+                class="ws-msg-bubble max-w-[75%] px-3.5 py-2 text-sm"
                 :class="isOwnMessage(msg.senderId)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
+                  ? 'ws-msg-bubble--out bg-primary text-primary-foreground'
+                  : 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
               >
                 <p
                   v-if="showSenderNickname(msg)"
@@ -419,13 +459,25 @@ meta:
       <template v-if="isGroupActive">
         <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
           <span class="font-semibold">群成员</span>
-          <UButton
-            icon="i-lucide-user-plus"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="inviteMembersOpen = true"
-          />
+          <div class="flex items-center gap-1">
+            <UButton
+              v-if="isGroupOwner"
+              icon="i-lucide-bot"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              title="添加机器人"
+              @click="addGroupBotOpen = true"
+            />
+            <UButton
+              icon="i-lucide-user-plus"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              title="邀请成员"
+              @click="inviteMembersOpen = true"
+            />
+          </div>
         </div>
 
         <div v-if="im.loadingGroupMembers" class="space-y-2 p-3">
@@ -435,18 +487,32 @@ meta:
         <div v-else-if="im.groupMembers.length" class="flex-1 space-y-1 overflow-y-auto p-2">
           <div
             v-for="member in im.groupMembers"
-            :key="member.userId"
+            :key="memberRowKey(member)"
             class="flex items-center gap-3 rounded-md px-3 py-2"
           >
-            <UAvatar :text="member.avatarText" size="sm" />
+            <UAvatar
+              :text="member.avatarText"
+              :icon="member.subjectType === 'bot' ? 'i-lucide-bot' : undefined"
+              size="sm"
+            />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">
                 {{ member.nickname }}
               </p>
               <p class="text-xs text-[var(--ws-text-muted)]">
-                {{ member.role === 'owner' ? '群主' : '成员' }}
+                {{ memberRoleLabel(member) }}
               </p>
             </div>
+            <UButton
+              v-if="isGroupOwner && member.subjectType === 'bot' && member.botCode"
+              icon="i-lucide-x"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              :loading="removingBotCode === member.botCode"
+              title="移除机器人"
+              @click="handleRemoveGroupBot(member.botCode)"
+            />
           </div>
         </div>
 
@@ -510,7 +576,7 @@ meta:
           class="space-y-1 overflow-y-auto p-2"
         >
           <div
-            v-for="member in im.groupMembers"
+            v-for="member in im.groupMembers.filter(m => m.subjectType === 'user')"
             :key="member.userId"
             class="flex items-center gap-2 rounded-md px-3 py-2 text-sm"
           >
@@ -535,5 +601,10 @@ meta:
     v-model:open="inviteMembersOpen"
     :conversation-id="active.id"
     :exclude-user-ids="groupMemberIds"
+  />
+  <ImAddGroupBotModal
+    v-if="active && isGroupActive"
+    v-model:open="addGroupBotOpen"
+    :conversation-id="active.id"
   />
 </template>

@@ -42,12 +42,37 @@ export interface ConversationItem {
 }
 
 export type GroupMemberRole = 'owner' | 'admin' | 'member'
+export type GroupMemberSubjectType = 'user' | 'bot'
 
 export interface GroupMemberItem {
-  userId: string
+  subjectType: GroupMemberSubjectType
+  userId?: string
+  botId?: string
+  botCode?: string
   nickname: string
   avatarText: string
   role: GroupMemberRole
+}
+
+export interface GroupBotCatalogItem {
+  botId: string
+  botCode: string
+  name: string
+  avatarText: string
+  alreadyMember: boolean
+}
+
+export interface GroupBotMembershipPayload {
+  conversationId: string
+  botCode: string
+}
+
+export interface GroupBotAddResult {
+  added: boolean
+}
+
+export interface GroupBotRemoveResult {
+  removed: boolean
 }
 
 export interface CreateGroupPayload {
@@ -233,14 +258,21 @@ function normalizeCreateGroupResult(result: RawCreateGroupResult): CreateGroupRe
   }
 }
 
-type RawGroupMemberItem = Omit<GroupMemberItem, 'userId'> & {
-  userId: number | string
+type RawGroupMemberItem = Omit<GroupMemberItem, 'userId' | 'botId'> & {
+  userId?: number | string
+  botId?: number | string
+  subjectType?: GroupMemberSubjectType
 }
 
 function normalizeGroupMember(item: RawGroupMemberItem): GroupMemberItem {
   return {
-    ...item,
-    userId: String(item.userId)
+    subjectType: item.subjectType ?? 'user',
+    userId: item.userId != null ? String(item.userId) : undefined,
+    botId: item.botId != null ? String(item.botId) : undefined,
+    botCode: item.botCode,
+    nickname: item.nickname,
+    avatarText: item.avatarText,
+    role: item.role
   }
 }
 
@@ -248,4 +280,29 @@ export function getGroupMembers(conversationId: string): Promise<GroupMemberItem
   return get<RawGroupMemberItem[]>('/app-api/im/group/members', {
     params: { conversationId }
   }).then(list => list.map(normalizeGroupMember))
+}
+
+type RawGroupBotCatalogItem = Omit<GroupBotCatalogItem, 'botId'> & {
+  botId: number | string
+}
+
+function normalizeGroupBotCatalogItem(item: RawGroupBotCatalogItem): GroupBotCatalogItem {
+  return {
+    ...item,
+    botId: String(item.botId)
+  }
+}
+
+export function getGroupBotCatalog(conversationId: string): Promise<GroupBotCatalogItem[]> {
+  return get<RawGroupBotCatalogItem[]>('/app-api/im/group/bots/catalog', {
+    params: { conversationId }
+  }).then(list => list.map(normalizeGroupBotCatalogItem))
+}
+
+export function addGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBotAddResult> {
+  return post<GroupBotAddResult>('/app-api/im/group/bots/add', payload)
+}
+
+export function removeGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBotRemoveResult> {
+  return post<GroupBotRemoveResult>('/app-api/im/group/bots/remove', payload)
 }

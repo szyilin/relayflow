@@ -5,6 +5,10 @@ import com.relayflow.module.im.controller.app.vo.AddGroupMembersReqVO;
 import com.relayflow.module.im.controller.app.vo.AddGroupMembersRespVO;
 import com.relayflow.module.im.controller.app.vo.CreateGroupReqVO;
 import com.relayflow.module.im.controller.app.vo.CreateGroupRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotAddRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotCatalogItemRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotMembershipReqVO;
+import com.relayflow.module.im.controller.app.vo.GroupBotRemoveRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupMemberItemRespVO;
 import com.relayflow.module.im.service.group.ImGroupService;
 import jakarta.validation.Valid;
@@ -39,5 +43,21 @@ public class ImGroupController {
     public CommonResult<List<GroupMemberItemRespVO>> listMembers(
             @RequestParam("conversationId") Long conversationId) {
         return CommonResult.success(groupService.listMembers(conversationId));
+    }
+
+    @GetMapping("/bots/catalog")
+    public CommonResult<List<GroupBotCatalogItemRespVO>> listBotCatalog(
+            @RequestParam("conversationId") Long conversationId) {
+        return CommonResult.success(groupService.listBotCatalog(conversationId));
+    }
+
+    @PostMapping("/bots/add")
+    public CommonResult<GroupBotAddRespVO> addBot(@Valid @RequestBody GroupBotMembershipReqVO request) {
+        return CommonResult.success(groupService.addBot(request));
+    }
+
+    @PostMapping("/bots/remove")
+    public CommonResult<GroupBotRemoveRespVO> removeBot(@Valid @RequestBody GroupBotMembershipReqVO request) {
+        return CommonResult.success(groupService.removeBot(request));
     }
 }
