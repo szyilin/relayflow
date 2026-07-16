@@ -261,81 +261,74 @@ group:      Users… + optional Bots   （@Bot → Runtime）
 
 ## 7. 机器人模型
 
-### 7.1 目录、启用、会话（取代含糊的「绑定/订阅」）
+> **真源补充**：触达判定见 OpenSpec [`im-bot-reach-policy-v1`](../../openspec/changes/im-bot-reach-policy-v1/design.md)。
+
+### 7.1 目录、启用、会话
 
 ```text
 ┌─────────────────────────────────────┐
 │ Bot Definition（平台目录 · im_bot）   │
-│  code, name, avatar,                 │
-│  scope, enable_policy,               │
-│  capabilities[], handler_kind        │
-│  V1：种子数据维护系统默认 Bot           │
+│  code, name, type(system|tenant),    │
+│  scope, enable_policy, handler_kind  │
+│  V1：种子维护系统默认 Bot（type=system）│
 └─────────────────┬───────────────────┘
                   │
-        ┌─────────┴─────────┐
-        ▼                   ▼
-┌───────────────────┐ ┌───────────────────────────┐
-│ Tenant Enablement │ │ User Enablement            │
-│ (tenant, bot)     │ │ (tenant, user, bot)        │
-│ 企业侧开通/策略     │ │ V1：入企时自动写入（系统 Bot）│
-└─────────┬─────────┘ └─────────────┬─────────────┘
-          │                         │
-          └───────────┬─────────────┘
-                      │ 需要对话时
-┌─────────────────────▼─────────────────────────────────┐
-│ bot_dm Conversation                                   │
+     type=system  │  type=tenant（非 system）
+        │         │
+        │         ├─► Tenant Enablement (tenant, bot)  ─┐
+        │         │                                      │  并集任一即可投递
+        │         └─► User Enablement (tenant,user,bot) ─┘
+        │
+        ▼ 免查订阅表
+┌─────────────────────────────────────────────────────┐
+│ bot_dm Conversation（懒创建 ensure）                    │
 │  unique (tenant_id, bot_id, user_id)                 │
-│  lazy create on first send / open / @Bot（ensure）     │
 └─────────────────────────────────────────────────────┘
 ```
 
-**Enablement 分 tenant 与 user 两层**（均需落表），由 `enable_policy` 决定如何写入。**V1 只走系统 Bot 路径**：
+| Bot type | 订阅表 | 谁可被推送 |
+|----------|--------|------------|
+| **`system`** | **不查** tenant / user 订阅 | 任意企业上下文下的合法投递目标（扇出仍受 ACTIVE membership 约束） |
+| **`tenant`**（非 system） | **并集**：企业订阅 **或** 用户订阅 | 有任一订阅即可；**不**再入企把企业订阅拷贝到用户表 |
 
-| 路径 | 谁决定 | 谁可见 / 可被推送 | V1 典型 |
-|------|--------|-------------------|---------|
-| **Tenant + 全员策略** | 平台种子 + `mandatory` / `default_on` | 该 tenant 下所有 ACTIVE 成员（入企自动 user enable） | 任务助手、审批助手、组织助手 |
-| **平台强制扇出** | 平台 | 各 tenant 下按 fanout 规则 | 安全中心、跨企业邀请 |
-
-私信会话一律 **懒创建（ensure）**，不预建空会话。`ImBotApi.send` 前须校验目标 `(tenant, user)` 已具备 user enable（V1 系统 Bot 由入企流程自动满足）。
+私信会话一律 **懒创建（ensure）**。系统 Bot（组织助手等）**不要求** 每企业种子 `im_bot_tenant_enablement`，也不要求入企写 `im_bot_user_enablement`。
 
 ### 7.2 scope（作用域）
 
 | scope | 含义 | V1 |
 |-------|------|-----|
-| `tenant` | 任务 / 审批 / 组织助手 | ✅ 种子 Bot + 入企自动 user enable |
-| `identity_fanout` | 账号安全、跨企业邀请等 | ✅ 平台强制；各 tenant 自动 user enable |
-| `installable` | 外部可安装 Bot | ❌ **仅占位**；见 §7.6 |
+| `tenant` | 任务 / 审批 / 组织助手等 | ✅ 多为 `type=system` |
+| `identity_fanout` | 账号安全、跨企业邀请等 | ✅ 扇出到各 ACTIVE membership |
+| `installable` | 外部可安装 Bot | ❌ 仅占位 |
 
-投递默认：`tenant` 只写**事件所在 tenant**；`identity_fanout` → **每个 ACTIVE membership 各投一次**。
+投递默认：`tenant` 只写**事件所在 tenant**；`identity_fanout` / 调用方选 `ALL_ACTIVE_MEMBERSHIPS` → **每个 ACTIVE membership 各投一次**。
 
 ### 7.3 enable_policy（启用策略）
 
-| 策略 | tenant 层 | user 层 | V1 行为 |
-|------|-----------|---------|---------|
-| `mandatory` | 平台/租户强制开通 | 入企 ACTIVE 时**自动**写入 user enable | 全员可见、可推送；不可关闭 |
-| `default_on` | 企业默认开通 | 入企 ACTIVE 时**自动**写入 user enable | 管理员可关 tenant 层；关闭后全员不可见 |
-| `opt_in` | — | — | ❌ **仅占位**；见 §7.6 |
+`enable_policy` 仍用于描述「如何开通」的扩展语义；**发送门禁以 `type` 为准**。
 
-**V1 要点**：系统 Bot 用 `mandatory` / `default_on`，入企自动补齐 user enable，无需每人手动操作，也**不等于**「企业开了 Bot 定义就全员自动有」——须显式写入 user enable 记录（可由入企钩子批量完成）。
+| 策略 | 说明 | V1 |
+|------|------|-----|
+| `mandatory` / `default_on` | 历史字段；system Bot 可不依赖 | 种子可保留 |
+| `opt_in` | 用户主动订阅（写 user 表） | ❌ 仅占位 |
+
+**非 system Bot**：企业订阅与用户订阅为 **并集**，不必双层都写。
 
 ### 7.4 何时发生 Enablement 与会话 ensure（V1）
 
 ```text
 1. 用户加入企业（membership → ACTIVE）
-   → 对该 tenant 已 tenant-enable 的 mandatory / default_on 系统 Bot：
-     自动写入 user enable(tenant, user, bot)
-   → 不强制立刻建 bot_dm（避免无意义空会话）
+   → type=system：不写 user enablement
+   → type=tenant 且企业已订阅 + policy 要求时：可写 user enable（后置；当前非必须）
 
-2. 首次 ImBotApi.send / 用户打开 Bot / 用户 @Bot
-   → 校验 user enable 存在（入企流程已满足）
-   → ensure bot_dm(tenant, bot, user)
+2. 首次 ImBotApi.send / 用户打开 Bot
+   → type=system：直接 ensure bot_dm + 落库
+   → type=tenant：校验 tenant ∪ user 订阅后 ensure bot_dm
 
-3. Identity 扇出事件（invite / security）
-   → 枚举 user 的 ACTIVE tenants
-   → 每个 tenant：ensure user enable + ensure bot_dm + insert message
+3. Identity 扇出（invite 等）
+   → 枚举 ACTIVE tenants → 各写一条（system 免订阅）
+   → 产方应对 send 失败 best-effort（catch，不挡主业务）
 ```
-
-平台内置系统 Bot：`mandatory` / `default_on` + 入企自动 user enable + 发送时 ensure 会话。
 
 ### 7.5 同一 API，不同 Fanout
 
@@ -541,12 +534,12 @@ relayflow-module-im
 
 | code | scope | policy | 职责 |
 |------|-------|--------|------|
-| `org-assistant` | tenant | default_on | 成员 / 角色 / 部门 / **成员邀请** 等组织事件 |
-| `task-bot` | tenant | default_on | 到期、指派 |
-| `approval-bot` | tenant | default_on | 待办审批（bpm） |
-| `account-security` | identity_fanout | mandatory | 安全、登录异常等 |
+| `org-assistant` | tenant | default_on | 成员 / 角色 / 部门 / **成员邀请**（**type=system**） |
+| `task-bot` | tenant | default_on | 到期、指派（**type=system**） |
+| `approval-bot` | tenant | default_on | 待办审批（bpm）（**type=system**） |
+| `account-security` | identity_fanout | mandatory | 安全、登录异常等（**type=system**） |
 
-> `invite-helper` 已退役：邀请统一走 `org-assistant`（见 `im-bot-invite-migrate`）。
+> 触达门禁见 [`im-bot-reach-policy-v1`](../../openspec/changes/im-bot-reach-policy-v1/)：`type=system` 免企业/用户订阅表。`invite-helper` 已退役。
 
 外部 / 自定义 Bot：见 §7.6，V1 不实现。
 

@@ -23,6 +23,7 @@ import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImBotEnablePolicy;
+import com.relayflow.module.im.enums.ImBotType;
 import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
@@ -35,6 +36,7 @@ import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -66,7 +68,7 @@ public class ImBotServiceImpl implements ImBotService {
     private final TenantMemberApi tenantMemberApi;
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ImBotSendResult send(ImBotSendCommand command) {
         validateCommand(command);
         ImBotDO bot = requireActiveBot(command.getBotCode().trim());
@@ -117,6 +119,10 @@ public class ImBotServiceImpl implements ImBotService {
                 if (bot == null || !Objects.equals(bot.getStatus(), BOT_STATUS_ENABLED)) {
                     continue;
                 }
+                // System bots do not use user enablement rows.
+                if (ImBotType.isSystem(bot.getType())) {
+                    continue;
+                }
                 if (!ImBotEnablePolicy.autoEnableOnActive(bot.getEnablePolicy())) {
                     continue;
                 }
@@ -132,11 +138,13 @@ public class ImBotServiceImpl implements ImBotService {
         Long previous = TenantContextHolder.get();
         try {
             TenantContextHolder.set(tenantId);
-            requireTenantEnabled(tenantId, bot.getId());
-            if (fanoutAutoEnable && ImBotEnablePolicy.autoEnableOnActive(bot.getEnablePolicy())) {
+            requireReachable(tenantId, userId, bot);
+            // Non-system + fanout: optional lazy user enablement for opt-in bookkeeping only.
+            if (fanoutAutoEnable
+                    && !ImBotType.isSystem(bot.getType())
+                    && ImBotEnablePolicy.autoEnableOnActive(bot.getEnablePolicy())) {
                 ensureUserEnablement(tenantId, userId, bot.getId());
             }
-            requireUserEnabled(tenantId, userId, bot.getId());
 
             if (StringUtils.hasText(command.getDedupeKey())) {
                 ImMessageDO existing = findByDedupeClientMsgId(tenantId, bot.getId(), userId, command.getDedupeKey());
@@ -281,26 +289,35 @@ public class ImBotServiceImpl implements ImBotService {
         }
     }
 
-    private void requireTenantEnabled(Long tenantId, Long botId) {
+    /**
+     * System bots: always reachable. Non-system: tenant enablement ∪ user enablement.
+     */
+    private void requireReachable(Long tenantId, Long userId, ImBotDO bot) {
+        if (ImBotType.isSystem(bot.getType())) {
+            return;
+        }
+        if (isTenantEnabled(tenantId, bot.getId()) || isUserEnabled(tenantId, userId, bot.getId())) {
+            return;
+        }
+        throw new ServiceException(ErrorCodeConstants.BOT_NOT_ENABLED_FOR_TENANT);
+    }
+
+    private boolean isTenantEnabled(Long tenantId, Long botId) {
         ImBotTenantEnablementDO enablement = tenantEnablementMapper.selectOne(
                 Wrappers.<ImBotTenantEnablementDO>lambdaQuery()
                         .eq(ImBotTenantEnablementDO::getTenantId, tenantId)
                         .eq(ImBotTenantEnablementDO::getBotId, botId)
                         .eq(ImBotTenantEnablementDO::getEnabled, TENANT_ENABLED));
-        if (enablement == null) {
-            throw new ServiceException(ErrorCodeConstants.BOT_NOT_ENABLED_FOR_TENANT);
-        }
+        return enablement != null;
     }
 
-    private void requireUserEnabled(Long tenantId, Long userId, Long botId) {
+    private boolean isUserEnabled(Long tenantId, Long userId, Long botId) {
         Long count = userEnablementMapper.selectCount(
                 Wrappers.<ImBotUserEnablementDO>lambdaQuery()
                         .eq(ImBotUserEnablementDO::getTenantId, tenantId)
                         .eq(ImBotUserEnablementDO::getUserId, userId)
                         .eq(ImBotUserEnablementDO::getBotId, botId));
-        if (count == null || count == 0) {
-            throw new ServiceException(ErrorCodeConstants.BOT_NOT_ENABLED_FOR_USER);
-        }
+        return count != null && count > 0;
     }
 
     private ImBotDO requireActiveBot(String botCode) {

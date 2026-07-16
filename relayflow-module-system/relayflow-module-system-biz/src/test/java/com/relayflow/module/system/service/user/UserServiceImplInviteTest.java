@@ -168,6 +168,41 @@ class UserServiceImplInviteTest {
     }
 
     @Test
+    void inviteMemberSucceedsWhenBotSendFails() {
+        SysUserDO existing = new SysUserDO();
+        existing.setId(200L);
+        existing.setMobile("13900009995");
+        when(userMapper.selectOne(any())).thenReturn(existing);
+        when(tenantUserMapper.selectOne(any())).thenReturn(null);
+        when(tenantUserMapper.selectCount(any())).thenReturn(1L);
+        when(deptService.getOrCreateRootDept(JWT_TENANT_ID)).thenReturn(100L);
+        when(deptMapper.selectOne(any())).thenReturn(rootDept(JWT_TENANT_ID, 100L));
+
+        SysTenantDO tenant = new SysTenantDO();
+        tenant.setId(JWT_TENANT_ID);
+        tenant.setName("Acme");
+        when(tenantService.getTenant(JWT_TENANT_ID)).thenReturn(tenant);
+        when(imBotApi.send(any())).thenThrow(new RuntimeException("bot not enabled"));
+
+        LoginUser loginUser = new LoginUser(7L, "admin", JWT_TENANT_ID, "admin", List.of());
+        when(userMapper.selectById(7L)).thenReturn(null);
+
+        UserInviteReqDTO request = new UserInviteReqDTO();
+        request.setMobile("13900009995");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(loginUser);
+            Long inviteeId = userService.inviteMember(request);
+            assertEquals(200L, inviteeId);
+        }
+
+        ArgumentCaptor<SysTenantUserDO> captor = ArgumentCaptor.forClass(SysTenantUserDO.class);
+        verify(tenantUserMapper).insert(captor.capture());
+        assertEquals(TenantUserStatus.NOT_JOINED, captor.getValue().getStatus());
+        verify(imBotApi).send(any());
+    }
+
+    @Test
     void inviteMemberWhenTenantEnabledWithoutContextFails() {
         TenantContextHolder.clear();
 
