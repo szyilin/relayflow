@@ -16,6 +16,7 @@ import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
+import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
@@ -74,6 +75,10 @@ public class ImMessageServiceImpl implements ImMessageService {
                 .toList();
     }
 
+    /**
+     * Environment copy only (join tip, etc.). Business modules must not call this for
+     * invites / tasks / approvals — use {@link com.relayflow.module.im.api.bot.ImBotApi}.
+     */
     @Override
     @Transactional
     public void sendSystemMessage(Long tenantId, Long conversationId, String text) {
@@ -246,9 +251,10 @@ public class ImMessageServiceImpl implements ImMessageService {
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
-                        .eq(ImConversationMemberDO::getConversationId, conversationId));
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER));
         for (ImConversationMemberDO member : members) {
-            if (Objects.equals(member.getUserId(), senderId)) {
+            if (Objects.equals(member.getSubjectId(), senderId)) {
                 continue;
             }
             int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
@@ -261,7 +267,8 @@ public class ImMessageServiceImpl implements ImMessageService {
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
-                        .eq(ImConversationMemberDO::getConversationId, conversationId));
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER));
         for (ImConversationMemberDO member : members) {
             int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
             member.setUnreadCount(unread + 1);

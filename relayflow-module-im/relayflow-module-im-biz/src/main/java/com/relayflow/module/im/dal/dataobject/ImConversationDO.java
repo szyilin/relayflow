@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
  * </p>
  *
  * @author relayflow-codegen
- * @since 2026-07-15
+ * @since 2026-07-16
  */
 @Getter
 @Setter
@@ -51,4 +51,10 @@ public class ImConversationDO extends TenantBaseDO {
 
     @TableField("direct_peer_high")
     private Long directPeerHigh;
+
+    @TableField("bot_peer_bot_id")
+    private Long botPeerBotId;
+
+    @TableField("bot_peer_user_id")
+    private Long botPeerUserId;
 }

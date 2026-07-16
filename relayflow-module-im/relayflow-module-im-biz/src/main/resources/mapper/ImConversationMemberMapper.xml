@@ -12,13 +12,14 @@
         <result column="update_time" property="updateTime" />
         <result column="deleted" property="deleted" />
         <result column="conversation_id" property="conversationId" />
-        <result column="user_id" property="userId" />
+        <result column="subject_id" property="subjectId" />
         <result column="role" property="role" />
         <result column="read_seq" property="readSeq" />
         <result column="unread_count" property="unreadCount" />
         <result column="join_time" property="joinTime" />
         <result column="mute_until" property="muteUntil" />
         <result column="pinned" property="pinned" />
+        <result column="subject_type" property="subjectType" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -30,7 +31,7 @@
         updater,
         update_time,
         deleted,
-        conversation_id, user_id, role, read_seq, unread_count, join_time, mute_until, pinned
+        conversation_id, subject_id, role, read_seq, unread_count, join_time, mute_until, pinned, subject_type
     </sql>
 
 </mapper>

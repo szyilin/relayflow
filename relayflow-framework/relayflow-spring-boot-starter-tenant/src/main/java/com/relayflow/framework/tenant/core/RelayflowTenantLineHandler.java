@@ -14,7 +14,9 @@ public class RelayflowTenantLineHandler implements TenantLineHandler {
     private static final Set<String> IGNORED_TABLES = Set.of(
             "sys_tenant",
             "sys_tenant_user",
-            "sys_user"
+            "sys_user",
+            // Platform-level bot catalog (no tenant_id column)
+            "im_bot"
     );
 
     private final TenantProperties properties;

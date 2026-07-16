@@ -20,6 +20,8 @@
         <result column="settings_json" property="settingsJson" />
         <result column="direct_peer_low" property="directPeerLow" />
         <result column="direct_peer_high" property="directPeerHigh" />
+        <result column="bot_peer_bot_id" property="botPeerBotId" />
+        <result column="bot_peer_user_id" property="botPeerUserId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -31,7 +33,7 @@
         updater,
         update_time,
         deleted,
-        type, title, avatar_file_id, last_msg_id, last_msg_at, last_msg_preview, settings_json, direct_peer_low, direct_peer_high
+        type, title, avatar_file_id, last_msg_id, last_msg_at, last_msg_preview, settings_json, direct_peer_low, direct_peer_high, bot_peer_bot_id, bot_peer_user_id
     </sql>
 
 </mapper>
