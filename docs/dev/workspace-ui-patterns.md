@@ -55,7 +55,7 @@ web/src/
 |----|------|
 | 组件 | `WorkspaceBusinessCard`，`mode: self \| peer` 共用一套 UI |
 | 结构 | 封面区 + 叠压头像 + 显示名/企业 + 签名或备注区 + 操作按钮 |
-| self | 封面可点替换；签名可编辑；无语音/视频；无「给自己备注」 |
+| self | 封面可点替换；签名可编辑；**消息**可开自聊备忘；无语音/视频；无「给自己备注」 |
 | peer | 签名只读；备注与描述可编辑（查看者私有）；消息接通；语音/视频占位 |
 | 入口 | Rail「我的个人名片」→ self；通讯录点成员 → peer（若点自己则 self） |
 | 数据 | `stores/businessCard` + `stores/profile` → app-api；契约见 [`workspace-business-card/contract.md`](../../openspec/lanes/workspace-business-card/contract.md) |

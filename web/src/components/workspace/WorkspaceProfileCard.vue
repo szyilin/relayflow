@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import WorkspaceBusinessCard from './WorkspaceBusinessCard.vue'
 import WorkspaceMoreAccountsPanel from './WorkspaceMoreAccountsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useImStore } from '../../stores/im'
 import { useProfileStore } from '../../stores/profile'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
 
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
+const im = useImStore()
 const toast = useToast()
 
 type PanelView = 'main' | 'more-accounts' | 'business-card'
@@ -144,6 +146,18 @@ function openBusinessCard() {
   panelView.value = 'business-card'
 }
 
+function openSelfMessage() {
+  if (!authStore.userId) {
+    return
+  }
+  close()
+  im.openDirectChat(authStore.userId, {
+    title: displayNickname.value,
+    avatarText: avatarText.value
+  })
+  void router.push('/app/messages')
+}
+
 function openAdmin() {
   close()
   void router.push('/admin')
@@ -180,6 +194,7 @@ function openAdmin() {
       :org-label="displayTenantName"
       :avatar-url="avatarUrl"
       :avatar-text="avatarText"
+      @message="openSelfMessage"
     />
   </div>
 
