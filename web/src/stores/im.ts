@@ -59,8 +59,11 @@ function formatRelativeTime(iso?: string): string {
 }
 
 function textFromContent(content: MessageContent): string {
-  const textBlock = content.blocks.find(block => block.type === 'text')
-  return textBlock?.text ?? ''
+  return content.blocks
+    .filter(block => (block.type === 'text' || block.type === 'mention') && block.text)
+    .map(block => block.text!.trim())
+    .filter(Boolean)
+    .join(' ')
 }
 
 function fileBlockFromContent(content: MessageContent) {
@@ -425,19 +428,32 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
-  async function sendText(text: string) {
+  async function sendText(text: string, mentions: GroupMemberItem[] = []) {
     const trimmed = text.trim()
     const conversation = activeConversation.value
-    if (!trimmed || !conversation) {
+    if ((!trimmed && mentions.length === 0) || !conversation) {
       return
     }
 
     const isPending = conversation.id.startsWith('pending-')
     const clientMsgId = crypto.randomUUID()
+    const mentionBlocks = mentions
+      .filter(member => member.subjectType === 'bot' && member.botCode)
+      .map(member => ({
+        type: 'mention' as const,
+        subjectType: 'bot' as const,
+        subjectId: member.botId,
+        botCode: member.botCode,
+        text: `@${member.nickname}`
+      }))
     const content: MessageContent = {
       version: 1,
-      blocks: [{ type: 'text', text: trimmed }]
+      blocks: [
+        ...mentionBlocks,
+        ...(trimmed ? [{ type: 'text' as const, text: trimmed }] : [{ type: 'text' as const, text: ' ' }])
+      ]
     }
+    const preview = textFromContent(content)
 
     const optimistic: MessageViewItem = {
       id: `local-${clientMsgId}`,
@@ -453,7 +469,7 @@ export const useImStore = defineStore('im', () => {
     }
     messages.value = [...messages.value, optimistic]
     if (!isPending) {
-      conversation.lastMsgPreview = trimmed
+      conversation.lastMsgPreview = preview
       conversation.lastMsgAt = optimistic.createTime
     }
 
@@ -486,7 +502,7 @@ export const useImStore = defineStore('im', () => {
 
       const updatedConversation = conversations.value.find(item => item.id === result.conversationId)
       if (updatedConversation) {
-        updatedConversation.lastMsgPreview = trimmed
+        updatedConversation.lastMsgPreview = preview
         updatedConversation.lastMsgAt = result.createTime
       }
     } catch (error) {

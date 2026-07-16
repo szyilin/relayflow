@@ -26,4 +26,11 @@ public class ContentBlockVO {
     private String cardSummary;
     /** Reserved JSON for future action buttons; not interpreted in foundation. */
     private List<Object> actions;
+
+    /** Present when {@code type=mention} (group @Bot / @user). */
+    private String subjectType;
+    /** Bot or user id when {@code type=mention}. */
+    private Long subjectId;
+    /** Bot code when mentioning a bot (preferred lookup key with subjectId). */
+    private String botCode;
 }

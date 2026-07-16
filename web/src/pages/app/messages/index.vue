@@ -21,11 +21,14 @@ const createGroupOpen = ref(false)
 const inviteMembersOpen = ref(false)
 const addGroupBotOpen = ref(false)
 const removingBotCode = ref<string | null>(null)
+const pendingMentions = ref<import('../../../api/app/im').GroupMemberItem[]>([])
 
 const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
 const isBotDmActive = computed(() => active.value?.type === 'bot_dm')
 const isGroupOwner = computed(() => im.isCurrentUserGroupOwner())
+const groupBotMembers = computed(() =>
+  im.groupMembers.filter(member => member.subjectType === 'bot' && member.botCode))
 const groupMemberIds = computed(() =>
   im.groupMembers
     .filter(member => member.subjectType === 'user' && member.userId)
@@ -136,15 +139,34 @@ async function handleSelect(conversationId: string) {
 
 async function handleSend() {
   const text = draft.value
-  if (!text.trim() || im.sending) {
+  if ((!text.trim() && pendingMentions.value.length === 0) || im.sending) {
     return
   }
+  const mentions = [...pendingMentions.value]
   draft.value = ''
+  pendingMentions.value = []
   try {
-    await im.sendText(text)
+    await im.sendText(text, mentions)
   } catch {
     draft.value = text
+    pendingMentions.value = mentions
   }
+}
+
+function toggleBotMention(bot: import('../../../api/app/im').GroupMemberItem) {
+  if (!bot.botCode) {
+    return
+  }
+  const exists = pendingMentions.value.some(item => item.botCode === bot.botCode)
+  if (exists) {
+    pendingMentions.value = pendingMentions.value.filter(item => item.botCode !== bot.botCode)
+    return
+  }
+  pendingMentions.value = [...pendingMentions.value, bot]
+}
+
+function messageBlocks(msg: { content: import('../../../api/app/im').MessageContent }) {
+  return msg.content.blocks ?? []
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -383,7 +405,14 @@ meta:
                   </p>
                 </template>
                 <p v-else class="whitespace-pre-wrap break-words">
-                  {{ im.textFromContent(msg.content) }}
+                  <template v-for="(block, idx) in messageBlocks(msg)" :key="idx">
+                    <span
+                      v-if="block.type === 'mention'"
+                      class="mx-0.5 inline font-medium"
+                      :class="isOwnMessage(msg.senderId) ? 'underline decoration-white/70' : 'text-primary'"
+                    >{{ block.text }}</span>
+                    <span v-else-if="block.type === 'text'">{{ block.text }}</span>
+                  </template>
                 </p>
                 <p
                   class="mt-1 text-[10px] opacity-70"
@@ -420,33 +449,51 @@ meta:
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
           @change="handleFileSelected"
         >
-        <div class="workspace-input-bar flex items-center gap-2 px-3 py-2.5">
-          <UButton
-            icon="i-lucide-paperclip"
-            color="neutral"
-            variant="ghost"
-            square
-            size="sm"
-            :disabled="im.sending"
-            aria-label="发送附件"
-            @click="openFilePicker"
-          />
-          <input
-            v-model="draft"
-            class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
-            placeholder="发送消息，Enter 发送"
-            :disabled="im.sending"
-            @keydown="handleKeydown"
+        <div class="workspace-input-bar flex flex-col gap-2 px-3 py-2.5">
+          <div
+            v-if="isGroupActive && (groupBotMembers.length || pendingMentions.length)"
+            class="flex flex-wrap items-center gap-1.5"
           >
-          <UButton
-            icon="i-lucide-send"
-            color="primary"
-            square
-            size="sm"
-            :loading="im.sending"
-            :disabled="!draft.trim()"
-            @click="handleSend"
-          />
+            <UButton
+              v-for="bot in groupBotMembers"
+              :key="bot.botCode"
+              size="xs"
+              :color="pendingMentions.some(m => m.botCode === bot.botCode) ? 'primary' : 'neutral'"
+              :variant="pendingMentions.some(m => m.botCode === bot.botCode) ? 'soft' : 'ghost'"
+              icon="i-lucide-at-sign"
+              @click="toggleBotMention(bot)"
+            >
+              {{ bot.nickname }}
+            </UButton>
+          </div>
+          <div class="flex items-center gap-2">
+            <UButton
+              icon="i-lucide-paperclip"
+              color="neutral"
+              variant="ghost"
+              square
+              size="sm"
+              :disabled="im.sending"
+              aria-label="发送附件"
+              @click="openFilePicker"
+            />
+            <input
+              v-model="draft"
+              class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
+              :placeholder="isGroupActive && groupBotMembers.length ? '发送消息，可点上方 @机器人' : '发送消息，Enter 发送'"
+              :disabled="im.sending"
+              @keydown="handleKeydown"
+            >
+            <UButton
+              icon="i-lucide-send"
+              color="primary"
+              square
+              size="sm"
+              :loading="im.sending"
+              :disabled="!draft.trim() && pendingMentions.length === 0"
+              @click="handleSend"
+            />
+          </div>
         </div>
       </footer>
     </div>

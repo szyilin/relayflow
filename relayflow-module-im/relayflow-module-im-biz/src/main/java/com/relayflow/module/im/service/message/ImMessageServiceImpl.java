@@ -21,6 +21,7 @@ import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
+import com.relayflow.module.im.service.bot.ingress.GroupBotMentionDispatcher;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
@@ -31,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -59,6 +62,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final ImContentHelper contentHelper;
     private final RealtimeTransportApi realtimeTransportApi;
     private final UserApi userApi;
+    private final GroupBotMentionDispatcher groupBotMentionDispatcher;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
@@ -256,7 +260,24 @@ public class ImMessageServiceImpl implements ImMessageService {
 
         SendMessageRespVO response = toSendResponse(message);
         dispatchRealtime(message, request.getContent(), userId, tenantId, realtimeContext, false);
+        scheduleGroupBotMentionDispatch(tenantId, conversationId, userId, message.getId(), request.getContent());
         return response;
+    }
+
+    private void scheduleGroupBotMentionDispatch(Long tenantId, Long conversationId, Long userId,
+                                                 Long messageId, MessageContentVO content) {
+        Runnable task = () -> groupBotMentionDispatcher.dispatchAfterUserMessage(
+                tenantId, conversationId, userId, messageId, content);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
     }
 
     @Override
