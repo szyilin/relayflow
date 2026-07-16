@@ -44,14 +44,18 @@
 | workspace-tasks | **ready** | **done** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | store 无 Mock |
 | im-bot-invite-migrate | **archived** | n/a | 邀请 → `org-assistant` · `ALL_ACTIVE_MEMBERSHIPS` | 见 archive | [archive](../../openspec/changes/archive/2026-07-16-im-bot-invite-migrate/proposal.md) |
 | im-bot-reach-policy-v1 | **archived** | n/a | `im_bot.type` · system 免订阅 · 并集 · 产方 catch | 见 archive | [archive](../../openspec/changes/archive/2026-07-16-im-bot-reach-policy-v1/proposal.md) |
+| im-bot-task-due-migrate | **archived** | n/a | `TASK_DUE` → `task-bot` · `ImBotApi` SINGLE | — | [archive](../../openspec/changes/archive/2026-07-16-im-bot-task-due-migrate/proposal.md) |
+| im-bot-notify-foundation | **archived** | **done** | `ImBotApi` · `bot_dm` · 删 Rail/`infra_notify`；§7 子 change 已开单 | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/proposal.md) |
 | workspace-search | **archived** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；E2E 通过；[archive](../../openspec/changes/archive/2026-07-16-workspace-search-v1/proposal.md) |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **im-bot-task-due-migrate** | **ready** | n/a | `TASK_DUE` → `task-bot` · `ImBotApi` SINGLE | — | [change](../../openspec/changes/im-bot-task-due-migrate/proposal.md)；写路径 + 列表补偿；best-effort |
-| **im-bot-notify-foundation** | **ready** | **done** | `ImBotApi` · `bot_dm` · `/app/messages`；**删除** Rail 铃铛与 `infra_notify` | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [change](../../openspec/changes/im-bot-notify-foundation/proposal.md)；§2–§9 收尾完成；§7.2–§7.3 已开单；主规格已 sync；待母 change archive |
+| **im-bot-group-member** | planned | pending | 群挂/移除 Bot · 成员列表含 Bot | 待起草 | [change](../../openspec/changes/im-bot-group-member/proposal.md)；G1 |
+| **im-bot-runtime-platform** | planned | n/a | Bot Runtime SPI · noop/platform | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；建议先于/并行 mention |
+| **im-bot-group-mention** | planned | pending | 群 @Bot → Ingress | 待起草 | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；依赖 G1 + Runtime |
+| **im-bot-interactive-card** | planned | pending | card 发送 · `/app-api/im/card/action` · `/app/messages` | 待起草 | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md) |
 | bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达已修订为 `approval-bot` + `ImBotApi` |
 
 ### SUPERSEDED（不再按旧写真源扩写）
@@ -63,10 +67,10 @@
 ### V1.1 协作扩展 · 建议实施顺序
 
 ```text
-1. 产方迁移：invite ✅ / task-due ✅（`im-bot-task-due-migrate`）；bpm-v1 触达规格 ✅ → `approval-bot`（实现随 bpm-approval-api）
-2. 群 Bot / interactive card（foundation §7.4–§7.7）
-3. bpm-v1（schema → web → api；触达走 approval-bot，不依赖 infra_notify）
-4. im-bot-notify-foundation 母 change archive（§7 子 change 开完后）
+1. 产方迁移：invite ✅ / task-due ✅；bpm-v1 触达规格 ✅ → `approval-bot`（实现随 bpm-approval-api）
+2. 群 Bot / card 实现：group-member → runtime-platform → group-mention → interactive-card（§7 已开单）
+3. bpm-v1（schema → web → api；触达走 approval-bot）
+4. im-bot-notify-foundation / im-bot-task-due-migrate ✅ archived（§7 子 change 已开单）
 ```
 
 ## 已归档规划（暂缓实现）
