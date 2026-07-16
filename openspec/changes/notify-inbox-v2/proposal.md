@@ -1,5 +1,9 @@
 # 提案：通知中心 V2（notify-inbox-v2 · 母 change · 执行路线图）
 
+> **SUPERSEDED（2026-07-16）**  
+> 业务触达写真源已改道至 **IM Bot**（[`im-bot-notify-foundation`](../im-bot-notify-foundation/proposal.md)）：删除 Rail 铃铛与 `infra_notify`，统一走 `ImBotApi` / `bot_dm`。  
+> **本 change 未完成的扩写 tasks 不再实施**；已落地部分在地基切片中拆除。保留本文档仅作历史背景。
+
 ## Why
 
 [`org-member-invite-notify`](../archive/2026-07-12-org-member-invite-notify/proposal.md) 已落地站内通知基础设施（`infra_notify`、`NotifyInboxApi`、收件箱 REST、Rail 铃铛），但产品形态仍像「邀请专用信箱」：

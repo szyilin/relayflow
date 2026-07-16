@@ -47,16 +47,23 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| notify-inbox-v2 | **ready** | **done** | `infra/notify/*`（type 筛选、read-all）、`domain=notify` WS · Rail 铃铛；task `TASK_DUE` | [contract](../../openspec/lanes/notify-inbox-v2/contract.md) | store 无 Mock；§6.2 浏览器 E2E 待冒烟 |
+| **im-bot-notify-foundation** | planned | pending | `ImBotApi` · `bot_dm` · `/app/messages`；**删除** Rail 铃铛与 `infra_notify` | 见母 change | [change](../../openspec/changes/im-bot-notify-foundation/proposal.md)；**当前优先** |
 | workspace-search | **ready** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；深链 query 已接；§3.3 浏览器 E2E 待冒烟 |
-| bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；Flowable 通用审批 + `APPROVAL_PENDING` |
+| bpm-approval | planned | pending | `/app-api/bpm/*` · `/app/approvals` | [contract](../../openspec/lanes/bpm-approval/contract.md) | [change](../../openspec/changes/bpm-v1/proposal.md)；触达将改走 `approval-bot`（修订中） |
+
+### SUPERSEDED（不再按旧写真源扩写）
+
+| 切片 | 状态 | 说明 |
+|------|------|------|
+| notify-inbox-v2 | **SUPERSEDED** | 写真源改为 Bot/`im_message`；见 [im-bot-notify-foundation](../../openspec/changes/im-bot-notify-foundation/proposal.md)。已落地的铃铛/`infra_notify` 代码将在地基切片中拆除 |
 
 ### V1.1 协作扩展 · 建议实施顺序
 
 ```text
-1. notify-inbox-v2（schema → realtime → api → web → integrate → task-due）
-2. workspace-search-v1（web → api → integrate）     # 可与 notify 后期并行
-3. bpm-v1（schema → web → api → integrate）           # 审批通知依赖 notify 类型目录
+1. im-bot-notify-foundation（schema → ImBotApi → 删 notify/Rail → bot_dm UI）
+2. 产方迁移：invite / task-due → ImBotApi；其后群 Bot、interactive card
+3. workspace-search-v1（可与地基后期并行）
+4. bpm-v1（schema → web → api；触达走 approval-bot，不依赖 infra_notify）
 ```
 
 ## 已归档规划（暂缓实现）

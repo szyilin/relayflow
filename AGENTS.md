@@ -91,7 +91,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：V1.1 协作扩展（OpenSpec 已立项，见 `docs/dev/api-integration-board.md` §规划中）— ① `notify-inbox-v2`（schema → realtime → api → web → task-due）→ ② `workspace-search-v1`（可与 notify 后期并行）→ ③ `bpm-v1`（schema → web → api；`APPROVAL_PENDING` 依赖 notify 类型目录）。`org-member-invite-notify`、`workspace-tasks-v1` 已归档；`account-sms-verify` 规划归档·暂缓实现。
+**下一优先**：① **`im-bot-notify-foundation`**（Bot 统一业务触达地基：删 `infra_notify`/Rail、落地 `ImBotApi`/`bot_dm`，见 `openspec/changes/im-bot-notify-foundation/`）→ ② 产方迁移与 bot_dm UI 子切片 → ③ 群 Bot / 可交互卡片 → ④ `workspace-search-v1`（可并行）→ ⑤ `bpm-v1`（触达改走 `approval-bot`，**不再**依赖 notify 类型目录）。`notify-inbox-v2` 写真源已被本地基 **SUPERSEDED**。`org-member-invite-notify`、`workspace-tasks-v1` 已归档；`account-sms-verify` 规划归档·暂缓实现。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

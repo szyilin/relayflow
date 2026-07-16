@@ -1,10 +1,10 @@
-# IM 即时通讯架构草案（待确认）
+# IM 即时通讯架构草案（已拍板）
 
-> **状态**：系统分析草案，**尚未落地代码 / OpenSpec 规格**。  
-> **用途**：汇总讨论结论，便于审阅与逐条指正。确认前不改动实现。  
-> **整理日期**：2026-07-15  
-> **相关现状**：`openspec/specs/im/spec.md`、`infra` 通知、`notify-inbox-v2`、空壳 change `workspace-notify-system-thread`  
-> **历史设计**：`openspec/changes/archive/2026-07-12-im-platform-foundation/design.md`（双通道真源，本草案拟修订其「通知不落 im_message」铁律）
+> **状态**：**已拍板**。可执行真源 → OpenSpec change [`im-bot-notify-foundation`](../../openspec/changes/im-bot-notify-foundation/proposal.md)（proposal / design / specs / tasks）。  
+> **用途**：背景与概念长文；实现以 OpenSpec tasks 为准。  
+> **整理日期**：2026-07-15 · **拍板**：2026-07-15/16  
+> **相关**：`openspec/specs/im|infra|system|task|web-auth` delta 见上述 change；`notify-inbox-v2` 写真源 **SUPERSEDED**；空壳 `workspace-notify-system-thread` 已删除  
+> **历史设计**：`openspec/changes/archive/2026-07-12-im-platform-foundation/design.md`（双通道真源，已被本方向修订）
 
 ---
 
@@ -611,42 +611,22 @@ User @bot in group → Ingress → webhook → 外部 → 回调发回 group 消
 
 ---
 
-## 17. 待拍板事项
+## 17. 已拍板事项（2026-07-15/16）
 
-确认架构并开工前，需要产品/负责人明确：
-
-1. **Rail 铃铛**  
-   - A：去掉，消息列表即全部触达  
-   - B：保留，仅作 bot_dm 未读聚合入口（推荐若已习惯铃铛）
-
-2. **Identity 扇出默认策略**（邀请 / 安全类）  
-   - A：所有 ACTIVE 企业各投一条  
-   - B：仅当前 JWT tenant（+ 其它站外渠道，若有）
-
-3. **迁移姿态**  
-   - A：硬切——停写 `infra_notify`，迁或丢历史  
-   - B：软切——短时 Facade（`NotifyInboxApi` → `ImBotApi`）再删表
-
-4. **群内 Bot**  
-   - V1 是否只要 `bot_dm`（用户↔Bot 私信），群 @Bot 全部后置？
-
-5. **OpenSpec 载体**  
-   - 沿用 `workspace-notify-system-thread`  
-   - 或新建更名 change（如 `im-bot-notify-unified`）
+| # | 议题 | 结论 |
+|---|------|------|
+| 1 | Rail 铃铛 | **去掉**；触达只走 Bot / `/app/messages` |
+| 2 | Identity 扇出 | API **支持选择** SINGLE 或全 ACTIVE membership；**默认先做 SINGLE**；具体业务场景在产方切片再定 |
+| 3 | 迁移姿态 | **硬切重写**：删 `infra_notify`；`0.x` 不考虑数据兼容 |
+| 4 | 群内 Bot | **本版本规划并分期做成**（G0→G3，见 OpenSpec design） |
+| 5 | OpenSpec 载体 | **`im-bot-notify-foundation`**；空壳已删 |
+| 6 | 卡片 | **规划可交互 card**；细节后续 `im-bot-interactive-card` |
 
 ---
 
-## 18. 后续工作建议（确认后）
+## 18. 后续工作（已立项）
 
-1. 用本草案开 / 充实 OpenSpec change（proposal + design + specs delta + tasks）。  
-2. 修订 `openspec/specs/im/spec.md` 与 `infra` 中 Notify 相关「禁止写入 im_message」等冲突条款。  
-3. 按纵向切片推进（建议顺序示例）：  
-   - schema：`im_bot`（种子）/ tenant enablement / user enablement / `bot_dm`（或 conversation type 扩展）  
-   - `ImBotApi` + ensure 会话 + 幂等  
-   - 迁移：`MEMBER_INVITE` / `TASK_DUE` 改走 Bot  
-   - 前端：会话列表纳入 bot_dm；Rail 改造或下线  
-   - 冻结并删除 `infra_notify` 写路径  
-4. **确认前**：不改业务代码、不改 Flyway、不改规格主真源（除非另有指示）。
+执行清单见 [`openspec/changes/im-bot-notify-foundation/tasks.md`](../../openspec/changes/im-bot-notify-foundation/tasks.md)。建议顺序：平台 schema + `ImBotApi` + 删 notify/Rail → bot_dm UI → 产方迁移 → 群 Bot → 可交互卡片。
 
 ---
 
