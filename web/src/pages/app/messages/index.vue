@@ -22,6 +22,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const createGroupOpen = ref(false)
 const inviteMembersOpen = ref(false)
 const addGroupBotOpen = ref(false)
+const groupMembersOpen = ref(false)
 const removingBotCode = ref<string | null>(null)
 const pendingMentions = ref<import('../../../api/app/im').GroupMemberItem[]>([])
 
@@ -37,7 +38,6 @@ const groupMemberIds = computed(() =>
     .map(member => member.userId!))
 const directPeerUserId = computed(() =>
   active.value?.type === 'direct' ? active.value.peerUserId : undefined)
-const directPeerOnline = computed(() => presence.isOnline(directPeerUserId.value))
 
 function memberRowKey(member: { subjectType: string, userId?: string, botId?: string, botCode?: string }) {
   if (member.subjectType === 'bot') {
@@ -201,7 +201,7 @@ function conversationSubtitle(thread: { type: string, memberCount?: number, botC
   if (thread.type === 'bot_dm') {
     return '助手'
   }
-  return '单聊'
+  return ''
 }
 
 function headerSubtitle() {
@@ -263,7 +263,7 @@ meta:
 </route>
 
 <template>
-  <WorkspaceShell show-aside>
+  <WorkspaceShell>
     <template #panel>
       <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
         <h2 class="font-semibold">
@@ -345,10 +345,23 @@ meta:
           <h1 class="truncate font-semibold">
             {{ active.title }}
           </h1>
-          <p class="text-xs text-[var(--ws-text-muted)]">
+          <p
+            v-if="headerSubtitle()"
+            class="text-xs text-[var(--ws-text-muted)]"
+          >
             {{ headerSubtitle() }}
           </p>
         </div>
+        <UButton
+          v-if="isGroupActive"
+          icon="i-lucide-users"
+          color="neutral"
+          variant="soft"
+          size="sm"
+          @click="groupMembersOpen = true"
+        >
+          成员
+        </UButton>
         <UButton
           v-if="isGroupActive"
           icon="i-lucide-user-plus"
@@ -534,37 +547,45 @@ meta:
     <div v-else class="flex h-full items-center justify-center p-8">
       <UEmpty icon="i-lucide-message-circle" title="选择会话" description="从左侧列表选择会话开始聊天" />
     </div>
+  </WorkspaceShell>
 
-    <template #aside>
-      <template v-if="isGroupActive">
-        <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
-          <span class="font-semibold">群成员</span>
-          <div class="flex items-center gap-1">
-            <UButton
-              v-if="isGroupOwner"
-              icon="i-lucide-bot"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              title="添加机器人"
-              @click="addGroupBotOpen = true"
-            />
-            <UButton
-              icon="i-lucide-user-plus"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              title="邀请成员"
-              @click="inviteMembersOpen = true"
-            />
-          </div>
+  <UModal
+    v-if="active && isGroupActive"
+    v-model:open="groupMembersOpen"
+    title="群成员"
+    :ui="{ content: 'max-w-md' }"
+  >
+    <template #body>
+      <div class="flex max-h-[60vh] flex-col">
+        <div class="mb-3 flex items-center justify-end gap-1">
+          <UButton
+            v-if="isGroupOwner"
+            icon="i-lucide-bot"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            title="添加机器人"
+            @click="addGroupBotOpen = true"
+          >
+            添加机器人
+          </UButton>
+          <UButton
+            icon="i-lucide-user-plus"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            title="邀请成员"
+            @click="inviteMembersOpen = true"
+          >
+            邀请
+          </UButton>
         </div>
 
-        <div v-if="im.loadingGroupMembers" class="space-y-2 p-3">
+        <div v-if="im.loadingGroupMembers" class="space-y-2">
           <USkeleton v-for="i in 5" :key="i" class="h-10 w-full" />
         </div>
 
-        <div v-else-if="im.groupMembers.length" class="flex-1 space-y-1 overflow-y-auto p-2">
+        <div v-else-if="im.groupMembers.length" class="space-y-1 overflow-y-auto">
           <div
             v-for="member in im.groupMembers"
             :key="memberRowKey(member)"
@@ -601,79 +622,11 @@ meta:
           icon="i-lucide-users"
           title="暂无成员"
           description="邀请同事加入群聊"
-          class="p-6"
+          class="py-6"
         />
-      </template>
-
-      <template v-else-if="isBotDmActive && active">
-        <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
-          助手
-        </div>
-        <div class="p-4">
-          <div class="flex items-center gap-3 rounded-lg bg-[var(--ws-input-bar-bg)] px-3 py-2.5">
-            <UAvatar
-              :text="active.avatarText ?? active.title.slice(0, 1)"
-              icon="i-lucide-bot"
-              size="sm"
-            />
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium">
-                {{ active.title }}
-              </p>
-              <p class="text-xs text-[var(--ws-text-muted)]">
-                组织与业务提醒
-              </p>
-            </div>
-          </div>
-          <p class="mt-3 text-xs leading-relaxed text-[var(--ws-text-muted)]">
-            未读提醒会出现在会话列表角标中，不再使用独立通知铃铛。
-          </p>
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
-          活跃状态
-        </div>
-        <div v-if="active?.type === 'direct' && directPeerUserId" class="p-4">
-          <div class="flex items-center gap-3 rounded-lg bg-[var(--ws-input-bar-bg)] px-3 py-2.5">
-            <span
-              class="size-2.5 shrink-0 rounded-full"
-              :class="directPeerOnline ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
-            />
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium">
-                {{ active.title }}
-              </p>
-              <p class="text-xs text-[var(--ws-text-muted)]">
-                {{ directPeerOnline ? '在线' : '离线' }}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else-if="isGroupActive && im.groupMembers.length"
-          class="space-y-1 overflow-y-auto p-2"
-        >
-          <div
-            v-for="member in im.groupMembers.filter(m => m.subjectType === 'user')"
-            :key="member.userId"
-            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-          >
-            <span
-              class="size-2 shrink-0 rounded-full"
-              :class="presence.isOnline(member.userId) ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
-            />
-            <span class="truncate">{{ member.nickname }}</span>
-          </div>
-        </div>
-        <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
-          <UIcon name="i-lucide-sparkles" class="size-8 opacity-40" />
-          <p>选择会话查看在线状态</p>
-        </div>
-      </template>
+      </div>
     </template>
-  </WorkspaceShell>
+  </UModal>
 
   <ImCreateGroupModal v-model:open="createGroupOpen" />
   <ImInviteMembersModal

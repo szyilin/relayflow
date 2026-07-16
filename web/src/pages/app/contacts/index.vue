@@ -164,7 +164,7 @@ meta:
 </route>
 
 <template>
-  <WorkspaceShell show-aside>
+  <WorkspaceShell>
     <template #panel>
       <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
         组织内联系人
@@ -289,31 +289,5 @@ meta:
         </template>
       </UPopover>
     </div>
-
-    <template #aside>
-      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
-        活跃状态
-      </div>
-      <div v-if="contacts.members.length" class="space-y-1 overflow-y-auto p-2">
-        <div
-          v-for="person in contacts.members"
-          :key="`presence-${person.id}`"
-          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-        >
-          <span
-            class="size-2 shrink-0 rounded-full"
-            :class="presence.isOnline(person.id) ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
-          />
-          <span class="truncate">{{ person.nickname }}</span>
-          <span class="ml-auto text-xs text-[var(--ws-text-muted)]">
-            {{ presence.isOnline(person.id) ? '在线' : '离线' }}
-          </span>
-        </div>
-      </div>
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-[var(--ws-text-muted)]">
-        <UIcon name="i-lucide-sparkles" class="size-8 opacity-40" />
-        <p>选择部门查看成员在线状态</p>
-      </div>
-    </template>
   </WorkspaceShell>
 </template>
