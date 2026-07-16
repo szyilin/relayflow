@@ -29,11 +29,21 @@ web/src/
 | 区域 | 实现 |
 |------|------|
 | 画布 | `workspace-shell` + `--ws-canvas-bg` + gap |
-| 左导航 | 固定宽卡片：品牌、搜索占位、图标+文字菜单、底部用户 |
+| 左导航 | 固定宽卡片：品牌、**可点搜索**、图标+文字菜单、底部用户 |
 | 列表栏 | `#panel` slot；右缘可拖拽调宽 |
 | 主区 | 默认 slot；聊天/任务/文档内容 |
 | 右栏 | 可选 `#aside`（如消息页「活跃状态」） |
 | 主题 | 右上角 `AdminColorModeToggle` |
+
+## 全局搜索（⌘K / Rail）
+
+| 项 | 规范 |
+|----|------|
+| 入口 | Rail 搜索输入点击；工作台页 `⌘K` / `Ctrl+K`（`useWorkspaceSearchShortcut`） |
+| UI | `WorkspaceSearchModal`：关键词输入 + `member` / `conversation` / `task` 分组结果 |
+| 数据 | `stores/workspaceSearch` → `GET /app-api/infra/workspace-search`（无 Mock） |
+| 深链 | `/app/contacts?memberId=`、`/app/messages?conversationId=`、`/app/tasks?taskId=`；目标页读 query 激活上下文 |
+| 契约 | [`openspec/lanes/workspace-search/contract.md`](../../openspec/lanes/workspace-search/contract.md) |
 
 ## 认证页 `/app/login`
 

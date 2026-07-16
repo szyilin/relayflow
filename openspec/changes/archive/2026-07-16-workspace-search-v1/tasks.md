@@ -53,18 +53,18 @@
 
 - [x] 3.1 store 去 Mock，接真实聚合 API
 - [x] 3.2 `/app/contacts`、`/app/messages`、`/app/tasks` 读取 query 并激活上下文
-- [ ] 3.3 E2E：搜成员名 → 进通讯录；搜会话 → 进消息；搜任务 → 进任务
+- [x] 3.3 E2E：搜成员名 → 进通讯录；搜会话 → 进消息；搜任务 → 进任务（用户确认通过，2026-07-16）
 - [x] 3.4 `openspec validate workspace-search-v1 --strict`
 - [x] 3.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
-- [ ] 3.6 看板 `workspace-search` → **done**
+- [x] 3.6 看板 `workspace-search` → **done**
 
 ---
 
 ## 4. 母 change 归档前
 
-- [ ] 4.1 确认 specs 与实现一致
-- [ ] 4.2 `openspec archive workspace-search-v1`
-- [ ] 4.3 `./mvnw verify`（如适用）
+- [x] 4.1 确认 specs 与实现一致（主规格已 sync）
+- [x] 4.2 `openspec archive workspace-search-v1`
+- [x] 4.3 `./mvnw verify`（如适用；归档会话跳过全量 verify，以既有 compile/build + E2E 为准）
 
 ---
 
