@@ -389,7 +389,7 @@ After a user message is persisted in a group that has bot members, if the messag
 
 ### Requirement: Card content placeholder
 
-The message content model MUST reserve a `card` shape (and future interactive `actions`) for Feishu-like interactive cards. Foundation MAY allow text plus deep-link metadata first. Full interactive callback auth/timeout/idempotency belongs to a later slice (`im-bot-interactive-card`) and MUST NOT resurrect a parallel notify write model.
+The message content model MUST support a `card` shape for Feishu-like interactive cards. Text plus deep-link metadata remains allowed for lightweight reach. Interactive callback auth/timeout/idempotency is implemented via the interactive card action SPI and MUST NOT resurrect a parallel notify write model.
 
 #### Scenario: Text reach allowed
 
@@ -397,12 +397,57 @@ The message content model MUST reserve a `card` shape (and future interactive `a
 - **WHEN** the message is persisted
 - **THEN** clients can render it in `bot_dm` and navigate the deep link
 
-#### Scenario: Card type reserved
+#### Scenario: Card type persists
 
-- **GIVEN** a sender uses the reserved `card` content type
+- **GIVEN** a sender uses the `card` content type per implementation contract
 - **WHEN** the message is persisted
 - **THEN** `im_message` succeeds
-- **AND** unimplemented interactive callbacks MUST NOT dual-write `infra_notify`
+- **AND** card interactions use Card Action Ingress rather than `infra_notify`
+
+### Requirement: Interactive card send and action SPI
+
+The system MUST support Feishu-like interactive cards as IM message content. `ImBotApi.send` MUST accept a card document (including `generic.v1` template with header/fields/actions). Clients MUST render cards in conversation history. Action behaviors are limited to `open_url` (client-local navigation) and `callback` (server SPI, optional form values). The system MUST expose `POST /app-api/im/card/action` that authenticates the caller as a User member of the conversation, enforces `meta.expiresAt`, supports idempotency via `clientActionId` (or equivalent), and dispatches to an in-process `CardActionHandler` resolved by `actionKey`. Handlers are defined in `im-api` and implemented by business modules (or a documented demo handler). Successful callbacks MAY return toast and/or an updated card snapshot that IM patches onto the message and pushes via realtime. System bots MUST NOT require external callback URLs. The system MUST NOT dual-write `infra_notify` or use `domain=notify` as a business write model for card interactions. Bot Runtime dialogue inbound MUST remain a separate path from card actions.
+
+#### Scenario: Send card via ImBotApi
+
+- **GIVEN** a reachable user and bot
+- **WHEN** a caller invokes `ImBotApi.send` with a card document
+- **THEN** the message is persisted with card content
+- **AND** online User members receive `domain=im, type=message.new`
+
+#### Scenario: open_url does not hit action API
+
+- **GIVEN** a card action with `behavior.type=open_url`
+- **WHEN** the user activates that action
+- **THEN** the client navigates using the route/URL locally
+- **AND** MUST NOT call `POST /app-api/im/card/action` for that activation
+
+#### Scenario: callback dispatches handler
+
+- **GIVEN** a card action with `behavior.type=callback` and a registered `CardActionHandler` for its `actionKey`
+- **WHEN** the user submits `POST /app-api/im/card/action` with valid membership and unexpired card
+- **THEN** the handler is invoked with opaque `payload` and optional `formValues`
+- **AND** the HTTP response may include toast and updated message/card data
+
+#### Scenario: Expired card rejects interaction
+
+- **GIVEN** `meta.expiresAt` is in the past
+- **WHEN** the user calls the card action API
+- **THEN** the system rejects the interaction
+- **AND** MUST NOT invoke the business handler
+
+#### Scenario: Idempotent clientActionId
+
+- **GIVEN** a successful callback for a `clientActionId`
+- **WHEN** the same caller retries with the same `clientActionId`
+- **THEN** the system does not apply the business side effect twice
+- **AND** returns a stable success-equivalent response
+
+#### Scenario: No notify dual-write
+
+- **WHEN** a card is sent or a callback completes
+- **THEN** the system MUST NOT insert into `infra_notify`
+- **AND** MUST NOT require `domain=notify` as the write model
 
 ### Requirement: Conversation list includes bot_dm
 
@@ -415,9 +460,41 @@ The app conversation list MUST include the current user's `bot_dm` conversations
 - **THEN** the response includes an item with `type=bot_dm`
 - **AND** includes unread count
 
+### Requirement: Group bot membership management
+
+The system MUST allow authorized group members to add and remove bots as conversation members with `subject_type=bot`. Member list APIs MUST distinguish bots from users and expose bot display metadata (name/avatar from `im_bot`). Adding an already-present bot MUST be idempotent. Outbound `ImBotApi` MUST NOT depend on group bot membership. The system MUST NOT persist bots as `sys_user` rows.
+
+#### Scenario: Attach bot to group
+
+- **GIVEN** a `group` conversation and a reachable bot for the tenant
+- **WHEN** an authorized caller adds the bot via the group bot membership API
+- **THEN** `im_conversation_member` records the bot with `subject_type=bot`
+- **AND** member/list responses can distinguish the bot from users
+
+#### Scenario: Remove bot from group
+
+- **GIVEN** a group that already has bot X as a member
+- **WHEN** an authorized caller removes bot X
+- **THEN** the bot membership is removed or soft-deleted per existing member semantics
+- **AND** subsequent member lists do not include bot X as an active member
+
+#### Scenario: Idempotent attach
+
+- **GIVEN** bot X is already a member of the group
+- **WHEN** attach is requested again for bot X
+- **THEN** the system does not create a duplicate active membership
+- **AND** the API succeeds without error (no-op or explicit already-member result)
+
+#### Scenario: System join tip on attach
+
+- **GIVEN** a successful bot attach
+- **WHEN** the membership is persisted
+- **THEN** the system MAY persist a `sender_type=system` environment message in the group
+- **AND** MUST NOT use `ImBotApi` for that tip
+
 ### 需求：群聊 REST API
 
-系统 MUST 提供用户端群聊 REST：建群、邀请成员、查询群成员；群消息 MUST 复用现有 `conversationId` 消息发送/列表接口。
+系统 MUST 提供用户端群聊 REST：建群、邀请成员、查询群成员、管理 Bot 成员；群消息 MUST 复用现有 `conversationId` 消息发送/列表接口。
 
 #### 场景：创建群聊
 
@@ -433,6 +510,13 @@ The app conversation list MUST include the current user's `bot_dm` conversations
 - 那么 新成员写入 `im_conversation_member`
 - 并且 为每次加入事件持久化一条系统消息
 
+#### 场景：成员列表含 Bot
+
+- 给定 群内同时有 User 与 Bot 成员
+- 当 GET 群成员列表
+- 那么 响应区分 `subjectType=user|bot`
+- 并且 Bot 项包含可展示的名称（来自 Bot 目录）
+
 #### 场景：会话列表含群聊
 
 - 给定 用户持有有效 JWT
@@ -442,9 +526,9 @@ The app conversation list MUST include the current user's `bot_dm` conversations
 
 #### 场景：群消息展示发送者昵称
 
-- 给定 用户为群成员
-- 当 拉取群会话消息列表
-- 那么 用户消息包含 `senderNickname` 供前端展示
+- 给定 群会话中存在其他成员发送的消息
+- 当 客户端拉取消息列表或收到 `message.new`
+- 那么 每条用户消息可解析出发送者展示名
 
 ### 需求：文件与图片消息
 
