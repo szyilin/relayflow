@@ -78,16 +78,23 @@ Assignees SHALL be able to complete pending approval tasks with approve or rejec
 - **WHEN** a user attempts to approve a task not assigned to them
 - **THEN** the system rejects with `BPM_TASK_FORBIDDEN`
 
-### Requirement: Approval pending notification
+### Requirement: Approval pending bot delivery
 
-When a new approval task is created for an approver, bpm-biz SHALL push an `APPROVAL_PENDING` notification via `NotifyInboxApi` (infra-api only).
+When a new approval task is created for an approver, bpm-biz SHALL call `ImBotApi.send` (via `im-api` only) with bot code `approval-bot` and target scope `SINGLE` for the approver. The module MUST NOT call `NotifyInboxApi` or access `infra_notify` / `im_*` mappers. `ImBotApi.send` failures MUST NOT fail approval submit APIs (best-effort reach).
 
-#### Scenario: Notify approver on new task
+#### Scenario: Notify approver on new task via bot_dm
 
-- **WHEN** a submitted instance creates a pending approval task for user B
-- **THEN** bpm-biz calls `NotifyInboxApi.push` with `type=APPROVAL_PENDING`
-- **AND** payload includes a `route` under `/app/approvals`
-- **AND** bpm-biz does not depend on `infra-biz` implementation types
+- **WHEN** a submitted instance creates a pending approval task for user B in tenant T
+- **THEN** bpm-biz calls `ImBotApi.send` with `botCode=approval-bot` and target SINGLE `{ tenantId: T, userId: B }`
+- **AND** uses a stable `dedupeKey` such as `APPROVAL_PENDING:{extId}`
+- **AND** deep link metadata includes a `route` under `/app/approvals` with `entityType=approval`
+- **AND** bpm-biz does not depend on `infra-biz` or deleted notify inbox APIs
+
+#### Scenario: Delivery failure does not block submit
+
+- **WHEN** `ImBotApi.send` throws or returns a delivery failure
+- **THEN** the approval submit API still succeeds
+- **AND** the failure is logged server-side
 
 ### Requirement: Workspace approvals page
 

@@ -3,7 +3,7 @@
 > **状态**：草案（母 change 规划；`bpm-approval-web` lane 实施时细化）  
 > **起草**：`bpm-v1` change  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
-> **前置**：统一登录、多租户 JWT；通知类型 `APPROVAL_PENDING` 见 [`notify-inbox-v2/contract.md`](../notify-inbox-v2/contract.md)
+> **前置**：统一登录、多租户 JWT；待办触达走 `approval-bot` + `ImBotApi`（见 [`im-bot-dm/contract.md`](../im-bot-dm/contract.md)）
 
 ## 背景
 
@@ -99,25 +99,23 @@
 | `BPM_TASK_FORBIDDEN` | 非任务 assignee |
 | `BPM_APPROVER_REQUIRED` | 未指定审批人且无默认 |
 
-## 通知（可选联调）
+## 触达（bot_dm）
 
-待办创建后 `bpm-biz` 调用 `NotifyInboxApi.push`：
+待办创建后 `bpm-biz` 调用 `ImBotApi.send`：
 
 ```json
 {
-  "type": "APPROVAL_PENDING",
-  "dedupeKey": "approval:{processInstanceId}",
-  "title": "待你审批",
-  "body": "「请假申请」待处理",
-  "payload": {
-    "route": "/app/approvals?instanceId=5001",
-    "entityType": "approval",
-    "entityId": "5001"
-  }
+  "botCode": "approval-bot",
+  "text": "「请假申请」待你审批",
+  "dedupeKey": "APPROVAL_PENDING:5001",
+  "route": "/app/approvals?instanceId=5001",
+  "entityType": "approval",
+  "entityId": "5001",
+  "target": { "scope": "SINGLE", "tenantId": 1, "userId": 1002 }
 }
 ```
 
-依赖 `notify-inbox-v2` §1 类型目录；未上线时待办列表仍须可用。
+消息出现在审批人 `/app/messages` 的 `approval-bot` bot_dm；send 失败不挡提交。待办列表仍须可用。
 
 ## 前端 UI
 
@@ -154,4 +152,4 @@ curl -s -X POST http://localhost:8080/app-api/bpm/task/approve \
 1. 用户 A `/app/approvals` → 新建审批，指定 B 为审批人
 2. 用户 B 登录 → 待我审批可见 → 打开详情 → 通过
 3. 用户 A「我发起的」状态为 `APPROVED`
-4. （可选）B 铃铛出现 `APPROVAL_PENDING`，点击跳转 `/app/approvals?instanceId=...`
+4. （可选）B 的 `approval-bot` bot_dm 出现待办提醒，点击 deep link 跳转 `/app/approvals?instanceId=...`

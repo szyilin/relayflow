@@ -8,7 +8,8 @@
 
 ## 修改 main spec
 
-- [ ] `openspec/specs/infra/spec.md` — `APPROVAL_PENDING` 类型目录（若 notify-inbox-v2 已归档则可能已存在，避免重复 ADDED）
+- [ ] `openspec/specs/im/spec.md` — 确认 `approval-bot` / `ImBotApi` 产方约定与实现一致（触达已不走 infra notify）
+- [ ] **勿**再向 `openspec/specs/infra` 同步 `APPROVAL_PENDING` 类型目录（已 SUPERSEDED）
 
 ## 配置与文档
 
@@ -18,5 +19,5 @@
 
 ## 依赖
 
-- [ ] `notify-inbox-v2` 已归档或 `APPROVAL_PENDING` 类型已在 `infra-api` 实现
+- [ ] `im-bot-notify-foundation` 已落地 `ImBotApi` + `approval-bot` 种子
 - [ ] `openspec/lanes/bpm-approval/contract.md` 与实现一致

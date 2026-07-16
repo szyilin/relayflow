@@ -3,8 +3,8 @@
 ## Context
 
 - 规划：[`bootstrap-v1-foundation`](../archive/2026-06-30-bootstrap-v1-foundation/design.md) §2.5、§10 — V1.1 引入 `relayflow-module-bpm` + 嵌入式 BPMN
-- 通知：[`notify-inbox-v2`](../notify-inbox-v2/design.md) 预留 `APPROVAL_PENDING` + deep link
-- 架构：`*-api` + `*-biz`；`bpm-biz` → `system-api`（解析审批人）、`infra-api`（`NotifyInboxApi`）
+- 触达：[`im-bot-notify-foundation`](../im-bot-notify-foundation/design.md) — `approval-bot` + `ImBotApi`（**不**走已拆除的 `NotifyInboxApi`）
+- 架构：`*-api` + `*-biz`；`bpm-biz` → `system-api`（解析审批人）、`im-api`（`ImBotApi`）
 - 当前：**无** bpm 模块目录；`openspec/config.yaml` 标注 V1.1 前暂不启用
 
 ## Goals / Non-Goals
@@ -14,7 +14,7 @@
 - 飞书式最小闭环：**我发起的** / **待我审批** 列表 + 提交表单 + 通过/驳回
 - 嵌入式 **Flowable 7.x**（Spring Boot 3 兼容版本，写入 BOM）
 - 内置 **单条 BPMN**「通用审批」：`start → userTask(approve) → end`
-- 待办产生时推送 `APPROVAL_PENDING`（`notify-inbox-v2` 就绪后联调）
+- 待办产生时经 `approval-bot` 投递 bot_dm（best-effort；不挡提交）
 
 **Non-Goals:**
 
@@ -42,7 +42,7 @@ relayflow-module-bpm/
 
 - `flowable-spring-boot-starter-process`
 - `relayflow-module-system-api`
-- `relayflow-module-infra-api`
+- `relayflow-module-im-api`（`ImBotApi`）
 
 `relayflow-server/pom.xml` 增加 `relayflow-module-bpm-biz`。
 
@@ -102,29 +102,32 @@ Codegen：`./scripts/codegen.sh --module bpm --tables bpm_process_instance_ext`
 
 错误码：`BPM_INSTANCE_NOT_FOUND`、`BPM_TASK_NOT_FOUND`、`BPM_TASK_FORBIDDEN`、`BPM_APPROVER_REQUIRED`
 
-### D5：通知生产方
+### D5：触达生产方（approval-bot）
 
 `bpm-biz` 在创建待办（流程进入 `approveTask`）后：
 
 ```java
-notifyInboxApi.push(NotifyItemCommand.builder()
-  .tenantId(tenantId)
-  .userId(approverId)
-  .type(InfraNotifyType.APPROVAL_PENDING)
-  .title("待你审批")
-  .body("「" + title + "」待处理")
-  .dedupeKey("approval:" + processInstanceId)
-  .payload(Map.of(
-    "route", "/app/approvals?instanceId=" + extId,
-    "entityType", "approval",
-    "entityId", extId
-  ))
-  .build());
+ImBotSendTarget target = new ImBotSendTarget();
+target.setScope(ImBotSendTarget.SCOPE_SINGLE);
+target.setTenantId(tenantId);
+target.setUserId(approverId);
+
+ImBotSendCommand command = new ImBotSendCommand();
+command.setBotCode("approval-bot");
+command.setText("「" + title + "」待你审批");
+command.setDedupeKey("APPROVAL_PENDING:" + extId);
+command.setRoute("/app/approvals?instanceId=" + extId);
+command.setEntityType("approval");
+command.setEntityId(String.valueOf(extId));
+command.setTarget(target);
+try {
+  imBotApi.send(command);
+} catch (Exception e) {
+  log.warn(...); // best-effort；不回滚提交
+}
 ```
 
-依赖 `notify-inbox-v2` 的 type + dedupe；若 notify V2 未上线，可暂用 `MEMBER_INVITE` 同类 REST-only 路径或跳过 push（integrate 任务注明）。
-
-审批完成：**不**自动删通知；用户标已读。与 task due 策略一致。
+依赖 foundation 已种子的 `approval-bot` 与 system Bot 免订阅策略。审批完成：**不**撤回已发 bot 消息。与 task-due 策略一致。
 
 ### D6：前端
 
@@ -164,7 +167,7 @@ web/src/
 |------|------|
 | Flowable 表体积 | V1 单流程、无历史归档任务 |
 | 审批人离职 | V1 不处理；文档注明后续委托 change |
-| notify 未 V2 | 待办列表仍可用；push 为增强 |
+| Bot 投递失败 / 用户未开 messages | 待办列表仍可用；send best-effort |
 
 ## Migration Plan
 
@@ -200,5 +203,5 @@ cd web && pnpm build
 |-----------|------|
 | `bpm-schema-v1` | pom、Flowable 配置、Flyway ext 表、BPMN 部署 |
 | `bpm-approval-web` | UI + Mock + `openspec/lanes/bpm-approval/contract.md` |
-| `bpm-approval-api` | REST + Flowable 编排 + notify push |
+| `bpm-approval-api` | REST + Flowable 编排 + `ImBotApi(approval-bot)` |
 | `bpm-approval-integrate` | 联调 + 看板 done |
