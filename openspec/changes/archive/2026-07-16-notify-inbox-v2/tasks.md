@@ -1,8 +1,9 @@
 # Tasks：notify-inbox-v2（母 change · 执行路线图）
 
-> **用法**：本文件是通知中心 V2 的 **总路线图**。实际编码按 **子切片** 分批执行；每次会话只做一组 task（建议 ≤10 条 checkbox）。  
-> **顺序**：`[平台]` 可先行；业务 UI 默认 **前端优先**（`-web` → `-api` → `-integrate`）。  
-> **设计真源**：`design.md`；**行为**：`specs/infra`、`specs/task`。
+> **ABORTED / SUPERSEDED（2026-07-16）**  
+> 业务触达写真源已改道至 IM Bot（[`im-bot-notify-foundation`](../../im-bot-notify-foundation/proposal.md)）。未完成 tasks **不再实施**；已落地 `infra_notify`/铃铛代码已在地基切片拆除。主规格已同步至 `openspec/specs/`。
+
+> **用法**：本文件是通知中心 V2 的 **总路线图**（历史保留）。
 
 ---
 

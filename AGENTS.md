@@ -91,7 +91,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：① **`im-bot-notify-foundation`**（Bot 统一业务触达地基：删 `infra_notify`/Rail、落地 `ImBotApi`/`bot_dm`，见 `openspec/changes/im-bot-notify-foundation/`）→ ② 产方迁移与 bot_dm UI 子切片 → ③ 群 Bot / 可交互卡片 → ④ `workspace-search-v1`（可并行）→ ⑤ `bpm-v1`（触达改走 `approval-bot`，**不再**依赖 notify 类型目录）。`notify-inbox-v2` 写真源已被本地基 **SUPERSEDED**。`org-member-invite-notify`、`workspace-tasks-v1` 已归档；`account-sms-verify` 规划归档·暂缓实现。
+**下一优先**：① **产方迁移**（`im-bot-task-due-migrate`：`task-due` → `task-bot`；`bpm-v1` 触达修订 → `approval-bot`）→ ② 群 Bot / 可交互卡片 → ③ **`workspace-search-v1`** E2E 冒烟 + 归档（可与 ① 并行）→ ④ **`bpm-v1`** 主体实现。`im-bot-notify-foundation` §8–§9 收尾已完成（主规格 sync、`notify-inbox-v2` 已 archive）；`im-bot-invite-migrate`、`im-bot-reach-policy-v1` 已 archive。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

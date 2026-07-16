@@ -33,7 +33,9 @@
 
 ## 1. 问题动机
 
-当前「业务触达」与「IM 会话」被拆成两条通道：
+> **以下「双通道」描述为 2026-07-16 地基交付前的历史 as-is**；当前写真源已统一为 Bot / `bot_dm`（见 §17 拍板结论与 OpenSpec `im-bot-notify-foundation`）。
+
+当前「业务触达」与「IM 会话」曾被拆成两条通道：
 
 - 人聊 / 群聊 / 群内环境文案 → `im_*`
 - 邀请 / 任务到期 /（规划中）审批待办 → `infra_notify` + Rail 铃铛
@@ -50,7 +52,9 @@
 
 ---
 
-## 2. 现状架构（as-is）
+## 2. 现状架构（as-is · 历史，已废弃）
+
+> **本节仅作迁移前快照**；`infra_notify`、Rail 铃铛、`NotifyInboxApi` 已在 `im-bot-notify-foundation` 硬切拆除。现行行为以 `openspec/specs/im|infra|system|task|web-auth` 为准。
 
 ### 2.1 双通道总览
 
@@ -116,7 +120,7 @@ Bot / channel ────────────────► 仅 schema 预
 | 「system」一词过载 | IM 群内文案 vs Notify 业务提醒，同名不同仓 |
 | Bot 未落地 | schema/spec 预留而已 |
 | `ImMessageApi` 缺失 | 跨模块卡片/系统投递进会话受阻 |
-| Spec 漂移 | `im/spec.md` 仍写 NotifyInboxApi V1 占位、且禁止写入 `im_message` |
+| Spec 漂移 | 已同步：`im/spec.md` 等主规格已移除 NotifyInboxApi 占位、业务触达改 `ImBotApi` |
 | 空壳 change | `workspace-notify-system-thread` 无 proposal/tasks，方向未建模 |
 
 ---
@@ -517,14 +521,14 @@ relayflow-module-im
 | 现状资产 | 目标态建议 |
 |----------|------------|
 | `infra_notify` + `NotifyInboxApi` + `domain=notify` 业务写 | **写路径废弃/冻结**；历史可迁成 bot_dm 或按策略丢弃 |
-| Rail 铃铛 UI | **可留**：改为 bot_dm 未读聚合 + deep link；**禁止**第二套 push 写 API |
+| Rail 铃铛 UI | **已去掉**；未读经 `/app/messages` 会话列表 `bot_dm` 角标呈现 |
 | `ImMessageService.sendSystemMessage`（群加入） | **保留**，语义收窄为会话环境消息 |
 | `sender_type=bot` 预留 | **落地为产品能力** |
 | `im_channel` | 与通知重构无关，继续后置 |
 | `ImMessageApi` / `getOrCreateDirect` 规格缺口 | 环境文案与会话 API 补齐；业务触达走 `ImBotApi` |
 | 规格「通知不得写入 im_message」 | **修订**：业务触达必须写入 bot 会话消息 |
 | `notify-inbox-v2` / `bpm` 的 `APPROVAL_PENDING` | 改为 Bot card + deep link |
-| 空壳 `workspace-notify-system-thread` | 可承接本架构的 OpenSpec change（或改名） |
+| 空壳 `workspace-notify-system-thread` | **已删除** |
 
 ---
 

@@ -19,4 +19,11 @@ public class ContentBlockVO {
     private String route;
     private String entityType;
     private String entityId;
+
+    /** Reserved for {@code type=card}; interactive actions deferred to im-bot-interactive-card. */
+    private String cardTemplate;
+    private String cardTitle;
+    private String cardSummary;
+    /** Reserved JSON for future action buttons; not interpreted in foundation. */
+    private List<Object> actions;
 }

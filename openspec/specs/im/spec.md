@@ -102,6 +102,13 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 - 那么 `im_conversation.type` 为 `channel`
 - 并且 订阅者 `role` 为 `subscriber`
 
+#### 场景：Bot DM 会话类型
+
+- 给定 租户内一名用户与一名已启用 Bot
+- 当 系统 ensure 其会话
+- 那么 `im_conversation.type` 为 `bot_dm`
+- 并且 同一 `(tenant, bot, user)` 仅存在一个 `bot_dm`
+
 ### 需求：会话成员与已读水位
 
 系统必须为每个会话成员维护 `read_seq` 与 `unread_count`，用于已读状态与未读数展示。
@@ -148,7 +155,7 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 
 ### 需求：消息内容块结构
 
-系统必须使用结构化 `content_json`（Content Block 数组）存储消息内容；V1 须支持 `text` 与 `file` 块类型，并预留 `link`、`actions`、`mention` 扩展。
+系统必须使用结构化 `content_json`（Content Block 数组）存储消息内容；V1 须支持 `text` 与 `file` 块类型，并预留 `link`、`deeplink`、`card`、`actions`、`mention` 扩展。地基期 Bot 触达允许 `text` + `deeplink` 元数据；可交互 card callback 属后续切片。
 
 #### 场景：纯文本消息
 
@@ -165,7 +172,7 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 
 ### 需求：消息发布者类型
 
-系统必须记录消息发布者类型 `sender_type`（`user` | `system` | `bot` | `app`）；V1 须实现 `user` 与 `system`，其余类型预留。
+系统必须记录消息发布者类型 `sender_type`（`user` | `system` | `bot` | `app`）；V1 须实现 `user`、`system` 与 `bot`（业务触达经 `ImBotApi`）。
 
 #### 场景：用户发送
 
@@ -191,23 +198,30 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 - 那么 返回会话 id
 - 并且 不得直接访问 `im_*` Mapper
 
-#### 场景：系统消息发送
+#### 场景：系统环境消息
 
-- 给定 模块 A 需向会话投递系统消息
+- 给定 模块需向已有会话投递环境文案（非跨模块业务触达）
 - 当 调用 `ImMessageApi.sendSystemMessage(conversationId, content, publisher)`
-- 那么 消息持久化至 `im_message`
+- 那么 消息持久化至 `im_message` 且 `sender_type=system`
 - 并且 在线成员经 WebSocket 收到 `domain=im, type=message.new`
+
+#### 场景：跨模块业务触达
+
+- 给定 业务事件（邀请、任务到期、审批待办等）
+- 当 跨模块向用户投递可见提醒
+- 那么 调用方 MUST 使用 `ImBotApi.send`
+- 并且 MUST NOT 调用已删除的 `NotifyInboxApi`
 
 ### 需求：域事件发布入口
 
-系统必须在平台层提供 `RealtimeEventPublisher` 入口；V1 对 `domain=notify` 与 `domain=presence` 可为占位实现，但接口与 envelope `domain` 枚举必须存在。
+系统必须在平台层提供 `RealtimeEventPublisher` 入口；`domain=notify` 不再作为业务触达推送通道，实时统一走 `domain=im`；`domain=presence` 可为占位实现。
 
 #### 场景：非 IM 模块发布事件
 
 - 给定 `bpm-biz` 依赖 `infra-api` 中的 `RealtimeEventPublisher`
 - 当 发布 `domain=notify` 事件
 - 那么 调用不得抛出「接口不存在」类错误
-- 并且 V1 允许 no-op 实现
+- 并且 V1 允许 no-op 实现（不得再作为业务触达写真源）
 
 #### 场景：IM 不得绕过传输层
 
@@ -216,16 +230,95 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 - 那么 须通过 `RealtimeTransportApi` 投递
 - 并且 不得在 `im-biz` 内直接持有 WebSocket Session 引用
 
-### 需求：通知中心 API 占位
+### Requirement: Bot catalog and enablement
 
-系统必须预留 `NotifyInboxApi` 接口用于将来审批、任务等通知投递；V1 不得要求实现通知中心表或 UI。
+The system MUST maintain a platform-level bot catalog (not owned by a tenant) and record enablement at tenant and user layers. Bots MUST NOT be persisted as `sys_user` rows. Seeded platform assistants (`org-assistant`, `task-bot`, `approval-bot`, etc.) MUST be stored as `type=system`.
 
-#### 场景：V1 调用通知 API
+#### Scenario: Bot is not a login user
 
-- 给定 V1 尚未实现通知中心
-- 当 模块调用 `NotifyInboxApi.push(...)`
-- 那么 系统 MAY 抛出「未实现」或使用 documented no-op
-- 并且 不得将通知内容写入 `im_message`
+- **GIVEN** platform seed inserts a bot definition
+- **WHEN** querying `sys_user`
+- **THEN** no login account row exists for that bot
+
+#### Scenario: System bot catalog for organization reach
+
+- **GIVEN** seeded system bots
+- **WHEN** a caller sends an organization invite reminder
+- **THEN** the caller uses `botCode=org-assistant`
+- **AND** MUST NOT use retired `invite-helper`
+
+### Requirement: Bot reachability for ImBotApi.send
+
+The system MUST classify bots with catalog field `type`. When `type` is `system`, `ImBotApi.send` MUST deliver without requiring `im_bot_tenant_enablement` or `im_bot_user_enablement`. When `type` is not `system`, delivery MUST be allowed if **either** tenant or user subscription exists (union). The system MUST NOT require both simultaneously.
+
+#### Scenario: System bot delivers without subscriptions
+
+- **GIVEN** a seeded bot with `type=system` (e.g. `org-assistant`)
+- **AND** no enablement rows for target `(tenant, user, bot)`
+- **WHEN** `ImBotApi.send` targets a valid ACTIVE membership
+- **THEN** the message is persisted in `bot_dm` and realtime push is attempted
+
+#### Scenario: Non-system bot denied when neither subscription exists
+
+- **GIVEN** a non-system bot with neither tenant nor user subscription
+- **WHEN** `ImBotApi.send` is invoked
+- **THEN** the send fails with a bot-not-enabled style error
+
+### Requirement: bot_dm conversation
+
+The system MUST support `im_conversation.type=bot_dm` for one-to-one User↔Bot conversations. Conversations MUST be lazy-created on first need.
+
+#### Scenario: Ensure bot_dm on send
+
+- **GIVEN** user U is reachable for bot X in tenant A
+- **WHEN** `ImBotApi.send` targets `(A, U)` with `botCode=X`
+- **THEN** the system creates or reuses a `bot_dm` conversation
+- **AND** inserts `im_message` with `sender_type=bot`
+
+### Requirement: ImBotApi cross-module business reach
+
+The system MUST expose `ImBotApi` in `relayflow-module-im-api` as the sole write entry for cross-module business reach. `ImBotApi.send` MUST support `SINGLE {tenantId, userId}` and MAY support `{userId, fanout=ALL_ACTIVE_MEMBERSHIPS}`. Optional `dedupeKey` MUST be idempotent within `(tenant_id, bot_id, user_id, dedupe_key)`.
+
+#### Scenario: Single-tenant delivery
+
+- **GIVEN** a valid bot and reachable user
+- **WHEN** `system-biz` or `task-biz` calls `ImBotApi.send` with SINGLE target
+- **THEN** the message is persisted in that tenant's `bot_dm`
+- **AND** online users receive `domain=im, type=message.new`
+
+#### Scenario: Dedupe idempotency
+
+- **GIVEN** an existing in-window message for the same `(tenant, bot, user, dedupeKey)`
+- **WHEN** `send` repeats the same dedupeKey
+- **THEN** the system MUST NOT create another unread business message
+
+### Requirement: Card content placeholder
+
+The message content model MUST reserve a `card` shape (and future interactive `actions`) for Feishu-like interactive cards. Foundation MAY allow text plus deep-link metadata first. Full interactive callback auth/timeout/idempotency belongs to a later slice and MUST NOT resurrect a parallel notify write model.
+
+#### Scenario: Text reach allowed
+
+- **GIVEN** `ImBotApi.send` with text and optional deep-link metadata
+- **WHEN** the message is persisted
+- **THEN** clients can render it in `bot_dm` and navigate the deep link
+
+#### Scenario: Card type reserved
+
+- **GIVEN** a sender uses the reserved `card` content type
+- **WHEN** the message is persisted
+- **THEN** `im_message` succeeds
+- **AND** unimplemented interactive callbacks MUST NOT dual-write `infra_notify`
+
+### Requirement: Conversation list includes bot_dm
+
+The app conversation list MUST include the current user's `bot_dm` conversations with unread and last preview.
+
+#### Scenario: List shows bot conversation
+
+- **GIVEN** the user has a `bot_dm` with unread messages
+- **WHEN** GET `/app-api/im/conversation/list`
+- **THEN** the response includes an item with `type=bot_dm`
+- **AND** includes unread count
 
 ### 需求：群聊 REST API
 
