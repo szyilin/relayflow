@@ -1,15 +1,19 @@
 import { get, post } from '../request'
 
-export type ConversationType = 'direct' | 'group' | 'channel'
+export type ConversationType = 'direct' | 'group' | 'channel' | 'bot_dm'
 
 export interface ContentBlock {
-  type: 'text' | 'file' | 'image' | 'system'
+  type: 'text' | 'file' | 'image' | 'system' | 'deeplink'
   text?: string
   fileId?: string
   filename?: string
   mimeType?: string
   size?: number
   downloadUrl?: string
+  /** Present when type=deeplink (Bot business reach). */
+  route?: string
+  entityType?: string
+  entityId?: string
 }
 
 export interface MessageContent {
@@ -27,6 +31,9 @@ export interface ConversationItem {
   unreadCount: number
   peerUserId?: string
   memberCount?: number
+  /** Present when type=bot_dm. */
+  botId?: string
+  botCode?: string
 }
 
 export type GroupMemberRole = 'owner' | 'admin' | 'member'
@@ -94,9 +101,10 @@ export interface RealtimeEnvelope {
   payload?: unknown
 }
 
-type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId'> & {
+type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId' | 'botId'> & {
   id: number | string
   peerUserId?: number | string
+  botId?: number | string
 }
 
 type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq'> & {
@@ -120,7 +128,8 @@ function normalizeConversation(item: RawConversationItem): ConversationItem {
   return {
     ...item,
     id: String(item.id),
-    peerUserId: item.peerUserId != null ? String(item.peerUserId) : undefined
+    peerUserId: item.peerUserId != null ? String(item.peerUserId) : undefined,
+    botId: item.botId != null ? String(item.botId) : undefined
   }
 }
 

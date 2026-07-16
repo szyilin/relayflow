@@ -20,6 +20,20 @@ export interface TenantSwitchResp {
 /** 与后端 ErrorCodeConstants.TENANT_SELECTION_REQUIRED 对齐 */
 export const TENANT_SELECTION_REQUIRED_CODE = 1_001_003_003
 
+/** 与后端 ErrorCodeConstants.TENANT_SWITCH_FORBIDDEN 对齐 */
+export const TENANT_SWITCH_FORBIDDEN_CODE = 1_001_003_004
+
+/** 与后端 ErrorCodeConstants.USER_NOT_FOUND 对齐 */
+export const USER_NOT_FOUND_CODE = 1_001_002_001
+
+/** 本地会话/企业成员关系已失效（如清库后残留 JWT / Dock） */
+export function isStaleSessionApiError(error: { code: number }): boolean {
+  return error.code === TENANT_SWITCH_FORBIDDEN_CODE
+    || error.code === USER_NOT_FOUND_CODE
+    || error.code === 401
+    || error.code === 403
+}
+
 export function getMyTenantList(): Promise<TenantSummary[]> {
   return get<TenantSummary[]>('/app-api/system/tenant/my-list')
 }

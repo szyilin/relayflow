@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { LOGIN_PATH } from '../../router/guards'
 import { useAuthStore } from '../../stores/auth'
 import { idsEqual } from '../../utils/id'
 
+const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
 const switching = ref(false)
@@ -30,6 +34,18 @@ async function selectTenant(targetTenantId: string) {
   try {
     const result = await authStore.switchTenant(targetTenantId)
     if (!result.ok) {
+      if (result.forceLogin) {
+        toast.add({
+          title: '登录已失效',
+          description: result.message,
+          color: 'warning'
+        })
+        await router.replace({
+          path: LOGIN_PATH,
+          query: { redirect: route.fullPath }
+        })
+        return
+      }
       toast.add({ title: '切换失败', description: result.message, color: 'error' })
       return
     }

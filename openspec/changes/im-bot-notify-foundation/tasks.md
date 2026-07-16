@@ -45,10 +45,10 @@
 
 ## 6. 前端：bot_dm 可见（可与 §3 联调或开子 change `im-bot-dm-web`）
 
-- [ ] 6.1 `/app/messages` 会话列表展示 `bot_dm`（名称/头像用 Bot 元数据）
-- [ ] 6.2 打开 bot_dm 可拉历史；未读角标走会话未读（无独立铃铛）
-- [ ] 6.3 契约写入 `openspec/lanes/`（新建 lane 或扩展 im 既有 contract）
-- [ ] 6.4 `pnpm build` + 浏览器路径验证（可用临时管理调 `ImBotApi` 或后续 invite 切片造数）
+- [x] 6.1 `/app/messages` 会话列表展示 `bot_dm`（名称/头像用 Bot 元数据）
+- [x] 6.2 打开 bot_dm 可拉历史；未读角标走会话未读（无独立铃铛）
+- [x] 6.3 契约写入 `openspec/lanes/`（新建 lane 或扩展 im 既有 contract）
+- [x] 6.4 `pnpm build` + 浏览器路径验证（可用临时管理调 `ImBotApi` 或后续 invite 切片造数）
 
 ## 7. 后续子 change（本母 change 勾选表示「已开单/已拆分」，非一次实现）
 

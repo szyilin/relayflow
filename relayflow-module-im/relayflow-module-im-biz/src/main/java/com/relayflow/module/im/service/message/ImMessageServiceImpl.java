@@ -9,15 +9,18 @@ import com.relayflow.module.im.controller.app.vo.MessageContentVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageRespVO;
+import com.relayflow.module.im.dal.dataobject.ImBotDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
 import com.relayflow.module.im.dal.dataobject.ImMessageDO;
+import com.relayflow.module.im.dal.mapper.ImBotMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
+import com.relayflow.module.im.enums.ImSenderType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
@@ -32,21 +35,25 @@ import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ImMessageServiceImpl implements ImMessageService {
 
-    private static final String SENDER_TYPE_USER = "user";
-    private static final String SENDER_TYPE_SYSTEM = "system";
+    private static final String SENDER_TYPE_USER = ImSenderType.USER;
+    private static final String SENDER_TYPE_BOT = ImSenderType.BOT;
+    private static final String SENDER_TYPE_SYSTEM = ImSenderType.SYSTEM;
     private static final String MESSAGE_TYPE_SYSTEM = "system";
 
     private final ImMessageMapper messageMapper;
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
+    private final ImBotMapper botMapper;
     private final ImConversationService conversationService;
     private final ImContentHelper contentHelper;
     private final RealtimeTransportApi realtimeTransportApi;
@@ -313,23 +320,35 @@ public class ImMessageServiceImpl implements ImMessageService {
     }
 
     private Map<Long, String> loadSenderNicknames(List<ImMessageDO> messages) {
-        Map<Long, String> nicknameByUserId = new HashMap<>();
+        Map<Long, String> nicknameBySenderId = new HashMap<>();
+        Set<Long> botIds = new HashSet<>();
         for (ImMessageDO message : messages) {
-            if (!SENDER_TYPE_USER.equals(message.getSenderType()) || message.getSenderId() == null
-                    || message.getSenderId() <= 0) {
+            if (message.getSenderId() == null || message.getSenderId() <= 0) {
                 continue;
             }
-            if (nicknameByUserId.containsKey(message.getSenderId())) {
-                continue;
+            if (SENDER_TYPE_USER.equals(message.getSenderType())) {
+                if (nicknameBySenderId.containsKey(message.getSenderId())) {
+                    continue;
+                }
+                UserBasicDTO user = userApi.getUserBasic(message.getSenderId());
+                nicknameBySenderId.put(message.getSenderId(), user.getNickname());
+            } else if (SENDER_TYPE_BOT.equals(message.getSenderType())) {
+                botIds.add(message.getSenderId());
             }
-            UserBasicDTO user = userApi.getUserBasic(message.getSenderId());
-            nicknameByUserId.put(message.getSenderId(), user.getNickname());
         }
-        return nicknameByUserId;
+        if (!botIds.isEmpty()) {
+            List<ImBotDO> bots = botMapper.selectBatchIds(botIds);
+            for (ImBotDO bot : bots) {
+                if (bot != null && bot.getId() != null && StringUtils.hasText(bot.getName())) {
+                    nicknameBySenderId.put(bot.getId(), bot.getName());
+                }
+            }
+        }
+        return nicknameBySenderId;
     }
 
     private MessageItemRespVO toMessageItem(ImMessageDO message, MessageContentVO content,
-                                            Map<Long, String> nicknameByUserId) {
+                                            Map<Long, String> nicknameBySenderId) {
         MessageItemRespVO item = new MessageItemRespVO();
         item.setId(message.getId());
         item.setConversationId(message.getConversationId());
@@ -340,9 +359,10 @@ public class ImMessageServiceImpl implements ImMessageService {
         item.setClientMsgId(message.getClientMsgId());
         item.setSeq(message.getSeq());
         item.setCreateTime(message.getCreateTime());
-        if (SENDER_TYPE_USER.equals(message.getSenderType()) && message.getSenderId() != null
-                && message.getSenderId() > 0) {
-            item.setSenderNickname(nicknameByUserId.get(message.getSenderId()));
+        if (message.getSenderId() != null && message.getSenderId() > 0
+                && (SENDER_TYPE_USER.equals(message.getSenderType())
+                || SENDER_TYPE_BOT.equals(message.getSenderType()))) {
+            item.setSenderNickname(nicknameBySenderId.get(message.getSenderId()));
         }
         return item;
     }
