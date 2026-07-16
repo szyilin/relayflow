@@ -17,6 +17,7 @@ import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,8 @@ public class MemberInviteServiceImpl implements MemberInviteService {
     private final TenantProperties tenantProperties;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    /** Breaks invite-accept → ImBotApi → ConversationService → UserApi cycle; do not pile more @Lazy without revisit. */
+    @Lazy
     private final ImBotApi imBotApi;
 
     @Override
