@@ -437,6 +437,15 @@ Bot 收消息不是人收，而是入站管道。
 
 前期系统机器人可以 **几乎只有 Outbound + noop inbound**；Ingress / Runtime SPI 仍要先定，方便以后自定义 Bot。
 
+**实现状态（2026-07-16）**：`im-bot-runtime-platform` 已落地 im-biz 内 SPI：
+
+- `BotIngress` → `BotRuntime.dispatch`（按 `handler_kind`）
+- `noop` / `platform`（`BotPlatformHandler` 注册表；缺 handler = noop）/ `webhook`（仅日志 stub，**不**发 HTTP）
+- 回复：`ImMessageService.sendBotReply`（同会话 `sender_type=bot`，WS 仅 User 成员）
+- 跨域业务仍只走 `ImBotApi.send`；群 @ 接线见 `im-bot-group-mention`
+- Card Action **独立** Ingress（`im-bot-interactive-card`），禁止与 BotHandler 混用
+- Platform handler 若需业务模块注册，再将 SPI 升到 `im-api`（V1 默认系统 Bot 为 noop）
+
 ### 9.3 模块归属（建议）
 
 ```text

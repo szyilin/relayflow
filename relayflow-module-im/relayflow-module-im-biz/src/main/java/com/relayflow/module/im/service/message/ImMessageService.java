@@ -21,4 +21,10 @@ public interface ImMessageService {
      * use {@link com.relayflow.module.im.api.bot.ImBotApi#send} instead.
      */
     void sendSystemMessage(Long tenantId, Long conversationId, String text);
+
+    /**
+     * Persist a Bot Runtime reply in an existing conversation ({@code sender_type=bot})
+     * and push {@code message.new} to User members only.
+     */
+    void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text);
 }
