@@ -10,6 +10,8 @@ import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.im.api.bot.ImBotApi;
+import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
+import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
 import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
@@ -67,6 +69,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+    private static final String ORG_ASSISTANT_BOT_CODE = "org-assistant";
+    private static final String MEMBER_INVITE_DEDUPE_PREFIX = "MEMBER_INVITE:";
 
     private final SysUserMapper userMapper;
     private final SysTenantUserMapper tenantUserMapper;
@@ -206,7 +211,7 @@ public class UserServiceImpl implements UserService {
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);
         assignRoles(tenantId, user.getId(), request.getRoleIds());
-        // Invite reminder will be re-wired via ImBotApi + invite-helper (im-bot-invite-migrate).
+        pushMemberInviteBotMessage(tenantId, user);
         return user.getId();
     }
 
@@ -618,6 +623,48 @@ public class UserServiceImpl implements UserService {
             return tenantId;
         }
         return tenantId != null ? tenantId : tenantProperties.getDefaultId();
+    }
+
+    /**
+     * Deliver invite reminder via 组织助手 into the invitee's ACTIVE tenants.
+     * Skip when the invitee has no ACTIVE membership (registration pending banner covers that case).
+     */
+    private void pushMemberInviteBotMessage(Long invitingTenantId, SysUserDO invitee) {
+        boolean hasActiveMembership = tenantUserMapper.selectCount(Wrappers.<SysTenantUserDO>lambdaQuery()
+                .eq(SysTenantUserDO::getUserId, invitee.getId())
+                .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE)) > 0;
+        if (!hasActiveMembership) {
+            return;
+        }
+
+        SysTenantDO tenant = tenantService.getTenant(invitingTenantId);
+        String inviterNickname = resolveInviterNickname();
+        String tenantName = tenant.getName();
+
+        ImBotSendTarget target = new ImBotSendTarget();
+        target.setScope(ImBotSendTarget.SCOPE_ALL_ACTIVE_MEMBERSHIPS);
+        target.setUserId(invitee.getId());
+
+        ImBotSendCommand command = new ImBotSendCommand();
+        command.setBotCode(ORG_ASSISTANT_BOT_CODE);
+        command.setText(inviterNickname + " 邀请你加入 " + tenantName);
+        command.setDedupeKey(MEMBER_INVITE_DEDUPE_PREFIX + invitingTenantId);
+        command.setEntityType("tenant");
+        command.setEntityId(String.valueOf(invitingTenantId));
+        command.setTarget(target);
+        imBotApi.send(command);
+    }
+
+    private String resolveInviterNickname() {
+        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
+        if (loginUser == null) {
+            return "管理员";
+        }
+        SysUserDO inviter = userMapper.selectById(loginUser.getUserId());
+        if (inviter != null && StringUtils.hasText(inviter.getNickname())) {
+            return inviter.getNickname();
+        }
+        return "管理员";
     }
 
 }
