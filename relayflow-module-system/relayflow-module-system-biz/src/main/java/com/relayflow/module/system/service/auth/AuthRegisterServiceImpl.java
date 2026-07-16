@@ -6,7 +6,7 @@ import com.relayflow.common.util.MobileUtils;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import com.relayflow.module.infra.api.notify.NotifyInboxApi;
+import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterReqVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterRespVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterTenantSummaryVO;
@@ -45,7 +45,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     private final TenantBootstrapService tenantBootstrapService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-    private final NotifyInboxApi notifyInboxApi;
+    private final ImBotApi imBotApi;
 
     @Override
     @Transactional
@@ -69,8 +69,6 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         } else {
             updateInvitedUser(user, mobile, password, nickname);
         }
-
-        notifyInboxApi.backfillUserIdByMobile(mobile, user.getId());
 
         SysTenantDO tenant = createTenant(tenantName, user.getId());
         TenantContextHolder.set(tenant.getId());
@@ -154,6 +152,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         tenantUser.setUserId(userId);
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.insert(tenantUser);
+        imBotApi.ensureUserEnablementsOnActive(tenantId, userId);
     }
 
     private void activatePendingInvites(Long userId) {
@@ -164,6 +163,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         for (SysTenantUserDO tenantUser : pendingMemberships) {
             tenantUser.setStatus(TenantUserStatus.ACTIVE);
             tenantUserMapper.updateById(tenantUser);
+            imBotApi.ensureUserEnablementsOnActive(tenantUser.getTenantId(), userId);
         }
     }
 

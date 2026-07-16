@@ -16,4 +16,7 @@ public class ConversationItemRespVO {
     private Integer unreadCount;
     private Long peerUserId;
     private Integer memberCount;
+    /** Present when {@code type=bot_dm}. */
+    private Long botId;
+    private String botCode;
 }

@@ -14,4 +14,9 @@ public class ContentBlockVO {
     private String mimeType;
     private Long size;
     private String downloadUrl;
+
+    /** Deep-link metadata for {@code type=deeplink} (Bot business reach). */
+    private String route;
+    private String entityType;
+    private String entityId;
 }

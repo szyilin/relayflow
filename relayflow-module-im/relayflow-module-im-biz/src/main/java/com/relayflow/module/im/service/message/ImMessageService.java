@@ -15,5 +15,10 @@ public interface ImMessageService {
 
     SendMessageRespVO sendMyMessage(SendMessageReqVO request);
 
+    /**
+     * Persist an in-conversation <em>environment</em> tip ({@code sender_type=system}),
+     * e.g. "X joined the group". Must not be used for cross-module business reach —
+     * use {@link com.relayflow.module.im.api.bot.ImBotApi#send} instead.
+     */
     void sendSystemMessage(Long tenantId, Long conversationId, String text);
 }

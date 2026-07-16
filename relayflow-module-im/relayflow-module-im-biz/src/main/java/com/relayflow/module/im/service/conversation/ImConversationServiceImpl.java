@@ -7,16 +7,19 @@ import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationMemberReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
+import com.relayflow.module.im.dal.dataobject.ImBotDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
+import com.relayflow.module.im.dal.dataobject.ImGroupDO;
 import com.relayflow.module.im.dal.dataobject.ImMessageDO;
+import com.relayflow.module.im.dal.mapper.ImBotMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
-import com.relayflow.module.im.dal.dataobject.ImGroupDO;
 import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImConversationType;
+import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.service.message.ImContentHelper;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
@@ -46,6 +49,7 @@ public class ImConversationServiceImpl implements ImConversationService {
     private final ImConversationMemberMapper conversationMemberMapper;
     private final ImMessageMapper messageMapper;
     private final ImGroupMapper groupMapper;
+    private final ImBotMapper botMapper;
     private final UserApi userApi;
     private final ImContentHelper contentHelper;
     private final RealtimeTransportApi realtimeTransportApi;
@@ -55,7 +59,8 @@ public class ImConversationServiceImpl implements ImConversationService {
         List<ImConversationMemberDO> memberships = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
-                        .eq(ImConversationMemberDO::getUserId, userId));
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
         if (memberships.isEmpty()) {
             return List.of();
         }
@@ -67,7 +72,8 @@ public class ImConversationServiceImpl implements ImConversationService {
                 Wrappers.<ImConversationDO>lambdaQuery()
                         .eq(ImConversationDO::getTenantId, tenantId)
                         .in(ImConversationDO::getId, membershipByConversationId.keySet())
-                        .in(ImConversationDO::getType, ImConversationType.DIRECT, ImConversationType.GROUP));
+                        .in(ImConversationDO::getType,
+                                ImConversationType.DIRECT, ImConversationType.GROUP, ImConversationType.BOT_DM));
 
         List<ImConversationDO> directConversations = conversations.stream()
                 .filter(conversation -> ImConversationType.DIRECT.equals(conversation.getType()))
@@ -75,10 +81,14 @@ public class ImConversationServiceImpl implements ImConversationService {
         List<ImConversationDO> groupConversations = conversations.stream()
                 .filter(conversation -> ImConversationType.GROUP.equals(conversation.getType()))
                 .toList();
+        List<ImConversationDO> botDmConversations = conversations.stream()
+                .filter(conversation -> ImConversationType.BOT_DM.equals(conversation.getType()))
+                .toList();
 
         Map<Long, Long> peerUserIdByConversationId = loadPeerUserIds(tenantId, userId, directConversations);
         Map<Long, ImGroupDO> groupByConversationId = loadGroups(tenantId, groupConversations);
         Map<Long, Integer> memberCountByConversationId = loadMemberCounts(tenantId, groupConversations);
+        Map<Long, ImBotDO> botById = loadBots(botDmConversations);
 
         List<ConversationItemRespVO> items = new ArrayList<>();
         for (ImConversationDO conversation : directConversations) {
@@ -119,6 +129,29 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
             item.setMemberCount(memberCountByConversationId.getOrDefault(conversation.getId(), 0));
+            items.add(item);
+        }
+
+        for (ImConversationDO conversation : botDmConversations) {
+            ImBotDO bot = conversation.getBotPeerBotId() != null
+                    ? botById.get(conversation.getBotPeerBotId())
+                    : null;
+            if (bot == null) {
+                continue;
+            }
+            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
+            String title = bot.getName();
+
+            ConversationItemRespVO item = new ConversationItemRespVO();
+            item.setId(conversation.getId());
+            item.setType(conversation.getType());
+            item.setTitle(title);
+            item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setLastMsgPreview(conversation.getLastMsgPreview());
+            item.setLastMsgAt(conversation.getLastMsgAt());
+            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setBotId(bot.getId());
+            item.setBotCode(bot.getCode());
             items.add(item);
         }
 
@@ -193,7 +226,8 @@ public class ImConversationServiceImpl implements ImConversationService {
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
-                        .eq(ImConversationMemberDO::getUserId, userId));
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
         if (member == null) {
             throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
         }
@@ -224,7 +258,8 @@ public class ImConversationServiceImpl implements ImConversationService {
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
-                        .eq(ImConversationMemberDO::getUserId, userId));
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
         if (member == null) {
             throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
         }
@@ -263,12 +298,14 @@ public class ImConversationServiceImpl implements ImConversationService {
 
         ConversationReadStatusRespVO response = new ConversationReadStatusRespVO();
         response.setConversationId(conversationId);
-        response.setMembers(members.stream().map(member -> {
-            ConversationMemberReadStatusRespVO item = new ConversationMemberReadStatusRespVO();
-            item.setUserId(member.getUserId());
-            item.setReadSeq(member.getReadSeq() != null ? member.getReadSeq() : 0L);
-            return item;
-        }).toList());
+        response.setMembers(members.stream()
+                .filter(member -> ImMemberSubjectType.USER.equals(member.getSubjectType()))
+                .map(member -> {
+                    ConversationMemberReadStatusRespVO item = new ConversationMemberReadStatusRespVO();
+                    item.setUserId(member.getSubjectId());
+                    item.setReadSeq(member.getReadSeq() != null ? member.getReadSeq() : 0L);
+                    return item;
+                }).toList());
         return response;
     }
 
@@ -296,9 +333,10 @@ public class ImConversationServiceImpl implements ImConversationService {
         return conversationMemberMapper.selectList(
                         Wrappers.<ImConversationMemberDO>lambdaQuery()
                                 .eq(ImConversationMemberDO::getTenantId, tenantId)
-                                .eq(ImConversationMemberDO::getConversationId, conversationId))
+                                .eq(ImConversationMemberDO::getConversationId, conversationId)
+                                .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER))
                 .stream()
-                .map(ImConversationMemberDO::getUserId)
+                .map(ImConversationMemberDO::getSubjectId)
                 .filter(userId -> !Objects.equals(userId, senderId))
                 .toList();
     }
@@ -308,9 +346,10 @@ public class ImConversationServiceImpl implements ImConversationService {
         return conversationMemberMapper.selectList(
                         Wrappers.<ImConversationMemberDO>lambdaQuery()
                                 .eq(ImConversationMemberDO::getTenantId, tenantId)
-                                .eq(ImConversationMemberDO::getConversationId, conversationId))
+                                .eq(ImConversationMemberDO::getConversationId, conversationId)
+                                .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER))
                 .stream()
-                .map(ImConversationMemberDO::getUserId)
+                .map(ImConversationMemberDO::getSubjectId)
                 .toList();
     }
 
@@ -334,13 +373,14 @@ public class ImConversationServiceImpl implements ImConversationService {
         List<ImConversationMemberDO> allMembers = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
                         .in(ImConversationMemberDO::getConversationId, conversationIds));
 
         Map<Long, List<Long>> membersByConversation = new HashMap<>();
         for (ImConversationMemberDO member : allMembers) {
             membersByConversation
                     .computeIfAbsent(member.getConversationId(), key -> new ArrayList<>())
-                    .add(member.getUserId());
+                    .add(member.getSubjectId());
         }
 
         Map<Long, Long> peerByConversation = new HashMap<>();
@@ -371,6 +411,22 @@ public class ImConversationServiceImpl implements ImConversationService {
             groupByConversationId.put(group.getConversationId(), group);
         }
         return groupByConversationId;
+    }
+
+    private Map<Long, ImBotDO> loadBots(List<ImConversationDO> botDmConversations) {
+        if (botDmConversations.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> botIds = botDmConversations.stream()
+                .map(ImConversationDO::getBotPeerBotId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (botIds.isEmpty()) {
+            return Map.of();
+        }
+        return botMapper.selectBatchIds(botIds).stream()
+                .collect(Collectors.toMap(ImBotDO::getId, bot -> bot, (left, right) -> left));
     }
 
     private Map<Long, Integer> loadMemberCounts(Long tenantId, List<ImConversationDO> groupConversations) {
@@ -406,7 +462,8 @@ public class ImConversationServiceImpl implements ImConversationService {
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
-                        .eq(ImConversationMemberDO::getUserId, userId));
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
         if (count == null || count == 0) {
             createMember(tenantId, conversationId, userId);
         }
@@ -416,7 +473,8 @@ public class ImConversationServiceImpl implements ImConversationService {
         ImConversationMemberDO member = new ImConversationMemberDO();
         member.setTenantId(tenantId);
         member.setConversationId(conversationId);
-        member.setUserId(userId);
+        member.setSubjectType(ImMemberSubjectType.USER);
+        member.setSubjectId(userId);
         member.setRole("member");
         member.setReadSeq(0L);
         member.setUnreadCount(0);

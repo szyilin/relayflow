@@ -10,7 +10,9 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,22 @@ public class TenantMemberApiImpl implements TenantMemberApi {
                                 .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE))
                 .stream()
                 .map(SysTenantUserDO::getUserId)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public List<Long> listActiveTenantIds(Long userId) {
+        if (userId == null || userId <= 0) {
+            return List.of();
+        }
+        return tenantUserMapper.selectList(
+                        Wrappers.<SysTenantUserDO>lambdaQuery()
+                                .eq(SysTenantUserDO::getUserId, userId)
+                                .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE)
+                                .orderByAsc(SysTenantUserDO::getTenantId))
+                .stream()
+                .map(SysTenantUserDO::getTenantId)
+                .distinct()
+                .toList();
     }
 }

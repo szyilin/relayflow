@@ -19,7 +19,11 @@ public enum ErrorCodeConstants implements ErrorCode {
     GROUP_MEMBER_REQUIRED(1_003_003_002, "请至少选择一名成员"),
     GROUP_NOT_FOUND(1_003_003_003, "群聊不存在"),
     GROUP_MEMBER_INVALID(1_003_003_004, "成员用户无效"),
-    SEARCH_KEYWORD_REQUIRED(1_003_003_005, "请输入搜索关键词");
+    SEARCH_KEYWORD_REQUIRED(1_003_003_005, "请输入搜索关键词"),
+    BOT_NOT_FOUND(1_003_004_001, "机器人不存在或已停用"),
+    BOT_NOT_ENABLED_FOR_TENANT(1_003_004_002, "机器人未在该企业启用"),
+    BOT_NOT_ENABLED_FOR_USER(1_003_004_003, "用户未启用该机器人"),
+    BOT_SEND_INVALID(1_003_004_004, "机器人发送参数无效");
 
     private final Integer code;
     private final String msg;
