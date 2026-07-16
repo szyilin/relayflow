@@ -47,6 +47,9 @@
 | im-bot-task-due-migrate | **archived** | n/a | `TASK_DUE` → `task-bot` · `ImBotApi` SINGLE | — | [archive](../../openspec/changes/archive/2026-07-16-im-bot-task-due-migrate/proposal.md) |
 | im-bot-notify-foundation | **archived** | **done** | `ImBotApi` · `bot_dm` · 删 Rail/`infra_notify`；§7 子 change 已开单 | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/proposal.md) |
 | workspace-search | **archived** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；E2E 通过；[archive](../../openspec/changes/archive/2026-07-16-workspace-search-v1/proposal.md) |
+| workspace-profile-card | n/a | **done** | Rail 资料名片 · 更多账号 · 设置入口 | — | [archive](../../openspec/changes/archive/2026-07-16-workspace-profile-card-web/proposal.md) |
+| workspace-settings | n/a | **ui_ready** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；待 `user-preference-integrate` |
+| user-preference | **archived** | **ui_ready** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；store 仍含 localStorage 兜底，正式联调尚未立项 |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
@@ -56,6 +59,12 @@
 | **im-bot-runtime-platform** | **ready** | n/a | Bot Runtime SPI · noop/platform · webhook stub | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；Ingress 可测入口已就绪 |
 | **im-bot-group-mention** | **ready** | **done** | 群 @Bot → Ingress | [contract](../../openspec/lanes/im-group-bot-mention/contract.md) | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；事务提交后 best-effort |
 | **im-bot-interactive-card** | **ready** | **done** | card 发送 · `/app-api/im/card/action` · `/app/messages` | [contract](../../openspec/lanes/im-interactive-card/contract.md) | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md)；邀请卡 `system.member.invite.accept` |
+
+### 建议下一切片（尚未立项）
+
+| 切片 | 说明 |
+|------|------|
+| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底；看板 Web → **done** |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
@@ -68,8 +77,9 @@
 ```text
 1. 产方迁移：invite ✅ / task-due ✅
 2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅（可 archive）
-3. workspace-profile-card-web（当前）
-4. bpm-v1 — deferred，见下方「暂缓实现」
+3. workspace-profile-card-web / workspace-settings-web / user-preference-api ✅
+4. user-preference-integrate（建议下一优先，尚未立项）
+5. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
 ## 已归档规划（暂缓实现）
