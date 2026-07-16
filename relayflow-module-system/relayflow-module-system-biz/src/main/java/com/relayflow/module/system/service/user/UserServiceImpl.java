@@ -12,6 +12,7 @@ import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
+import com.relayflow.module.system.service.card.MemberInviteCardFactory;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
 import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
@@ -649,7 +650,7 @@ public class UserServiceImpl implements UserService {
 
         ImBotSendCommand command = new ImBotSendCommand();
         command.setBotCode(ORG_ASSISTANT_BOT_CODE);
-        command.setText(inviterNickname + " 邀请你加入 " + tenantName);
+        command.setCard(MemberInviteCardFactory.pending(invitingTenantId, tenantName, inviterNickname));
         command.setDedupeKey(MEMBER_INVITE_DEDUPE_PREFIX + invitingTenantId);
         command.setEntityType("tenant");
         command.setEntityId(String.valueOf(invitingTenantId));

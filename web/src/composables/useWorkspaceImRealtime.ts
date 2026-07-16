@@ -11,6 +11,7 @@ export function useWorkspaceImRealtime() {
 
   useImWebSocket({
     onMessageNew: message => im.handleMessageNew(message),
+    onMessageUpdated: message => im.handleMessageUpdated(message),
     onReadUpdated: payload => im.handleReadUpdated(payload.conversationId, payload.userId, payload.readSeq)
   })
 

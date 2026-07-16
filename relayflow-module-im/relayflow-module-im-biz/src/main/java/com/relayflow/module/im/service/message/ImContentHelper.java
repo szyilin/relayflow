@@ -155,7 +155,32 @@ public class ImContentHelper {
             }
             return "[文件]";
         }
+        if (MESSAGE_TYPE_CARD.equals(messageType)) {
+            return buildCardPreview(content);
+        }
         return buildTextPreview(content);
+    }
+
+    public String buildCardPreview(MessageContentVO content) {
+        ContentBlockVO card = firstCardBlock(content);
+        if (card != null && card.getHeader() != null && StringUtils.hasText(card.getHeader().getTitle())) {
+            String title = card.getHeader().getTitle().trim();
+            if (title.length() > 500) {
+                title = title.substring(0, 500);
+            }
+            return "[卡片] " + title;
+        }
+        return "[卡片]";
+    }
+
+    public ContentBlockVO firstCardBlock(MessageContentVO content) {
+        if (content == null || CollectionUtils.isEmpty(content.getBlocks())) {
+            return null;
+        }
+        return content.getBlocks().stream()
+                .filter(block -> BLOCK_TYPE_CARD.equals(block.getType()))
+                .findFirst()
+                .orElse(null);
     }
 
     public String buildTextPreview(MessageContentVO content) {

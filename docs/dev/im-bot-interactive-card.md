@@ -1,6 +1,6 @@
 # IM 可交互卡片（实现约定）
 
-> **状态**：设计已拍板（2026-07-16）；**实现**待 OpenSpec change `im-bot-interactive-card`。  
+> **状态**：设计已拍板（2026-07-16）；**实现**见 OpenSpec change `im-bot-interactive-card`（发卡 + `POST /app-api/im/card/action` + `/app/messages` 渲染）。  
 > **背景**：对齐飞书「卡片 = 交互 UI + 回调通道」模型，但 **平台内系统 Bot 走进程内 SPI**，不照搬开放平台「回调 URL / 验签 / 订阅」。  
 > **相关**：[`im-messaging-architecture-draft.md`](im-messaging-architecture-draft.md) · [`openspec/lanes/im-bot-dm/contract.md`](../../openspec/lanes/im-bot-dm/contract.md) · 地基 change `im-bot-notify-foundation`
 

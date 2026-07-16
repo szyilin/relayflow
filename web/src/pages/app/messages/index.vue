@@ -5,8 +5,10 @@ import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
+import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
+import type { MessageItem } from '../../../api/app/im'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
 
@@ -167,6 +169,14 @@ function toggleBotMention(bot: import('../../../api/app/im').GroupMemberItem) {
 
 function messageBlocks(msg: { content: import('../../../api/app/im').MessageContent }) {
   return msg.content.blocks ?? []
+}
+
+function cardBlock(msg: { type: string, content: import('../../../api/app/im').MessageContent }) {
+  return msg.content.blocks?.find(block => block.type === 'card')
+}
+
+function onCardUpdated(message: MessageItem) {
+  im.applyMessageUpdate(message)
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -365,6 +375,29 @@ meta:
               <p class="rounded-full bg-[var(--ws-input-bar-bg)] px-3 py-1 text-xs text-[var(--ws-text-muted)]">
                 {{ im.textFromContent(msg.content) }}
               </p>
+            </div>
+
+            <div
+              v-else-if="cardBlock(msg)"
+              class="flex"
+              :class="isOwnMessage(msg.senderId) ? 'justify-end' : 'justify-start'"
+            >
+              <div class="max-w-[75%] space-y-1">
+                <p
+                  v-if="showSenderNickname(msg)"
+                  class="px-1 text-xs font-medium text-[var(--ws-text-muted)]"
+                >
+                  {{ msg.senderNickname }}
+                </p>
+                <ImMessageCard
+                  :message="msg"
+                  :card="cardBlock(msg)!"
+                  @updated="onCardUpdated"
+                />
+                <p class="px-1 text-[10px] text-[var(--ws-text-muted)]">
+                  {{ formatMessageTime(msg.createTime) }}
+                </p>
+              </div>
             </div>
 
             <div

@@ -6,6 +6,7 @@ const PING_INTERVAL_MS = 30_000
 
 export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
+  onMessageUpdated?: (message: MessageItem) => void
   onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
 }
 
@@ -103,6 +104,13 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       const message = normalizeWsMessage(envelope.payload)
       if (message) {
         handlers.onMessageNew(message)
+      }
+      return
+    }
+    if (envelope.domain === 'im' && envelope.type === 'message.updated') {
+      const message = normalizeWsMessage(envelope.payload)
+      if (message && handlers.onMessageUpdated) {
+        handlers.onMessageUpdated(message)
       }
       return
     }
