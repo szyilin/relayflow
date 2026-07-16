@@ -13,6 +13,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +41,12 @@ public class AppUserController {
     @GetMapping("/profile")
     public CommonResult<AppUserProfileRespVO> getMyProfile() {
         return CommonResult.success(userService.getMyProfile());
+    }
+
+    @GetMapping("/profile/{userId}")
+    public CommonResult<AppUserProfileRespVO> getMemberProfile(
+            @PathVariable @NotNull Long userId) {
+        return CommonResult.success(userService.getMemberProfile(userId));
     }
 
     @PutMapping("/profile")

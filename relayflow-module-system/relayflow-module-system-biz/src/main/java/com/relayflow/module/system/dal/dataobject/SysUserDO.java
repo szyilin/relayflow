@@ -41,4 +41,10 @@ public class SysUserDO extends BaseDO {
 
     @TableField("avatar")
     private String avatar;
+
+    @TableField("signature")
+    private String signature;
+
+    @TableField("cover_file_id")
+    private String coverFileId;
 }

@@ -11,6 +11,10 @@ public class AppUserProfileRespVO {
     private String nickname;
     /** Stored file id; empty when no custom avatar. */
     private String avatar;
+    /** Personal signature on business card. */
+    private String signature;
+    /** Cover image file id; empty when unset. */
+    private String coverFileId;
     private Long tenantId;
     private String tenantName;
     /** V1 always false — enterprise certification not implemented. */

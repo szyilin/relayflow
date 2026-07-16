@@ -11,4 +11,10 @@ public class AppUserProfileUpdateReqVO {
 
     @Size(max = 512, message = "头像标识无效")
     private String avatar;
+
+    @Size(max = 120, message = "个性签名最多 120 个字符")
+    private String signature;
+
+    @Size(max = 512, message = "封面标识无效")
+    private String coverFileId;
 }

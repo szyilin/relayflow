@@ -2,8 +2,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import WorkspaceBusinessCard from '../../../components/workspace/WorkspaceBusinessCard.vue'
 import { searchMembers } from '../../../api/app/member-search'
 import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
+import { useAuthStore } from '../../../stores/auth'
 import { useContactsStore, type ContactDeptTreeNode } from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
@@ -12,6 +14,7 @@ import type { ContactItem } from '../../../api/app/contacts'
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const auth = useAuthStore()
 const contacts = useContactsStore()
 const im = useImStore()
 const presence = usePresenceStore()
@@ -263,29 +266,16 @@ meta:
         @update:open="handleProfileOpenChange"
       >
         <template #content>
-          <div v-if="profileContact" class="w-64 p-4">
-            <div class="flex flex-col items-center gap-3 text-center">
-              <UAvatar :text="profileContact.avatarText" size="3xl" />
-              <div>
-                <h3 class="text-lg font-semibold">
-                  {{ profileContact.nickname }}
-                </h3>
-                <p class="text-sm text-[var(--ws-text-muted)]">
-                  @{{ profileContact.username }}
-                </p>
-              </div>
-              <p class="text-sm text-[var(--ws-text-muted)]">
-                {{ profileContact.deptName }}
-              </p>
-              <UButton
-                icon="i-lucide-message-circle"
-                block
-                @click="openMessage(profileContact)"
-              >
-                消息
-              </UButton>
-            </div>
-          </div>
+          <WorkspaceBusinessCard
+            v-if="profileContact"
+            :mode="profileContact.id === auth.userId ? 'self' : 'peer'"
+            :user-id="profileContact.id"
+            :nickname="profileContact.nickname"
+            :username="profileContact.username"
+            :org-label="profileContact.deptName"
+            :avatar-text="profileContact.avatarText"
+            @message="openMessage(profileContact)"
+          />
         </template>
       </UPopover>
     </div>

@@ -40,13 +40,25 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| 触发 | Rail 点击当前用户头像 → `WorkspaceProfileCard` |
+| 触发 | Rail 点击当前用户头像 → `WorkspaceProfileCard`（**账号菜单**，非飞书个人名片） |
 | 头部 | 头像左、昵称+企业名右（同一水平轴）；可编辑昵称、更换头像 |
-| 菜单顺序 | 个性签名（占位）、我的个人名片（占位）、登录更多账号、设置、退出登录；管理后台（`isAdmin`）置底 |
-| 占位项 | 文案旁 `（占位）`；点击 toast「功能即将推出」 |
-| 登录更多账号 | `WorkspaceMoreAccountsPanel`：分组「我的企业」（`my-list`/`switchTenant`）+「本机已登录账号」（Account Dock）；底部「加入企业」占位、「创建新账号」→ `/app/register?addAccount=1` |
+| 菜单顺序 | 我的个人名片、登录更多账号、设置、退出登录；管理后台（`isAdmin`）置底 |
+| 我的个人名片 | 在账号菜单 popover 内切换到 `WorkspaceBusinessCard`（`mode=self`，可返回） |
+| 个性签名 | **不在**账号菜单；编辑入口在个人名片内 |
+| 登录更多账号 | `WorkspaceMoreAccountsPanel`：分组「我的企业」+「本机已登录账号」；底部「加入企业」占位、「创建新账号」→ `/app/register?addAccount=1` |
 | 设置 | 关闭名片后打开独立设置窗（见下）；不在 popover 内嵌迷你设置 |
-| 认证页主题 | 登录/注册页不展示主题开关；后续随账号用户配置加载（`user-preference-api`） |
+| 认证页主题 | 登录/注册页不展示主题开关；随账号用户配置加载 |
+
+## 个人名片（飞书式 · 通用组件）
+
+| 项 | 规范 |
+|----|------|
+| 组件 | `WorkspaceBusinessCard`，`mode: self \| peer` 共用一套 UI |
+| 结构 | 封面区 + 叠压头像 + 显示名/企业 + 签名或备注区 + 操作按钮 |
+| self | 封面可点替换；签名可编辑；无语音/视频；无「给自己备注」 |
+| peer | 签名只读；备注与描述可编辑（查看者私有）；消息接通；语音/视频占位 |
+| 入口 | Rail「我的个人名片」→ self；通讯录点成员 → peer（若点自己则 self） |
+| 数据 | `stores/businessCard` + `stores/profile` → app-api；契约见 [`workspace-business-card/contract.md`](../../openspec/lanes/workspace-business-card/contract.md) |
 
 ## 工作台设置窗
 
@@ -94,6 +106,7 @@ web/src/
 | Shell | 不开启 `show-aside`（无「活跃状态」右栏） |
 | Panel | 部门树 |
 | Main | 成员列表；列表项可保留在线点（presence 数据层保留） |
+| 点人 | `WorkspaceBusinessCard`（peer；点自己则 self）；消息 → 单聊 |
 
 ## 数据层约定（对接 API）
 

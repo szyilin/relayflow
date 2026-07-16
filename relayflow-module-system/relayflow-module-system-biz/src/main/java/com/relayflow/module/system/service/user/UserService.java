@@ -41,5 +41,7 @@ public interface UserService {
 
     AppUserProfileRespVO getMyProfile();
 
+    AppUserProfileRespVO getMemberProfile(Long userId);
+
     AppUserProfileRespVO updateMyProfile(AppUserProfileUpdateReqVO request);
 }

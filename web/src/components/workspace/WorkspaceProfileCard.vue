@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import WorkspaceBusinessCard from './WorkspaceBusinessCard.vue'
 import WorkspaceMoreAccountsPanel from './WorkspaceMoreAccountsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useProfileStore } from '../../stores/profile'
@@ -20,7 +21,7 @@ const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const toast = useToast()
 
-type PanelView = 'main' | 'more-accounts'
+type PanelView = 'main' | 'more-accounts' | 'business-card'
 const panelView = ref<PanelView>('main')
 
 const editingNickname = ref(false)
@@ -53,14 +54,6 @@ watch(() => props.open, (next) => {
 
 function close() {
   emit('update:open', false)
-}
-
-function onPlaceholder(label: string) {
-  toast.add({
-    title: '功能即将推出',
-    description: `${label}（占位）`,
-    color: 'neutral'
-  })
 }
 
 async function startEditNickname() {
@@ -147,6 +140,10 @@ function openSettings() {
   emit('open-settings')
 }
 
+function openBusinessCard() {
+  panelView.value = 'business-card'
+}
+
 function openAdmin() {
   close()
   void router.push('/admin')
@@ -159,6 +156,32 @@ function openAdmin() {
     @back="panelView = 'main'"
     @close="close"
   />
+
+  <div
+    v-else-if="panelView === 'business-card' && authStore.userId"
+    class="workspace-profile-business-card"
+  >
+    <div class="flex items-center gap-1 border-b border-[var(--ws-border-subtle)] px-2 py-1.5">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        icon="i-lucide-chevron-left"
+        @click="panelView = 'main'"
+      >
+        返回
+      </UButton>
+    </div>
+    <WorkspaceBusinessCard
+      mode="self"
+      :user-id="authStore.userId"
+      :nickname="displayNickname"
+      :username="profileStore.profile?.username ?? authStore.user?.username"
+      :org-label="displayTenantName"
+      :avatar-url="avatarUrl"
+      :avatar-text="avatarText"
+    />
+  </div>
 
   <div v-else class="workspace-profile-card w-72 p-4">
     <div class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] pb-4">
@@ -229,20 +252,11 @@ function openAdmin() {
       <button
         type="button"
         class="workspace-profile-action"
-        @click="onPlaceholder('个性签名')"
-      >
-        <UIcon name="i-lucide-pen-line" class="size-4 shrink-0" />
-        <span>个性签名</span>
-        <span class="ml-auto text-xs text-[var(--ws-text-muted)]">（占位）</span>
-      </button>
-      <button
-        type="button"
-        class="workspace-profile-action"
-        @click="onPlaceholder('我的个人名片')"
+        @click="openBusinessCard"
       >
         <UIcon name="i-lucide-contact" class="size-4 shrink-0" />
         <span>我的个人名片</span>
-        <span class="ml-auto text-xs text-[var(--ws-text-muted)]">（占位）</span>
+        <UIcon name="i-lucide-chevron-right" class="ml-auto size-3.5 text-[var(--ws-text-muted)]" />
       </button>
       <button
         type="button"
@@ -290,6 +304,13 @@ function openAdmin() {
 </template>
 
 <style scoped>
+.workspace-profile-business-card {
+  width: 18rem;
+  overflow: hidden;
+  background: var(--ws-panel-bg);
+  color: var(--ws-text);
+}
+
 .workspace-profile-action {
   display: flex;
   width: 100%;
