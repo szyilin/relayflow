@@ -20,11 +20,11 @@
 **目标**：`cal_*` 表 + Maven 模块 + `calendar-bot` 种子 + server 可加载。  
 **范围**：Java / Flyway；无 `web/` 业务页。
 
-- [ ] 1.1 根 `pom.xml` + `relayflow-module-calendar`（api + biz）脚手架（复制 `task` 模块模式）
-- [ ] 1.2 Flyway：`cal_calendar` / `cal_event` / `cal_attendee`；种子 `im_bot` 中 `calendar-bot`（`type=system`）
-- [ ] 1.3 `./scripts/codegen.sh --module calendar --tables cal_calendar,cal_event,cal_attendee` → diff 合入 `src/`
-- [ ] 1.4 `relayflow-server/pom.xml` 引入 `relayflow-module-calendar-biz`；模块可启动
-- [ ] 1.5 `./mvnw -pl relayflow-server -am compile`
+- [x] 1.1 根 `pom.xml` + `relayflow-module-calendar`（api + biz）脚手架（复制 `task` 模块模式）
+- [x] 1.2 Flyway：`cal_calendar` / `cal_event` / `cal_attendee`；种子 `im_bot` 中 `calendar-bot`（`type=system`）
+- [x] 1.3 `./scripts/codegen.sh --module calendar --tables cal_calendar,cal_event,cal_attendee` → diff 合入 `src/`
+- [x] 1.4 `relayflow-server/pom.xml` 引入 `relayflow-module-calendar-biz`；模块可启动
+- [x] 1.5 `./mvnw -pl relayflow-server -am compile`
 
 **验证**：compile + 迁移成功。
 

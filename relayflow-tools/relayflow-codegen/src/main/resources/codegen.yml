@@ -32,6 +32,11 @@ modules:
     entity-package: dal.dataobject
     mapper-package: dal.mapper
     enum-package: com.relayflow.module.task.enums
+  calendar:
+    package-parent: com.relayflow.module.calendar
+    entity-package: dal.dataobject
+    mapper-package: dal.mapper
+    enum-package: com.relayflow.module.calendar.enums
 
 # Optional: table.column -> Enum simple name (under module enum-package)
 enum-columns:

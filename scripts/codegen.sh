@@ -22,7 +22,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 fi
 
 if [[ $# -eq 0 ]]; then
-  echo "Usage: $0 --module <system|infra|im> --tables <t1,t2,...> [--output dir] [--migrate]" >&2
+  echo "Usage: $0 --module <system|infra|im|task|calendar> --tables <t1,t2,...> [--output dir] [--migrate]" >&2
   echo "Run $0 --help for details." >&2
   exit 1
 fi
