@@ -7,6 +7,14 @@ import { useAuthStore } from './auth'
 export type ThemeMode = 'light' | 'dark' | 'auto'
 export type ChatBubbleLayout = 'left' | 'split'
 
+export interface CalendarPreference {
+  weekStartsOn: number
+  defaultEventDurationMinutes: number
+  defaultRemindBeforeMinutes: number
+  allDayRemindTime: string
+  dimPastEvents: boolean
+}
+
 export interface UserPreferenceSettings {
   general: {
     themeMode: ThemeMode
@@ -15,6 +23,7 @@ export interface UserPreferenceSettings {
   im: {
     chatBubbleLayout: ChatBubbleLayout
   }
+  calendar: CalendarPreference
 }
 
 export const USER_PREFERENCE_SCHEMA_VERSION = 1
@@ -26,6 +35,13 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
   },
   im: {
     chatBubbleLayout: 'split'
+  },
+  calendar: {
+    weekStartsOn: 0,
+    defaultEventDurationMinutes: 30,
+    defaultRemindBeforeMinutes: 5,
+    allDayRemindTime: '08:00',
+    dimPastEvents: true
   }
 }
 
@@ -38,6 +54,7 @@ function deepMergeSettings(
   patch: {
     general?: Partial<UserPreferenceSettings['general']>
     im?: Partial<UserPreferenceSettings['im']>
+    calendar?: Partial<UserPreferenceSettings['calendar']>
   } | null | undefined
 ): UserPreferenceSettings {
   return {
@@ -48,6 +65,10 @@ function deepMergeSettings(
     im: {
       ...base.im,
       ...(patch?.im ?? {})
+    },
+    calendar: {
+      ...base.calendar,
+      ...(patch?.calendar ?? {})
     }
   }
 }
@@ -56,18 +77,12 @@ function readLocal(): UserPreferenceSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      return {
-        general: { ...DEFAULT_USER_PREFERENCE.general },
-        im: { ...DEFAULT_USER_PREFERENCE.im }
-      }
+      return structuredClone(DEFAULT_USER_PREFERENCE)
     }
     const parsed = JSON.parse(raw) as Partial<UserPreferenceSettings>
     return deepMergeSettings(DEFAULT_USER_PREFERENCE, parsed)
   } catch {
-    return {
-      general: { ...DEFAULT_USER_PREFERENCE.general },
-      im: { ...DEFAULT_USER_PREFERENCE.im }
-    }
+    return structuredClone(DEFAULT_USER_PREFERENCE)
   }
 }
 
@@ -80,6 +95,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
   const themeMode = computed(() => settings.value.general.themeMode)
   const themeColor = computed(() => settings.value.general.themeColor)
   const chatBubbleLayout = computed(() => settings.value.im.chatBubbleLayout)
+  const calendar = computed(() => settings.value.calendar)
 
   function persistLocal() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value))
@@ -167,6 +183,15 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     void syncToServer()
   }
 
+  function patchCalendar(patch: Partial<CalendarPreference>) {
+    settings.value = {
+      ...settings.value,
+      calendar: { ...settings.value.calendar, ...patch }
+    }
+    persistLocal()
+    void syncToServer()
+  }
+
   function replaceSettings(next: UserPreferenceSettings, version = USER_PREFERENCE_SCHEMA_VERSION) {
     settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, next)
     schemaVersion.value = version
@@ -182,12 +207,14 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     themeMode,
     themeColor,
     chatBubbleLayout,
+    calendar,
     hydrateFromLocal,
     fetchFromServer,
     applyAppearance,
     setThemeMode,
     setThemeColor,
     setChatBubbleLayout,
+    patchCalendar,
     replaceSettings
   }
 })

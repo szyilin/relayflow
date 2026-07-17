@@ -34,14 +34,14 @@
 
 ## 2. workspace-calendar-web（前端 lane · 第一步）
 
-- [ ] 2.1 起草 `openspec/lanes/workspace-calendar/contract.md`（日历/日程/响应/偏好键）
-- [ ] 2.2 `api/app/calendar.ts` + `stores/calendar.ts`（临时数据仅 store；禁止常驻 `mocks/`）
-- [ ] 2.3 Rail + 路由 `/app/calendar`：侧栏迷你月历 + 我管理的日历（勾选/色）+ 添加日历；**无**「我的任务」图层
-- [ ] 2.4 主区：日/周/月切换、今天/翻页、当前时间线（日/周）、快捷创建弹层、事件块按日历着色
-- [ ] 2.5 完整编辑：参与人选择（通讯录成员）、提醒；点击事件查看/编辑/删除（按角色禁用）
-- [ ] 2.6 设置窗：左栏新增「日历」分类，绑定 preference 形状（可先本地合并默认键）
-- [ ] 2.7 `cd web && pnpm build && pnpm typecheck`
-- [ ] 2.8 浏览器：`/app/calendar` 建日历/建日程/切视图；设置窗改周起始
+- [x] 2.1 起草 `openspec/lanes/workspace-calendar/contract.md`（日历/日程/响应/偏好键）
+- [x] 2.2 `api/app/calendar.ts` + `stores/calendar.ts`（临时数据仅 store；禁止常驻 `mocks/`）
+- [x] 2.3 Rail + 路由 `/app/calendar`：侧栏迷你月历 + 我管理的日历（勾选/色）+ 添加日历；**无**「我的任务」图层
+- [x] 2.4 主区：日/周/月切换、今天/翻页、当前时间线（日/周）、快捷创建弹层、事件块按日历着色
+- [x] 2.5 完整编辑：参与人选择（通讯录成员）、提醒；点击事件查看/编辑/删除（按角色禁用）
+- [x] 2.6 设置窗：左栏新增「日历」分类，绑定 preference 形状（可先本地合并默认键）
+- [x] 2.7 `cd web && pnpm build && pnpm typecheck`
+- [x] 2.8 浏览器：`/app/calendar` 建日历/建日程/切视图；设置窗改周起始
 
 **验证**：`pnpm build` + `pnpm typecheck` + 浏览器路径。
 
