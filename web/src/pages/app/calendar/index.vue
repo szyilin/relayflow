@@ -350,20 +350,35 @@ function applyDeepLink() {
       anchorDate.value = startOfDay(parsed)
     }
   }
+}
+
+async function openDeepLinkedEvent() {
   const eventRaw = route.query.eventId
   const eventId = typeof eventRaw === 'string' ? eventRaw : Array.isArray(eventRaw) ? eventRaw[0] : null
-  if (eventId) {
-    const event = calendarStore.getEventById(eventId)
-    if (event) {
-      openEvent(event)
-    }
+  if (!eventId) {
+    return
+  }
+  const event = await calendarStore.fetchEventById(eventId)
+  if (event) {
+    openEvent(event)
+  } else {
+    toast.add({ title: '日程不存在或无权查看', color: 'error' })
   }
 }
 
 onMounted(async () => {
   preference.hydrateFromLocal()
-  await refreshRange()
+  void preference.fetchFromServer()
   applyDeepLink()
+  try {
+    await refreshRange()
+    await openDeepLinkedEvent()
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '加载日历失败',
+      color: 'error'
+    })
+  }
   await nextTick()
   const scroller = document.querySelector('[data-cal-scroll]')
   if (scroller) {
@@ -381,10 +396,19 @@ onUnmounted(() => {
 })
 
 watch([rangeStart, rangeEnd, viewMode], () => {
-  void refreshRange()
+  void refreshRange().catch((error) => {
+    toast.add({
+      title: error instanceof Error ? error.message : '加载日程失败',
+      color: 'error'
+    })
+  })
 })
 
 watch(() => route.query.eventId, () => {
+  void openDeepLinkedEvent()
+})
+
+watch(() => route.query.date, () => {
   applyDeepLink()
 })
 </script>

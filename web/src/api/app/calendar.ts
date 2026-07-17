@@ -69,7 +69,23 @@ function normalizeCalendar(item: CalendarItem & { id?: string | number }): Calen
   }
 }
 
-function normalizeEvent(item: CalendarEvent & { id?: string | number, calendarId?: string | number, organizerId?: string | number }): CalendarEvent {
+function asIso(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  return String(value ?? '')
+}
+
+function normalizeEvent(item: CalendarEvent & {
+  id?: string | number
+  calendarId?: string | number
+  organizerId?: string | number
+  startTime?: unknown
+  endTime?: unknown
+}): CalendarEvent {
   return {
     id: asId(item.id),
     calendarId: asId(item.calendarId),
@@ -77,8 +93,8 @@ function normalizeEvent(item: CalendarEvent & { id?: string | number, calendarId
     calendarName: item.calendarName,
     title: item.title,
     description: item.description ?? null,
-    startTime: item.startTime,
-    endTime: item.endTime,
+    startTime: asIso(item.startTime),
+    endTime: asIso(item.endTime),
     allDay: Boolean(item.allDay),
     organizerId: asId(item.organizerId),
     remindBeforeMinutes: item.remindBeforeMinutes ?? null,
