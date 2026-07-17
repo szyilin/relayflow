@@ -62,13 +62,13 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-task-core** | **planned** | **pending** | `/app/tasks` 详情/协作 · 扩展 `task_*` | 待 `-web` 起草 | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 详情→P1 协作；`-web` → `-api` → `-integrate` |
+| **workspace-task-core** | **planned** | **ui_ready** | `/app/tasks` 详情面板 · 扩展 `task_*` | [detail contract](../../openspec/lanes/workspace-task-detail/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 `-web` 完成；待 detail-api |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-task-detail-web` | 任务详情面板 + 起止/子任务（母 change 已立项，建议下一步） |
+| `workspace-task-detail-api` | 实现详情/子任务 REST + Flyway（`-web` 已 ui_ready） |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）

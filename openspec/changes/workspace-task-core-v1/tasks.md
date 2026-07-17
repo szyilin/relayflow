@@ -20,10 +20,10 @@
 **目标**：详情面板 UI；contract 冻结详情/子任务字段。  
 **范围**：`web/` + `openspec/lanes/workspace-task-detail/contract.md`。
 
-- [ ] 1.1 起草 `openspec/lanes/workspace-task-detail/contract.md`
-- [ ] 1.2 `/app/tasks`：中栏根任务列表 + 右侧详情面板（`?taskId=`）
-- [ ] 1.3 详情：标题、起止时间、提醒、描述、完成；子任务列表与进度（store 临时数据可）
-- [ ] 1.4 `cd web && pnpm build && pnpm typecheck`
+- [x] 1.1 起草 `openspec/lanes/workspace-task-detail/contract.md`
+- [x] 1.2 `/app/tasks`：中栏根任务列表 + 右侧详情面板（`?taskId=`）
+- [x] 1.3 详情：标题、起止时间、提醒、描述、完成；子任务列表与进度（store 临时数据可）
+- [x] 1.4 `cd web && pnpm build && pnpm typecheck`
 - [ ] 1.5 浏览器：打开详情、编辑字段、增删完成子任务
 
 **完成后**：看板 detail → `ui_ready`。
