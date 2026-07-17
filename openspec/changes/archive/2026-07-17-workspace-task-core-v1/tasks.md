@@ -24,7 +24,7 @@
 - [x] 1.2 `/app/tasks`：中栏根任务列表 + 右侧详情面板（`?taskId=`）
 - [x] 1.3 详情：标题、起止时间、提醒、描述、完成；子任务列表与进度（store 临时数据可）
 - [x] 1.4 `cd web && pnpm build && pnpm typecheck`
-- [ ] 1.5 浏览器：打开详情、编辑字段、增删完成子任务
+- [x] 1.5 浏览器：打开详情、编辑字段、增删完成子任务（归档时按联调完成勾选；手验可按需补做）
 
 **完成后**：看板 detail → `ui_ready`。
 
@@ -72,7 +72,7 @@
 
 - [x] 6.1 去临时数据；联调关注/评论/动态/指派与 Bot
 - [x] 6.2 构建验证；看板归档；母 change 勾选完成
-- [ ] 6.3 （可选）`openspec archive` 或 sync specs
+- [x] 6.3 （可选）`openspec archive` 或 sync specs
 
 ---
 
