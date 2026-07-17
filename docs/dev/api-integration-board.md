@@ -64,14 +64,17 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| — | — | — | — | — | 当前无已立项待实现切片 |
+| **workspace-task-list** | planned | pending | `/app-api/task/list/*` · `/app/tasks?listId=` | 待 `-web` 起草 | 母 change [`workspace-task-list-board-v1`](../../openspec/changes/workspace-task-list-board-v1/proposal.md)；P0 清单容器 + 成员 |
+| **workspace-task-board** | planned | pending | status 三态 · 看板拖拽 · `/app/tasks` | 待 `-web` 起草 | 同上母 change；P1；依赖 list integrate |
+
+**实现顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| 任务清单 / 看板 | Tasklist 分组与看板视图（见 workspace-task-core 后置） |
 | `/app/docs` | 云文档占位页产品化（V2） |
+| 自定义看板列 / 自定义字段 | 清单看板 B1 之后置 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
