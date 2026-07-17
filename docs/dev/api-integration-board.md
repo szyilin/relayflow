@@ -48,34 +48,37 @@
 | im-bot-notify-foundation | **archived** | **done** | `ImBotApi` · `bot_dm` · 删 Rail/`infra_notify`；§7 子 change 已开单 | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/proposal.md) |
 | workspace-search | **archived** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；E2E 通过；[archive](../../openspec/changes/archive/2026-07-16-workspace-search-v1/proposal.md) |
 | workspace-profile-card | n/a | **done** | Rail 资料名片 · 更多账号 · 设置入口 | — | [archive](../../openspec/changes/archive/2026-07-16-workspace-profile-card-web/proposal.md) |
-| workspace-settings | n/a | **ui_ready** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；偏好真源收紧并入 [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
-| user-preference | **archived** | **in_progress** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；客户端 API 真源 → [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
+| workspace-settings | n/a | **done** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；偏好真源 → frontend-eng-hardening |
+| user-preference | **archived** | **done** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；客户端真源 [frontend-eng](../../openspec/changes/archive/2026-07-17-frontend-eng-hardening-v1/proposal.md) |
 | workspace-business-card | **archived** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
 | im-self-direct-chat | **archived** | **done** | self-DIRECT · 本人名片发消息 | — | [archive](../../openspec/changes/archive/2026-07-17-im-self-direct-chat/proposal.md) |
 | **workspace-calendar** | **archived** | **done** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1/proposal.md)；store 无 Mock |
 | **workspace-calendar-share** | **archived** | **done** | `/app-api/calendar/share/*` · 侧栏共享 | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1-1/proposal.md) |
 | **workspace-calendar-rrule** | **archived** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
 | **workspace-calendar-dnd** | **archived** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
-| **task-calendar-projection** | **archived** | **done** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；store 无 Mock/回退 |
-| **workspace-task-core** | **ready** | **done** | `/app/tasks` 详情 + 协作（关注/评论/动态/指派） | [detail](../../openspec/lanes/workspace-task-detail/contract.md) · [collab](../../openspec/lanes/workspace-task-collab/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0/P1 integrate 完成；store 无 Mock |
+| **task-calendar-projection** | **archived** | **done** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-task-calendar-projection/proposal.md)；store 无 Mock/回退 |
+| **workspace-task-core** | **archived** | **done** | `/app/tasks` 详情 + 协作（关注/评论/动态/指派） | [detail](../../openspec/lanes/workspace-task-detail/contract.md) · [collab](../../openspec/lanes/workspace-task-collab/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-task-core-v1/proposal.md)；P0/P1 integrate 完成；store 无 Mock |
+| frontend-eng-hardening | n/a | **done** | 租户 reset、分页、偏好 API 真源、God 拆分、Dock 威胁模型 | — | [archive](../../openspec/changes/archive/2026-07-17-frontend-eng-hardening-v1/proposal.md) |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| — | — | — | — | — | 当前无其他已立项待实现切片（见下方建议） |
+| — | — | — | — | — | 当前无已立项待实现切片 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `frontend-eng-hardening-v1` | 前端工程硬化：租户 reset、列表分页、偏好 API 真源、God 拆分、Dock 威胁模型；**含原 `user-preference-integrate` 范围** |
+| 任务清单 / 看板 | Tasklist 分组与看板视图（见 workspace-task-core 后置） |
+| `/app/docs` | 云文档占位页产品化（V2） |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
 | 切片 | 状态 | 说明 |
 |------|------|------|
 | notify-inbox-v2 | **archived / SUPERSEDED** | 写真源改为 Bot/`im_message`；见 [archive](../../openspec/changes/archive/2026-07-16-notify-inbox-v2/proposal.md) |
+| domain-event-redis-streams | **archived / REVERTED** | Redis Streams 缺可靠 ack；V1 回退 `@Lazy`；见 [archive](../../openspec/changes/archive/2026-07-17-domain-event-redis-streams/proposal.md) |
 
 ### V1.1 协作扩展 · 建议实施顺序
 
@@ -86,9 +89,9 @@
 4. workspace-business-card-web / -api / im-self-direct-chat ✅
 5. workspace-calendar-v1 ✅ archive
 6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
-7. task-calendar-projection（任务图层投影）✅
-8. workspace-task-core-v1（任务详情 + 协作）✅
-9. frontend-eng-hardening-v1（含偏好 API 真源 / 原 user-preference-integrate）← 进行中
+7. task-calendar-projection（任务图层投影）✅ archive
+8. workspace-task-core-v1（任务详情 + 协作）✅ archive
+9. frontend-eng-hardening-v1（含偏好 API 真源）✅ archive
 10. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
@@ -98,6 +101,7 @@
 |------|------|--------|------|
 | account-sms-verify | archived / deferred | [archive](../../openspec/changes/archive/2026-07-12-account-sms-verify/proposal.md) | 注册验证码；规格已同步，**前期不实现** |
 | bpm-approval / bpm-v1 | archived / deferred | [archive](../../openspec/changes/archive/2026-07-16-bpm-v1/proposal.md) | Flowable 通用审批；规划+contract 草案已就绪，**短期内不实现**；恢复时从 archive 取出 |
+| domain-event-redis-streams | archived / REVERTED | [archive](../../openspec/changes/archive/2026-07-17-domain-event-redis-streams/proposal.md) | 领域事件 Redis Streams；实现撤回，V1 仍用 `@Lazy` 同步 |
 
 ## 实施顺序（system-admin-v1）
 
