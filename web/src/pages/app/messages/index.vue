@@ -201,9 +201,8 @@ function messageRowJustify(senderId: string) {
   return isOwnMessage(senderId) ? 'justify-end' : 'justify-start'
 }
 
-function formatMessageTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-}
+const messageTimeline = computed(() =>
+  im.buildMessageTimeline(im.messages, msg => im.isSystemMessage(msg)))
 
 function conversationSubtitle(thread: { type: string, memberCount?: number, botCode?: string }) {
   if (thread.type === 'group') {
@@ -222,11 +221,27 @@ function headerSubtitle() {
   return conversationSubtitle(active.value)
 }
 
-function showSenderNickname(msg: { senderId: string, senderNickname?: string, senderType: string }) {
-  if (isOwnMessage(msg.senderId) || !msg.senderNickname) {
+function showSenderNickname(
+  msg: { senderId: string, senderNickname?: string, senderType: string },
+  isGroupStart: boolean
+) {
+  if (!isGroupStart || isOwnMessage(msg.senderId) || !msg.senderNickname) {
     return false
   }
   return isGroupActive.value || isBotDmActive.value || msg.senderType === 'bot'
+}
+
+function messageStatusSuffix(msg: { seq: number, localStatus?: string, senderId: string }) {
+  if (msg.localStatus === 'sending') {
+    return '发送中'
+  }
+  if (msg.localStatus === 'failed') {
+    return '失败'
+  }
+  if (isOwnMessage(msg.senderId) && active.value?.type === 'direct' && im.isMessageReadByPeer(msg.seq)) {
+    return '已读'
+  }
+  return ''
 }
 
 function openFilePicker() {
@@ -385,105 +400,145 @@ meta:
         </UButton>
       </header>
 
-      <div ref="messageListRef" class="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+      <div ref="messageListRef" class="flex-1 overflow-y-auto px-5 py-4">
         <div v-if="im.loadingMessages" class="space-y-3">
           <USkeleton v-for="i in 5" :key="i" class="h-10 w-2/3" />
         </div>
 
-        <template v-else-if="im.messages.length">
-          <template v-for="msg in im.messages" :key="msg.id">
+        <template v-else-if="messageTimeline.length">
+          <template v-for="item in messageTimeline" :key="item.message.id">
             <div
-              v-if="im.isSystemMessage(msg)"
+              v-if="item.showTimeHeader"
+              class="flex justify-center py-3"
+            >
+              <span class="rounded-full bg-[var(--ws-input-bar-bg)] px-3 py-0.5 text-xs text-[var(--ws-text-muted)]">
+                {{ item.timeHeader }}
+              </span>
+            </div>
+
+            <div
+              v-if="im.isSystemMessage(item.message)"
               class="flex justify-center py-1"
             >
               <p class="rounded-full bg-[var(--ws-input-bar-bg)] px-3 py-1 text-xs text-[var(--ws-text-muted)]">
-                {{ im.textFromContent(msg.content) }}
+                {{ im.textFromContent(item.message.content) }}
               </p>
             </div>
 
             <div
-              v-else-if="cardBlock(msg)"
-              class="flex"
-              :class="messageRowJustify(msg.senderId)"
+              v-else-if="cardBlock(item.message)"
+              class="ws-msg-row group flex"
+              :class="[
+                messageRowJustify(item.message.senderId),
+                item.isGroupEnd ? 'mb-3' : 'mb-0.5'
+              ]"
             >
-              <div class="max-w-[75%] space-y-1">
+              <div class="relative max-w-[75%] space-y-1">
                 <p
-                  v-if="showSenderNickname(msg)"
+                  v-if="showSenderNickname(item.message, item.isGroupStart)"
                   class="px-1 text-xs font-medium text-[var(--ws-text-muted)]"
                 >
-                  {{ msg.senderNickname }}
+                  {{ item.message.senderNickname }}
                 </p>
                 <ImMessageCard
-                  :message="msg"
-                  :card="cardBlock(msg)!"
+                  :message="item.message"
+                  :card="cardBlock(item.message)!"
                   @updated="onCardUpdated"
                 />
-                <p class="px-1 text-[10px] text-[var(--ws-text-muted)]">
-                  {{ formatMessageTime(msg.createTime) }}
-                </p>
+                <div
+                  v-if="item.isGroupEnd || messageStatusSuffix(item.message)"
+                  class="flex items-center gap-1.5 px-1 text-[10px] text-[var(--ws-text-muted)]"
+                  :class="isOwnMessage(item.message.senderId) ? 'justify-end' : 'justify-start'"
+                >
+                  <span v-if="item.isGroupEnd">{{ im.formatClockTime(item.message.createTime) }}</span>
+                  <span v-if="messageStatusSuffix(item.message)">· {{ messageStatusSuffix(item.message) }}</span>
+                </div>
+                <span
+                  v-if="!item.isGroupEnd"
+                  class="pointer-events-none absolute top-1/2 -translate-y-1/2 text-[10px] text-[var(--ws-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+                  :class="isOwnMessage(item.message.senderId) ? 'right-full mr-2' : 'left-full ml-2'"
+                >
+                  {{ im.formatClockTime(item.message.createTime) }}
+                </span>
               </div>
             </div>
 
             <div
               v-else
-              class="flex"
-              :class="messageRowJustify(msg.senderId)"
+              class="ws-msg-row group flex"
+              :class="[
+                messageRowJustify(item.message.senderId),
+                item.isGroupEnd ? 'mb-3' : 'mb-0.5'
+              ]"
             >
-              <div
-                class="ws-msg-bubble max-w-[75%] px-3.5 py-2 text-sm"
-                :class="isOwnMessage(msg.senderId)
-                  ? 'ws-msg-bubble--out bg-primary text-primary-foreground'
-                  : 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
-              >
-                <p
-                  v-if="showSenderNickname(msg)"
-                  class="mb-1 text-xs font-medium opacity-80"
+              <div class="relative max-w-[75%]">
+                <div
+                  class="ws-msg-bubble px-3.5 py-2 text-sm"
+                  :class="[
+                    isOwnMessage(item.message.senderId)
+                      ? 'ws-msg-bubble--out bg-primary text-primary-foreground'
+                      : 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]',
+                    item.isGroupStart && item.isGroupEnd
+                      ? ''
+                      : item.isGroupStart
+                        ? 'ws-msg-bubble--group-start'
+                        : item.isGroupEnd
+                          ? 'ws-msg-bubble--group-end'
+                          : 'ws-msg-bubble--group-mid'
+                  ]"
                 >
-                  {{ msg.senderNickname }}
-                </p>
-                <template v-if="im.isFileMessage(msg)">
-                  <ImAuthenticatedImage
-                    v-if="im.isImageMessage(msg) && fileDownloadUrl(msg)"
-                    :src="fileDownloadUrl(msg)"
-                    :alt="fileName(msg)"
-                  />
-                  <button
-                    v-else-if="fileDownloadUrl(msg)"
-                    type="button"
-                    class="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 hover:underline"
-                    :class="isOwnMessage(msg.senderId) ? 'text-primary-foreground' : 'text-[var(--ws-text)]'"
-                    @click="handleFileDownload(msg)"
+                  <p
+                    v-if="showSenderNickname(item.message, item.isGroupStart)"
+                    class="mb-1 text-xs font-medium opacity-80"
                   >
-                    <UIcon name="i-lucide-file" class="size-5 shrink-0" />
-                    <span class="truncate">{{ fileName(msg) }}</span>
-                  </button>
-                  <p v-else class="whitespace-pre-wrap break-words">
-                    {{ im.messagePreviewFromContent(msg.type, msg.content) }}
+                    {{ item.message.senderNickname }}
                   </p>
-                </template>
-                <p v-else class="whitespace-pre-wrap break-words">
-                  <template v-for="(block, idx) in messageBlocks(msg)" :key="idx">
-                    <span
-                      v-if="block.type === 'mention'"
-                      class="mx-0.5 inline font-medium"
-                      :class="isOwnMessage(msg.senderId) ? 'underline decoration-white/70' : 'text-primary'"
-                    >{{ block.text }}</span>
-                    <span v-else-if="block.type === 'text'">{{ block.text }}</span>
+                  <template v-if="im.isFileMessage(item.message)">
+                    <ImAuthenticatedImage
+                      v-if="im.isImageMessage(item.message) && fileDownloadUrl(item.message)"
+                      :src="fileDownloadUrl(item.message)"
+                      :alt="fileName(item.message)"
+                    />
+                    <button
+                      v-else-if="fileDownloadUrl(item.message)"
+                      type="button"
+                      class="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 hover:underline"
+                      :class="isOwnMessage(item.message.senderId) ? 'text-primary-foreground' : 'text-[var(--ws-text)]'"
+                      @click="handleFileDownload(item.message)"
+                    >
+                      <UIcon name="i-lucide-file" class="size-5 shrink-0" />
+                      <span class="truncate">{{ fileName(item.message) }}</span>
+                    </button>
+                    <p v-else class="whitespace-pre-wrap break-words">
+                      {{ im.messagePreviewFromContent(item.message.type, item.message.content) }}
+                    </p>
                   </template>
-                </p>
-                <p
-                  class="mt-1 text-[10px] opacity-70"
-                  :class="isOwnMessage(msg.senderId) ? 'text-right' : 'text-left'"
+                  <p v-else class="whitespace-pre-wrap break-words">
+                    <template v-for="(block, idx) in messageBlocks(item.message)" :key="idx">
+                      <span
+                        v-if="block.type === 'mention'"
+                        class="mx-0.5 inline font-medium"
+                        :class="isOwnMessage(item.message.senderId) ? 'underline decoration-white/70' : 'text-primary'"
+                      >{{ block.text }}</span>
+                      <span v-else-if="block.type === 'text'">{{ block.text }}</span>
+                    </template>
+                  </p>
+                </div>
+                <div
+                  v-if="item.isGroupEnd || messageStatusSuffix(item.message)"
+                  class="mt-0.5 flex items-center gap-1.5 px-1 text-[10px] text-[var(--ws-text-muted)]"
+                  :class="isOwnMessage(item.message.senderId) ? 'justify-end' : 'justify-start'"
                 >
-                  {{ formatMessageTime(msg.createTime) }}
-                  <span v-if="msg.localStatus === 'sending'"> · 发送中</span>
-                  <span v-else-if="msg.localStatus === 'failed'"> · 失败</span>
-                  <span
-                    v-else-if="isOwnMessage(msg.senderId) && active?.type === 'direct' && im.isMessageReadByPeer(msg.seq)"
-                  >
-                    · 已读
-                  </span>
-                </p>
+                  <span v-if="item.isGroupEnd">{{ im.formatClockTime(item.message.createTime) }}</span>
+                  <span v-if="messageStatusSuffix(item.message)">· {{ messageStatusSuffix(item.message) }}</span>
+                </div>
+                <span
+                  v-if="!item.isGroupEnd"
+                  class="pointer-events-none absolute top-1/2 -translate-y-1/2 text-[10px] text-[var(--ws-text-muted)] opacity-0 transition-opacity group-hover:opacity-100"
+                  :class="isOwnMessage(item.message.senderId) ? 'right-full mr-2' : 'left-full ml-2'"
+                >
+                  {{ im.formatClockTime(item.message.createTime) }}
+                </span>
               </div>
             </div>
           </template>
