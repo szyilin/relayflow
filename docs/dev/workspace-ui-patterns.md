@@ -112,13 +112,15 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `#panel`：左导航「我负责的」「我关注的」「动态」 |
-| Main | 中栏：按导航切换列表/动态；根任务列表（勾选、截止、子任务进度）；**右侧详情面板** |
-| 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动 |
-| 深链 | `?taskId=` 打开详情；`?view=following\|activity` 切换导航 |
-| 数据 | `stores/tasks` → `api/app/task`；详情与协作均无 localStorage 真源 |
-| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md) |
-| 非目标（近端） | 清单容器、看板、自定义字段、仪表盘 |
+| Shell | `#panel`：个人入口「我负责的」「我创建的」「已完成」「我关注的」「动态」+ **「清单」分组**（我参与的清单、新建） |
+| Main | 中栏：个人入口以列表/动态为主；**选中清单**后提供「列表 \| 看板」；根任务列表（勾选、截止、子任务进度）；**右侧详情面板** |
+| 看板 | 仅清单上下文：三列 `TODO` / `IN_PROGRESS` / `DONE`；拖拽改状态与列内序；点卡片开详情。个人入口不实现完整看板（隐藏 Tab 或引导打开清单） |
+| 清单 | 可选归属（`list_id` 可空）；成员 OWNER / EDITOR / VIEWER；创建任务在清单上下文默认带 `listId` |
+| 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动（复用既有面板） |
+| 深链 | `?taskId=` 打开详情；`?listId=` 进入清单上下文；`?view=following\|activity` 切换个人导航 |
+| 数据 | `stores/tasks` → `api/app/task`；详情与协作均无 localStorage 真源；清单/看板 integrate 后无 Mock |
+| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md)；清单/看板见母 change [`workspace-task-list-board-v1`](../../openspec/changes/workspace-task-list-board-v1/proposal.md)（lane contract 由各 `-web` 起草） |
+| 非目标（近端） | 自定义看板列、自定义字段、仪表盘、甘特 |
 
 ## 日历页 `/app/calendar`
 
@@ -127,7 +129,7 @@ web/src/
 | Shell | `#panel`：迷你月历 +「我管理的」勾选/色/共享按钮 +「共享给我的」图层 + 添加日历 + **「我的任务」虚拟图层**（非 `cal_calendar`；可勾选） |
 | Main | 顶栏（今天/翻页/日周月/创建日程）+ 自研网格；当前时间红线（日/周）；日/周可拖拽改期/拉边（组织者，**仅日程**）；任务投影与日程视觉可区分 |
 | 弹层 | `CalendarEventEditor`：参与人、重复（RRULE）、编辑范围 THIS/ALL；组织者可删；**点击任务投影不打开本弹层** |
-| 任务投影 | 图层开启时并行拉 `GET /app-api/task/item/due-range`；仅本人 `TODO` + 有 `due_time`；点击 → `/app/tasks?taskId=`；**不写** `cal_event` |
+| 任务投影 | 图层开启时并行拉 `GET /app-api/task/item/due-range`；仅本人未完成（`TODO` / 落地看板后含 `IN_PROGRESS`）+ 有 `due_time`；点击 → `/app/tasks?taskId=`；**不写** `cal_event` |
 | 共享 | `/app-api/calendar/share/*`；侧栏弹层增删 READ 共享 |
 | 设置 | 全局设置窗「日历」分类 → `settings.calendar`（含 `showTaskLayer` 默认 true；非页内设置真源） |
 | 数据 | `stores/calendar` → `api/app/calendar`；任务投影 → `api/app/task` due-range（无常驻 Mock） |
