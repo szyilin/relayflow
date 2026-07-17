@@ -16,6 +16,7 @@ import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CalCalendarShareServiceImpl implements CalCalendarShareService {
@@ -198,8 +200,8 @@ public class CalCalendarShareServiceImpl implements CalCalendarShareService {
             if (basic != null && StringUtils.hasText(basic.getUsername())) {
                 return basic.getUsername();
             }
-        } catch (Exception ignored) {
-            // best-effort
+        } catch (Exception ex) {
+            log.warn("Resolve nickname failed (best-effort): userId={}", userId, ex);
         }
         return String.valueOf(userId);
     }

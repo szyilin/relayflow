@@ -6,6 +6,7 @@ import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarCreateReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarUpdateReqVO;
+import com.relayflow.module.calendar.convert.CalCalendarConvert;
 import com.relayflow.module.calendar.dal.dataobject.CalCalendarDO;
 import com.relayflow.module.calendar.dal.dataobject.CalEventDO;
 import com.relayflow.module.calendar.dal.mapper.CalCalendarMapper;
@@ -13,14 +14,21 @@ import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
 import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
+import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +39,8 @@ public class CalCalendarServiceImpl implements CalCalendarService {
 
     private final CalCalendarMapper calCalendarMapper;
     private final CalEventMapper calEventMapper;
+    /** Avoid construct cycle with CalCalendarShareService → CalCalendarService. */
+    private final ObjectProvider<CalCalendarShareService> calCalendarShareService;
 
     @Override
     public List<CalCalendarRespVO> listMine() {
@@ -43,8 +53,29 @@ public class CalCalendarServiceImpl implements CalCalendarService {
                                 .orderByAsc(CalCalendarDO::getType)
                                 .orderByAsc(CalCalendarDO::getCreateTime))
                 .stream()
-                .map(this::toResp)
+                .map(CalCalendarConvert.INSTANCE::toResp)
                 .toList();
+    }
+
+    @Override
+    public List<CalCalendarRespVO> listVisible() {
+        List<CalCalendarRespVO> owned = listMine();
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        CalCalendarShareService shareService = calCalendarShareService.getObject();
+        Map<Long, String> permissions = shareService.sharedCalendarPermissions(userId);
+        List<CalCalendarDO> sharedCalendars = shareService.loadSharedCalendars(userId);
+
+        Set<Long> ownedIds = owned.stream()
+                .map(CalCalendarRespVO::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<CalCalendarRespVO> result = new ArrayList<>(owned);
+        for (CalCalendarDO calendar : sharedCalendars) {
+            if (!ownedIds.contains(calendar.getId())) {
+                result.add(CalCalendarConvert.INSTANCE.toSharedResp(calendar, permissions.get(calendar.getId())));
+            }
+        }
+        return result;
     }
 
     @Override
@@ -146,17 +177,6 @@ public class CalCalendarServiceImpl implements CalCalendarService {
             throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
         }
         return row;
-    }
-
-    private CalCalendarRespVO toResp(CalCalendarDO row) {
-        CalCalendarRespVO vo = new CalCalendarRespVO();
-        vo.setId(row.getId());
-        vo.setName(row.getName());
-        vo.setColor(row.getColor());
-        vo.setDescription(row.getDescription());
-        vo.setType(row.getType());
-        vo.setOwnerUserId(row.getOwnerUserId());
-        return vo;
     }
 
     private static String blankToNull(String value) {

@@ -22,6 +22,7 @@ import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
@@ -66,35 +67,36 @@ public class TaskItemServiceImpl implements TaskItemService {
 
     @Override
     public List<TaskItemRespVO> searchMyTasks(String keyword, int limit) {
-        return searchMyTasks(SecurityFrameworkUtils.requireLoginUserId(), keyword, limit);
+        return TaskConvert.INSTANCE.toRespList(
+                searchMyTasks(SecurityFrameworkUtils.requireLoginUserId(), keyword, limit));
     }
 
     @Override
-    public List<TaskItemRespVO> searchMyTasks(Long userId, String keyword, int limit) {
+    public List<TaskItemDO> searchMyTasks(Long userId, String keyword, int limit) {
         int safeLimit = clampSearchLimit(limit);
         String trimmed = keyword.trim();
-        List<TaskItemDO> rows = taskItemMapper.selectList(
+        return taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getAssigneeId, userId)
                         .isNull(TaskItemDO::getParentId)
                         .like(TaskItemDO::getTitle, trimmed)
                         .orderByDesc(TaskItemDO::getCreateTime)
                         .last("LIMIT " + safeLimit));
-        return TaskConvert.INSTANCE.toRespList(rows);
     }
 
     @Override
     public List<TaskItemRespVO> listDueRange(OffsetDateTime from, OffsetDateTime to, int limit) {
-        return listDueRange(SecurityFrameworkUtils.requireLoginUserId(), from, to, limit);
+        return TaskConvert.INSTANCE.toRespList(
+                listDueRange(SecurityFrameworkUtils.requireLoginUserId(), from, to, limit));
     }
 
     @Override
-    public List<TaskItemRespVO> listDueRange(Long userId, OffsetDateTime from, OffsetDateTime to, int limit) {
+    public List<TaskItemDO> listDueRange(Long userId, OffsetDateTime from, OffsetDateTime to, int limit) {
         if (from == null || to == null || !from.isBefore(to)) {
             return List.of();
         }
         int safeLimit = clampDueRangeLimit(limit);
-        List<TaskItemDO> rows = taskItemMapper.selectList(
+        return taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getAssigneeId, userId)
                         .eq(TaskItemDO::getStatus, TaskItemStatus.TODO)
@@ -103,7 +105,6 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .lt(TaskItemDO::getDueTime, to)
                         .orderByAsc(TaskItemDO::getDueTime)
                         .last("LIMIT " + safeLimit));
-        return TaskConvert.INSTANCE.toRespList(rows);
     }
 
     @Override
@@ -132,6 +133,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createTask(TaskItemCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
@@ -164,6 +166,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateTask(TaskItemUpdateReqVO request) {
         updateTask(SecurityFrameworkUtils.requireLoginUserId(), request);
     }
@@ -198,6 +201,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void toggleDone(TaskItemToggleDoneReqVO request) {
         toggleDone(SecurityFrameworkUtils.requireLoginUserId(), request);
     }
@@ -221,6 +225,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteTask(Long id) {
         deleteTask(SecurityFrameworkUtils.requireLoginUserId(), id);
     }
@@ -252,6 +257,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createSubtask(TaskSubtaskCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();

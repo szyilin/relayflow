@@ -1,7 +1,7 @@
 package com.relayflow.module.im.api.conversation;
 
 import com.relayflow.module.im.api.conversation.dto.ConversationSearchRespDTO;
-import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.convert.ImConversationConvert;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,16 +25,8 @@ public class ImConversationApiImpl implements ImConversationApi {
         int safeLimit = clampLimit(limit);
         return conversationService.listConversations(tenantId, userId, keyword.trim()).stream()
                 .limit(safeLimit)
-                .map(this::toDto)
+                .map(ImConversationConvert.INSTANCE::toSearchDto)
                 .toList();
-    }
-
-    private ConversationSearchRespDTO toDto(ConversationItemRespVO item) {
-        ConversationSearchRespDTO dto = new ConversationSearchRespDTO();
-        dto.setConversationId(item.getId());
-        dto.setTitle(item.getTitle());
-        dto.setSubtitle(item.getLastMsgPreview());
-        return dto;
     }
 
     private static int clampLimit(int limit) {

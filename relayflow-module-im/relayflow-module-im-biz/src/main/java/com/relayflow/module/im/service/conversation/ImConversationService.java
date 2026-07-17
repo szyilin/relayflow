@@ -1,6 +1,6 @@
 package com.relayflow.module.im.service.conversation;
 
-import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.service.conversation.model.ConversationListItem;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.dal.dataobject.ImConversationDO;
 
@@ -8,9 +8,9 @@ import java.util.List;
 
 public interface ImConversationService {
 
-    List<ConversationItemRespVO> listConversations(Long tenantId, Long userId, String keyword);
+    List<ConversationListItem> listConversations(Long tenantId, Long userId, String keyword);
 
-    List<ConversationItemRespVO> listMyConversations(String keyword);
+    List<ConversationListItem> listMyConversations(String keyword);
 
     Long getOrCreateDirectConversation(Long tenantId, Long userId, Long peerUserId);
 

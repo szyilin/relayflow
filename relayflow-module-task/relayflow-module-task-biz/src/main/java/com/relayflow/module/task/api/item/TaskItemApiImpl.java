@@ -2,7 +2,7 @@ package com.relayflow.module.task.api.item;
 
 import com.relayflow.module.task.api.item.dto.TaskDueRangeRespDTO;
 import com.relayflow.module.task.api.item.dto.TaskSearchRespDTO;
-import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
+import com.relayflow.module.task.convert.TaskConvert;
 import com.relayflow.module.task.service.item.TaskItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ public class TaskItemApiImpl implements TaskItemApi {
             return List.of();
         }
         return taskItemService.searchMyTasks(userId, keyword.trim(), limit).stream()
-                .map(this::toSearchDto)
+                .map(TaskConvert.INSTANCE::toSearchDto)
                 .toList();
     }
 
@@ -34,24 +34,7 @@ public class TaskItemApiImpl implements TaskItemApi {
             return List.of();
         }
         return taskItemService.listDueRange(userId, from, to, limit).stream()
-                .map(this::toDueRangeDto)
+                .map(TaskConvert.INSTANCE::toDueRangeDto)
                 .toList();
-    }
-
-    private TaskSearchRespDTO toSearchDto(TaskItemRespVO item) {
-        TaskSearchRespDTO dto = new TaskSearchRespDTO();
-        dto.setTaskId(item.getId());
-        dto.setTitle(item.getTitle());
-        dto.setStatus(item.getStatus());
-        return dto;
-    }
-
-    private TaskDueRangeRespDTO toDueRangeDto(TaskItemRespVO item) {
-        TaskDueRangeRespDTO dto = new TaskDueRangeRespDTO();
-        dto.setTaskId(item.getId());
-        dto.setTitle(item.getTitle());
-        dto.setStatus(item.getStatus());
-        dto.setDueTime(item.getDueTime());
-        return dto;
     }
 }

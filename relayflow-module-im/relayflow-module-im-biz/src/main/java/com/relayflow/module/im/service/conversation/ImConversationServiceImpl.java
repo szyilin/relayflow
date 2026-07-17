@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
-import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.service.conversation.model.ConversationListItem;
 import com.relayflow.module.im.controller.app.vo.ConversationMemberReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.dal.dataobject.ImBotDO;
@@ -55,7 +55,7 @@ public class ImConversationServiceImpl implements ImConversationService {
     private final RealtimeTransportApi realtimeTransportApi;
 
     @Override
-    public List<ConversationItemRespVO> listConversations(Long tenantId, Long userId, String keyword) {
+    public List<ConversationListItem> listConversations(Long tenantId, Long userId, String keyword) {
         List<ImConversationMemberDO> memberships = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
@@ -90,7 +90,7 @@ public class ImConversationServiceImpl implements ImConversationService {
         Map<Long, Integer> memberCountByConversationId = loadMemberCounts(tenantId, groupConversations);
         Map<Long, ImBotDO> botById = loadBots(botDmConversations);
 
-        List<ConversationItemRespVO> items = new ArrayList<>();
+        List<ConversationListItem> items = new ArrayList<>();
         for (ImConversationDO conversation : directConversations) {
             Long peerUserId = peerUserIdByConversationId.get(conversation.getId());
             if (peerUserId == null) {
@@ -100,7 +100,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             String title = peer.getNickname();
             ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
 
-            ConversationItemRespVO item = new ConversationItemRespVO();
+            ConversationListItem item = new ConversationListItem();
             item.setId(conversation.getId());
             item.setType(conversation.getType());
             item.setTitle(title);
@@ -120,7 +120,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
             String title = group.getName();
 
-            ConversationItemRespVO item = new ConversationItemRespVO();
+            ConversationListItem item = new ConversationListItem();
             item.setId(conversation.getId());
             item.setType(conversation.getType());
             item.setTitle(title);
@@ -142,7 +142,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
             String title = bot.getName();
 
-            ConversationItemRespVO item = new ConversationItemRespVO();
+            ConversationListItem item = new ConversationListItem();
             item.setId(conversation.getId());
             item.setType(conversation.getType());
             item.setTitle(title);
@@ -158,13 +158,13 @@ public class ImConversationServiceImpl implements ImConversationService {
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase() : null;
         return items.stream()
                 .filter(item -> matchesKeyword(item, normalizedKeyword))
-                .sorted(Comparator.comparing(ConversationItemRespVO::getLastMsgAt,
+                .sorted(Comparator.comparing(ConversationListItem::getLastMsgAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
     }
 
     @Override
-    public List<ConversationItemRespVO> listMyConversations(String keyword) {
+    public List<ConversationListItem> listMyConversations(String keyword) {
         LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
         return listConversations(loginUser.getTenantId(), loginUser.getUserId(), keyword);
     }
@@ -459,7 +459,7 @@ public class ImConversationServiceImpl implements ImConversationService {
         return counts;
     }
 
-    private boolean matchesKeyword(ConversationItemRespVO item, String keyword) {
+    private boolean matchesKeyword(ConversationListItem item, String keyword) {
         if (!StringUtils.hasText(keyword)) {
             return true;
         }

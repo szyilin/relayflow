@@ -31,6 +31,7 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.notify.TaskAssignNotifyService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -44,6 +45,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TaskCollabServiceImpl implements TaskCollabService {
@@ -316,8 +318,8 @@ public class TaskCollabServiceImpl implements TaskCollabService {
             if (basic != null && StringUtils.hasText(basic.getUsername())) {
                 return basic.getUsername();
             }
-        } catch (Exception ignored) {
-            // best-effort
+        } catch (Exception ex) {
+            log.warn("Resolve nickname failed (best-effort): userId={}", userId, ex);
         }
         return "用户 " + userId;
     }

@@ -7,10 +7,12 @@ import com.relayflow.module.infra.api.realtime.RealtimeSessionSender;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeSessionContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class RealtimeSessionSenderImpl implements RealtimeSessionSender {
@@ -27,8 +29,8 @@ public class RealtimeSessionSenderImpl implements RealtimeSessionSender {
         try {
             String json = objectMapper.writeValueAsString(RealtimeEnvelopeConverter.toFramework(envelope));
             LocalWebSocketMessageSender.writeSafely(webSocketSession, new TextMessage(json));
-        } catch (Exception ignored) {
-            // best-effort reply
+        } catch (Exception ex) {
+            log.warn("Realtime session send failed (best-effort): sessionId={}", session.sessionId(), ex);
         }
     }
 }

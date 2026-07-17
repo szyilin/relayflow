@@ -11,6 +11,9 @@ public interface CalCalendarService {
 
     List<CalCalendarRespVO> listMine();
 
+    /** Owned calendars plus calendars shared with the current user. */
+    List<CalCalendarRespVO> listVisible();
+
     Long create(CalCalendarCreateReqVO request);
 
     void update(CalCalendarUpdateReqVO request);
