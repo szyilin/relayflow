@@ -234,6 +234,8 @@ web/src/
 | 响应格式 | `{ code, msg, data }`；`code === 0` 成功 |
 | 页面数据 | **Page → Pinia Store → `api/admin/*` 或 `api/app/*`**（类型可从 `api/*` 直接 import；下载等一次性工具函数可在页面调用，业务列表/写操作仍走 store） |
 | 临时 Mock | 仅 `-web` 阶段、且只在 **store 内**；**integrate 后删除**。仓库不再保留常驻 `web/src/mocks/` |
+| 列表分页 | 有 `total` 的列表 MUST 显式分页或「加载更多」；默认 `pageSize` 建议 20，不超过服务端上限 100；**禁止**静默截断 |
+| 租户切换 | `tenantId`/`userId` 变更时，租户范围 store MUST `reset` 并按路由 refetch（见 [workspace-ui-patterns.md](workspace-ui-patterns.md)） |
 | 禁止 | 页面直接 `import mocks/`；发明全局 `isApiUnavailable` 自动回退（已废弃） |
 
 公共页（如入口 `/`、404）可不在 `/admin` 或 `/app` 下。
@@ -245,9 +247,11 @@ web/src/
 - **401**（HTTP 或业务码）→ 清会话并跳转 `/app/login`（由 `request.ts` 统一处理）
 - **403**（HTTP 或业务码）→ 跳转 `/app/forbidden`（由 `request.ts` 统一处理；管理身份不足仍用 `/app/no-admin-access`）
 - 会话键：`relayflow:access-token` 等（见 `web/src/utils/session-storage.ts`）；同一 JWT 服务工作台与管理端
+- Account Dock（`relayflow:account-dock`）V1 可缓存多 JWT；威胁模型与目标态见 [workspace-ui-patterns.md](workspace-ui-patterns.md) § Account Dock
 - 超管权限码含 `*:*:*` 时，前端 `hasPermission` 应放行
 - 权限码不散落在组件 magic string 中
 - UI 以 Nuxt UI 组件为主；禁止 Element Plus 作为主 UI 层
+- 单文件建议 ≤ ~500 行；超大页/store 拆 `composables/` + 展示组件
 - 禁止 React；前端代码不得放在 `web/` 外
 - 含 `web/` 的切片验证：`pnpm build` **且** `pnpm typecheck`（`auto-imports.d.ts` / `components.d.ts` 为本地生成、gitignore；typecheck 会按需生成）
 

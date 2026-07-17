@@ -66,6 +66,7 @@
 - 存储：见 change `user-preference-api`（`sys_user_preference.settings` JSONB）
 - UI：见 change `workspace-settings-web`
 - 读：无行 → 返回代码默认；写：upsert
+- **前端真源**：登录/切租户后以 GET preference 为准；localStorage 仅短时缓存（见 [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md)、[workspace-ui-patterns.md](workspace-ui-patterns.md)）
 - 企业级默认表（`sys_tenant_preference`）V1 不做；若以后增加，merge 顺序为：`代码默认 ← 企业默认 ← 用户行`
 
 ## 检查清单（开 change / 写 ensure 时）

@@ -56,9 +56,10 @@ web/src/
 | 标题区 | `AdminPageHeader` + 右侧主操作（如「新建用户」`UButton` `to=`） |
 | 筛选 | `UInput` + 搜索按钮，位于 `UCard` 内表格上方 |
 | 表格 | `UTable` + `@tanstack/table-core` 列定义 |
-| 分页 | `UPagination`，底部展示总条数 |
+| 分页 | `UPagination`，底部展示总条数；`pageSize` 建议 20、不超过 API 上限 100；**禁止**静默截断于单页 |
 | 行操作 | 次要按钮 + toast（危险操作用 `color="error" variant="soft"`） |
 
+角色列表、表单内角色/用户选项等凡走分页 API 的数据源，同样 MUST 分页或加载更多，不得 `pageSize: 100` 一次拉完假装完整。
 ## 表单页 `/admin/system/user/create`
 
 **文件**：`pages/admin/system/user/create.vue`
