@@ -48,10 +48,13 @@ public class TaskItemServiceImpl implements TaskItemService {
 
     private PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request) {
         String status = normalizeStatusFilter(request.getStatus());
+        boolean byCreator = "CREATOR".equalsIgnoreCase(
+                request.getScope() == null ? "" : request.getScope().trim());
         Page<TaskItemDO> page = taskItemMapper.selectPage(
                 new Page<>(request.getPageNo(), request.getPageSize()),
                 Wrappers.<TaskItemDO>lambdaQuery()
-                        .eq(TaskItemDO::getAssigneeId, userId)
+                        .eq(byCreator, TaskItemDO::getCreatorId, userId)
+                        .eq(!byCreator, TaskItemDO::getAssigneeId, userId)
                         .isNull(TaskItemDO::getParentId)
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByDesc(TaskItemDO::getCreateTime));
@@ -147,6 +150,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setCreatorId(userId);
         row.setStartTime(request.getStartTime());
         row.setDueTime(request.getDueTime());
+        row.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         row.setParentId(null);
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);

@@ -42,10 +42,15 @@ public class UserPreferenceDefaults {
         calendar.put("dimPastEvents", true);
         calendar.put("showTaskLayer", true);
 
+        Map<String, Object> task = new LinkedHashMap<>();
+        // Feishu-like: remind 30 minutes before due by default on create
+        task.put("defaultRemindBeforeMinutes", 30);
+
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("general", general);
         root.put("im", im);
         root.put("calendar", calendar);
+        root.put("task", task);
         return root;
     }
 
@@ -210,6 +215,30 @@ public class UserPreferenceDefaults {
             }
             if (!calendar.isEmpty()) {
                 result.put("calendar", calendar);
+            }
+        }
+
+        Object taskObj = input.get("task");
+        if (taskObj instanceof Map<?, ?> taskMap) {
+            Map<String, Object> task = new LinkedHashMap<>();
+            Object remind = taskMap.get("defaultRemindBeforeMinutes");
+            if (remind != null && !(remind instanceof String s && s.isBlank())) {
+                int minutes;
+                try {
+                    minutes = Integer.parseInt(String.valueOf(remind));
+                } catch (NumberFormatException ex) {
+                    errorOut.append("task.defaultRemindBeforeMinutes 非法");
+                    return null;
+                }
+                // -1 = 系统窗口（创建时不预填）；0 = 不提醒；>0 = 截止前 N 分钟
+                if (minutes < -1 || minutes > 24 * 60) {
+                    errorOut.append("task.defaultRemindBeforeMinutes 非法");
+                    return null;
+                }
+                task.put("defaultRemindBeforeMinutes", minutes);
+            }
+            if (!task.isEmpty()) {
+                result.put("task", task);
             }
         }
 

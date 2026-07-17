@@ -16,6 +16,11 @@ export interface CalendarPreference {
   showTaskLayer: boolean
 }
 
+export interface TaskPreference {
+  /** -1 = 系统窗口不预填；0 = 不提醒；>0 = 截止前 N 分钟 */
+  defaultRemindBeforeMinutes: number
+}
+
 export interface UserPreferenceSettings {
   general: {
     themeMode: ThemeMode
@@ -25,6 +30,7 @@ export interface UserPreferenceSettings {
     chatBubbleLayout: ChatBubbleLayout
   }
   calendar: CalendarPreference
+  task: TaskPreference
 }
 
 export const USER_PREFERENCE_SCHEMA_VERSION = 1
@@ -44,6 +50,9 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
     allDayRemindTime: '08:00',
     dimPastEvents: true,
     showTaskLayer: true
+  },
+  task: {
+    defaultRemindBeforeMinutes: 30
   }
 }
 
@@ -57,6 +66,7 @@ function deepMergeSettings(
     general?: Partial<UserPreferenceSettings['general']>
     im?: Partial<UserPreferenceSettings['im']>
     calendar?: Partial<UserPreferenceSettings['calendar']>
+    task?: Partial<UserPreferenceSettings['task']>
   } | null | undefined
 ): UserPreferenceSettings {
   return {
@@ -71,6 +81,10 @@ function deepMergeSettings(
     calendar: {
       ...base.calendar,
       ...(patch?.calendar ?? {})
+    },
+    task: {
+      ...base.task,
+      ...(patch?.task ?? {})
     }
   }
 }
@@ -98,6 +112,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
   const themeColor = computed(() => settings.value.general.themeColor)
   const chatBubbleLayout = computed(() => settings.value.im.chatBubbleLayout)
   const calendar = computed(() => settings.value.calendar)
+  const task = computed(() => settings.value.task)
 
   function persistLocal() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value))
@@ -194,6 +209,15 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     void syncToServer()
   }
 
+  function patchTask(patch: Partial<TaskPreference>) {
+    settings.value = {
+      ...settings.value,
+      task: { ...settings.value.task, ...patch }
+    }
+    persistLocal()
+    void syncToServer()
+  }
+
   function replaceSettings(next: UserPreferenceSettings, version = USER_PREFERENCE_SCHEMA_VERSION) {
     settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, next)
     schemaVersion.value = version
@@ -210,6 +234,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     themeColor,
     chatBubbleLayout,
     calendar,
+    task,
     hydrateFromLocal,
     fetchFromServer,
     applyAppearance,
@@ -217,6 +242,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     setThemeColor,
     setChatBubbleLayout,
     patchCalendar,
+    patchTask,
     replaceSettings
   }
 })

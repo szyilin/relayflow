@@ -16,6 +16,7 @@ type SettingsCategory =
   | 'account'
   | 'general'
   | 'calendar'
+  | 'task'
   | 'privacy'
   | 'notifications'
   | 'shortcuts'
@@ -24,6 +25,7 @@ const categories: { id: SettingsCategory, label: string, icon: string, ready: bo
   { id: 'account', label: '账号与安全', icon: 'i-lucide-user-round-cog', ready: false },
   { id: 'general', label: '通用', icon: 'i-lucide-sliders-horizontal', ready: true },
   { id: 'calendar', label: '日历', icon: 'i-lucide-calendar', ready: true },
+  { id: 'task', label: '任务', icon: 'i-lucide-list-todo', ready: true },
   { id: 'privacy', label: '隐私', icon: 'i-lucide-shield', ready: false },
   { id: 'notifications', label: '通知', icon: 'i-lucide-bell', ready: false },
   { id: 'shortcuts', label: '快捷键', icon: 'i-lucide-keyboard', ready: false }
@@ -49,6 +51,15 @@ const weekStartOptions = [
 
 const durationOptions = [15, 30, 45, 60, 90, 120]
 const remindOptions = [0, 5, 10, 15, 30, 60]
+const taskRemindOptions = [
+  { value: -1, label: '系统默认（不预填）' },
+  { value: 0, label: '不提醒' },
+  { value: 5, label: '截止前 5 分钟' },
+  { value: 15, label: '截止前 15 分钟' },
+  { value: 30, label: '截止前 30 分钟' },
+  { value: 60, label: '截止前 1 小时' },
+  { value: 1440, label: '截止前 1 天' }
+]
 
 const activeCategoryMeta = computed(() =>
   categories.find(item => item.id === activeCategory.value) ?? categories[1]!)
@@ -345,6 +356,28 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                   @update:model-value="(v: boolean) => preference.patchCalendar({ showTaskLayer: v })"
                 />
               </div>
+            </section>
+          </template>
+
+          <template v-else-if="activeCategory === 'task'">
+            <section class="space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold">
+                  默认截止提醒
+                </h3>
+                <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  新建带截止时间的任务时预填的提醒提前量
+                </p>
+              </div>
+              <USelect
+                :model-value="String(preference.task.defaultRemindBeforeMinutes)"
+                :items="taskRemindOptions.map(o => ({
+                  label: o.label,
+                  value: String(o.value)
+                }))"
+                class="max-w-xs"
+                @update:model-value="(v: string) => preference.patchTask({ defaultRemindBeforeMinutes: Number(v) })"
+              />
             </section>
           </template>
 
