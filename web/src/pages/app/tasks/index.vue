@@ -21,12 +21,25 @@ async function applyTaskIdFromRoute() {
   const raw = route.query.taskId
   const taskId = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null
   const id = taskId?.trim() || null
-  await tasksStore.selectTask(id)
+  if (!id) {
+    await tasksStore.selectTask(null)
+    return
+  }
+  try {
+    await tasksStore.selectTask(id)
+  } catch {
+    toast.add({ title: '无法打开该任务', color: 'error' })
+    await closeDetail()
+  }
 }
 
 async function openTask(id: string) {
   await router.replace({ query: { ...route.query, taskId: id } })
-  await tasksStore.selectTask(id)
+  try {
+    await tasksStore.selectTask(id)
+  } catch {
+    toast.add({ title: '无法打开该任务', color: 'error' })
+  }
 }
 
 async function closeDetail() {
@@ -37,7 +50,6 @@ async function closeDetail() {
 }
 
 onMounted(async () => {
-  tasksStore.hydrateLocal()
   await tasksStore.fetchMyTasks()
   await applyTaskIdFromRoute()
 })

@@ -57,18 +57,19 @@
 | **workspace-calendar-rrule** | **archived** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
 | **workspace-calendar-dnd** | **archived** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
 | **task-calendar-projection** | **archived** | **done** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；store 无 Mock/回退 |
+| **workspace-task-core** | **ready** | **done** | `/app/tasks` 详情面板 · get/subtasks/update | [detail contract](../../openspec/lanes/workspace-task-detail/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 detail integrate 完成；P1 collab 待做 |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-task-core** | **ready** | **ui_ready** | `/app/tasks` 详情面板 · 扩展 `task_*` | [detail contract](../../openspec/lanes/workspace-task-detail/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 detail-api 完成；待 `-integrate` 去 localStorage |
+| **workspace-task-collab** | **planned** | **pending** | 关注 / 评论 / 动态 / 指派 | 待起草 | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md) §4–6 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-task-detail-integrate` | 去掉 detail localStorage；联调 get/subtasks/update |
+| `workspace-task-collab-web` | P1：关注人、评论、活动流、指派 UI |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
@@ -87,7 +88,7 @@
 5. workspace-calendar-v1 ✅ archive
 6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
 7. task-calendar-projection（任务图层投影）✅
-8. workspace-task-core-v1（任务详情/协作）← 建议下一步：`workspace-task-detail-integrate`
+8. workspace-task-core-v1（任务详情 ✅ · 协作 P1）← 建议下一步：`workspace-task-collab-web`
 9. user-preference-integrate（收紧 localStorage 真源）
 10. bpm-v1 — deferred，见下方「暂缓实现」
 ```
