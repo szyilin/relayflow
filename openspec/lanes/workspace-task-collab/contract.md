@@ -1,8 +1,8 @@
 # API 契约：workspace-task-collab
 
-> **状态**：frozen（`-api` ready；待 `-integrate`）  
+> **状态**：done（`-integrate` 完成）  
 > **起草**：`workspace-task-core-v1` / `workspace-task-collab-web`  
-> **实现**：`workspace-task-collab-api`  
+> **实现**：`workspace-task-collab-api` + `workspace-task-collab-integrate`  
 > **母 change**：[`openspec/changes/workspace-task-core-v1`](../../changes/workspace-task-core-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks/contract.md`](../workspace-tasks/contract.md)、[`workspace-task-detail/contract.md`](../workspace-task-detail/contract.md)
@@ -115,7 +115,7 @@
 | 左导航 | 「我负责的」「我关注的」「动态」均可点（非永久占位） |
 | 深链 | `?taskId=` 仍打开详情；可选 `?view=following\|activity` |
 | 详情 | 负责人可改；关注人 chips + 关注/取消；评论列表+输入；活动流 |
-| `-web` 临时 | API 未就绪时 store 用 localStorage 覆盖协作数据；integrate 删除 |
+| 真源 | 关注/评论/动态/指派仅走 API；不使用 localStorage 覆盖 |
 
 ## curl 示例
 

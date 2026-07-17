@@ -116,7 +116,7 @@ web/src/
 | Main | 中栏：按导航切换列表/动态；根任务列表（勾选、截止、子任务进度）；**右侧详情面板** |
 | 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动 |
 | 深链 | `?taskId=` 打开详情；`?view=following\|activity` 切换导航 |
-| 数据 | `stores/tasks` → `api/app/task`；collab `-web` 暂用 localStorage，integrate 删除 |
+| 数据 | `stores/tasks` → `api/app/task`；详情与协作均无 localStorage 真源 |
 | 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md) |
 | 非目标（近端） | 清单容器、看板、自定义字段、仪表盘 |
 

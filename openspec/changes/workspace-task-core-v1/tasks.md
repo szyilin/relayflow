@@ -70,8 +70,8 @@
 
 ## 6. workspace-task-collab-integrate（P1 · 联调）
 
-- [ ] 6.1 去临时数据；联调关注/评论/动态/指派与 Bot
-- [ ] 6.2 构建验证；看板归档；母 change 勾选完成
+- [x] 6.1 去临时数据；联调关注/评论/动态/指派与 Bot
+- [x] 6.2 构建验证；看板归档；母 change 勾选完成
 - [ ] 6.3 （可选）`openspec archive` 或 sync specs
 
 ---
