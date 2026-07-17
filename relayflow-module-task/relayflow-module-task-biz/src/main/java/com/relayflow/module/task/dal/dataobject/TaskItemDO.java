@@ -50,6 +50,9 @@ public class TaskItemDO extends TenantBaseDO {
     @TableField("parent_id")
     private Long parentId;
 
+    @TableField("list_id")
+    private Long listId;
+
     @TableField("status")
     private String status;
 }

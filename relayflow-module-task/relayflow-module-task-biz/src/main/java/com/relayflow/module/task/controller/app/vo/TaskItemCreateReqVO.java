@@ -19,4 +19,7 @@ public class TaskItemCreateReqVO {
 
     /** Relative to dueTime; null = system window; 0 = no explicit offset remind. */
     private Integer remindBeforeMinutes;
+
+    /** Optional task list affiliation. */
+    private Long listId;
 }

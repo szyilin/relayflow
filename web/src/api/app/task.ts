@@ -11,6 +11,7 @@ export interface TaskItem {
   remindBeforeMinutes?: number | null
   description?: string | null
   parentId?: string | null
+  listId?: string | null
   assigneeId?: string | null
   creatorId?: string | null
   createTime: string
@@ -33,7 +34,13 @@ export type TaskDetailUpdatePayload = {
 }
 
 function normalizeTaskItem(
-  item: TaskItem & { id?: string | number, parentId?: string | number | null, assigneeId?: string | number | null, creatorId?: string | number | null }
+  item: TaskItem & {
+    id?: string | number
+    parentId?: string | number | null
+    listId?: string | number | null
+    assigneeId?: string | number | null
+    creatorId?: string | number | null
+  }
 ): TaskItem {
   return {
     id: String(item.id),
@@ -44,6 +51,7 @@ function normalizeTaskItem(
     remindBeforeMinutes: item.remindBeforeMinutes ?? null,
     description: item.description ?? null,
     parentId: item.parentId != null && item.parentId !== '' ? String(item.parentId) : null,
+    listId: item.listId != null && item.listId !== '' ? String(item.listId) : null,
     assigneeId: item.assigneeId != null ? String(item.assigneeId) : null,
     creatorId: item.creatorId != null ? String(item.creatorId) : null,
     createTime: item.createTime,
@@ -59,6 +67,7 @@ export async function getTaskPage(params?: {
   pageSize?: number
   status?: TaskItemStatus
   scope?: TaskPageScope
+  listId?: string
 }): Promise<TaskPageResult> {
   const data = await get<TaskPageResult>('/app-api/task/item/page', { params })
   return {
@@ -77,6 +86,7 @@ export async function createTask(payload: {
   dueTime?: string | null
   startTime?: string | null
   remindBeforeMinutes?: number | null
+  listId?: string | null
 }): Promise<string> {
   const id = await post<number | string>('/app-api/task/item/create', payload)
   return String(id)
