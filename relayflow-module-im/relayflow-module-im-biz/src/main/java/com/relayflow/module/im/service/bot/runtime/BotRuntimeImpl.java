@@ -1,19 +1,24 @@
 package com.relayflow.module.im.service.bot.runtime;
 
 import com.relayflow.module.im.enums.ImBotHandlerKind;
-import com.relayflow.module.im.service.message.BotReplyService;
-import lombok.RequiredArgsConstructor;
+import com.relayflow.module.im.service.message.ImMessageService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class BotRuntimeImpl implements BotRuntime {
 
     private final BotPlatformHandlerRegistry platformHandlerRegistry;
-    private final BotReplyService botReplyService;
+    private final ImMessageService messageService;
+
+    public BotRuntimeImpl(BotPlatformHandlerRegistry platformHandlerRegistry,
+                          @Lazy ImMessageService messageService) {
+        this.platformHandlerRegistry = platformHandlerRegistry;
+        this.messageService = messageService;
+    }
 
     @Override
     public void dispatch(BotInboundContext context) {
@@ -57,7 +62,7 @@ public class BotRuntimeImpl implements BotRuntime {
         if (reply == null || !reply.hasText()) {
             return;
         }
-        botReplyService.sendBotReply(
+        messageService.sendBotReply(
                 context.getTenantId(),
                 context.getConversationId(),
                 context.getBotId(),
