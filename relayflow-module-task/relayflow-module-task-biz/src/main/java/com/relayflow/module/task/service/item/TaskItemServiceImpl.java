@@ -18,6 +18,7 @@ import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskActivityType;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskItemMapper taskItemMapper;
     private final TaskDueNotifyService taskDueNotifyService;
     private final TaskAccessService taskAccessService;
+    private final TaskListAccessService taskListAccessService;
     private final TaskActivityRecorder taskActivityRecorder;
 
     @Override
@@ -48,6 +50,9 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     private PageResult<TaskItemRespVO> pageMyTasks(Long userId, TaskItemPageReqVO request) {
+        if (request.getListId() != null) {
+            return pageListTasks(userId, request);
+        }
         String status = normalizeStatusFilter(request.getStatus());
         boolean byCreator = "CREATOR".equalsIgnoreCase(
                 request.getScope() == null ? "" : request.getScope().trim());
@@ -60,6 +65,21 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByDesc(TaskItemDO::getCreateTime));
         taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
+        List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
+        fillSubtaskCounts(list);
+        return PageResult.of(list, page.getTotal());
+    }
+
+    private PageResult<TaskItemRespVO> pageListTasks(Long userId, TaskItemPageReqVO request) {
+        taskListAccessService.requireReadable(request.getListId(), userId);
+        String status = normalizeStatusFilter(request.getStatus());
+        Page<TaskItemDO> page = taskItemMapper.selectPage(
+                new Page<>(request.getPageNo(), request.getPageSize()),
+                Wrappers.<TaskItemDO>lambdaQuery()
+                        .eq(TaskItemDO::getListId, request.getListId())
+                        .isNull(TaskItemDO::getParentId)
+                        .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
+                        .orderByDesc(TaskItemDO::getCreateTime));
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
         return PageResult.of(list, page.getTotal());
@@ -144,6 +164,10 @@ public class TaskItemServiceImpl implements TaskItemService {
     private Long createRootTask(Long userId, Long tenantId, TaskItemCreateReqVO request) {
         String title = request.getTitle().trim();
         OffsetDateTime now = OffsetDateTime.now();
+        Long listId = request.getListId();
+        if (listId != null) {
+            taskListAccessService.requireCanMutateTasks(listId, userId);
+        }
 
         TaskItemDO row = new TaskItemDO();
         row.setTenantId(tenantId);
@@ -154,6 +178,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setDueTime(request.getDueTime());
         row.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         row.setParentId(null);
+        row.setListId(listId);
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);
         row.setCreateTime(now);
@@ -272,6 +297,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setAssigneeId(userId);
         row.setCreatorId(userId);
         row.setParentId(parent.getId());
+        row.setListId(parent.getListId());
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);
         row.setCreateTime(now);

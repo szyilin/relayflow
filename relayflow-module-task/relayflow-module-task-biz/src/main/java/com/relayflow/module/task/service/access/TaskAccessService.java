@@ -4,17 +4,19 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.module.task.dal.dataobject.TaskFollowerDO;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
+import com.relayflow.module.task.dal.dataobject.TaskListMemberDO;
 import com.relayflow.module.task.dal.mapper.TaskFollowerMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
+import com.relayflow.module.task.enums.TaskListRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
 /**
- * Task visibility: assignee / creator / follower may read;
- * assignee / creator may edit core fields and assign.
+ * Task visibility: assignee / creator / follower / list member may read;
+ * assignee / creator / list OWNER|EDITOR may edit core fields.
  */
 @Service
 @RequiredArgsConstructor
@@ -22,6 +24,7 @@ public class TaskAccessService {
 
     private final TaskItemMapper taskItemMapper;
     private final TaskFollowerMapper taskFollowerMapper;
+    private final TaskListAccessService taskListAccessService;
 
     public TaskItemDO requireTask(Long id) {
         TaskItemDO row = taskItemMapper.selectById(id);
@@ -48,12 +51,17 @@ public class TaskAccessService {
     }
 
     public boolean canAccess(TaskItemDO row, Long userId) {
-        return canEdit(row, userId) || isFollower(row.getId(), userId);
+        return canEdit(row, userId)
+                || isFollower(row.getId(), userId)
+                || isListMember(row.getListId(), userId);
     }
 
     public boolean canEdit(TaskItemDO row, Long userId) {
-        return Objects.equals(row.getAssigneeId(), userId)
-                || Objects.equals(row.getCreatorId(), userId);
+        if (Objects.equals(row.getAssigneeId(), userId)
+                || Objects.equals(row.getCreatorId(), userId)) {
+            return true;
+        }
+        return canMutateViaList(row.getListId(), userId);
     }
 
     public boolean isFollower(Long taskId, Long userId) {
@@ -64,5 +72,14 @@ public class TaskAccessService {
                 Wrappers.<TaskFollowerDO>lambdaQuery()
                         .eq(TaskFollowerDO::getTaskId, taskId)
                         .eq(TaskFollowerDO::getUserId, userId)) > 0;
+    }
+
+    private boolean isListMember(Long listId, Long userId) {
+        return taskListAccessService.findMembership(listId, userId) != null;
+    }
+
+    private boolean canMutateViaList(Long listId, Long userId) {
+        TaskListMemberDO member = taskListAccessService.findMembership(listId, userId);
+        return member != null && TaskListRole.canMutateTasks(member.getRole());
     }
 }

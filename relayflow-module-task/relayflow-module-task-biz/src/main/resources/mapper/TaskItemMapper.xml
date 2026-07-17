@@ -15,6 +15,11 @@
         <result column="assignee_id" property="assigneeId" />
         <result column="creator_id" property="creatorId" />
         <result column="due_time" property="dueTime" />
+        <result column="start_time" property="startTime" />
+        <result column="description" property="description" />
+        <result column="remind_before_minutes" property="remindBeforeMinutes" />
+        <result column="parent_id" property="parentId" />
+        <result column="list_id" property="listId" />
         <result column="status" property="status" />
     </resultMap>
 
@@ -27,7 +32,8 @@
         updater,
         update_time,
         deleted,
-        title, assignee_id, creator_id, due_time, status
+        title, assignee_id, creator_id, due_time, start_time, description,
+        remind_before_minutes, parent_id, list_id, status
     </sql>
 
 </mapper>

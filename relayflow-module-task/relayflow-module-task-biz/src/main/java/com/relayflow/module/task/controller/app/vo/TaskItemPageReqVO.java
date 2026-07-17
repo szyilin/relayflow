@@ -18,6 +18,10 @@ public class TaskItemPageReqVO {
 
     /**
      * ASSIGNEE (default) = 我负责的；CREATOR = 我创建的。
+     * Ignored when {@code listId} is set (list member page).
      */
     private String scope;
+
+    /** When set, return root tasks of this list (member-scoped). */
+    private Long listId;
 }

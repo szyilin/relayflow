@@ -23,6 +23,8 @@ public class TaskItemRespVO {
 
     private Long parentId;
 
+    private Long listId;
+
     private Long assigneeId;
 
     private Long creatorId;

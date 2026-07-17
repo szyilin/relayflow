@@ -21,24 +21,28 @@
 **目标**：左栏清单、清单内列表、成员 UI；contract 冻结清单/成员/`listId`。  
 **范围**：`web/` + `openspec/lanes/workspace-task-list/contract.md`。
 
-- [ ] 1.1 起草 `openspec/lanes/workspace-task-list/contract.md`（list CRUD、member、item `listId`、深链）
-- [ ] 1.2 `/app/tasks` 左栏：「清单」分组 + 新建；选中清单切换中栏上下文（`?listId=`）
-- [ ] 1.3 清单中栏：根任务列表；创建默认带 `listId`；成员管理（邀请/角色展示）；store 临时数据可
-- [ ] 1.4 个人入口行为保持；详情 slideover 复用
-- [ ] 1.5 `cd web && pnpm build && pnpm typecheck`；浏览器路径写明
+- [x] 1.1 起草 `openspec/lanes/workspace-task-list/contract.md`（list CRUD、member、item `listId`、深链）
+- [x] 1.2 `/app/tasks` 左栏：「清单」分组 + 新建；选中清单切换中栏上下文（`?listId=`）
+- [x] 1.3 清单中栏：根任务列表；创建默认带 `listId`；成员管理（邀请/角色展示）；store 临时数据可
+- [x] 1.4 个人入口行为保持；详情 slideover 复用
+- [x] 1.5 `cd web && pnpm build && pnpm typecheck`；浏览器路径写明
 
 **完成后**：看板 list → `ui_ready`。
+
+**浏览器验证**：`/app/login` → `/app/tasks` → 左栏「清单」点种子/新建 → 中栏建任务 →「成员」邀请 → `?listId=` 深链；个人入口仍可用。
 
 ---
 
 ## 2. workspace-task-list-api（P0 · 后端第二步）
 
-- [ ] 2.1 Flyway：`task_list`、`task_list_member`；`task_item.list_id` 可空 + 索引（序号以当时最大 Flyway 为准）
-- [ ] 2.2 codegen diff 合入 DO/Mapper；清单/成员 REST；创建清单同事务写 OWNER
-- [ ] 2.3 item create/page 支持 `listId`；权限矩阵按 design；成员校验 `system-api`；子任务继承 `list_id`
-- [ ] 2.4 `./mvnw -pl relayflow-server -am compile` + curl
+- [x] 2.1 Flyway：`task_list`、`task_list_member`；`task_item.list_id` 可空 + 索引（序号以当时最大 Flyway 为准）
+- [x] 2.2 codegen diff 合入 DO/Mapper；清单/成员 REST；创建清单同事务写 OWNER
+- [x] 2.3 item create/page 支持 `listId`；权限矩阵按 design；成员校验 `system-api`；子任务继承 `list_id`
+- [x] 2.4 `./mvnw -pl relayflow-server -am compile` + curl
 
 **完成后**：可联调 list。
+
+**验证**：`./mvnw -pl relayflow-server -am compile` 通过；Flyway `V0.1.0.25` 已 migrate；curl 需起 `relayflow-server` 后按 `openspec/lanes/workspace-task-list/contract.md` 验收。
 
 ---
 
