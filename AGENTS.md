@@ -94,7 +94,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`workspace-business-card-web` / `workspace-business-card-api`（名片已落库，可 archive）。`user-preference-integrate` 仍可做。群 Bot 子 change 可 archive。`bpm-v1` deferred。
+**下一优先**：`user-preference-integrate`（设置窗 API 已有，正式联调尚未立项）。`bpm-v1` deferred。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

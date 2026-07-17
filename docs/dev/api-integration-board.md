@@ -50,17 +50,14 @@
 | workspace-profile-card | n/a | **done** | Rail 资料名片 · 更多账号 · 设置入口 | — | [archive](../../openspec/changes/archive/2026-07-16-workspace-profile-card-web/proposal.md) |
 | workspace-settings | n/a | **ui_ready** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；待 `user-preference-integrate` |
 | user-preference | **archived** | **ui_ready** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；store 仍含 localStorage 兜底，正式联调尚未立项 |
-| workspace-business-card | **ready** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [change](../../openspec/changes/workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
+| workspace-business-card | **archived** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
+| im-self-direct-chat | **archived** | **done** | self-DIRECT · 本人名片发消息 | — | [archive](../../openspec/changes/archive/2026-07-17-im-self-direct-chat/proposal.md) |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-business-card-api** | **ready** | **done** | profile 扩展 · `contact-remark` | [contract](../../openspec/lanes/workspace-business-card/contract.md) | 与 web 同批联调；可 archive |
-| **im-bot-group-member** | **ready** | **done** | 群挂/移除 Bot · 成员列表含 Bot | [contract](../../openspec/lanes/im-group-bot/contract.md) | [change](../../openspec/changes/im-bot-group-member/proposal.md)；G1；群主侧栏添加/移除 |
-| **im-bot-runtime-platform** | **ready** | n/a | Bot Runtime SPI · noop/platform · webhook stub | — | [change](../../openspec/changes/im-bot-runtime-platform/proposal.md)；G3；Ingress 可测入口已就绪 |
-| **im-bot-group-mention** | **ready** | **done** | 群 @Bot → Ingress | [contract](../../openspec/lanes/im-group-bot-mention/contract.md) | [change](../../openspec/changes/im-bot-group-mention/proposal.md)；G2；事务提交后 best-effort |
-| **im-bot-interactive-card** | **ready** | **done** | card 发送 · `/app-api/im/card/action` · `/app/messages` | [contract](../../openspec/lanes/im-interactive-card/contract.md) | [change](../../openspec/changes/im-bot-interactive-card/proposal.md)；见 [约定](im-bot-interactive-card.md)；邀请卡 `system.member.invite.accept` |
+| （无） | — | — | — | — | 群 Bot / card / 名片等已归档；见下方建议下一切片 |
 
 ### 建议下一切片（尚未立项）
 
@@ -78,10 +75,10 @@
 
 ```text
 1. 产方迁移：invite ✅ / task-due ✅
-2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅（可 archive）
+2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅
 3. workspace-profile-card-web / workspace-settings-web / user-preference-api ✅
-4. workspace-business-card-web（当前）→ `-api` → integrate
-5. user-preference-integrate（建议并行或随后）
+4. workspace-business-card-web / -api / im-self-direct-chat ✅
+5. user-preference-integrate（建议下一）
 6. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
