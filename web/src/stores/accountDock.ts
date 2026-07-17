@@ -1,3 +1,14 @@
+/**
+ * Multi-account dock (本机已登录会话列表).
+ *
+ * V1 persists bearer tokens in localStorage (`relayflow:account-dock`) so users can
+ * one-click switch accounts. XSS can read every docked JWT — threat model and target
+ * hardening (httpOnly / opaque session) are documented in
+ * docs/dev/workspace-ui-patterns.md § Account Dock.
+ *
+ * Same-user cross-tenant switch MUST go through auth.switchTenant (API), not by
+ * trusting a copied token alone — see auth.switchToDockEntry.
+ */
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { TenantSummary } from '../api/app/tenant'
@@ -12,6 +23,7 @@ export interface AccountDockEntry {
   avatar?: string
   tenantId: string
   tenantName: string
+  /** V1: bearer for cross-user restore; same-user tenant switch refreshes via API. */
   token: string
   isAdmin?: boolean
 }

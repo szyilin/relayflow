@@ -23,23 +23,22 @@ import CalendarEventEditor from '../../../components/workspace/CalendarEventEdit
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import type { CalendarEvent, CalendarItem } from '../../../api/app/calendar'
 import { eventKey } from '../../../api/app/calendar'
-import type { TaskItem } from '../../../api/app/task'
+import {
+  HOUR_END,
+  HOUR_HEIGHT,
+  HOUR_START,
+  RESIZE_HANDLE_HEIGHT,
+  TASK_LAYER_COLOR,
+  type CalendarViewMode
+} from '../../../composables/calendar/constants'
+import { useCalendarDrag } from '../../../composables/calendar/useCalendarDrag'
+import { useCalendarTaskLayer } from '../../../composables/calendar/useCalendarTaskLayer'
+import { useCalendarTimedGrid } from '../../../composables/calendar/useCalendarTimedGrid'
 import { useAuthStore } from '../../../stores/auth'
 import { useCalendarStore } from '../../../stores/calendar'
 import { useContactsStore } from '../../../stores/contacts'
 import { useTasksStore } from '../../../stores/tasks'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
-
-type ViewMode = 'day' | 'week' | 'month'
-
-const HOUR_START = 0
-const HOUR_END = 24
-const HOUR_HEIGHT = 48
-const DRAG_THRESHOLD = 4
-const RESIZE_HANDLE_HEIGHT = 6
-/** Fixed amber for task projections — distinct from calendar event colors. */
-const TASK_LAYER_COLOR = '#D97706'
-const TASK_BLOCK_MINUTES = 30
 
 const route = useRoute()
 const router = useRouter()
@@ -53,7 +52,7 @@ const toast = useToast()
 /** Session toggle; seeded from preference.showTaskLayer on enter. */
 const taskLayerVisible = ref(true)
 
-const viewMode = ref<ViewMode>('week')
+const viewMode = ref<CalendarViewMode>('week')
 const anchorDate = ref(startOfDay(new Date()))
 const nowTick = ref(new Date())
 let nowTimer: ReturnType<typeof setInterval> | undefined
@@ -77,26 +76,6 @@ const shareModalOpen = ref(false)
 const shareCalendar = ref<CalendarItem | null>(null)
 const shareMemberKeyword = ref('')
 const shareSubmitting = ref(false)
-
-interface ActiveDrag {
-  event: CalendarEvent
-  day: Date
-  columnEl: HTMLElement
-  mode: 'move' | 'resize'
-  pointerId: number
-  startClientY: number
-  startClientX: number
-  /** Cursor minutes minus event-start minutes at grab (move mode). */
-  grabOffsetMinutes: number
-  originStart: Date
-  originEnd: Date
-  moved: boolean
-  previewStart: Date
-  previewEnd: Date
-}
-
-const activeDrag = ref<ActiveDrag | null>(null)
-const suppressClick = ref(false)
 
 const weekStartsOn = computed(() =>
   (preference.calendar.weekStartsOn === 1 ? 1 : 0) as 0 | 1)
@@ -129,9 +108,6 @@ const daysInView = computed(() =>
     start: rangeStart.value,
     end: addDays(rangeEnd.value, -1)
   }))
-
-const hours = computed(() =>
-  Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i))
 
 const headerTitle = computed(() => {
   if (viewMode.value === 'day') {
@@ -166,8 +142,50 @@ const eventsInView = computed(() =>
 
 const dimPast = computed(() => preference.calendar.dimPastEvents)
 
-const projectedTasks = computed(() =>
-  taskLayerVisible.value ? tasksStore.dueRangeItems : [])
+const {
+  activeDrag,
+  suppressClick,
+  canDragEvent,
+  onEventPointerDown,
+  cleanupDragListeners
+} = useCalendarDrag({
+  viewMode,
+  daysInView,
+  rescheduleEvent: payload => calendarStore.rescheduleEvent(payload),
+  onError: (message) => {
+    toast.add({ title: message, color: 'error' })
+  }
+})
+
+const {
+  hours,
+  eventTimes,
+  isDraggedEvent,
+  timedLayout,
+  allDayEventsForDay,
+  timedEventsForDay,
+  monthEventsForDay,
+  nowLineByDay,
+  nowLineLabel,
+  nowLineTopPx
+} = useCalendarTimedGrid({
+  viewMode,
+  daysInView,
+  eventsInView,
+  nowTick,
+  activeDrag
+})
+
+const {
+  taskProjectionStyle,
+  openProjectedTask,
+  tasksForDay,
+  monthTasksForDay,
+  timedTaskLayout
+} = useCalendarTaskLayer({
+  taskLayerVisible,
+  dueRangeItems: computed(() => tasksStore.dueRangeItems)
+})
 
 function isPast(event: CalendarEvent): boolean {
   return isBefore(parseISO(event.endTime), nowTick.value)
@@ -183,344 +201,6 @@ function eventStyle(event: CalendarEvent): Record<string, string> {
     opacity
   }
 }
-
-function taskProjectionStyle(): Record<string, string> {
-  return {
-    backgroundColor: `${TASK_LAYER_COLOR}18`,
-    borderLeft: `3px dashed ${TASK_LAYER_COLOR}`,
-    color: TASK_LAYER_COLOR
-  }
-}
-
-function openProjectedTask(task: TaskItem) {
-  void router.push({ path: '/app/tasks', query: { taskId: task.id } })
-}
-
-function eventTimes(event: CalendarEvent): { start: Date, end: Date } {
-  const drag = activeDrag.value
-  if (drag && event.id === drag.event.id) {
-    // Non-recurring: one row per id. Recurring: keep matching the dragged occurrence.
-    const sameOccurrence = !drag.event.recurring
-      || eventKey(event) === eventKey(drag.event)
-      || (event.instanceStart ?? event.startTime) === (drag.event.instanceStart ?? drag.event.startTime)
-    if (sameOccurrence) {
-      return { start: drag.previewStart, end: drag.previewEnd }
-    }
-  }
-  return { start: parseISO(event.startTime), end: parseISO(event.endTime) }
-}
-
-function canDragEvent(event: CalendarEvent): boolean {
-  return viewMode.value !== 'month'
-    && event.viewerRole === 'ORGANIZER'
-    && !event.allDay
-}
-
-function isDraggedEvent(event: CalendarEvent): boolean {
-  const drag = activeDrag.value
-  if (!drag || event.id !== drag.event.id) {
-    return false
-  }
-  if (!drag.event.recurring) {
-    return true
-  }
-  return eventKey(event) === eventKey(drag.event)
-    || (event.instanceStart ?? event.startTime) === (drag.event.instanceStart ?? drag.event.startTime)
-}
-
-function rawMinutesFromClientY(clientY: number, columnEl: HTMLElement): number {
-  const rect = columnEl.getBoundingClientRect()
-  const relY = clientY - rect.top
-  return (relY / HOUR_HEIGHT) * 60 + HOUR_START * 60
-}
-
-function snapMinutes(minutes: number): number {
-  const max = (HOUR_END - HOUR_START) * 60
-  return Math.round(Math.max(0, Math.min(max, minutes)) / 15) * 15
-}
-
-function minutesFromClientY(clientY: number, columnEl: HTMLElement): number {
-  return snapMinutes(rawMinutesFromClientY(clientY, columnEl))
-}
-
-function setDragUiLock(locked: boolean) {
-  const root = document.documentElement
-  if (locked) {
-    root.classList.add('select-none')
-    root.style.cursor = 'grabbing'
-  } else {
-    root.classList.remove('select-none')
-    root.style.cursor = ''
-  }
-}
-
-function dateWithMinutes(day: Date, minutes: number): Date {
-  const d = startOfDay(day)
-  d.setMinutes(minutes)
-  return d
-}
-
-function resolveColumnEl(clientX: number): HTMLElement | null {
-  const columns = document.querySelectorAll('[data-cal-day-column]')
-  for (const col of columns) {
-    const rect = col.getBoundingClientRect()
-    if (clientX >= rect.left && clientX <= rect.right) {
-      return col as HTMLElement
-    }
-  }
-  return null
-}
-
-function resolveDayIndex(clientX: number): number {
-  const columns = document.querySelectorAll('[data-cal-day-column]')
-  for (let i = 0; i < columns.length; i++) {
-    const rect = columns[i]!.getBoundingClientRect()
-    if (clientX >= rect.left && clientX <= rect.right) {
-      return i
-    }
-  }
-  return -1
-}
-
-function cleanupDragListeners() {
-  document.removeEventListener('pointermove', onDocumentPointerMove)
-  document.removeEventListener('pointerup', onDocumentPointerUp)
-  document.removeEventListener('selectstart', preventSelectDuringDrag)
-  setDragUiLock(false)
-}
-
-function preventSelectDuringDrag(e: Event) {
-  e.preventDefault()
-}
-
-function onDocumentPointerMove(e: PointerEvent) {
-  const drag = activeDrag.value
-  if (!drag || e.pointerId !== drag.pointerId) {
-    return
-  }
-  e.preventDefault()
-  const dx = Math.abs(e.clientX - drag.startClientX)
-  const dy = Math.abs(e.clientY - drag.startClientY)
-  if (!drag.moved && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) {
-    return
-  }
-  if (!drag.moved) {
-    drag.moved = true
-    setDragUiLock(true)
-  }
-
-  const column = resolveColumnEl(e.clientX) ?? drag.columnEl
-  const dayIndex = resolveDayIndex(e.clientX)
-  const targetDay = dayIndex >= 0 ? daysInView.value[dayIndex]! : drag.day
-
-  if (drag.mode === 'resize') {
-    const endMinutes = minutesFromClientY(e.clientY, column)
-    const startMinutes = drag.previewStart.getHours() * 60 + drag.previewStart.getMinutes()
-    drag.previewEnd = dateWithMinutes(targetDay, Math.max(startMinutes + 15, endMinutes))
-  } else {
-    const duration = drag.originEnd.getTime() - drag.originStart.getTime()
-    // Preserve grab point inside the block (avoid jumping top to cursor).
-    const startMinutes = snapMinutes(rawMinutesFromClientY(e.clientY, column) - drag.grabOffsetMinutes)
-    drag.previewStart = dateWithMinutes(targetDay, startMinutes)
-    drag.previewEnd = new Date(drag.previewStart.getTime() + duration)
-    drag.day = targetDay
-  }
-}
-
-async function onDocumentPointerUp(e: PointerEvent) {
-  const drag = activeDrag.value
-  if (!drag || e.pointerId !== drag.pointerId) {
-    return
-  }
-  cleanupDragListeners()
-
-  if (drag.moved) {
-    suppressClick.value = true
-    // Keep preview until store refresh finishes so the block does not snap back.
-    try {
-      await calendarStore.rescheduleEvent({
-        id: drag.event.id,
-        startTime: formatISO(drag.previewStart),
-        endTime: formatISO(drag.previewEnd),
-        editScope: drag.event.recurring ? 'THIS' : undefined,
-        instanceStart: drag.event.recurring
-          ? (drag.event.instanceStart ?? drag.event.startTime)
-          : undefined
-      })
-    } catch (error) {
-      toast.add({
-        title: error instanceof Error ? error.message : '改期失败',
-        color: 'error'
-      })
-    }
-  }
-  activeDrag.value = null
-}
-
-function onEventPointerDown(
-  e: PointerEvent,
-  event: CalendarEvent,
-  day: Date,
-  mode: 'move' | 'resize'
-) {
-  if (!canDragEvent(event)) {
-    return
-  }
-  // Prevent native text selection / image drag while grabbing the block.
-  e.preventDefault()
-  e.stopPropagation()
-  const column = (e.currentTarget as HTMLElement).closest('[data-cal-day-column]') as HTMLElement | null
-  if (!column) {
-    return
-  }
-  const originStart = parseISO(event.startTime)
-  const originEnd = parseISO(event.endTime)
-  const originStartMinutes = originStart.getHours() * 60 + originStart.getMinutes()
-  const grabOffsetMinutes = mode === 'move'
-    ? rawMinutesFromClientY(e.clientY, column) - originStartMinutes
-    : 0
-  activeDrag.value = {
-    event,
-    day,
-    columnEl: column,
-    mode,
-    pointerId: e.pointerId,
-    startClientY: e.clientY,
-    startClientX: e.clientX,
-    grabOffsetMinutes,
-    originStart,
-    originEnd,
-    moved: false,
-    previewStart: originStart,
-    previewEnd: originEnd
-  }
-  document.addEventListener('pointermove', onDocumentPointerMove, { passive: false })
-  document.addEventListener('pointerup', onDocumentPointerUp)
-  document.addEventListener('selectstart', preventSelectDuringDrag)
-}
-
-function timedLayout(event: CalendarEvent, day: Date): { top: string, height: string } | null {
-  if (event.allDay) {
-    return null
-  }
-  const { start, end } = eventTimes(event)
-  const dayStart = startOfDay(day)
-  const dayEnd = addDays(dayStart, 1)
-  const clippedStart = start < dayStart ? dayStart : start
-  const clippedEnd = end > dayEnd ? dayEnd : end
-  if (!(clippedEnd > clippedStart)) {
-    return null
-  }
-  const startMinutes = (clippedStart.getHours() - HOUR_START) * 60 + clippedStart.getMinutes()
-  const endMinutes = (clippedEnd.getHours() - HOUR_START) * 60 + clippedEnd.getMinutes()
-    + (clippedEnd.getTime() === dayEnd.getTime() ? (HOUR_END - HOUR_START) * 60 : 0)
-  const top = (startMinutes / 60) * HOUR_HEIGHT
-  const height = Math.max(((endMinutes - startMinutes) / 60) * HOUR_HEIGHT, 18)
-  return { top: `${top}px`, height: `${height}px` }
-}
-
-function allDayEventsForDay(day: Date): CalendarEvent[] {
-  return eventsInView.value.filter((event) => {
-    if (!event.allDay) {
-      return false
-    }
-    const start = parseISO(event.startTime)
-    const end = parseISO(event.endTime)
-    return start < addDays(day, 1) && end > day
-  })
-}
-
-function timedEventsForDay(day: Date): CalendarEvent[] {
-  return eventsInView.value.filter((event) => {
-    if (event.allDay) {
-      return false
-    }
-    // Use eventTimes so in-drag preview can land on another day column.
-    const { start, end } = eventTimes(event)
-    return start < addDays(day, 1) && end > day
-  })
-}
-
-function monthEventsForDay(day: Date): CalendarEvent[] {
-  return eventsInView.value.filter((event) => {
-    const start = parseISO(event.startTime)
-    const end = parseISO(event.endTime)
-    return start < addDays(day, 1) && end > day
-  }).slice(0, 3)
-}
-
-function tasksForDay(day: Date): TaskItem[] {
-  const dayStart = startOfDay(day)
-  const dayEnd = addDays(dayStart, 1)
-  return projectedTasks.value.filter((task) => {
-    if (!task.dueTime) {
-      return false
-    }
-    const due = parseISO(task.dueTime)
-    return due >= dayStart && due < dayEnd
-  })
-}
-
-function monthTasksForDay(day: Date): TaskItem[] {
-  return tasksForDay(day).slice(0, 3)
-}
-
-function timedTaskLayout(task: TaskItem, day: Date): { top: string, height: string } | null {
-  if (!task.dueTime) {
-    return null
-  }
-  const due = parseISO(task.dueTime)
-  if (!isSameDay(due, day)) {
-    return null
-  }
-  const startMinutes = (due.getHours() - HOUR_START) * 60 + due.getMinutes()
-  const top = (startMinutes / 60) * HOUR_HEIGHT
-  const height = Math.max((TASK_BLOCK_MINUTES / 60) * HOUR_HEIGHT, 18)
-  return { top: `${top}px`, height: `${height}px` }
-}
-
-function nowLineTop(): string | null {
-  const n = nowTick.value
-  if (viewMode.value === 'month') {
-    return null
-  }
-  const inView = daysInView.value.some(d => isSameDay(d, n))
-  if (!inView) {
-    return null
-  }
-  const minutes = (n.getHours() - HOUR_START) * 60 + n.getMinutes()
-  if (minutes < 0 || minutes > (HOUR_END - HOUR_START) * 60) {
-    return null
-  }
-  return `${(minutes / 60) * HOUR_HEIGHT}px`
-}
-
-const nowLineVisibleDayIndex = computed(() => {
-  const n = nowTick.value
-  return daysInView.value.findIndex(d => isSameDay(d, n))
-})
-
-/** 飞书式：过期日淡线 · 今日圆点 + 实线 · 未来日实线 */
-const nowLineByDay = computed(() => {
-  const top = nowLineTop()
-  const todayIdx = nowLineVisibleDayIndex.value
-  if (!top || todayIdx < 0) {
-    return daysInView.value.map(() => null as 'past' | 'today' | 'future' | null)
-  }
-  return daysInView.value.map((_, dayIndex) => {
-    if (dayIndex < todayIdx) {
-      return 'past' as const
-    }
-    if (dayIndex === todayIdx) {
-      return 'today' as const
-    }
-    return 'future' as const
-  })
-})
-
-const nowLineLabel = computed(() => format(nowTick.value, 'HH:mm'))
-
-const nowLineTopPx = computed(() => nowLineTop())
 
 async function refreshRange() {
   await calendarStore.fetchCalendars()
@@ -773,9 +453,10 @@ async function openDeepLinkedEvent() {
 }
 
 onMounted(async () => {
-  preference.hydrateFromLocal()
+  void preference.fetchFromServer().then(() => {
+    taskLayerVisible.value = preference.calendar.showTaskLayer
+  })
   taskLayerVisible.value = preference.calendar.showTaskLayer
-  void preference.fetchFromServer()
   applyDeepLink()
   try {
     await refreshRange()
@@ -1024,7 +705,7 @@ meta:
           ]"
           size="sm"
           class="w-auto"
-          @update:model-value="(v: string | number) => { viewMode = String(v) as ViewMode }"
+          @update:model-value="(v: string | number) => { viewMode = String(v) as CalendarViewMode }"
         />
         <UButton
           color="primary"

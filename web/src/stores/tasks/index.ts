@@ -24,40 +24,21 @@ import {
   type TaskDetailUpdatePayload,
   type TaskFollower,
   type TaskItem
-} from '../api/app/task'
-import { useAuthStore } from './auth'
+} from '../../api/app/task'
+import { DEFAULT_LIST_PAGE_SIZE } from '../../constants/pagination'
+import { useAuthStore } from '../auth'
+import {
+  clearLegacyTaskLocal,
+  isOverdueTask,
+  recomputeTaskProgress,
+  type TasksNavView
+} from './helpers'
+
+export type { TasksNavView } from './helpers'
 
 const DUE_RANGE_LIMIT = 200
-const LEGACY_DETAIL_LOCAL_KEY = 'relayflow-task-detail-local-v1'
-const LEGACY_COLLAB_LOCAL_KEY = 'relayflow-task-collab-local-v1'
-
-function recomputeProgress(parent: TaskItem, children: TaskItem[]): TaskItem {
-  const total = children.length
-  const done = children.filter(c => c.status === 'DONE').length
-  return {
-    ...parent,
-    subtaskTotal: total,
-    subtaskDoneCount: done
-  }
-}
-
-function clearLegacyLocal() {
-  try {
-    localStorage.removeItem(LEGACY_DETAIL_LOCAL_KEY)
-    localStorage.removeItem(LEGACY_COLLAB_LOCAL_KEY)
-  } catch {
-    // ignore
-  }
-}
-
-export type TasksNavView = 'mine' | 'done' | 'created' | 'following' | 'activity'
-
-function isOverdueTask(item: TaskItem): boolean {
-  if (item.status !== 'TODO' || !item.dueTime) {
-    return false
-  }
-  return new Date(item.dueTime).getTime() < Date.now()
-}
+/** Overdue badge via due-range [epoch, now); cap matches API limit honesty. */
+const OVERDUE_RANGE_LIMIT = 200
 
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskItem[]>([])
@@ -75,10 +56,15 @@ export const useTasksStore = defineStore('tasks', () => {
   const iAmFollowing = ref(false)
 
   const navView = ref<TasksNavView>('mine')
+  const pageNo = ref(1)
+  const pageSize = ref(DEFAULT_LIST_PAGE_SIZE)
   const followingItems = ref<TaskItem[]>([])
   const followingTotal = ref(0)
+  const followingPageNo = ref(1)
   const activityFeed = ref<TaskActivity[]>([])
   const overdueBadgeCount = ref(0)
+  /** True when overdue count may be truncated by OVERDUE_RANGE_LIMIT. */
+  const overdueBadgeCapped = ref(false)
 
   const dueRangeItems = ref<TaskItem[]>([])
   const dueRangeLoading = ref(false)
@@ -91,29 +77,62 @@ export const useTasksStore = defineStore('tasks', () => {
     return auth.userId ? String(auth.userId) : ''
   }
 
+  function resetForTenantSwitch() {
+    items.value = []
+    total.value = 0
+    pageNo.value = 1
+    selectedId.value = null
+    selectedDetail.value = null
+    selectedSubtasks.value = []
+    selectedFollowers.value = []
+    selectedComments.value = []
+    selectedActivities.value = []
+    iAmFollowing.value = false
+    navView.value = 'mine'
+    followingItems.value = []
+    followingTotal.value = 0
+    followingPageNo.value = 1
+    activityFeed.value = []
+    overdueBadgeCount.value = 0
+    overdueBadgeCapped.value = false
+    dueRangeItems.value = []
+    loading.value = false
+    saving.value = false
+    detailLoading.value = false
+    dueRangeLoading.value = false
+  }
+
+  /**
+   * Count assignee TODO with dueTime in [epoch, now) via due-range (not first list page).
+   * If result length hits the limit, badge is capped (UI may show "+").
+   */
   async function refreshOverdueBadge() {
     try {
-      const data = await getTaskPage({
-        pageNo: 1,
-        pageSize: 100,
-        status: 'TODO',
-        scope: 'ASSIGNEE'
+      const now = new Date().toISOString()
+      const list = await getTaskDueRange({
+        from: '1970-01-01T00:00:00.000Z',
+        to: now,
+        limit: OVERDUE_RANGE_LIMIT
       })
-      overdueBadgeCount.value = data.list.filter(isOverdueTask).length
+      overdueBadgeCount.value = list.length
+      overdueBadgeCapped.value = list.length >= OVERDUE_RANGE_LIMIT
     } catch {
       // keep last count
     }
   }
 
-  async function fetchMyTasks() {
+  async function fetchMyTasks(options?: { pageNo?: number }) {
     loading.value = true
-    clearLegacyLocal()
+    clearLegacyTaskLocal()
+    if (options?.pageNo !== undefined) {
+      pageNo.value = options.pageNo
+    }
     try {
       const view = navView.value
       if (view === 'done') {
         const data = await getTaskPage({
-          pageNo: 1,
-          pageSize: 100,
+          pageNo: pageNo.value,
+          pageSize: pageSize.value,
           status: 'DONE',
           scope: 'ASSIGNEE'
         })
@@ -121,36 +140,39 @@ export const useTasksStore = defineStore('tasks', () => {
         total.value = data.total
       } else if (view === 'created') {
         const data = await getTaskPage({
-          pageNo: 1,
-          pageSize: 100,
+          pageNo: pageNo.value,
+          pageSize: pageSize.value,
           scope: 'CREATOR'
         })
         items.value = data.list
         total.value = data.total
       } else {
         const data = await getTaskPage({
-          pageNo: 1,
-          pageSize: 100,
+          pageNo: pageNo.value,
+          pageSize: pageSize.value,
           status: 'TODO',
           scope: 'ASSIGNEE'
         })
         items.value = data.list
         total.value = data.total
-        overdueBadgeCount.value = data.list.filter(isOverdueTask).length
       }
-      if (view === 'done' || view === 'created') {
-        void refreshOverdueBadge()
-      }
+      void refreshOverdueBadge()
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchFollowingTasks() {
+  async function fetchFollowingTasks(options?: { pageNo?: number }) {
     loading.value = true
-    clearLegacyLocal()
+    clearLegacyTaskLocal()
+    if (options?.pageNo !== undefined) {
+      followingPageNo.value = options.pageNo
+    }
     try {
-      const data = await getFollowingTaskPage({ pageNo: 1, pageSize: 100 })
+      const data = await getFollowingTaskPage({
+        pageNo: followingPageNo.value,
+        pageSize: pageSize.value
+      })
       followingItems.value = data.list
       followingTotal.value = data.total
       void refreshOverdueBadge()
@@ -161,7 +183,7 @@ export const useTasksStore = defineStore('tasks', () => {
 
   async function fetchActivityFeed() {
     loading.value = true
-    clearLegacyLocal()
+    clearLegacyTaskLocal()
     try {
       activityFeed.value = await getTaskActivityFeed(50)
       void refreshOverdueBadge()
@@ -172,12 +194,24 @@ export const useTasksStore = defineStore('tasks', () => {
 
   async function setNavView(view: TasksNavView) {
     navView.value = view
+    pageNo.value = 1
+    followingPageNo.value = 1
     if (view === 'mine' || view === 'done' || view === 'created') {
-      await fetchMyTasks()
+      await fetchMyTasks({ pageNo: 1 })
     } else if (view === 'following') {
-      await fetchFollowingTasks()
+      await fetchFollowingTasks({ pageNo: 1 })
     } else {
       await fetchActivityFeed()
+    }
+  }
+
+  async function setListPage(nextPage: number) {
+    if (navView.value === 'following') {
+      await fetchFollowingTasks({ pageNo: nextPage })
+      return
+    }
+    if (navView.value === 'mine' || navView.value === 'done' || navView.value === 'created') {
+      await fetchMyTasks({ pageNo: nextPage })
     }
   }
 
@@ -228,7 +262,7 @@ export const useTasksStore = defineStore('tasks', () => {
         getTaskById(id),
         getTaskSubtasks(id)
       ])
-      const merged = recomputeProgress(detail, subtasks)
+      const merged = recomputeTaskProgress(detail, subtasks)
       selectedDetail.value = merged
       selectedSubtasks.value = subtasks
 
@@ -293,10 +327,10 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     patchStatus(selectedSubtasks.value)
     if (selectedId.value && selectedDetail.value && selectedSubtasks.value.some(c => c.id === id)) {
-      selectedDetail.value = recomputeProgress(selectedDetail.value, selectedSubtasks.value)
+      selectedDetail.value = recomputeTaskProgress(selectedDetail.value, selectedSubtasks.value)
       const idx = items.value.findIndex(t => t.id === selectedId.value)
       if (idx >= 0) {
-        items.value[idx] = recomputeProgress(items.value[idx]!, selectedSubtasks.value)
+        items.value[idx] = recomputeTaskProgress(items.value[idx]!, selectedSubtasks.value)
       }
     }
 
@@ -433,18 +467,24 @@ export const useTasksStore = defineStore('tasks', () => {
     selectedActivities,
     iAmFollowing,
     navView,
+    pageNo,
+    pageSize,
     followingItems,
     followingTotal,
+    followingPageNo,
     activityFeed,
     overdueBadgeCount,
+    overdueBadgeCapped,
     dueRangeItems,
     dueRangeLoading,
     todoItems,
     doneItems,
+    resetForTenantSwitch,
     fetchMyTasks,
     fetchFollowingTasks,
     fetchActivityFeed,
     setNavView,
+    setListPage,
     refreshOverdueBadge,
     fetchDueRange,
     clearDueRange,

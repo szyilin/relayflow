@@ -82,7 +82,10 @@ async function switchView(view: TasksNavView) {
     q.view = view
   }
   await router.replace({ query: q })
-  await tasksStore.setNavView(view)
+  // Route watcher also applies view; avoid double fetch when already matching
+  if (tasksStore.navView !== view) {
+    await tasksStore.setNavView(view)
+  }
 }
 
 async function applyTaskIdFromRoute() {
@@ -127,9 +130,15 @@ async function closeDetail() {
 onMounted(async () => {
   void preference.fetchFromServer()
   await applyViewFromRoute()
-  if (listNavViews.includes(tasksStore.navView)) {
-    await tasksStore.fetchMyTasks()
-  } else {
+  // First paint: applyViewFromRoute skips fetch when navView already matches query
+  if (listNavViews.includes(tasksStore.navView) && tasksStore.items.length === 0 && !tasksStore.loading) {
+    await tasksStore.fetchMyTasks({ pageNo: 1 })
+  } else if (tasksStore.navView === 'following' && tasksStore.followingItems.length === 0 && !tasksStore.loading) {
+    await tasksStore.fetchFollowingTasks({ pageNo: 1 })
+  } else if (tasksStore.navView === 'activity' && tasksStore.activityFeed.length === 0 && !tasksStore.loading) {
+    await tasksStore.fetchActivityFeed()
+  }
+  if (!listNavViews.includes(tasksStore.navView)) {
     void tasksStore.refreshOverdueBadge()
   }
   await applyTaskIdFromRoute()
@@ -172,9 +181,29 @@ function subtaskHint(task: { subtaskDoneCount?: number, subtaskTotal?: number })
   return `${task.subtaskDoneCount ?? 0}/${total}`
 }
 
-function overdueBadgeLabel(count: number): string {
+function overdueBadgeLabel(count: number, capped: boolean): string {
+  if (capped) {
+    return `${count}+`
+  }
   return count > 99 ? '99+' : String(count)
 }
+
+const listTotal = computed(() => {
+  if (tasksStore.navView === 'following') {
+    return tasksStore.followingTotal
+  }
+  return tasksStore.total
+})
+
+const listPageNo = computed(() => {
+  if (tasksStore.navView === 'following') {
+    return tasksStore.followingPageNo
+  }
+  return tasksStore.pageNo
+})
+
+const showListPagination = computed(() =>
+  tasksStore.navView !== 'activity' && listTotal.value > tasksStore.pageSize)
 
 async function handleCreate() {
   const title = createForm.title.trim()
@@ -285,7 +314,7 @@ meta:
               v-if="tasksStore.overdueBadgeCount > 0"
               class="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400"
             >
-              {{ overdueBadgeLabel(tasksStore.overdueBadgeCount) }}
+              {{ overdueBadgeLabel(tasksStore.overdueBadgeCount, tasksStore.overdueBadgeCapped) }}
             </span>
           </span>
         </button>
@@ -442,6 +471,18 @@ meta:
                 size="xs"
                 aria-label="删除"
                 @click.stop="handleDelete(task.id)"
+              />
+            </div>
+            <div
+              v-if="showListPagination"
+              class="flex items-center justify-between gap-3 pt-3 text-sm text-[var(--ws-text-muted)]"
+            >
+              <span>共 {{ listTotal }} 条</span>
+              <UPagination
+                :page="listPageNo"
+                :total="listTotal"
+                :items-per-page="tasksStore.pageSize"
+                @update:page="(p: number) => tasksStore.setListPage(p)"
               />
             </div>
           </div>

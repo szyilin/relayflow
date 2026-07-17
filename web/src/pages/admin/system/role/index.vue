@@ -5,7 +5,6 @@ import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { usePermission } from '../../../../composables/usePermission'
 import {
-  getRolePage,
   type DataScope,
   type PermissionNode,
   type RolePageItem
@@ -117,8 +116,7 @@ async function loadPage(options?: { page?: number, keyword?: string }) {
 }
 
 async function loadParentOptions() {
-  const data = await getRolePage({ pageNo: 1, pageSize: 100 })
-  parentOptions.value = data.list
+  parentOptions.value = await roleStore.fetchAllForOptions()
 }
 
 async function refreshParentPermissions(parentId: number) {

@@ -1,37 +1,20 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { getUserPreference, updateUserPreference } from '../api/app/userPreference'
+import {
+  getUserPreference,
+  updateUserPreference,
+  type CalendarPreferenceSettings,
+  type ChatBubbleLayout,
+  type TaskPreferenceSettings,
+  type ThemeMode,
+  type UserPreferenceSettings
+} from '../api/app/userPreference'
 import { useAdminColorMode } from '../composables/useAdminColorMode'
 import { useAuthStore } from './auth'
 
-export type ThemeMode = 'light' | 'dark' | 'auto'
-export type ChatBubbleLayout = 'left' | 'split'
-
-export interface CalendarPreference {
-  weekStartsOn: number
-  defaultEventDurationMinutes: number
-  defaultRemindBeforeMinutes: number
-  allDayRemindTime: string
-  dimPastEvents: boolean
-  showTaskLayer: boolean
-}
-
-export interface TaskPreference {
-  /** -1 = 系统窗口不预填；0 = 不提醒；>0 = 截止前 N 分钟 */
-  defaultRemindBeforeMinutes: number
-}
-
-export interface UserPreferenceSettings {
-  general: {
-    themeMode: ThemeMode
-    themeColor: string
-  }
-  im: {
-    chatBubbleLayout: ChatBubbleLayout
-  }
-  calendar: CalendarPreference
-  task: TaskPreference
-}
+export type { ThemeMode, ChatBubbleLayout, UserPreferenceSettings }
+export type CalendarPreference = CalendarPreferenceSettings
+export type TaskPreference = TaskPreferenceSettings
 
 export const USER_PREFERENCE_SCHEMA_VERSION = 1
 
@@ -58,7 +41,9 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
 
 export const THEME_COLOR_OPTIONS = ['teal', 'green', 'cyan', 'blue', 'emerald', 'sky'] as const
 
-const STORAGE_KEY = 'relayflow-user-preference-local-v1'
+function cacheKey(tenantId: string, userId: string) {
+  return `relayflow-user-preference-v2:${tenantId}:${userId}`
+}
 
 function deepMergeSettings(
   base: UserPreferenceSettings,
@@ -89,24 +74,33 @@ function deepMergeSettings(
   }
 }
 
-function readLocal(): UserPreferenceSettings {
+function readCache(tenantId: string, userId: string): UserPreferenceSettings | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(cacheKey(tenantId, userId))
     if (!raw) {
-      return structuredClone(DEFAULT_USER_PREFERENCE)
+      return null
     }
     const parsed = JSON.parse(raw) as Partial<UserPreferenceSettings>
     return deepMergeSettings(DEFAULT_USER_PREFERENCE, parsed)
   } catch {
-    return structuredClone(DEFAULT_USER_PREFERENCE)
+    return null
+  }
+}
+
+function writeCache(tenantId: string, userId: string, settings: UserPreferenceSettings) {
+  try {
+    localStorage.setItem(cacheKey(tenantId, userId), JSON.stringify(settings))
+  } catch {
+    // ignore quota / private mode
   }
 }
 
 export const useUserPreferenceStore = defineStore('userPreference', () => {
-  const settings = ref<UserPreferenceSettings>(readLocal())
+  const settings = ref<UserPreferenceSettings>(structuredClone(DEFAULT_USER_PREFERENCE))
   const schemaVersion = ref(USER_PREFERENCE_SCHEMA_VERSION)
   const hydrated = ref(false)
   const syncing = ref(false)
+  const lastSyncError = ref<string | null>(null)
 
   const themeMode = computed(() => settings.value.general.themeMode)
   const themeColor = computed(() => settings.value.general.themeColor)
@@ -114,8 +108,20 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
   const calendar = computed(() => settings.value.calendar)
   const task = computed(() => settings.value.task)
 
-  function persistLocal() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings.value))
+  function authScope(): { tenantId: string, userId: string } | null {
+    const auth = useAuthStore()
+    if (!auth.isAuthenticated || auth.tenantId == null || auth.userId == null) {
+      return null
+    }
+    return { tenantId: String(auth.tenantId), userId: String(auth.userId) }
+  }
+
+  function persistCache() {
+    const scope = authScope()
+    if (!scope) {
+      return
+    }
+    writeCache(scope.tenantId, scope.userId, settings.value)
   }
 
   function applyAppearance() {
@@ -125,12 +131,20 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     appConfig.ui.colors.primary = settings.value.general.themeColor
   }
 
-  async function syncToServer() {
+  function resetForTenantSwitch() {
+    settings.value = structuredClone(DEFAULT_USER_PREFERENCE)
+    schemaVersion.value = USER_PREFERENCE_SCHEMA_VERSION
+    hydrated.value = false
+    lastSyncError.value = null
+  }
+
+  async function syncToServer(): Promise<boolean> {
     const auth = useAuthStore()
     if (!auth.isAuthenticated || syncing.value) {
-      return
+      return false
     }
     syncing.value = true
+    lastSyncError.value = null
     try {
       const data = await updateUserPreference({
         schemaVersion: schemaVersion.value,
@@ -138,90 +152,101 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
       })
       settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, data.settings)
       schemaVersion.value = data.schemaVersion ?? USER_PREFERENCE_SCHEMA_VERSION
-      persistLocal()
+      persistCache()
       applyAppearance()
-    } catch {
-      // keep local optimistic state; API may be down during -web only
+      return true
+    } catch (error) {
+      lastSyncError.value = error instanceof Error ? error.message : '同步偏好失败'
+      return false
     } finally {
       syncing.value = false
     }
   }
 
-  function hydrateFromLocal() {
-    settings.value = readLocal()
-    applyAppearance()
-    hydrated.value = true
-  }
-
   async function fetchFromServer() {
-    const auth = useAuthStore()
-    if (!auth.isAuthenticated) {
-      hydrateFromLocal()
+    const scope = authScope()
+    if (!scope) {
+      settings.value = structuredClone(DEFAULT_USER_PREFERENCE)
+      applyAppearance()
+      hydrated.value = true
       return
     }
+
+    const cached = readCache(scope.tenantId, scope.userId)
+    if (cached) {
+      settings.value = cached
+      applyAppearance()
+    }
+
     try {
       const data = await getUserPreference()
       settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, data.settings)
       schemaVersion.value = data.schemaVersion ?? USER_PREFERENCE_SCHEMA_VERSION
-      persistLocal()
+      persistCache()
       applyAppearance()
       hydrated.value = true
-    } catch {
-      hydrateFromLocal()
+      lastSyncError.value = null
+    } catch (error) {
+      if (!cached) {
+        settings.value = structuredClone(DEFAULT_USER_PREFERENCE)
+        applyAppearance()
+      }
+      hydrated.value = true
+      lastSyncError.value = error instanceof Error ? error.message : '加载偏好失败'
     }
   }
 
-  function setThemeMode(mode: ThemeMode) {
+  async function setThemeMode(mode: ThemeMode): Promise<boolean> {
     settings.value = {
       ...settings.value,
       general: { ...settings.value.general, themeMode: mode }
     }
-    persistLocal()
+    persistCache()
     applyAppearance()
-    void syncToServer()
+    return syncToServer()
   }
 
-  function setThemeColor(color: string) {
+  async function setThemeColor(color: string): Promise<boolean> {
     settings.value = {
       ...settings.value,
       general: { ...settings.value.general, themeColor: color }
     }
-    persistLocal()
+    persistCache()
     applyAppearance()
-    void syncToServer()
+    return syncToServer()
   }
 
-  function setChatBubbleLayout(layout: ChatBubbleLayout) {
+  async function setChatBubbleLayout(layout: ChatBubbleLayout): Promise<boolean> {
     settings.value = {
       ...settings.value,
       im: { ...settings.value.im, chatBubbleLayout: layout }
     }
-    persistLocal()
-    void syncToServer()
+    persistCache()
+    return syncToServer()
   }
 
-  function patchCalendar(patch: Partial<CalendarPreference>) {
+  async function patchCalendar(patch: Partial<CalendarPreferenceSettings>): Promise<boolean> {
     settings.value = {
       ...settings.value,
       calendar: { ...settings.value.calendar, ...patch }
     }
-    persistLocal()
-    void syncToServer()
+    persistCache()
+    return syncToServer()
   }
 
-  function patchTask(patch: Partial<TaskPreference>) {
+  async function patchTask(patch: Partial<TaskPreferenceSettings>): Promise<boolean> {
     settings.value = {
       ...settings.value,
       task: { ...settings.value.task, ...patch }
     }
-    persistLocal()
-    void syncToServer()
+    persistCache()
+    return syncToServer()
   }
 
   function replaceSettings(next: UserPreferenceSettings, version = USER_PREFERENCE_SCHEMA_VERSION) {
     settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, next)
     schemaVersion.value = version
-    persistLocal()
+    persistCache()
     applyAppearance()
   }
 
@@ -230,12 +255,13 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     schemaVersion,
     hydrated,
     syncing,
+    lastSyncError,
     themeMode,
     themeColor,
     chatBubbleLayout,
     calendar,
     task,
-    hydrateFromLocal,
+    resetForTenantSwitch,
     fetchFromServer,
     applyAppearance,
     setThemeMode,

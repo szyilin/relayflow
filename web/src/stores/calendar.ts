@@ -112,6 +112,15 @@ export const useCalendarStore = defineStore('calendar', () => {
     })
   })
 
+  function resetForTenantSwitch() {
+    calendars.value = []
+    events.value = []
+    shares.value = []
+    visibleCalendarIds.value = []
+    loading.value = false
+    lastRange.value = null
+  }
+
   function persistVisible() {
     localStorage.setItem(VISIBLE_KEY, JSON.stringify(visibleCalendarIds.value))
   }
@@ -369,6 +378,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     sharedCalendars,
     primaryCalendar,
     visibleEvents,
+    resetForTenantSwitch,
     fetchCalendars,
     fetchShares,
     createShare,

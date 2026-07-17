@@ -4,13 +4,14 @@ import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { usePermission } from '../../../../composables/usePermission'
-import { getRolePage } from '../../../../api/admin/role'
 import { useDeptStore, type DeptTreeNode } from '../../../../stores/dept'
+import { useRoleStore } from '../../../../stores/role'
 import { useUserStore, type UserListRecord } from '../../../../stores/user'
 
 const toast = useToast()
 const userStore = useUserStore()
 const deptStore = useDeptStore()
+const roleStore = useRoleStore()
 const { hasPermission } = usePermission()
 
 const editOpen = ref(false)
@@ -93,8 +94,8 @@ async function loadPage(options?: { page?: number, keyword?: string, deptId?: st
 async function loadOptions() {
   await Promise.all([
     deptStore.fetchList(),
-    getRolePage({ pageNo: 1, pageSize: 100 }).then((data) => {
-      roleOptions.value = data.list.map(item => ({
+    roleStore.fetchAllForOptions().then((roles) => {
+      roleOptions.value = roles.map(item => ({
         id: String(item.id),
         label: item.name
       }))

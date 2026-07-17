@@ -3,8 +3,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
-import { getRolePage } from '../../../../api/admin/role'
 import { useDeptStore } from '../../../../stores/dept'
+import { useRoleStore } from '../../../../stores/role'
 import { useUserStore } from '../../../../stores/user'
 import { isValidMobile, normalizeMobile } from '../../../../utils/mobile'
 
@@ -13,6 +13,7 @@ const route = useRoute()
 const toast = useToast()
 const userStore = useUserStore()
 const deptStore = useDeptStore()
+const roleStore = useRoleStore()
 
 const loading = ref(false)
 const optionsLoading = ref(false)
@@ -53,8 +54,8 @@ async function loadOptions() {
     } else {
       form.deptId = deptStore.rootDeptId() ?? undefined
     }
-    const roles = await getRolePage({ pageNo: 1, pageSize: 100 })
-    roleOptions.value = roles.list.map(item => ({
+    const roles = await roleStore.fetchAllForOptions()
+    roleOptions.value = roles.map(item => ({
       id: String(item.id),
       label: item.name
     }))
