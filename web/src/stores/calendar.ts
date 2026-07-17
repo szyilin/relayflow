@@ -61,15 +61,27 @@ function toError(error: unknown, fallback: string): Error {
   return new Error(fallback)
 }
 
+function sameInstant(a?: string | null, b?: string | null): boolean {
+  if (a == null || b == null) {
+    return a == null && b == null
+  }
+  if (a === b) {
+    return true
+  }
+  const ta = Date.parse(a)
+  const tb = Date.parse(b)
+  return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb
+}
+
 function findEventIndex(events: CalendarEvent[], id: string, instanceStart?: string): number {
   return events.findIndex((event) => {
     if (event.id !== id) {
       return false
     }
     if (instanceStart) {
-      return (event.instanceStart ?? event.startTime) === instanceStart
+      return sameInstant(event.instanceStart ?? event.startTime, instanceStart)
     }
-    return !event.instanceStart || event.instanceStart === event.startTime
+    return !event.instanceStart || sameInstant(event.instanceStart, event.startTime)
   })
 }
 
@@ -264,21 +276,30 @@ export const useCalendarStore = defineStore('calendar', () => {
   }
 
   async function rescheduleEvent(payload: CalendarEventReschedulePayload) {
-    const idx = findEventIndex(events.value, payload.id, payload.instanceStart)
+    let idx = findEventIndex(events.value, payload.id, payload.instanceStart)
+    if (idx < 0) {
+      idx = events.value.findIndex(event => event.id === payload.id)
+    }
     const previous = idx >= 0 ? { ...events.value[idx]! } : null
+    // Keep recurring instance identity (original occurrence); otherwise sync instanceStart with start.
+    const nextInstanceStart = payload.instanceStart ?? payload.startTime
     if (idx >= 0) {
-      events.value[idx] = {
+      const next = {
         ...events.value[idx]!,
         startTime: payload.startTime,
-        endTime: payload.endTime
+        endTime: payload.endTime,
+        instanceStart: nextInstanceStart
       }
+      events.value = events.value.map((event, i) => (i === idx ? next : event))
     }
     try {
       await apiRescheduleEvent(payload)
+      // Server list is source of truth (esp. RRULE exceptions / expanded instances).
+      await refreshLastRange()
       return true
     } catch (error) {
       if (previous && idx >= 0) {
-        events.value[idx] = previous
+        events.value = events.value.map((event, i) => (i === idx ? previous : event))
       } else {
         await refreshLastRange()
       }

@@ -77,6 +77,8 @@ interface ActiveDrag {
   pointerId: number
   startClientY: number
   startClientX: number
+  /** Cursor minutes minus event-start minutes at grab (move mode). */
+  grabOffsetMinutes: number
   originStart: Date
   originEnd: Date
   moved: boolean
@@ -172,8 +174,14 @@ function eventStyle(event: CalendarEvent): Record<string, string> {
 
 function eventTimes(event: CalendarEvent): { start: Date, end: Date } {
   const drag = activeDrag.value
-  if (drag && eventKey(drag.event) === eventKey(event)) {
-    return { start: drag.previewStart, end: drag.previewEnd }
+  if (drag && event.id === drag.event.id) {
+    // Non-recurring: one row per id. Recurring: keep matching the dragged occurrence.
+    const sameOccurrence = !drag.event.recurring
+      || eventKey(event) === eventKey(drag.event)
+      || (event.instanceStart ?? event.startTime) === (drag.event.instanceStart ?? drag.event.startTime)
+    if (sameOccurrence) {
+      return { start: drag.previewStart, end: drag.previewEnd }
+    }
   }
   return { start: parseISO(event.startTime), end: parseISO(event.endTime) }
 }
@@ -184,11 +192,42 @@ function canDragEvent(event: CalendarEvent): boolean {
     && !event.allDay
 }
 
-function minutesFromClientY(clientY: number, columnEl: HTMLElement): number {
+function isDraggedEvent(event: CalendarEvent): boolean {
+  const drag = activeDrag.value
+  if (!drag || event.id !== drag.event.id) {
+    return false
+  }
+  if (!drag.event.recurring) {
+    return true
+  }
+  return eventKey(event) === eventKey(drag.event)
+    || (event.instanceStart ?? event.startTime) === (drag.event.instanceStart ?? drag.event.startTime)
+}
+
+function rawMinutesFromClientY(clientY: number, columnEl: HTMLElement): number {
   const rect = columnEl.getBoundingClientRect()
   const relY = clientY - rect.top
-  const minutes = (relY / HOUR_HEIGHT) * 60 + HOUR_START * 60
-  return Math.round(Math.max(0, Math.min((HOUR_END - HOUR_START) * 60, minutes)) / 15) * 15
+  return (relY / HOUR_HEIGHT) * 60 + HOUR_START * 60
+}
+
+function snapMinutes(minutes: number): number {
+  const max = (HOUR_END - HOUR_START) * 60
+  return Math.round(Math.max(0, Math.min(max, minutes)) / 15) * 15
+}
+
+function minutesFromClientY(clientY: number, columnEl: HTMLElement): number {
+  return snapMinutes(rawMinutesFromClientY(clientY, columnEl))
+}
+
+function setDragUiLock(locked: boolean) {
+  const root = document.documentElement
+  if (locked) {
+    root.classList.add('select-none')
+    root.style.cursor = 'grabbing'
+  } else {
+    root.classList.remove('select-none')
+    root.style.cursor = ''
+  }
 }
 
 function dateWithMinutes(day: Date, minutes: number): Date {
@@ -222,6 +261,12 @@ function resolveDayIndex(clientX: number): number {
 function cleanupDragListeners() {
   document.removeEventListener('pointermove', onDocumentPointerMove)
   document.removeEventListener('pointerup', onDocumentPointerUp)
+  document.removeEventListener('selectstart', preventSelectDuringDrag)
+  setDragUiLock(false)
+}
+
+function preventSelectDuringDrag(e: Event) {
+  e.preventDefault()
 }
 
 function onDocumentPointerMove(e: PointerEvent) {
@@ -229,12 +274,16 @@ function onDocumentPointerMove(e: PointerEvent) {
   if (!drag || e.pointerId !== drag.pointerId) {
     return
   }
+  e.preventDefault()
   const dx = Math.abs(e.clientX - drag.startClientX)
   const dy = Math.abs(e.clientY - drag.startClientY)
   if (!drag.moved && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) {
     return
   }
-  drag.moved = true
+  if (!drag.moved) {
+    drag.moved = true
+    setDragUiLock(true)
+  }
 
   const column = resolveColumnEl(e.clientX) ?? drag.columnEl
   const dayIndex = resolveDayIndex(e.clientX)
@@ -246,7 +295,8 @@ function onDocumentPointerMove(e: PointerEvent) {
     drag.previewEnd = dateWithMinutes(targetDay, Math.max(startMinutes + 15, endMinutes))
   } else {
     const duration = drag.originEnd.getTime() - drag.originStart.getTime()
-    const startMinutes = minutesFromClientY(e.clientY, column)
+    // Preserve grab point inside the block (avoid jumping top to cursor).
+    const startMinutes = snapMinutes(rawMinutesFromClientY(e.clientY, column) - drag.grabOffsetMinutes)
     drag.previewStart = dateWithMinutes(targetDay, startMinutes)
     drag.previewEnd = new Date(drag.previewStart.getTime() + duration)
     drag.day = targetDay
@@ -262,6 +312,7 @@ async function onDocumentPointerUp(e: PointerEvent) {
 
   if (drag.moved) {
     suppressClick.value = true
+    // Keep preview until store refresh finishes so the block does not snap back.
     try {
       await calendarStore.rescheduleEvent({
         id: drag.event.id,
@@ -291,6 +342,8 @@ function onEventPointerDown(
   if (!canDragEvent(event)) {
     return
   }
+  // Prevent native text selection / image drag while grabbing the block.
+  e.preventDefault()
   e.stopPropagation()
   const column = (e.currentTarget as HTMLElement).closest('[data-cal-day-column]') as HTMLElement | null
   if (!column) {
@@ -298,6 +351,10 @@ function onEventPointerDown(
   }
   const originStart = parseISO(event.startTime)
   const originEnd = parseISO(event.endTime)
+  const originStartMinutes = originStart.getHours() * 60 + originStart.getMinutes()
+  const grabOffsetMinutes = mode === 'move'
+    ? rawMinutesFromClientY(e.clientY, column) - originStartMinutes
+    : 0
   activeDrag.value = {
     event,
     day,
@@ -306,14 +363,16 @@ function onEventPointerDown(
     pointerId: e.pointerId,
     startClientY: e.clientY,
     startClientX: e.clientX,
+    grabOffsetMinutes,
     originStart,
     originEnd,
     moved: false,
     previewStart: originStart,
     previewEnd: originEnd
   }
-  document.addEventListener('pointermove', onDocumentPointerMove)
+  document.addEventListener('pointermove', onDocumentPointerMove, { passive: false })
   document.addEventListener('pointerup', onDocumentPointerUp)
+  document.addEventListener('selectstart', preventSelectDuringDrag)
 }
 
 function timedLayout(event: CalendarEvent, day: Date): { top: string, height: string } | null {
@@ -352,8 +411,8 @@ function timedEventsForDay(day: Date): CalendarEvent[] {
     if (event.allDay) {
       return false
     }
-    const start = parseISO(event.startTime)
-    const end = parseISO(event.endTime)
+    // Use eventTimes so in-drag preview can land on another day column.
+    const { start, end } = eventTimes(event)
     return start < addDays(day, 1) && end > day
   })
 }
@@ -978,21 +1037,26 @@ meta:
               v-for="hour in hours"
               :key="`${day.toISOString()}-${hour}`"
               type="button"
-              class="absolute inset-x-0 border-t border-[var(--ws-border-subtle)]/70 hover:bg-primary/5"
+              class="absolute inset-x-0 border-t border-[var(--ws-border-subtle)]/70"
+              :class="activeDrag ? 'pointer-events-none' : 'hover:bg-primary/5'"
               :style="{ top: `${(hour - HOUR_START) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }"
               @click="openCreate(day, hour)"
             />
             <div
               v-for="event in timedEventsForDay(day)"
               :key="eventKey(event)"
-              class="absolute inset-x-0.5 z-10 overflow-hidden rounded px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm"
-              :class="canDragEvent(event) ? 'cursor-grab active:cursor-grabbing' : ''"
-              :style="{ ...eventStyle(event), ...timedLayout(event, day)! }"
+              class="absolute inset-x-0.5 z-10 overflow-hidden rounded px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm select-none"
+              :class="[
+                canDragEvent(event) ? 'cursor-grab active:cursor-grabbing' : '',
+                isDraggedEvent(event) && activeDrag?.moved ? 'z-30 shadow-md ring-1 ring-primary/30' : '',
+                activeDrag && !isDraggedEvent(event) ? 'pointer-events-none' : ''
+              ]"
+              :style="{ ...eventStyle(event), ...(timedLayout(event, day) ?? {}) }"
               @click.stop="handleEventClick(event)"
               @pointerdown="onEventPointerDown($event, event, day, 'move')"
             >
-              <span class="font-medium">{{ event.title }}</span>
-              <span class="mt-0.5 block opacity-80">
+              <span class="pointer-events-none font-medium">{{ event.title }}</span>
+              <span class="pointer-events-none mt-0.5 block opacity-80">
                 {{ format(eventTimes(event).start, 'HH:mm') }}
                 –
                 {{ format(eventTimes(event).end, 'HH:mm') }}
