@@ -16,4 +16,7 @@ public class TaskItemCreateReqVO {
     private OffsetDateTime startTime;
 
     private OffsetDateTime dueTime;
+
+    /** Relative to dueTime; null = system window; 0 = no explicit offset remind. */
+    private Integer remindBeforeMinutes;
 }

@@ -15,4 +15,9 @@ public class TaskItemPageReqVO {
     private Integer pageSize = 20;
 
     private String status;
+
+    /**
+     * ASSIGNEE (default) = 我负责的；CREATOR = 我创建的。
+     */
+    private String scope;
 }

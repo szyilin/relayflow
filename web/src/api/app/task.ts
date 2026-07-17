@@ -52,10 +52,13 @@ function normalizeTaskItem(
   }
 }
 
+export type TaskPageScope = 'ASSIGNEE' | 'CREATOR'
+
 export async function getTaskPage(params?: {
   pageNo?: number
   pageSize?: number
   status?: TaskItemStatus
+  scope?: TaskPageScope
 }): Promise<TaskPageResult> {
   const data = await get<TaskPageResult>('/app-api/task/item/page', { params })
   return {
@@ -73,6 +76,7 @@ export async function createTask(payload: {
   title: string
   dueTime?: string | null
   startTime?: string | null
+  remindBeforeMinutes?: number | null
 }): Promise<string> {
   const id = await post<number | string>('/app-api/task/item/create', payload)
   return String(id)

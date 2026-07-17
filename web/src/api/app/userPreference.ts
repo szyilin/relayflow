@@ -9,6 +9,11 @@ export interface CalendarPreferenceSettings {
   showTaskLayer?: boolean
 }
 
+export interface TaskPreferenceSettings {
+  /** -1 = 系统窗口不预填；0 = 不提醒；>0 = 截止前 N 分钟 */
+  defaultRemindBeforeMinutes?: number
+}
+
 export interface UserPreferenceResp {
   schemaVersion: number
   settings: {
@@ -20,6 +25,7 @@ export interface UserPreferenceResp {
       chatBubbleLayout?: 'left' | 'split'
     }
     calendar?: CalendarPreferenceSettings
+    task?: TaskPreferenceSettings
   }
 }
 

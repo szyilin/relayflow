@@ -50,7 +50,14 @@ function clearLegacyLocal() {
   }
 }
 
-export type TasksNavView = 'mine' | 'following' | 'activity'
+export type TasksNavView = 'mine' | 'done' | 'created' | 'following' | 'activity'
+
+function isOverdueTask(item: TaskItem): boolean {
+  if (item.status !== 'TODO' || !item.dueTime) {
+    return false
+  }
+  return new Date(item.dueTime).getTime() < Date.now()
+}
 
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskItem[]>([])
@@ -71,6 +78,7 @@ export const useTasksStore = defineStore('tasks', () => {
   const followingItems = ref<TaskItem[]>([])
   const followingTotal = ref(0)
   const activityFeed = ref<TaskActivity[]>([])
+  const overdueBadgeCount = ref(0)
 
   const dueRangeItems = ref<TaskItem[]>([])
   const dueRangeLoading = ref(false)
@@ -83,13 +91,56 @@ export const useTasksStore = defineStore('tasks', () => {
     return auth.userId ? String(auth.userId) : ''
   }
 
+  async function refreshOverdueBadge() {
+    try {
+      const data = await getTaskPage({
+        pageNo: 1,
+        pageSize: 100,
+        status: 'TODO',
+        scope: 'ASSIGNEE'
+      })
+      overdueBadgeCount.value = data.list.filter(isOverdueTask).length
+    } catch {
+      // keep last count
+    }
+  }
+
   async function fetchMyTasks() {
     loading.value = true
     clearLegacyLocal()
     try {
-      const data = await getTaskPage({ pageNo: 1, pageSize: 100 })
-      items.value = data.list
-      total.value = data.total
+      const view = navView.value
+      if (view === 'done') {
+        const data = await getTaskPage({
+          pageNo: 1,
+          pageSize: 100,
+          status: 'DONE',
+          scope: 'ASSIGNEE'
+        })
+        items.value = data.list
+        total.value = data.total
+      } else if (view === 'created') {
+        const data = await getTaskPage({
+          pageNo: 1,
+          pageSize: 100,
+          scope: 'CREATOR'
+        })
+        items.value = data.list
+        total.value = data.total
+      } else {
+        const data = await getTaskPage({
+          pageNo: 1,
+          pageSize: 100,
+          status: 'TODO',
+          scope: 'ASSIGNEE'
+        })
+        items.value = data.list
+        total.value = data.total
+        overdueBadgeCount.value = data.list.filter(isOverdueTask).length
+      }
+      if (view === 'done' || view === 'created') {
+        void refreshOverdueBadge()
+      }
     } finally {
       loading.value = false
     }
@@ -102,6 +153,7 @@ export const useTasksStore = defineStore('tasks', () => {
       const data = await getFollowingTaskPage({ pageNo: 1, pageSize: 100 })
       followingItems.value = data.list
       followingTotal.value = data.total
+      void refreshOverdueBadge()
     } finally {
       loading.value = false
     }
@@ -112,6 +164,7 @@ export const useTasksStore = defineStore('tasks', () => {
     clearLegacyLocal()
     try {
       activityFeed.value = await getTaskActivityFeed(50)
+      void refreshOverdueBadge()
     } finally {
       loading.value = false
     }
@@ -119,7 +172,7 @@ export const useTasksStore = defineStore('tasks', () => {
 
   async function setNavView(view: TasksNavView) {
     navView.value = view
-    if (view === 'mine') {
+    if (view === 'mine' || view === 'done' || view === 'created') {
       await fetchMyTasks()
     } else if (view === 'following') {
       await fetchFollowingTasks()
@@ -202,10 +255,18 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  async function addTask(payload: { title: string, dueTime?: string | null, startTime?: string | null }) {
+  async function addTask(payload: {
+    title: string
+    dueTime?: string | null
+    startTime?: string | null
+    remindBeforeMinutes?: number | null
+  }) {
     saving.value = true
     try {
       const id = await createTask(payload)
+      if (navView.value !== 'mine' && navView.value !== 'created') {
+        navView.value = 'mine'
+      }
       await fetchMyTasks()
       await selectTask(id)
       return id
@@ -241,6 +302,12 @@ export const useTasksStore = defineStore('tasks', () => {
 
     try {
       await toggleTaskDone(id, done)
+      // mine/done 列表按状态过滤，完成后从当前列表移除
+      if (navView.value === 'mine' || navView.value === 'done') {
+        await fetchMyTasks()
+      } else {
+        void refreshOverdueBadge()
+      }
       if (selectedId.value) {
         await loadCollabDetail(selectedId.value)
       }
@@ -369,6 +436,7 @@ export const useTasksStore = defineStore('tasks', () => {
     followingItems,
     followingTotal,
     activityFeed,
+    overdueBadgeCount,
     dueRangeItems,
     dueRangeLoading,
     todoItems,
@@ -377,6 +445,7 @@ export const useTasksStore = defineStore('tasks', () => {
     fetchFollowingTasks,
     fetchActivityFeed,
     setNavView,
+    refreshOverdueBadge,
     fetchDueRange,
     clearDueRange,
     selectTask,
@@ -390,3 +459,5 @@ export const useTasksStore = defineStore('tasks', () => {
     assignTo
   }
 })
+
+export { isOverdueTask }

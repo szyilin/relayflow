@@ -3,11 +3,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
-import { useTasksStore, type TasksNavView } from '../../../stores/tasks'
+import { useUserPreferenceStore } from '../../../stores/userPreference'
+import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
 
 const route = useRoute()
 const router = useRouter()
 const tasksStore = useTasksStore()
+const preference = useUserPreferenceStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
 const toast = useToast()
@@ -17,12 +19,20 @@ const createForm = reactive({
   dueTime: ''
 })
 
+const listNavViews: TasksNavView[] = ['mine', 'done', 'created']
+
 const viewTitle = computed(() => {
   if (tasksStore.navView === 'following') {
     return '我关注的'
   }
   if (tasksStore.navView === 'activity') {
     return '动态'
+  }
+  if (tasksStore.navView === 'done') {
+    return '已完成'
+  }
+  if (tasksStore.navView === 'created') {
+    return '我创建的'
   }
   return '我负责的'
 })
@@ -34,9 +44,15 @@ const listItems = computed(() => {
   return tasksStore.items
 })
 
+const showListTabs = computed(() => tasksStore.navView === 'mine')
+const showCreateButton = computed(() =>
+  tasksStore.navView === 'mine' || tasksStore.navView === 'created')
+const showTaskActions = computed(() =>
+  tasksStore.navView === 'mine' || tasksStore.navView === 'done' || tasksStore.navView === 'created')
+
 function parseView(raw: unknown): TasksNavView {
   const v = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null
-  if (v === 'following' || v === 'activity') {
+  if (v === 'following' || v === 'activity' || v === 'done' || v === 'created') {
     return v
   }
   return 'mine'
@@ -86,7 +102,7 @@ async function openTask(id: string) {
 }
 
 async function openTaskFromActivity(taskId: string) {
-  if (tasksStore.navView !== 'mine' && tasksStore.navView !== 'following') {
+  if (!listNavViews.includes(tasksStore.navView) && tasksStore.navView !== 'following') {
     await switchView('mine')
   }
   await openTask(taskId)
@@ -100,9 +116,12 @@ async function closeDetail() {
 }
 
 onMounted(async () => {
+  void preference.fetchFromServer()
   await applyViewFromRoute()
-  if (tasksStore.navView === 'mine') {
+  if (listNavViews.includes(tasksStore.navView)) {
     await tasksStore.fetchMyTasks()
+  } else {
+    void tasksStore.refreshOverdueBadge()
   }
   await applyTaskIdFromRoute()
 })
@@ -144,6 +163,10 @@ function subtaskHint(task: { subtaskDoneCount?: number, subtaskTotal?: number })
   return `${task.subtaskDoneCount ?? 0}/${total}`
 }
 
+function overdueBadgeLabel(count: number): string {
+  return count > 99 ? '99+' : String(count)
+}
+
 async function handleCreate() {
   const title = createForm.title.trim()
   if (!title) {
@@ -151,12 +174,16 @@ async function handleCreate() {
     return
   }
   try {
-    if (tasksStore.navView !== 'mine') {
+    if (tasksStore.navView !== 'mine' && tasksStore.navView !== 'created') {
       await switchView('mine')
     }
+    const dueTime = createForm.dueTime ? new Date(createForm.dueTime).toISOString() : null
+    const preferRemind = preference.task.defaultRemindBeforeMinutes
+    const remindBeforeMinutes = dueTime && preferRemind >= 0 ? preferRemind : undefined
     const id = await tasksStore.addTask({
       title,
-      dueTime: createForm.dueTime ? new Date(createForm.dueTime).toISOString() : null
+      dueTime,
+      remindBeforeMinutes: remindBeforeMinutes ?? null
     })
     createForm.title = ''
     createForm.dueTime = ''
@@ -195,6 +222,32 @@ function navItemClass(view: TasksNavView) {
     ? 'workspace-list-item w-full px-3 py-2 text-left text-sm font-medium'
     : 'workspace-list-item w-full px-3 py-2 text-left text-sm text-[var(--ws-text-muted)]'
 }
+
+function emptyTitle(): string {
+  if (tasksStore.navView === 'following') {
+    return '暂无关注的任务'
+  }
+  if (tasksStore.navView === 'done') {
+    return '暂无已完成任务'
+  }
+  if (tasksStore.navView === 'created') {
+    return '暂无我创建的任务'
+  }
+  return '暂无任务'
+}
+
+function emptyDescription(): string {
+  if (tasksStore.navView === 'following') {
+    return '在详情中点击「关注」后会出现在这里'
+  }
+  if (tasksStore.navView === 'done') {
+    return '完成任务后会出现在这里'
+  }
+  if (tasksStore.navView === 'created') {
+    return '你创建的任务会出现在这里'
+  }
+  return '点击右上角「新建」添加第一条任务'
+}
 </script>
 
 <route lang="yaml">
@@ -217,7 +270,31 @@ meta:
           :data-active="tasksStore.navView === 'mine' ? 'true' : undefined"
           @click="switchView('mine')"
         >
-          我负责的
+          <span class="flex items-center justify-between gap-2">
+            <span>我负责的</span>
+            <span
+              v-if="tasksStore.overdueBadgeCount > 0"
+              class="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400"
+            >
+              {{ overdueBadgeLabel(tasksStore.overdueBadgeCount) }}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          :class="navItemClass('done')"
+          :data-active="tasksStore.navView === 'done' ? 'true' : undefined"
+          @click="switchView('done')"
+        >
+          已完成
+        </button>
+        <button
+          type="button"
+          :class="navItemClass('created')"
+          :data-active="tasksStore.navView === 'created' ? 'true' : undefined"
+          @click="switchView('created')"
+        >
+          我创建的
         </button>
         <button
           type="button"
@@ -245,7 +322,7 @@ meta:
             {{ viewTitle }}
           </h1>
           <UButton
-            v-if="tasksStore.navView === 'mine'"
+            v-if="showCreateButton"
             color="primary"
             icon="i-lucide-plus"
             @click="createOpen = true"
@@ -255,7 +332,7 @@ meta:
         </header>
 
         <div
-          v-if="tasksStore.navView === 'mine'"
+          v-if="showListTabs"
           class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
         >
           <button
@@ -309,7 +386,7 @@ meta:
             />
           </div>
 
-          <div v-else-if="tasksStore.navView === 'following' || tab === 'list'">
+          <div v-else-if="tasksStore.navView === 'following' || !showListTabs || tab === 'list'">
             <div v-if="tasksStore.loading" class="flex justify-center py-12">
               <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
             </div>
@@ -327,7 +404,7 @@ meta:
                 @keydown.enter.prevent="openTask(task.id)"
               >
                 <UCheckbox
-                  v-if="tasksStore.navView === 'mine'"
+                  v-if="showTaskActions"
                   :model-value="task.status === 'DONE'"
                   @click.stop
                   @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
@@ -340,12 +417,17 @@ meta:
                     {{ task.title }}
                   </p>
                   <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
-                    <span v-if="formatDue(task.dueTime)">截止 {{ formatDue(task.dueTime) }}</span>
+                    <span
+                      v-if="formatDue(task.dueTime)"
+                      :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
+                    >
+                      {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
+                    </span>
                     <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
                   </p>
                 </div>
                 <UButton
-                  v-if="tasksStore.navView === 'mine'"
+                  v-if="showTaskActions"
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-trash-2"
@@ -358,10 +440,8 @@ meta:
             <UEmpty
               v-else
               :icon="tasksStore.navView === 'following' ? 'i-lucide-eye' : 'i-lucide-list-todo'"
-              :title="tasksStore.navView === 'following' ? '暂无关注的任务' : '暂无任务'"
-              :description="tasksStore.navView === 'following'
-                ? '在详情中点击「关注」后会出现在这里'
-                : '点击右上角「新建」添加第一条任务'"
+              :title="emptyTitle()"
+              :description="emptyDescription()"
             />
           </div>
           <UEmpty v-else icon="i-lucide-kanban-square" title="看板视图" description="看板将在后续切片实现" />
