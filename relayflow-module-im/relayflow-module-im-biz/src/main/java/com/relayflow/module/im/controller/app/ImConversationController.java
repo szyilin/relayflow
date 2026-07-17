@@ -6,7 +6,9 @@ import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.MarkConversationReadReqVO;
 import com.relayflow.module.im.controller.app.vo.ConversationSearchItemRespVO;
+import com.relayflow.module.im.convert.ImConversationConvert;
 import com.relayflow.module.im.service.conversation.ImConversationService;
+import com.relayflow.module.im.service.conversation.model.ConversationListItem;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +32,8 @@ public class ImConversationController {
     @GetMapping("/list")
     public CommonResult<List<ConversationItemRespVO>> listConversations(
             @RequestParam(value = "keyword", required = false) String keyword) {
-        return CommonResult.success(conversationService.listMyConversations(keyword));
+        return CommonResult.success(ImConversationConvert.INSTANCE.toRespList(
+                conversationService.listMyConversations(keyword)));
     }
 
     @GetMapping("/search")
@@ -44,7 +47,7 @@ public class ImConversationController {
                 .toList());
     }
 
-    private ConversationSearchItemRespVO toSearchItem(ConversationItemRespVO item) {
+    private ConversationSearchItemRespVO toSearchItem(ConversationListItem item) {
         ConversationSearchItemRespVO vo = new ConversationSearchItemRespVO();
         vo.setId(item.getId());
         vo.setTitle(item.getTitle());

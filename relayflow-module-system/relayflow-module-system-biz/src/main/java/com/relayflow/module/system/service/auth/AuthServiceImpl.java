@@ -20,6 +20,7 @@ import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -70,8 +72,9 @@ public class AuthServiceImpl implements AuthService {
             if (store != null) {
                 store.revoke(jti, tenantId, ttl);
             }
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
             // 登出幂等：无效 token 也视为成功
+            log.warn("Logout revoke skipped (idempotent): token invalid or store unavailable", ex);
         }
     }
 

@@ -69,9 +69,12 @@ class CalEventServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        CalEventRecurrenceSupport recurrenceSupport =
+                new CalEventRecurrenceSupport(calEventMapper, calEventExceptionMapper);
         service = new CalEventServiceImpl(
-                calEventMapper, calAttendeeMapper, calCalendarMapper, calEventExceptionMapper,
-                calCalendarService, calCalendarShareService, tenantMemberApi, userApi, calendarBotNotifyService);
+                calEventMapper, calAttendeeMapper, calCalendarMapper,
+                calCalendarService, calCalendarShareService, tenantMemberApi, userApi,
+                calendarBotNotifyService, recurrenceSupport);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));

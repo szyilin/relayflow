@@ -2,10 +2,13 @@ package com.relayflow.module.system.service.card;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
-import com.relayflow.module.im.api.bot.ImBotApi;
+import com.relayflow.framework.messaging.DomainEvent;
+import com.relayflow.framework.messaging.DomainEventPublisher;
 import com.relayflow.module.im.api.card.CardActionContext;
 import com.relayflow.module.im.api.card.CardActionHandler;
 import com.relayflow.module.im.api.card.CardActionResult;
+import com.relayflow.module.system.api.event.SystemDomainEventTypes;
+import com.relayflow.module.system.api.event.TenantUserActivatedPayload;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
@@ -13,7 +16,6 @@ import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -28,9 +30,7 @@ public class MemberInviteAcceptCardHandler implements CardActionHandler {
 
     private final SysTenantUserMapper tenantUserMapper;
     private final TenantService tenantService;
-    /** Breaks CardHandler → ImBotApi → ConversationService → UserApi cycle. */
-    @Lazy
-    private final ImBotApi imBotApi;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public String actionKey() {
@@ -67,7 +67,17 @@ public class MemberInviteAcceptCardHandler implements CardActionHandler {
 
         membership.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.updateById(membership);
-        imBotApi.ensureUserEnablementsOnActive(invitingTenantId, context.getUserId());
+
+        TenantUserActivatedPayload payload = new TenantUserActivatedPayload();
+        payload.setTenantId(invitingTenantId);
+        payload.setUserId(context.getUserId());
+        domainEventPublisher.publish(DomainEvent.builder()
+                .eventType(SystemDomainEventTypes.TENANT_USER_ACTIVATED)
+                .tenantId(invitingTenantId)
+                .producer(SystemDomainEventTypes.PRODUCER)
+                .schemaVersion(1)
+                .payload(payload)
+                .build());
 
         return CardActionResult.builder()
                 .toast(CardActionResult.CardToast.builder()

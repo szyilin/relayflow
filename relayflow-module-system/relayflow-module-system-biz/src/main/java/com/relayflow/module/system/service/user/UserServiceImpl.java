@@ -5,14 +5,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.util.MobileUtils;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.framework.messaging.DomainEvent;
+import com.relayflow.framework.messaging.DomainEventPublisher;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import com.relayflow.module.im.api.bot.ImBotApi;
-import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
-import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
-import com.relayflow.module.system.service.card.MemberInviteCardFactory;
+import com.relayflow.module.system.api.event.MemberInvitedPayload;
+import com.relayflow.module.system.api.event.SystemDomainEventTypes;
+import com.relayflow.module.system.api.event.TenantUserActivatedPayload;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.system.api.user.dto.UserCreateReqDTO;
 import com.relayflow.module.system.api.user.dto.UserInviteReqDTO;
@@ -50,7 +51,6 @@ import com.relayflow.module.system.service.permission.dto.DataScopeResult;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,9 +73,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class UserServiceImpl implements UserService {
 
-    private static final String ORG_ASSISTANT_BOT_CODE = "org-assistant";
-    private static final String MEMBER_INVITE_DEDUPE_PREFIX = "MEMBER_INVITE:";
-
     private final SysUserMapper userMapper;
     private final SysTenantUserMapper tenantUserMapper;
     private final SysUserDeptMapper userDeptMapper;
@@ -89,9 +86,7 @@ public class UserServiceImpl implements UserService {
     private final PermissionCacheEvictor permissionCacheEvictor;
     private final TenantService tenantService;
     private final PermissionService permissionService;
-    /** Breaks UserService → ImBotApi → ConversationService → UserApi cycle; do not pile more @Lazy without revisit. */
-    @Lazy
-    private final ImBotApi imBotApi;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public AppUserProfileRespVO getMyProfile() {
@@ -187,7 +182,7 @@ public class UserServiceImpl implements UserService {
         tenantUser.setUserId(user.getId());
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.insert(tenantUser);
-        imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
+        publishTenantUserActivated(tenantId, user.getId());
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);
         assignRoles(tenantId, user.getId(), request.getRoleIds());
@@ -656,8 +651,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Deliver invite reminder via 组织助手 into the invitee's ACTIVE tenants.
-     * Skip when the invitee has no ACTIVE membership (registration pending banner covers that case).
+     * Notify invitee via org-assistant (domain event → IM). Skip when invitee has no ACTIVE membership.
      */
     private void pushMemberInviteBotMessage(Long invitingTenantId, SysUserDO invitee) {
         boolean hasActiveMembership = tenantUserMapper.selectCount(Wrappers.<SysTenantUserDO>lambdaQuery()
@@ -668,27 +662,31 @@ public class UserServiceImpl implements UserService {
         }
 
         SysTenantDO tenant = tenantService.getTenant(invitingTenantId);
-        String inviterNickname = resolveInviterNickname();
-        String tenantName = tenant.getName();
+        MemberInvitedPayload payload = new MemberInvitedPayload();
+        payload.setInvitingTenantId(invitingTenantId);
+        payload.setInviteeUserId(invitee.getId());
+        payload.setTenantName(tenant.getName());
+        payload.setInviterNickname(resolveInviterNickname());
+        domainEventPublisher.publish(DomainEvent.builder()
+                .eventType(SystemDomainEventTypes.MEMBER_INVITED)
+                .tenantId(invitingTenantId)
+                .producer(SystemDomainEventTypes.PRODUCER)
+                .schemaVersion(1)
+                .payload(payload)
+                .build());
+    }
 
-        ImBotSendTarget target = new ImBotSendTarget();
-        target.setScope(ImBotSendTarget.SCOPE_ALL_ACTIVE_MEMBERSHIPS);
-        target.setUserId(invitee.getId());
-
-        ImBotSendCommand command = new ImBotSendCommand();
-        command.setBotCode(ORG_ASSISTANT_BOT_CODE);
-        command.setCard(MemberInviteCardFactory.pending(invitingTenantId, tenantName, inviterNickname));
-        command.setDedupeKey(MEMBER_INVITE_DEDUPE_PREFIX + invitingTenantId);
-        command.setEntityType("tenant");
-        command.setEntityId(String.valueOf(invitingTenantId));
-        command.setTarget(target);
-        try {
-            imBotApi.send(command);
-        } catch (Exception ex) {
-            // Best-effort reach: invite membership must succeed even if Bot delivery fails.
-            log.warn("Invite bot message failed: invitingTenantId={}, inviteeUserId={}, botCode={}",
-                    invitingTenantId, invitee.getId(), ORG_ASSISTANT_BOT_CODE, ex);
-        }
+    private void publishTenantUserActivated(Long tenantId, Long userId) {
+        TenantUserActivatedPayload payload = new TenantUserActivatedPayload();
+        payload.setTenantId(tenantId);
+        payload.setUserId(userId);
+        domainEventPublisher.publish(DomainEvent.builder()
+                .eventType(SystemDomainEventTypes.TENANT_USER_ACTIVATED)
+                .tenantId(tenantId)
+                .producer(SystemDomainEventTypes.PRODUCER)
+                .schemaVersion(1)
+                .payload(payload)
+                .build());
     }
 
     private String resolveInviterNickname() {

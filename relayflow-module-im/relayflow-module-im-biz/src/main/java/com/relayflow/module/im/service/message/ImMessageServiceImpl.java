@@ -63,6 +63,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final RealtimeTransportApi realtimeTransportApi;
     private final UserApi userApi;
     private final GroupBotMentionDispatcher groupBotMentionDispatcher;
+    private final BotReplyService botReplyService;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
@@ -146,58 +147,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     @Override
     @Transactional
     public void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text) {
-        if (botId == null || !StringUtils.hasText(text)) {
-            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
-        }
-        conversationService.lockConversation(tenantId, conversationId);
-
-        MessageContentVO content = new MessageContentVO();
-        content.setVersion(1);
-        ContentBlockVO block = new ContentBlockVO();
-        block.setType("text");
-        block.setText(text.trim());
-        content.setBlocks(List.of(block));
-
-        long nextSeq = nextSeq(tenantId, conversationId);
-        String contentJson = contentHelper.toJson(content);
-        String preview = contentHelper.buildPreview(MESSAGE_TYPE_TEXT, content);
-        OffsetDateTime now = OffsetDateTime.now();
-
-        ImMessageDO message = new ImMessageDO();
-        message.setTenantId(tenantId);
-        message.setConversationId(conversationId);
-        message.setSenderId(botId);
-        message.setSenderType(SENDER_TYPE_BOT);
-        message.setType(MESSAGE_TYPE_TEXT);
-        message.setContentJson(contentJson);
-        message.setSeq(nextSeq);
-        message.setCreateTime(now);
-        messageMapper.insert(message);
-
-        ImConversationDO conversation = conversationMapper.selectById(conversationId);
-        conversation.setLastMsgId(message.getId());
-        conversation.setLastMsgAt(now);
-        conversation.setLastMsgPreview(preview);
-        conversationMapper.updateById(conversation);
-
-        incrementUnreadForAllMembers(tenantId, conversationId);
-
-        Map<Long, String> nicknames = new HashMap<>();
-        if (StringUtils.hasText(botName)) {
-            nicknames.put(botId, botName);
-        }
-        MessageItemRespVO payload = toMessageItem(message, nicknames);
-        RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
-                .domain(ImRealtimeTypes.DOMAIN)
-                .type(ImRealtimeTypes.MESSAGE_NEW)
-                .ts(System.currentTimeMillis())
-                .payload(payload)
-                .build();
-        // Fanout only to User members — bots have no login client.
-        List<Long> recipients = conversationService.listMemberUserIds(tenantId, conversationId);
-        if (!recipients.isEmpty()) {
-            realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
-        }
+        botReplyService.sendBotReply(tenantId, conversationId, botId, botName, text);
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.relayflow.module.calendar.dal.mapper.CalCalendarMapper;
 import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
+import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -25,6 +27,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +46,9 @@ class CalCalendarServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new CalCalendarServiceImpl(calCalendarMapper, calEventMapper);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<CalCalendarShareService> shareProvider = mock(ObjectProvider.class);
+        service = new CalCalendarServiceImpl(calCalendarMapper, calEventMapper, shareProvider);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));

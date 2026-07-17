@@ -3,10 +3,13 @@ package com.relayflow.module.system.service.auth;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.util.MobileUtils;
+import com.relayflow.framework.messaging.DomainEvent;
+import com.relayflow.framework.messaging.DomainEventPublisher;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import com.relayflow.module.im.api.bot.ImBotApi;
+import com.relayflow.module.system.api.event.SystemDomainEventTypes;
+import com.relayflow.module.system.api.event.TenantUserActivatedPayload;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterReqVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterRespVO;
 import com.relayflow.module.system.controller.app.vo.AuthRegisterTenantSummaryVO;
@@ -21,7 +24,6 @@ import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantBootstrapService;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,9 +48,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     private final TenantBootstrapService tenantBootstrapService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-    /** Breaks register → ImBotApi → ConversationService → UserApi cycle; do not pile more @Lazy without revisit. */
-    @Lazy
-    private final ImBotApi imBotApi;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional
@@ -155,7 +155,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         tenantUser.setUserId(userId);
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.insert(tenantUser);
-        imBotApi.ensureUserEnablementsOnActive(tenantId, userId);
+        publishTenantUserActivated(tenantId, userId);
     }
 
     private void activatePendingInvites(Long userId) {
@@ -166,8 +166,21 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         for (SysTenantUserDO tenantUser : pendingMemberships) {
             tenantUser.setStatus(TenantUserStatus.ACTIVE);
             tenantUserMapper.updateById(tenantUser);
-            imBotApi.ensureUserEnablementsOnActive(tenantUser.getTenantId(), userId);
+            publishTenantUserActivated(tenantUser.getTenantId(), userId);
         }
+    }
+
+    private void publishTenantUserActivated(Long tenantId, Long userId) {
+        TenantUserActivatedPayload payload = new TenantUserActivatedPayload();
+        payload.setTenantId(tenantId);
+        payload.setUserId(userId);
+        domainEventPublisher.publish(DomainEvent.builder()
+                .eventType(SystemDomainEventTypes.TENANT_USER_ACTIVATED)
+                .tenantId(tenantId)
+                .producer(SystemDomainEventTypes.PRODUCER)
+                .schemaVersion(1)
+                .payload(payload)
+                .build());
     }
 
     private List<AuthRegisterTenantSummaryVO> buildTenantSummaries(Long userId) {
