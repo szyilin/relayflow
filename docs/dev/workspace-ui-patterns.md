@@ -112,11 +112,12 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `#panel`：迷你月历 +「我管理的」日历勾选/色 + 添加日历；**无**任务虚拟图层 |
-| Main | 顶栏（今天/翻页/日周月/创建日程）+ 自研网格；当前时间红线（日/周） |
-| 弹层 | `CalendarEventEditor`：快捷创建/编辑；参与人来自通讯录；组织者可删 |
+| Shell | `#panel`：迷你月历 +「我管理的」勾选/色/共享按钮 +「共享给我的」图层 + 添加日历；**无**任务虚拟图层 |
+| Main | 顶栏（今天/翻页/日周月/创建日程）+ 自研网格；当前时间红线（日/周）；日/周可拖拽改期/拉边（组织者） |
+| 弹层 | `CalendarEventEditor`：参与人、重复（RRULE）、编辑范围 THIS/ALL；组织者可删 |
+| 共享 | `/app-api/calendar/share/*`；侧栏弹层增删 READ 共享 |
 | 设置 | 全局设置窗「日历」分类 → `settings.calendar`（非页内设置真源） |
-| 数据 | `stores/calendar` → `api/app/calendar`（已联调，无 Mock） |
+| 数据 | `stores/calendar` → `api/app/calendar`（无 Mock） |
 | 深链 | `?eventId=` / `?date=` |
 | 契约 | [`workspace-calendar/contract.md`](../../openspec/lanes/workspace-calendar/contract.md) |
 

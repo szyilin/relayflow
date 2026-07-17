@@ -53,20 +53,20 @@
 | workspace-business-card | **archived** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
 | im-self-direct-chat | **archived** | **done** | self-DIRECT · 本人名片发消息 | — | [archive](../../openspec/changes/archive/2026-07-17-im-self-direct-chat/proposal.md) |
 | **workspace-calendar** | **archived** | **done** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1/proposal.md)；store 无 Mock |
+| **workspace-calendar-share** | **archived** | **done** | `/app-api/calendar/share/*` · 侧栏共享 | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1-1/proposal.md) |
+| **workspace-calendar-rrule** | **archived** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
+| **workspace-calendar-dnd** | **archived** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-calendar-share** | **ready** | **done** | `/app-api/calendar/share/*` · 侧栏共享 | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [workspace-calendar-v1-1](../../openspec/changes/workspace-calendar-v1-1/proposal.md) |
-| **workspace-calendar-rrule** | **ready** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
-| **workspace-calendar-dnd** | **ready** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
+| （暂无） | — | — | — | — | 见下方「建议下一切片」 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-calendar-v1-1` | 共享/订阅 → RRULE → DnD（见母 change tasks）；默认前端优先 |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
@@ -83,8 +83,8 @@
 3. workspace-profile-card-web / workspace-settings-web / user-preference-api ✅
 4. workspace-business-card-web / -api / im-self-direct-chat ✅
 5. workspace-calendar-v1 ✅ archive
-6. workspace-calendar-v1-1（共享 / RRULE / DnD）← 当前立项
-7. user-preference-integrate（收紧 localStorage 真源）
+6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
+7. user-preference-integrate（收紧 localStorage 真源）← 建议下一步
 8. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
