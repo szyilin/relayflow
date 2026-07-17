@@ -16,6 +16,7 @@ import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import org.junit.jupiter.api.AfterEach;
@@ -52,6 +53,8 @@ class TaskItemServiceImplTest {
     @Mock
     private TaskAccessService taskAccessService;
     @Mock
+    private TaskListAccessService taskListAccessService;
+    @Mock
     private TaskActivityRecorder taskActivityRecorder;
 
     private TaskItemServiceImpl taskItemService;
@@ -59,7 +62,7 @@ class TaskItemServiceImplTest {
     @BeforeEach
     void setUpMocks() {
         taskItemService = new TaskItemServiceImpl(
-                taskItemMapper, taskDueNotifyService, taskAccessService, taskActivityRecorder);
+                taskItemMapper, taskDueNotifyService, taskAccessService, taskListAccessService, taskActivityRecorder);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -130,7 +133,7 @@ class TaskItemServiceImplTest {
         row.setCreateTime(OffsetDateTime.now());
         when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
 
-        List<TaskItemRespVO> result = taskItemService.searchMyTasks(USER_ID, "周报", 5);
+        List<TaskItemDO> result = taskItemService.searchMyTasks(USER_ID, "周报", 5);
 
         assertEquals(1, result.size());
         assertEquals(TASK_ID, result.get(0).getId());
@@ -148,7 +151,7 @@ class TaskItemServiceImplTest {
         row.setDueTime(OffsetDateTime.parse("2026-07-17T18:00:00+08:00"));
         when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
 
-        List<TaskItemRespVO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
+        List<TaskItemDO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
 
         assertEquals(1, result.size());
         assertEquals(TASK_ID, result.get(0).getId());
@@ -160,7 +163,7 @@ class TaskItemServiceImplTest {
         OffsetDateTime from = OffsetDateTime.parse("2026-07-18T00:00:00+08:00");
         OffsetDateTime to = OffsetDateTime.parse("2026-07-17T00:00:00+08:00");
 
-        List<TaskItemRespVO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
+        List<TaskItemDO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
 
         assertEquals(0, result.size());
     }

@@ -48,10 +48,12 @@
 
 ## 3. workspace-task-list-integrate（P0 · 联调）
 
-- [ ] 3.1 去掉 list 临时数据；只走 API
-- [ ] 3.2 联调：建清单、邀成员、清单内建任务、深链、非成员 403、归档不删任务
-- [ ] 3.3 `pnpm build && pnpm typecheck`；`mvn compile`
-- [ ] 3.4 看板 list → done/archived
+- [x] 3.1 去掉 list 临时数据；只走 API
+- [x] 3.2 联调：建清单、邀成员、清单内建任务、深链、非成员 403、归档不删任务
+- [x] 3.3 `pnpm build && pnpm typecheck`；`mvn compile`
+- [x] 3.4 看板 list → done/archived
+
+**联调记录**：`19988888888` 登录 → create list / page?listId / members / archive；归档后 mine 为空且任务 get 仍可读。成员邀请依赖通讯录搜索（UI 已强制先选人）。
 
 ---
 
