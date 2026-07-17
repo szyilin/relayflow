@@ -41,8 +41,12 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
@@ -441,8 +445,23 @@ public class ImBotServiceImpl implements ImBotService {
                         .eq(ImMessageDO::getClientMsgId, buildDedupeClientMsgId(botId, userId, dedupeKey)));
     }
 
+    /**
+     * Maps opaque {@code dedupeKey} into {@code im_message.client_msg_id} (VARCHAR(64)).
+     * Long keys (e.g. snowflake ids in calendar invites) are hashed so inserts do not fail.
+     */
     private String buildDedupeClientMsgId(Long botId, Long userId, String dedupeKey) {
-        return DEDUPE_CLIENT_PREFIX + botId + ":" + userId + ":" + dedupeKey.trim();
+        String raw = DEDUPE_CLIENT_PREFIX + botId + ":" + userId + ":" + dedupeKey.trim();
+        if (raw.length() <= 64) {
+            return raw;
+        }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(raw.getBytes(StandardCharsets.UTF_8));
+            // prefix + 53 hex chars = 64
+            return DEDUPE_CLIENT_PREFIX + HexFormat.of().formatHex(digest).substring(0, 53);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 not available", ex);
+        }
     }
 
     private long nextSeq(Long tenantId, Long conversationId) {

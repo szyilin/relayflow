@@ -39,7 +39,8 @@ public class CalendarBotNotifyService {
             if (userId == null || userId.equals(event.getOrganizerId())) {
                 continue;
             }
-            send(event, userId, text, "CAL_INVITE:" + event.getId() + ":" + userId);
+            // userId already scoped by ImBotApi client_msg_id; keep key short for VARCHAR(64).
+            send(event, userId, text, "ci:" + event.getId());
         }
     }
 
@@ -54,7 +55,7 @@ public class CalendarBotNotifyService {
             if (userId == null || userId.equals(event.getOrganizerId())) {
                 continue;
             }
-            send(event, userId, text, "CAL_UPDATE:" + event.getId() + ":" + userId + ":" + suffix);
+            send(event, userId, text, "cu:" + event.getId() + ":" + suffix);
         }
     }
 
@@ -68,7 +69,7 @@ public class CalendarBotNotifyService {
             if (userId == null || userId.equals(event.getOrganizerId())) {
                 continue;
             }
-            send(event, userId, text, "CAL_CANCEL:" + event.getId() + ":" + userId);
+            send(event, userId, text, "cc:" + event.getId());
         }
     }
 
@@ -79,7 +80,7 @@ public class CalendarBotNotifyService {
         String title = eventTitle(event);
         String text = "日程「" + title + "」即将开始"
                 + (event.getStartTime() != null ? "（" + event.getStartTime().format(TIME_FORMAT) + "）" : "");
-        send(event, userId, text, "CAL_REMIND:" + event.getId() + ":" + userId);
+        send(event, userId, text, "cr:" + event.getId());
     }
 
     boolean shouldRemind(CalEventDO event, Long userId) {

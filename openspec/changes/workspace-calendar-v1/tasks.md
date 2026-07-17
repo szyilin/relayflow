@@ -67,12 +67,14 @@
 
 ## 4. workspace-calendar-integrate（联调）
 
-- [ ] 4.1 `stores/calendar.ts` 去临时数据；设置窗日历分类走 preference API
-- [ ] 4.2 E2E：建日历 → 建日程 → 邀请同事 → 对方可见/可响应 → 提醒或邀约出现在消息 bot_dm
-- [ ] 4.3 深链 `/app/calendar?eventId=` 打开对应日程
-- [ ] 4.4 `openspec validate workspace-calendar-v1 --strict`
-- [ ] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build && pnpm typecheck`
-- [ ] 4.6 看板 `workspace-calendar` → **done**
+- [x] 4.1 `stores/calendar.ts` 去临时数据；设置窗日历分类走 preference API
+- [x] 4.2 E2E：建日历 → 建日程 → 邀请同事 → 对方可见/可响应 → 提醒或邀约出现在消息 bot_dm
+- [x] 4.3 深链 `/app/calendar?eventId=` 打开对应日程
+- [x] 4.4 `openspec validate workspace-calendar-v1 --strict`
+- [x] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build && pnpm typecheck`
+- [x] 4.6 看板 `workspace-calendar` → **done**
+
+**验证说明**：4.2 已用 curl 双账号验证（建日历/日程 → 邀请 → 对方 get/list → respond ACCEPTED → `calendar-bot` bot_dm）。联调中修复：`im_message.client_msg_id` 超长导致 Bot 通知失败（ImBot 对超长 dedupe 做 SHA-256 截断 + 日历短 key）。
 
 ---
 

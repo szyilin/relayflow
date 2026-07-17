@@ -195,6 +195,4 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 ## 前端临时实现（-web）
 
-- Store：`web/src/stores/calendar.ts`（内存临时数据；integrate 删除）
-- API：`web/src/api/app/calendar.ts`
-- 页面：`/app/calendar`；深链 `?eventId=` / `?date=`
+（已 integrate）Store：`web/src/stores/calendar.ts` → `api/app/calendar.ts`；设置窗日历分类走 preference API。
