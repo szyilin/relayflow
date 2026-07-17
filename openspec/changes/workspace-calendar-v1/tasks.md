@@ -53,13 +53,13 @@
 
 **依赖**：`calendar-schema-v1` 完成；`workspace-calendar-web` contract 就绪。
 
-- [ ] 3.1 PRIMARY ensure（A 类）+ calendar list/create/update/delete（主日历不可删；非空 OWNED 拒删）
-- [ ] 3.2 Event CRUD + 区间 list（自有日历 ∪ 作为 attendee）+ get
-- [ ] 3.3 Attendee 邀请（system-api 校验成员）+ respond accept/decline
-- [ ] 3.4 `ImBotApi`：邀约/变更/取消/提醒（`calendar-bot`，dedupe，best-effort）
-- [ ] 3.5 user-preference 代码默认合并 `settings.calendar` 键
-- [ ] 3.6 Security：`/app-api/calendar/**` JWT + 有效成员；错误码按 contract
-- [ ] 3.7 单测或 curl（见 contract）+ `./mvnw -pl relayflow-server -am compile`
+- [x] 3.1 PRIMARY ensure（A 类）+ calendar list/create/update/delete（主日历不可删；非空 OWNED 拒删）
+- [x] 3.2 Event CRUD + 区间 list（自有日历 ∪ 作为 attendee）+ get
+- [x] 3.3 Attendee 邀请（system-api 校验成员）+ respond accept/decline
+- [x] 3.4 `ImBotApi`：邀约/变更/取消/提醒（`calendar-bot`，dedupe，best-effort）
+- [x] 3.5 user-preference 代码默认合并 `settings.calendar` 键
+- [x] 3.6 Security：`/app-api/calendar/**` JWT + 有效成员；错误码按 contract
+- [x] 3.7 单测或 curl（见 contract）+ `./mvnw -pl relayflow-server -am compile`
 
 **完成后**：看板 api → `ready`；开 `-integrate`。
 

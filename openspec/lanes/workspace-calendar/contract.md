@@ -1,7 +1,8 @@
 # API 契约：workspace-calendar
 
-> **状态**：草案（`-web`）  
+> **状态**：已冻结（`-api` 已实现）  
 > **起草**：`workspace-calendar-v1` / `workspace-calendar-web`  
+> **实现**：`workspace-calendar-v1` / `workspace-calendar-api`  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **偏好键**：见下文；持久化走既有 `GET/PUT /app-api/system/user/preference`
 

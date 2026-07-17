@@ -34,9 +34,17 @@ public class UserPreferenceDefaults {
         Map<String, Object> im = new LinkedHashMap<>();
         im.put("chatBubbleLayout", "split");
 
+        Map<String, Object> calendar = new LinkedHashMap<>();
+        calendar.put("weekStartsOn", 0);
+        calendar.put("defaultEventDurationMinutes", 30);
+        calendar.put("defaultRemindBeforeMinutes", 5);
+        calendar.put("allDayRemindTime", "08:00");
+        calendar.put("dimPastEvents", true);
+
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("general", general);
         root.put("im", im);
+        root.put("calendar", calendar);
         return root;
     }
 
@@ -120,6 +128,77 @@ public class UserPreferenceDefaults {
             }
             if (!im.isEmpty()) {
                 result.put("im", im);
+            }
+        }
+
+        Object calendarObj = input.get("calendar");
+        if (calendarObj instanceof Map<?, ?> calendarMap) {
+            Map<String, Object> calendar = new LinkedHashMap<>();
+            Object weekStartsOn = calendarMap.get("weekStartsOn");
+            if (weekStartsOn != null) {
+                int day;
+                try {
+                    day = Integer.parseInt(String.valueOf(weekStartsOn));
+                } catch (NumberFormatException ex) {
+                    errorOut.append("weekStartsOn 非法");
+                    return null;
+                }
+                if (day < 0 || day > 6) {
+                    errorOut.append("weekStartsOn 非法");
+                    return null;
+                }
+                calendar.put("weekStartsOn", day);
+            }
+            Object duration = calendarMap.get("defaultEventDurationMinutes");
+            if (duration != null) {
+                int minutes;
+                try {
+                    minutes = Integer.parseInt(String.valueOf(duration));
+                } catch (NumberFormatException ex) {
+                    errorOut.append("defaultEventDurationMinutes 非法");
+                    return null;
+                }
+                if (minutes <= 0 || minutes > 24 * 60) {
+                    errorOut.append("defaultEventDurationMinutes 非法");
+                    return null;
+                }
+                calendar.put("defaultEventDurationMinutes", minutes);
+            }
+            Object remind = calendarMap.get("defaultRemindBeforeMinutes");
+            if (remind != null) {
+                int minutes;
+                try {
+                    minutes = Integer.parseInt(String.valueOf(remind));
+                } catch (NumberFormatException ex) {
+                    errorOut.append("defaultRemindBeforeMinutes 非法");
+                    return null;
+                }
+                if (minutes < 0 || minutes > 24 * 60) {
+                    errorOut.append("defaultRemindBeforeMinutes 非法");
+                    return null;
+                }
+                calendar.put("defaultRemindBeforeMinutes", minutes);
+            }
+            Object allDayRemind = calendarMap.get("allDayRemindTime");
+            if (allDayRemind != null) {
+                String value = String.valueOf(allDayRemind).trim();
+                if (!value.matches("^\\d{2}:\\d{2}$")) {
+                    errorOut.append("allDayRemindTime 非法");
+                    return null;
+                }
+                calendar.put("allDayRemindTime", value);
+            }
+            Object dimPast = calendarMap.get("dimPastEvents");
+            if (dimPast != null) {
+                if (!(dimPast instanceof Boolean) && !"true".equalsIgnoreCase(String.valueOf(dimPast))
+                        && !"false".equalsIgnoreCase(String.valueOf(dimPast))) {
+                    errorOut.append("dimPastEvents 非法");
+                    return null;
+                }
+                calendar.put("dimPastEvents", Boolean.parseBoolean(String.valueOf(dimPast)));
+            }
+            if (!calendar.isEmpty()) {
+                result.put("calendar", calendar);
             }
         }
 

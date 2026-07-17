@@ -57,7 +57,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-calendar** | planned | **ui_ready** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；store 临时数据；待 `-api` |
+| **workspace-calendar** | **ready** | **ui_ready** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；API 已实现；store 仍临时数据，待 `-integrate` |
 
 ### 建议下一切片（尚未立项或可并行）
 
