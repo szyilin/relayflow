@@ -1,7 +1,8 @@
 # API 契约：workspace-task-collab
 
-> **状态**：`-web` ui_ready（待 collab-api）  
+> **状态**：frozen（`-api` ready；待 `-integrate`）  
 > **起草**：`workspace-task-core-v1` / `workspace-task-collab-web`  
+> **实现**：`workspace-task-collab-api`  
 > **母 change**：[`openspec/changes/workspace-task-core-v1`](../../changes/workspace-task-core-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks/contract.md`](../workspace-tasks/contract.md)、[`workspace-task-detail/contract.md`](../workspace-task-detail/contract.md)

@@ -15,13 +15,14 @@ import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
+import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -33,6 +34,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,13 +49,17 @@ class TaskItemServiceImplTest {
     private TaskItemMapper taskItemMapper;
     @Mock
     private TaskDueNotifyService taskDueNotifyService;
+    @Mock
+    private TaskAccessService taskAccessService;
+    @Mock
+    private TaskActivityRecorder taskActivityRecorder;
 
-    @InjectMocks
     private TaskItemServiceImpl taskItemService;
 
     @BeforeEach
     void setUpMocks() {
-        taskItemService = new TaskItemServiceImpl(taskItemMapper, taskDueNotifyService);
+        taskItemService = new TaskItemServiceImpl(
+                taskItemMapper, taskDueNotifyService, taskAccessService, taskActivityRecorder);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -81,6 +87,7 @@ class TaskItemServiceImplTest {
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).insert(captor.capture());
         verify(taskDueNotifyService).pushIfDueSoon(any(TaskItemDO.class));
+        verify(taskActivityRecorder).record(any(TaskItemDO.class), eq(USER_ID), any(), any());
         TaskItemDO saved = captor.getValue();
         assertEquals("整理周报", saved.getTitle());
         assertEquals(USER_ID, saved.getAssigneeId());
@@ -160,11 +167,8 @@ class TaskItemServiceImplTest {
 
     @Test
     void toggleDone_throwsForbiddenWhenNotAssignee() {
-        TaskItemDO row = new TaskItemDO();
-        row.setId(TASK_ID);
-        row.setAssigneeId(999L);
-        row.setStatus(TaskItemStatus.TODO);
-        when(taskItemMapper.selectById(TASK_ID)).thenReturn(row);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID))
+                .thenThrow(new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN));
 
         TaskItemToggleDoneReqVO request = new TaskItemToggleDoneReqVO();
         request.setId(TASK_ID);
@@ -177,7 +181,8 @@ class TaskItemServiceImplTest {
 
     @Test
     void deleteTask_throwsNotFoundWhenMissing() {
-        when(taskItemMapper.selectById(TASK_ID)).thenReturn(null);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID))
+                .thenThrow(new ServiceException(ErrorCodeConstants.TASK_NOT_FOUND));
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> taskItemService.deleteTask(TASK_ID));
@@ -190,7 +195,7 @@ class TaskItemServiceImplTest {
         row.setId(TASK_ID);
         row.setAssigneeId(USER_ID);
         row.setTitle("旧标题");
-        when(taskItemMapper.selectById(TASK_ID)).thenReturn(row);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
 
         TaskItemUpdateReqVO request = new TaskItemUpdateReqVO();
         request.setId(TASK_ID);
@@ -210,7 +215,7 @@ class TaskItemServiceImplTest {
         parent.setId(TASK_ID);
         parent.setAssigneeId(USER_ID);
         parent.setParentId(999L);
-        when(taskItemMapper.selectById(TASK_ID)).thenReturn(parent);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(parent);
 
         TaskSubtaskCreateReqVO request = new TaskSubtaskCreateReqVO();
         request.setParentId(TASK_ID);
@@ -226,7 +231,7 @@ class TaskItemServiceImplTest {
         TaskItemDO row = new TaskItemDO();
         row.setId(TASK_ID);
         row.setAssigneeId(USER_ID);
-        when(taskItemMapper.selectById(TASK_ID)).thenReturn(row);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
 
         TaskItemUpdateReqVO request = new TaskItemUpdateReqVO();
         request.setId(TASK_ID);

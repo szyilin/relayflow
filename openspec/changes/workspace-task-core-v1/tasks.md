@@ -62,9 +62,9 @@
 
 ## 5. workspace-task-collab-api（P1 · 后端第二步）
 
-- [ ] 5.1 Flyway：`task_follower` / `task_comment` / `task_activity`
-- [ ] 5.2 关注、评论、动态、指派 REST；成员校验 `system-api`；指派 `task-bot` best-effort
-- [ ] 5.3 `./mvnw -pl relayflow-server -am compile` + curl
+- [x] 5.1 Flyway：`task_follower` / `task_comment` / `task_activity`
+- [x] 5.2 关注、评论、动态、指派 REST；成员校验 `system-api`；指派 `task-bot` best-effort
+- [x] 5.3 `./mvnw -pl relayflow-server -am compile` + curl
 
 ---
 
