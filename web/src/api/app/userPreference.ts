@@ -6,6 +6,7 @@ export interface CalendarPreferenceSettings {
   defaultRemindBeforeMinutes?: number
   allDayRemindTime?: string
   dimPastEvents?: boolean
+  showTaskLayer?: boolean
 }
 
 export interface UserPreferenceResp {

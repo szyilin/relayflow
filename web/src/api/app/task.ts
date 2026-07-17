@@ -59,3 +59,16 @@ export async function updateTask(payload: {
 export async function deleteTask(id: string): Promise<boolean> {
   return del<boolean>('/app-api/task/item/delete', { params: { id } })
 }
+
+/** Calendar projection: TODO tasks with dueTime in [from, to). */
+export async function getTaskDueRange(params: {
+  from: string
+  to: string
+  limit?: number
+}): Promise<TaskItem[]> {
+  const data = await get<Array<TaskItem & { id?: string | number }>>(
+    '/app-api/task/item/due-range',
+    { params }
+  )
+  return (data ?? []).map(item => normalizeTaskItem(item))
+}

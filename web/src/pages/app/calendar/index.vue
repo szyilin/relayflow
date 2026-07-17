@@ -23,9 +23,11 @@ import CalendarEventEditor from '../../../components/workspace/CalendarEventEdit
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import type { CalendarEvent, CalendarItem } from '../../../api/app/calendar'
 import { eventKey } from '../../../api/app/calendar'
+import type { TaskItem } from '../../../api/app/task'
 import { useAuthStore } from '../../../stores/auth'
 import { useCalendarStore } from '../../../stores/calendar'
 import { useContactsStore } from '../../../stores/contacts'
+import { useTasksStore } from '../../../stores/tasks'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 
 type ViewMode = 'day' | 'week' | 'month'
@@ -35,14 +37,21 @@ const HOUR_END = 24
 const HOUR_HEIGHT = 48
 const DRAG_THRESHOLD = 4
 const RESIZE_HANDLE_HEIGHT = 6
+/** Fixed amber for task projections — distinct from calendar event colors. */
+const TASK_LAYER_COLOR = '#D97706'
+const TASK_BLOCK_MINUTES = 30
 
 const route = useRoute()
 const router = useRouter()
 const calendarStore = useCalendarStore()
+const tasksStore = useTasksStore()
 const preference = useUserPreferenceStore()
 const contacts = useContactsStore()
 const auth = useAuthStore()
 const toast = useToast()
+
+/** Session toggle; seeded from preference.showTaskLayer on enter. */
+const taskLayerVisible = ref(true)
 
 const viewMode = ref<ViewMode>('week')
 const anchorDate = ref(startOfDay(new Date()))
@@ -157,6 +166,9 @@ const eventsInView = computed(() =>
 
 const dimPast = computed(() => preference.calendar.dimPastEvents)
 
+const projectedTasks = computed(() =>
+  taskLayerVisible.value ? tasksStore.dueRangeItems : [])
+
 function isPast(event: CalendarEvent): boolean {
   return isBefore(parseISO(event.endTime), nowTick.value)
 }
@@ -170,6 +182,18 @@ function eventStyle(event: CalendarEvent): Record<string, string> {
     color,
     opacity
   }
+}
+
+function taskProjectionStyle(): Record<string, string> {
+  return {
+    backgroundColor: `${TASK_LAYER_COLOR}18`,
+    borderLeft: `3px dashed ${TASK_LAYER_COLOR}`,
+    color: TASK_LAYER_COLOR
+  }
+}
+
+function openProjectedTask(task: TaskItem) {
+  void router.push({ path: '/app/tasks', query: { taskId: task.id } })
 }
 
 function eventTimes(event: CalendarEvent): { start: Date, end: Date } {
@@ -425,6 +449,36 @@ function monthEventsForDay(day: Date): CalendarEvent[] {
   }).slice(0, 3)
 }
 
+function tasksForDay(day: Date): TaskItem[] {
+  const dayStart = startOfDay(day)
+  const dayEnd = addDays(dayStart, 1)
+  return projectedTasks.value.filter((task) => {
+    if (!task.dueTime) {
+      return false
+    }
+    const due = parseISO(task.dueTime)
+    return due >= dayStart && due < dayEnd
+  })
+}
+
+function monthTasksForDay(day: Date): TaskItem[] {
+  return tasksForDay(day).slice(0, 3)
+}
+
+function timedTaskLayout(task: TaskItem, day: Date): { top: string, height: string } | null {
+  if (!task.dueTime) {
+    return null
+  }
+  const due = parseISO(task.dueTime)
+  if (!isSameDay(due, day)) {
+    return null
+  }
+  const startMinutes = (due.getHours() - HOUR_START) * 60 + due.getMinutes()
+  const top = (startMinutes / 60) * HOUR_HEIGHT
+  const height = Math.max((TASK_BLOCK_MINUTES / 60) * HOUR_HEIGHT, 18)
+  return { top: `${top}px`, height: `${height}px` }
+}
+
 function nowLineTop(): string | null {
   const n = nowTick.value
   if (viewMode.value === 'month') {
@@ -435,6 +489,9 @@ function nowLineTop(): string | null {
     return null
   }
   const minutes = (n.getHours() - HOUR_START) * 60 + n.getMinutes()
+  if (minutes < 0 || minutes > (HOUR_END - HOUR_START) * 60) {
+    return null
+  }
   return `${(minutes / 60) * HOUR_HEIGHT}px`
 }
 
@@ -443,6 +500,28 @@ const nowLineVisibleDayIndex = computed(() => {
   return daysInView.value.findIndex(d => isSameDay(d, n))
 })
 
+/** 飞书式：过期日淡线 · 今日圆点 + 实线 · 未来日实线 */
+const nowLineByDay = computed(() => {
+  const top = nowLineTop()
+  const todayIdx = nowLineVisibleDayIndex.value
+  if (!top || todayIdx < 0) {
+    return daysInView.value.map(() => null as 'past' | 'today' | 'future' | null)
+  }
+  return daysInView.value.map((_, dayIndex) => {
+    if (dayIndex < todayIdx) {
+      return 'past' as const
+    }
+    if (dayIndex === todayIdx) {
+      return 'today' as const
+    }
+    return 'future' as const
+  })
+})
+
+const nowLineLabel = computed(() => format(nowTick.value, 'HH:mm'))
+
+const nowLineTopPx = computed(() => nowLineTop())
+
 async function refreshRange() {
   await calendarStore.fetchCalendars()
   await calendarStore.fetchShares()
@@ -450,6 +529,14 @@ async function refreshRange() {
     from: formatISO(rangeStart.value),
     to: formatISO(rangeEnd.value)
   })
+  if (taskLayerVisible.value) {
+    await tasksStore.fetchDueRange(
+      formatISO(rangeStart.value),
+      formatISO(rangeEnd.value)
+    )
+  } else {
+    tasksStore.clearDueRange()
+  }
 }
 
 function goToday() {
@@ -687,6 +774,7 @@ async function openDeepLinkedEvent() {
 
 onMounted(async () => {
   preference.hydrateFromLocal()
+  taskLayerVisible.value = preference.calendar.showTaskLayer
   void preference.fetchFromServer()
   applyDeepLink()
   try {
@@ -719,6 +807,15 @@ watch([rangeStart, rangeEnd, viewMode], () => {
   void refreshRange().catch((error) => {
     toast.add({
       title: error instanceof Error ? error.message : '加载日程失败',
+      color: 'error'
+    })
+  })
+})
+
+watch(taskLayerVisible, () => {
+  void refreshRange().catch((error) => {
+    toast.add({
+      title: error instanceof Error ? error.message : '加载任务失败',
       color: 'error'
     })
   })
@@ -866,6 +963,25 @@ meta:
               </li>
             </ul>
           </div>
+
+          <div class="mt-4">
+            <p class="mb-2 text-xs font-medium text-[var(--ws-text-muted)]">
+              虚拟图层
+            </p>
+            <ul class="space-y-1">
+              <li class="flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]">
+                <UCheckbox
+                  :model-value="taskLayerVisible"
+                  @update:model-value="(v: boolean | 'indeterminate') => { taskLayerVisible = v === true }"
+                />
+                <span
+                  class="size-2.5 shrink-0 rounded-sm border border-dashed"
+                  :style="{ borderColor: TASK_LAYER_COLOR, backgroundColor: `${TASK_LAYER_COLOR}33` }"
+                />
+                <span class="min-w-0 flex-1 truncate text-sm">我的任务</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </template>
@@ -956,6 +1072,15 @@ meta:
             </span>
             <div class="min-h-0 flex-1 space-y-0.5 overflow-hidden">
               <div
+                v-for="task in monthTasksForDay(day)"
+                :key="`task-${task.id}`"
+                class="truncate rounded px-1 py-0.5 text-[10px] leading-tight"
+                :style="taskProjectionStyle()"
+                @click.stop="openProjectedTask(task)"
+              >
+                ☐ {{ format(parseISO(task.dueTime!), 'HH:mm') }} {{ task.title }}
+              </div>
+              <div
                 v-for="event in monthEventsForDay(day)"
                 :key="eventKey(event)"
                 class="truncate rounded px-1 py-0.5 text-[10px] leading-tight"
@@ -1025,6 +1150,13 @@ meta:
             >
               {{ hour === 0 ? '' : `${String(hour).padStart(2, '0')}:00` }}
             </div>
+            <div
+              v-if="nowLineTopPx"
+              class="pointer-events-none absolute right-1 z-20 -translate-y-1/2 text-[10px] tabular-nums text-[var(--ws-text-muted)]"
+              :style="{ top: nowLineTopPx }"
+            >
+              {{ nowLineLabel }}
+            </div>
           </div>
 
           <div
@@ -1069,13 +1201,36 @@ meta:
               />
             </div>
 
-            <div
-              v-if="nowLineTop() && nowLineVisibleDayIndex === dayIndex"
-              class="pointer-events-none absolute inset-x-0 z-20 flex items-center"
-              :style="{ top: nowLineTop()! }"
+            <button
+              v-for="task in tasksForDay(day)"
+              :key="`task-block-${task.id}`"
+              type="button"
+              class="absolute inset-x-0.5 z-10 overflow-hidden rounded px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm"
+              :style="{ ...taskProjectionStyle(), ...(timedTaskLayout(task, day) ?? {}) }"
+              @click.stop="openProjectedTask(task)"
             >
-              <span class="size-2 shrink-0 rounded-full bg-red-500" />
-              <span class="h-0.5 flex-1 bg-red-500" />
+              <span class="font-medium">☐ {{ task.title }}</span>
+              <span class="mt-0.5 block opacity-80">
+                截止 {{ format(parseISO(task.dueTime!), 'HH:mm') }}
+              </span>
+            </button>
+
+            <!-- 当前时间线：过期淡灰 · 今日圆点+主色实线 · 未来主色实线 -->
+            <div
+              v-if="nowLineByDay[dayIndex] && nowLineTopPx"
+              class="pointer-events-none absolute inset-x-0 z-20"
+              :style="{ top: nowLineTopPx }"
+            >
+              <div
+                class="absolute inset-x-0 top-0 -translate-y-1/2"
+                :class="nowLineByDay[dayIndex] === 'past'
+                  ? 'h-px bg-neutral-300/70 dark:bg-neutral-500/40'
+                  : 'h-0.5 bg-primary'"
+              />
+              <span
+                v-if="nowLineByDay[dayIndex] === 'today'"
+                class="absolute left-0 top-0 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary"
+              />
             </div>
           </div>
         </div>

@@ -225,11 +225,12 @@ Query 可选：`editScope`、`instanceStart`（重复实例删单次时）。
   "defaultEventDurationMinutes": 30,
   "defaultRemindBeforeMinutes": 5,
   "allDayRemindTime": "08:00",
-  "dimPastEvents": true
+  "dimPastEvents": true,
+  "showTaskLayer": true
 }
 ```
 
-前端设置窗分类「日历」编辑上述字段；**不**另开日历页内设置真源。
+前端设置窗分类「日历」编辑上述字段；**不**另开日历页内设置真源。任务图层投影契约见 [`task-calendar-projection/contract.md`](../task-calendar-projection/contract.md)。
 
 ## 错误码（calendar 域）
 

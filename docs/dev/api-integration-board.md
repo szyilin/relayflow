@@ -61,13 +61,13 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **task-calendar-projection** | **planned** | **pending** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | 待 `-web` 起草 | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；虚拟图层投影截止日 TODO；`-web` → `-api` → `-integrate` |
+| **task-calendar-projection** | **planned** | **ui_ready** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；`-web` 完成；due-range 未就绪时 store 回退 page 过滤 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `task-calendar-projection-web` | 日历「我的任务」图层 UI + contract（母 change 已立项，建议下一步开子 change） |
+| `task-calendar-projection-api` | 实现 `GET /due-range` + `showTaskLayer` 默认键（`-web` 已 ui_ready） |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）

@@ -329,6 +329,23 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                 />
               </div>
             </section>
+
+            <section class="mt-8 space-y-3">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h3 class="text-sm font-semibold">
+                    显示「我的任务」图层
+                  </h3>
+                  <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                    进入日历时是否默认勾选任务投影图层
+                  </p>
+                </div>
+                <USwitch
+                  :model-value="preference.calendar.showTaskLayer"
+                  @update:model-value="(v: boolean) => preference.patchCalendar({ showTaskLayer: v })"
+                />
+              </div>
+            </section>
           </template>
 
           <div

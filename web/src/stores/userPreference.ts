@@ -13,6 +13,7 @@ export interface CalendarPreference {
   defaultRemindBeforeMinutes: number
   allDayRemindTime: string
   dimPastEvents: boolean
+  showTaskLayer: boolean
 }
 
 export interface UserPreferenceSettings {
@@ -41,7 +42,8 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
     defaultEventDurationMinutes: 30,
     defaultRemindBeforeMinutes: 5,
     allDayRemindTime: '08:00',
-    dimPastEvents: true
+    dimPastEvents: true,
+    showTaskLayer: true
   }
 }
 

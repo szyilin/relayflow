@@ -20,12 +20,12 @@
 **目标**：日历侧栏 + 网格投影 UI；contract 冻结 due-range 与 preference 键。  
 **范围**：主要 `web/` + `openspec/lanes/task-calendar-projection/contract.md`。
 
-- [ ] 1.1 起草 `openspec/lanes/task-calendar-projection/contract.md`（`GET due-range` 参数/响应、`showTaskLayer`、投影字段）
-- [ ] 1.2 `api/app/task.ts` + store：due-range（临时数据仅 store；禁止常驻 `mocks/`）
-- [ ] 1.3 `/app/calendar` 侧栏：「我的任务」勾选图层；进入页时读 `settings.calendar.showTaskLayer` 默认
-- [ ] 1.4 日/周/月网格：渲染任务投影（与日程可区分）；点击 → `/app/tasks?taskId=`；禁止打开事件编辑器
-- [ ] 1.5 设置窗「日历」：增加「显示我的任务图层」开关（绑 preference 形状）
-- [ ] 1.6 `cd web && pnpm build && pnpm typecheck`
+- [x] 1.1 起草 `openspec/lanes/task-calendar-projection/contract.md`（`GET due-range` 参数/响应、`showTaskLayer`、投影字段）
+- [x] 1.2 `api/app/task.ts` + store：due-range（临时数据仅 store；禁止常驻 `mocks/`）
+- [x] 1.3 `/app/calendar` 侧栏：「我的任务」勾选图层；进入页时读 `settings.calendar.showTaskLayer` 默认
+- [x] 1.4 日/周/月网格：渲染任务投影（与日程可区分）；点击 → `/app/tasks?taskId=`；禁止打开事件编辑器
+- [x] 1.5 设置窗「日历」：增加「显示我的任务图层」开关（绑 preference 形状）
+- [x] 1.6 `cd web && pnpm build && pnpm typecheck`
 - [ ] 1.7 浏览器：`/app/calendar` 开关图层见/隐任务；点击进任务页；设置窗改默认
 
 **验证**：`pnpm build` + `pnpm typecheck` + 浏览器路径。  
