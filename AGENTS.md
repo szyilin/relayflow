@@ -94,7 +94,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`workspace-calendar-v1`（母 change 已立项；schema → web → api → integrate）。`user-preference-integrate` 可并行。`bpm-v1` deferred。
+**下一优先**：`user-preference-integrate`（设置窗以 API 为真源）。日历 V1 / V1.1 已归档。`bpm-v1` deferred。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

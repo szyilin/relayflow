@@ -56,9 +56,9 @@
 
 ## 4. 母 change 归档前
 
-- [ ] 4.1 子切片完成并（若拆目录）各自 archive
-- [ ] 4.2 `openspec archive workspace-calendar-v1-1`
-- [ ] 4.3 确认 board / `workspace-ui-patterns` / contract 已更新
+- [x] 4.1 子切片完成并（若拆目录）各自 archive — 未拆独立目录，跳过
+- [x] 4.2 `openspec archive workspace-calendar-v1-1`
+- [x] 4.3 确认 board / `workspace-ui-patterns` / contract 已更新
 
 ---
 
