@@ -21,16 +21,19 @@ const auth = useAuthStore()
 const contacts = useContactsStore()
 const toast = useToast()
 
+/** Reka Select 禁止 SelectItem value 为空串；用哨兵表示 null（沿用系统窗口） */
+const REMIND_DEFAULT = 'default'
+
 const form = reactive({
   title: '',
   startLocal: '',
   dueLocal: '',
-  remindBeforeMinutes: '' as string,
+  remindBeforeMinutes: REMIND_DEFAULT as string,
   description: ''
 })
 
 const remindOptions = [
-  { label: '默认（系统窗口）', value: '' },
+  { label: '默认（系统窗口）', value: REMIND_DEFAULT },
   { label: '不提醒', value: '0' },
   { label: '截止前 5 分钟', value: '5' },
   { label: '截止前 15 分钟', value: '15' },
@@ -117,14 +120,16 @@ function syncForm(task: TaskItem | null) {
     form.title = ''
     form.startLocal = ''
     form.dueLocal = ''
-    form.remindBeforeMinutes = ''
+    form.remindBeforeMinutes = REMIND_DEFAULT
     form.description = ''
     return
   }
   form.title = task.title
   form.startLocal = toLocalInput(task.startTime)
   form.dueLocal = toLocalInput(task.dueTime)
-  form.remindBeforeMinutes = task.remindBeforeMinutes == null ? '' : String(task.remindBeforeMinutes)
+  form.remindBeforeMinutes = task.remindBeforeMinutes == null
+    ? REMIND_DEFAULT
+    : String(task.remindBeforeMinutes)
   form.description = task.description ?? ''
 }
 
@@ -182,7 +187,7 @@ async function handleSave() {
     return
   }
   const remindRaw = form.remindBeforeMinutes
-  const remindBeforeMinutes = remindRaw === '' ? null : Number(remindRaw)
+  const remindBeforeMinutes = remindRaw === REMIND_DEFAULT ? null : Number(remindRaw)
   try {
     await tasksStore.saveDetail({
       id: props.task.id,
@@ -292,7 +297,7 @@ async function handleAssign(memberId: string, nickname: string) {
 </script>
 
 <template>
-  <div class="flex h-full flex-col border-l border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)]">
+  <div class="flex h-full min-h-0 flex-col bg-[var(--ws-panel-bg)]">
     <header class="flex shrink-0 items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-3">
       <UButton
         color="primary"
@@ -329,7 +334,7 @@ async function handleAssign(memberId: string, nickname: string) {
     </div>
 
     <div v-else-if="!task" class="flex flex-1 items-center justify-center p-6 text-sm text-[var(--ws-text-muted)]">
-      选择左侧任务查看详情
+      加载中…
     </div>
 
     <div v-else class="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">

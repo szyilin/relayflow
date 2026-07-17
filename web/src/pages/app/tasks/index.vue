@@ -14,6 +14,15 @@ const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
 const toast = useToast()
 
+const detailOpen = computed({
+  get: () => !!tasksStore.selectedId,
+  set: (open: boolean) => {
+    if (!open) {
+      void closeDetail()
+    }
+  }
+})
+
 const createForm = reactive({
   title: '',
   dueTime: ''
@@ -315,151 +324,153 @@ meta:
       </div>
     </template>
 
-    <div class="flex h-full min-h-0">
-      <div class="flex min-w-0 flex-1 flex-col">
-        <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
-          <h1 class="flex-1 text-lg font-semibold">
-            {{ viewTitle }}
-          </h1>
-          <UButton
-            v-if="showCreateButton"
-            color="primary"
-            icon="i-lucide-plus"
-            @click="createOpen = true"
-          >
-            新建
-          </UButton>
-        </header>
-
-        <div
-          v-if="showListTabs"
-          class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
+    <div class="flex h-full min-h-0 flex-col">
+      <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
+        <h1 class="flex-1 text-lg font-semibold">
+          {{ viewTitle }}
+        </h1>
+        <UButton
+          v-if="showCreateButton"
+          color="primary"
+          icon="i-lucide-plus"
+          @click="createOpen = true"
         >
-          <button
-            type="button"
-            class="border-b-2 py-2 text-sm"
-            :class="tab === 'list' ? 'border-primary text-primary font-medium' : 'border-transparent text-[var(--ws-text-muted)]'"
-            @click="tab = 'list'"
-          >
-            任务列表
-          </button>
-          <button
-            type="button"
-            class="border-b-2 py-2 text-sm text-[var(--ws-text-muted)]"
-            :class="tab === 'board' ? 'border-primary text-primary font-medium' : 'border-transparent'"
-            @click="tab = 'board'"
-          >
-            看板
-          </button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-5">
-          <div v-if="tasksStore.navView === 'activity'">
-            <div v-if="tasksStore.loading" class="flex justify-center py-12">
-              <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
-            </div>
-            <ul v-else-if="tasksStore.activityFeed.length" class="space-y-2">
-              <li
-                v-for="a in tasksStore.activityFeed"
-                :key="a.id"
-                role="button"
-                tabindex="0"
-                class="cursor-pointer rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] px-4 py-3 hover:bg-[var(--ws-rail-hover)]/40"
-                @click="openTaskFromActivity(a.taskId)"
-                @keydown.enter.prevent="openTaskFromActivity(a.taskId)"
-              >
-                <div class="flex items-baseline justify-between gap-2 text-xs text-[var(--ws-text-muted)]">
-                  <span class="font-medium text-[var(--ws-text)]">{{ a.actorNickname }}</span>
-                  <span>{{ formatActivityTime(a.createTime) }}</span>
-                </div>
-                <p class="mt-1 text-sm">
-                  {{ a.summary }}
-                  <span class="text-[var(--ws-text-muted)]"> · {{ a.taskTitle }}</span>
-                </p>
-              </li>
-            </ul>
-            <UEmpty
-              v-else
-              icon="i-lucide-activity"
-              title="暂无动态"
-              description="关注或操作任务后，相关活动会出现在这里"
-            />
-          </div>
-
-          <div v-else-if="tasksStore.navView === 'following' || !showListTabs || tab === 'list'">
-            <div v-if="tasksStore.loading" class="flex justify-center py-12">
-              <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
-            </div>
-            <div v-else-if="listItems.length" class="space-y-2">
-              <div
-                v-for="task in listItems"
-                :key="task.id"
-                role="button"
-                tabindex="0"
-                class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
-                :class="tasksStore.selectedId === task.id
-                  ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
-                  : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] hover:bg-[var(--ws-rail-hover)]/40'"
-                @click="openTask(task.id)"
-                @keydown.enter.prevent="openTask(task.id)"
-              >
-                <UCheckbox
-                  v-if="showTaskActions"
-                  :model-value="task.status === 'DONE'"
-                  @click.stop
-                  @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
-                />
-                <div class="min-w-0 flex-1">
-                  <p
-                    class="font-medium"
-                    :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
-                  >
-                    {{ task.title }}
-                  </p>
-                  <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
-                    <span
-                      v-if="formatDue(task.dueTime)"
-                      :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
-                    >
-                      {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
-                    </span>
-                    <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
-                  </p>
-                </div>
-                <UButton
-                  v-if="showTaskActions"
-                  color="neutral"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  size="xs"
-                  aria-label="删除"
-                  @click.stop="handleDelete(task.id)"
-                />
-              </div>
-            </div>
-            <UEmpty
-              v-else
-              :icon="tasksStore.navView === 'following' ? 'i-lucide-eye' : 'i-lucide-list-todo'"
-              :title="emptyTitle()"
-              :description="emptyDescription()"
-            />
-          </div>
-          <UEmpty v-else icon="i-lucide-kanban-square" title="看板视图" description="看板将在后续切片实现" />
-        </div>
-      </div>
+          新建
+        </UButton>
+      </header>
 
       <div
-        class="hidden w-[min(100%,22rem)] shrink-0 md:block lg:w-[26rem]"
-        :class="tasksStore.selectedId ? '' : 'opacity-90'"
+        v-if="showListTabs"
+        class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
       >
+        <button
+          type="button"
+          class="border-b-2 py-2 text-sm"
+          :class="tab === 'list' ? 'border-primary text-primary font-medium' : 'border-transparent text-[var(--ws-text-muted)]'"
+          @click="tab = 'list'"
+        >
+          任务列表
+        </button>
+        <button
+          type="button"
+          class="border-b-2 py-2 text-sm text-[var(--ws-text-muted)]"
+          :class="tab === 'board' ? 'border-primary text-primary font-medium' : 'border-transparent'"
+          @click="tab = 'board'"
+        >
+          看板
+        </button>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto p-5">
+        <div v-if="tasksStore.navView === 'activity'">
+          <div v-if="tasksStore.loading" class="flex justify-center py-12">
+            <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
+          </div>
+          <ul v-else-if="tasksStore.activityFeed.length" class="space-y-2">
+            <li
+              v-for="a in tasksStore.activityFeed"
+              :key="a.id"
+              role="button"
+              tabindex="0"
+              class="cursor-pointer rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] px-4 py-3 hover:bg-[var(--ws-rail-hover)]/40"
+              @click="openTaskFromActivity(a.taskId)"
+              @keydown.enter.prevent="openTaskFromActivity(a.taskId)"
+            >
+              <div class="flex items-baseline justify-between gap-2 text-xs text-[var(--ws-text-muted)]">
+                <span class="font-medium text-[var(--ws-text)]">{{ a.actorNickname }}</span>
+                <span>{{ formatActivityTime(a.createTime) }}</span>
+              </div>
+              <p class="mt-1 text-sm">
+                {{ a.summary }}
+                <span class="text-[var(--ws-text-muted)]"> · {{ a.taskTitle }}</span>
+              </p>
+            </li>
+          </ul>
+          <UEmpty
+            v-else
+            icon="i-lucide-activity"
+            title="暂无动态"
+            description="关注或操作任务后，相关活动会出现在这里"
+          />
+        </div>
+
+        <div v-else-if="tasksStore.navView === 'following' || !showListTabs || tab === 'list'">
+          <div v-if="tasksStore.loading" class="flex justify-center py-12">
+            <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
+          </div>
+          <div v-else-if="listItems.length" class="mx-auto max-w-3xl space-y-2">
+            <div
+              v-for="task in listItems"
+              :key="task.id"
+              role="button"
+              tabindex="0"
+              class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
+              :class="tasksStore.selectedId === task.id
+                ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] hover:bg-[var(--ws-rail-hover)]/40'"
+              @click="openTask(task.id)"
+              @keydown.enter.prevent="openTask(task.id)"
+            >
+              <UCheckbox
+                v-if="showTaskActions"
+                :model-value="task.status === 'DONE'"
+                @click.stop
+                @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
+              />
+              <div class="min-w-0 flex-1">
+                <p
+                  class="font-medium"
+                  :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
+                >
+                  {{ task.title }}
+                </p>
+                <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
+                  <span
+                    v-if="formatDue(task.dueTime)"
+                    :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
+                  >
+                    {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
+                  </span>
+                  <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
+                </p>
+              </div>
+              <UButton
+                v-if="showTaskActions"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                size="xs"
+                aria-label="删除"
+                @click.stop="handleDelete(task.id)"
+              />
+            </div>
+          </div>
+          <UEmpty
+            v-else
+            :icon="tasksStore.navView === 'following' ? 'i-lucide-eye' : 'i-lucide-list-todo'"
+            :title="emptyTitle()"
+            :description="emptyDescription()"
+          />
+        </div>
+        <UEmpty v-else icon="i-lucide-kanban-square" title="看板视图" description="看板将在后续切片实现" />
+      </div>
+    </div>
+
+    <USlideover
+      v-model:open="detailOpen"
+      side="right"
+      :close="false"
+      :ui="{ content: 'w-full max-w-md sm:max-w-lg p-0 gap-0' }"
+    >
+      <template #content>
         <TaskDetailPanel
           :task="tasksStore.selectedDetail"
           :subtasks="tasksStore.selectedSubtasks"
           :loading="tasksStore.detailLoading"
-          @close="closeDetail"
+          @close="detailOpen = false"
         />
-      </div>
-    </div>
+      </template>
+    </USlideover>
 
     <UModal v-model:open="createOpen" title="新建任务">
       <template #body>
