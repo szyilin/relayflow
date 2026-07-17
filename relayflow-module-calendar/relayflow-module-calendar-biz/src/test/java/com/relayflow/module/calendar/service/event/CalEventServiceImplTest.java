@@ -8,11 +8,13 @@ import com.relayflow.module.calendar.dal.dataobject.CalCalendarDO;
 import com.relayflow.module.calendar.dal.dataobject.CalEventDO;
 import com.relayflow.module.calendar.dal.mapper.CalAttendeeMapper;
 import com.relayflow.module.calendar.dal.mapper.CalCalendarMapper;
+import com.relayflow.module.calendar.dal.mapper.CalEventExceptionMapper;
 import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
 import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
 import com.relayflow.module.calendar.service.notify.CalendarBotNotifyService;
+import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
 import org.junit.jupiter.api.AfterEach;
@@ -51,7 +53,11 @@ class CalEventServiceImplTest {
     @Mock
     private CalCalendarMapper calCalendarMapper;
     @Mock
+    private CalEventExceptionMapper calEventExceptionMapper;
+    @Mock
     private CalCalendarService calCalendarService;
+    @Mock
+    private CalCalendarShareService calCalendarShareService;
     @Mock
     private TenantMemberApi tenantMemberApi;
     @Mock
@@ -64,8 +70,8 @@ class CalEventServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new CalEventServiceImpl(
-                calEventMapper, calAttendeeMapper, calCalendarMapper,
-                calCalendarService, tenantMemberApi, userApi, calendarBotNotifyService);
+                calEventMapper, calAttendeeMapper, calCalendarMapper, calEventExceptionMapper,
+                calCalendarService, calCalendarShareService, tenantMemberApi, userApi, calendarBotNotifyService);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));

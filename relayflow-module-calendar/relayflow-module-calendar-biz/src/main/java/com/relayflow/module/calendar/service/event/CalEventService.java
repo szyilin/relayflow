@@ -1,6 +1,7 @@
 package com.relayflow.module.calendar.service.event;
 
 import com.relayflow.module.calendar.controller.app.vo.CalEventCreateReqVO;
+import com.relayflow.module.calendar.controller.app.vo.CalEventRescheduleReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespondReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventUpdateReqVO;
@@ -19,7 +20,9 @@ public interface CalEventService {
 
     void update(CalEventUpdateReqVO request);
 
-    void delete(Long id);
+    void delete(Long id, String editScope, OffsetDateTime instanceStart);
+
+    void reschedule(CalEventRescheduleReqVO request);
 
     void respond(CalEventRespondReqVO request);
 }

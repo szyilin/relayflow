@@ -80,9 +80,9 @@
 
 ## 5. 母 change 归档前
 
-- [ ] 5.1 全部子 change archive（若已拆独立目录）
-- [ ] 5.2 `openspec archive workspace-calendar-v1`（同步 `openspec/specs/calendar` 等）
-- [ ] 5.3 确认 `database.md` / board / `workspace-ui-patterns` 日历页摘要已更新
+- [x] 5.1 全部子 change archive（若已拆独立目录）— 未拆独立目录，跳过
+- [x] 5.2 `openspec archive workspace-calendar-v1`（同步 `openspec/specs/calendar` 等）
+- [x] 5.3 确认 `database.md` / board / `workspace-ui-patterns` 日历页摘要已更新
 
 ---
 

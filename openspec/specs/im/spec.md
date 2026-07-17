@@ -232,7 +232,7 @@ IM 模块必须拆分为 `relayflow-module-im-api` 与 `relayflow-module-im-biz`
 
 ### Requirement: Bot catalog and enablement
 
-The system MUST maintain a platform-level bot catalog (not owned by a tenant) and record enablement at tenant and user layers. Bots MUST NOT be persisted as `sys_user` rows. Seeded platform assistants (`org-assistant`, `task-bot`, `approval-bot`, etc.) MUST be stored as `type=system`.
+The system MUST maintain a platform-level bot catalog (not owned by a tenant) and record enablement at tenant and user layers. Bots MUST NOT be persisted as `sys_user` rows. Seeded platform assistants (`org-assistant`, `task-bot`, `approval-bot`, `calendar-bot`, etc.) MUST be stored as `type=system`.
 
 #### Scenario: Bot is not a login user
 
@@ -246,6 +246,20 @@ The system MUST maintain a platform-level bot catalog (not owned by a tenant) an
 - **WHEN** a caller sends an organization invite reminder
 - **THEN** the caller uses `botCode=org-assistant`
 - **AND** MUST NOT use retired `invite-helper`
+
+### Requirement: calendar-bot platform seed
+
+The system MUST seed a platform bot with code `calendar-bot` as `type=system` (calendar assistant) alongside existing assistants such as `org-assistant` and `task-bot`. System-type bots MUST remain reachable via `ImBotApi.send` without tenant/user enablement rows.
+
+#### Scenario: Seed present
+
+- **WHEN** the platform bot catalog is migrated for calendar V1
+- **THEN** a bot row with `code=calendar-bot` and `type=system` exists
+
+#### Scenario: Send without subscription
+
+- **WHEN** `calendar-biz` calls `ImBotApi.send` with `botCode=calendar-bot` and a valid SINGLE target
+- **THEN** delivery proceeds without requiring `im_bot_tenant_enablement` or `im_bot_user_enablement`
 
 ### Requirement: Bot reachability for ImBotApi.send
 

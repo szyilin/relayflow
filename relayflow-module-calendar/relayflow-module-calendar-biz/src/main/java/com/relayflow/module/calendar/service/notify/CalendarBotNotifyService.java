@@ -1,5 +1,6 @@
 package com.relayflow.module.calendar.service.notify;
 
+import com.relayflow.module.calendar.dal.dataobject.CalCalendarDO;
 import com.relayflow.module.calendar.dal.dataobject.CalEventDO;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
 import com.relayflow.module.im.api.bot.ImBotApi;
@@ -70,6 +71,33 @@ public class CalendarBotNotifyService {
                 continue;
             }
             send(event, userId, text, "cc:" + event.getId());
+        }
+    }
+
+    public void notifyCalendarShared(CalCalendarDO calendar, Long granteeUserId) {
+        if (calendar == null || granteeUserId == null) {
+            return;
+        }
+        String name = StringUtils.hasText(calendar.getName()) ? calendar.getName() : "日历";
+        String text = "同事向你共享了日历「" + name + "」";
+        ImBotSendTarget target = new ImBotSendTarget();
+        target.setScope(ImBotSendTarget.SCOPE_SINGLE);
+        target.setTenantId(calendar.getTenantId());
+        target.setUserId(granteeUserId);
+
+        ImBotSendCommand command = new ImBotSendCommand();
+        command.setBotCode(BOT_CODE);
+        command.setText(text);
+        command.setDedupeKey("cs:" + calendar.getId() + ":" + granteeUserId);
+        command.setRoute("/app/calendar");
+        command.setEntityType("calendar");
+        command.setEntityId(String.valueOf(calendar.getId()));
+        command.setTarget(target);
+        try {
+            imBotApi.send(command);
+        } catch (Exception ex) {
+            log.warn("Calendar share bot message failed: calendarId={}, userId={}",
+                    calendar.getId(), granteeUserId, ex);
         }
     }
 

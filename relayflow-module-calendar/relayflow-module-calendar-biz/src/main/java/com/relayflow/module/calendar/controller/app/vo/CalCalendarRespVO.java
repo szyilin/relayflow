@@ -13,6 +13,11 @@ public class CalCalendarRespVO {
 
     private String description;
 
-    /** PRIMARY | OWNED */
+    /** PRIMARY | OWNED | SHARED */
     private String type;
+
+    private Long ownerUserId;
+
+    /** Present when type=SHARED */
+    private String permission;
 }

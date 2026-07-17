@@ -155,6 +155,7 @@ public class CalCalendarServiceImpl implements CalCalendarService {
         vo.setColor(row.getColor());
         vo.setDescription(row.getDescription());
         vo.setType(row.getType());
+        vo.setOwnerUserId(row.getOwnerUserId());
         return vo;
     }
 

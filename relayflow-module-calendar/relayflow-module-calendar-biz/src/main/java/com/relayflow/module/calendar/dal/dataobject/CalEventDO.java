@@ -54,4 +54,8 @@ public class CalEventDO extends TenantBaseDO {
 
     @TableField("status")
     private String status;
+
+    /** RFC5545 RRULE; null = single instance */
+    @TableField("rrule")
+    private String rrule;
 }

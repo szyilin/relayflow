@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { formatISO, parseISO } from 'date-fns'
-import type { CalendarEvent } from '../../api/app/calendar'
+import type { CalendarEditScope, CalendarEvent } from '../../api/app/calendar'
 import { useAuthStore } from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useContactsStore } from '../../stores/contacts'
@@ -28,6 +28,8 @@ const submitting = ref(false)
 const showMore = ref(false)
 const memberKeyword = ref('')
 
+type RecurrenceFreq = 'none' | 'daily' | 'weekly' | 'monthly'
+
 const form = reactive({
   title: '',
   description: '',
@@ -37,17 +39,35 @@ const form = reactive({
   endLocal: '',
   remindBeforeMinutes: 5 as number | null,
   allDayRemindTime: '08:00' as string | null,
-  attendeeUserIds: [] as string[]
+  attendeeUserIds: [] as string[],
+  recurrence: 'none' as RecurrenceFreq,
+  recurrenceCount: 10,
+  editScope: 'ALL' as CalendarEditScope
 })
 
 const isOrganizer = computed(() =>
   props.mode === 'create' || props.event?.viewerRole === 'ORGANIZER')
 
+const isRecurringEdit = computed(() =>
+  props.mode === 'edit' && Boolean(props.event?.recurring || props.event?.rrule))
+
 const calendarItems = computed(() =>
-  calendarStore.calendars.map(c => ({
+  calendarStore.ownedCalendars.map(c => ({
     label: c.name,
     value: c.id
   })))
+
+const recurrenceItems = [
+  { label: '不重复', value: 'none' },
+  { label: '每天', value: 'daily' },
+  { label: '每周', value: 'weekly' },
+  { label: '每月', value: 'monthly' }
+]
+
+const editScopeItems = [
+  { label: '仅此日程', value: 'THIS' },
+  { label: '整个系列', value: 'ALL' }
+]
 
 const remindItems = [
   { label: '不提醒', value: 'none' },
@@ -72,6 +92,42 @@ const candidateMembers = computed(() => {
   })
 })
 
+const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const
+
+function parseRecurrence(rrule?: string | null): { freq: RecurrenceFreq, count: number } {
+  if (!rrule) {
+    return { freq: 'none', count: 10 }
+  }
+  const upper = rrule.toUpperCase()
+  const countMatch = upper.match(/COUNT=(\d+)/)
+  const count = countMatch ? Number(countMatch[1]) : 10
+  if (upper.includes('FREQ=DAILY')) {
+    return { freq: 'daily', count }
+  }
+  if (upper.includes('FREQ=WEEKLY')) {
+    return { freq: 'weekly', count }
+  }
+  if (upper.includes('FREQ=MONTHLY')) {
+    return { freq: 'monthly', count }
+  }
+  return { freq: 'none', count: 10 }
+}
+
+function buildRrule(freq: RecurrenceFreq, start: Date, count: number): string | null {
+  if (freq === 'none') {
+    return null
+  }
+  const safeCount = Math.max(1, Math.min(999, count || 10))
+  if (freq === 'daily') {
+    return `FREQ=DAILY;INTERVAL=1;COUNT=${safeCount}`
+  }
+  if (freq === 'weekly') {
+    const byday = BYDAY[start.getDay()]!
+    return `FREQ=WEEKLY;INTERVAL=1;BYDAY=${byday};COUNT=${safeCount}`
+  }
+  return `FREQ=MONTHLY;INTERVAL=1;COUNT=${safeCount}`
+}
+
 function toLocalInput(date: Date, allDay: boolean): string {
   if (allDay) {
     const y = date.getFullYear()
@@ -95,6 +151,13 @@ function fromLocalInput(value: string, allDay: boolean): Date {
   return new Date(value)
 }
 
+function instanceStartForScope(): string | undefined {
+  if (!isRecurringEdit.value || form.editScope !== 'THIS' || !props.event) {
+    return undefined
+  }
+  return props.event.instanceStart ?? props.event.startTime
+}
+
 function resetForm() {
   const cal = preference.calendar
   const primary = calendarStore.primaryCalendar
@@ -104,6 +167,7 @@ function resetForm() {
   const allDay = props.initialAllDay ?? false
 
   if (props.mode === 'edit' && props.event) {
+    const parsed = parseRecurrence(props.event.rrule)
     form.title = props.event.title === '(无主题)' ? '' : props.event.title
     form.description = props.event.description ?? ''
     form.calendarId = props.event.calendarId
@@ -120,13 +184,16 @@ function resetForm() {
     form.attendeeUserIds = props.event.attendees
       .filter(a => a.role === 'ATTENDEE')
       .map(a => a.userId)
+    form.recurrence = parsed.freq
+    form.recurrenceCount = parsed.count
+    form.editScope = 'THIS'
     showMore.value = true
     return
   }
 
   form.title = ''
   form.description = ''
-  form.calendarId = primary?.id ?? calendarStore.calendars[0]?.id ?? ''
+  form.calendarId = primary?.id ?? calendarStore.ownedCalendars[0]?.id ?? ''
   form.allDay = allDay
   if (allDay) {
     const range = calendarStore.defaultAllDayRange(start)
@@ -139,6 +206,9 @@ function resetForm() {
   form.remindBeforeMinutes = cal.defaultRemindBeforeMinutes
   form.allDayRemindTime = cal.allDayRemindTime
   form.attendeeUserIds = []
+  form.recurrence = 'none'
+  form.recurrenceCount = 10
+  form.editScope = 'ALL'
   showMore.value = false
 }
 
@@ -185,6 +255,7 @@ async function handleSave() {
 
   submitting.value = true
   try {
+    const rrule = buildRrule(form.recurrence, start, form.recurrenceCount)
     const payload = {
       calendarId: form.calendarId,
       title: form.title.trim() || '(无主题)',
@@ -194,10 +265,16 @@ async function handleSave() {
       allDay: form.allDay,
       remindBeforeMinutes: form.allDay ? null : form.remindBeforeMinutes,
       allDayRemindTime: form.allDay ? form.allDayRemindTime : null,
-      attendeeUserIds: form.attendeeUserIds
+      attendeeUserIds: form.attendeeUserIds,
+      rrule
     }
     if (props.mode === 'edit' && props.event) {
-      await calendarStore.updateEvent({ id: props.event.id, ...payload })
+      await calendarStore.updateEvent({
+        id: props.event.id,
+        ...payload,
+        editScope: isRecurringEdit.value ? form.editScope : undefined,
+        instanceStart: instanceStartForScope()
+      })
       toast.add({ title: '日程已更新', color: 'success' })
       emit('saved', props.event.id)
     } else {
@@ -222,7 +299,10 @@ async function handleDelete() {
   }
   submitting.value = true
   try {
-    await calendarStore.removeEvent(props.event.id)
+    await calendarStore.removeEvent(props.event.id, {
+      editScope: isRecurringEdit.value ? form.editScope : undefined,
+      instanceStart: instanceStartForScope()
+    })
     toast.add({ title: '日程已删除', color: 'success' })
     emit('deleted')
     open.value = false
@@ -306,6 +386,35 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
             v-model="form.calendarId"
             :items="calendarItems"
             :disabled="!isOrganizer"
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField v-if="isOrganizer" label="重复">
+          <div class="grid gap-2 sm:grid-cols-2">
+            <USelect
+              v-model="form.recurrence"
+              :items="recurrenceItems"
+              class="w-full"
+            />
+            <UInput
+              v-if="form.recurrence !== 'none'"
+              v-model.number="form.recurrenceCount"
+              type="number"
+              min="1"
+              max="999"
+              placeholder="次数"
+            />
+          </div>
+        </UFormField>
+
+        <UFormField
+          v-if="isRecurringEdit && isOrganizer"
+          label="编辑范围"
+        >
+          <USelect
+            v-model="form.editScope"
+            :items="editScopeItems"
             class="w-full"
           />
         </UFormField>
