@@ -9,6 +9,8 @@ PostgreSQL + Flyway + MyBatis-Plus 的表结构、迁移与公共字段规范。
 | `sys_` | system | `sys_user` |
 | `infra_` | infra | `infra_file` |
 | `im_` | im | `im_message` |
+| `task_` | task | `task_item` |
+| `cal_` | calendar | `cal_event` |
 | `bpm_` | bpm（V1.1） | `bpm_process` |
 
 租户元数据表（`sys_tenant`、`sys_tenant_user`）不带业务表通用的 `tenant_id` 约束，详见 `tenant-ready-foundation` design。
@@ -25,6 +27,8 @@ V1 用 **表前缀** 做逻辑分域，不建多库：
 - `sys_*` 仅 system 域 Mapper 访问
 - `infra_*` 仅 infra 域 Mapper 访问
 - `im_*` 仅 im 域 Mapper 访问
+- `task_*` 仅 task 域 Mapper 访问
+- `cal_*` 仅 calendar 域 Mapper 访问
 
 **禁止** im-biz 的 SQL 出现 `sys_` 表；跨域读数据须走 `*-api`（如 `AdminUserApi`），不直连他域表。跨域写副作用若不必与当前请求强一致，走领域消息（见 [`cross-domain-messaging.md`](cross-domain-messaging.md)）。
 

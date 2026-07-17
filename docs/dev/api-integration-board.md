@@ -57,13 +57,14 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| （无） | — | — | — | — | 群 Bot / card / 名片等已归档；见下方建议下一切片 |
+| **workspace-calendar** | planned | pending | `/app-api/calendar/*` · `/app/calendar` | 待 `workspace-calendar-web` 起草 | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；邀约要；整日历共享/RRULE/任务图层不做 |
 
-### 建议下一切片（尚未立项）
+### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底；看板 Web → **done** |
+| `workspace-calendar-v1` 子切片 | `calendar-schema-v1` → `workspace-calendar-web` → `-api` → `-integrate`（见母 change tasks） |
+| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底；日历设置键随 calendar 切片一并落地 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
@@ -78,8 +79,9 @@
 2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅
 3. workspace-profile-card-web / workspace-settings-web / user-preference-api ✅
 4. workspace-business-card-web / -api / im-self-direct-chat ✅
-5. user-preference-integrate（建议下一）
-6. bpm-v1 — deferred，见下方「暂缓实现」
+5. workspace-calendar-v1（当前立项）→ schema → web → api → integrate
+6. user-preference-integrate（可与日历设置键一并收紧）
+7. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
 ## 已归档规划（暂缓实现）
