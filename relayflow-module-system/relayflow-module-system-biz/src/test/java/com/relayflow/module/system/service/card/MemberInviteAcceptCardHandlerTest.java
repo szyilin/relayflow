@@ -1,11 +1,8 @@
 package com.relayflow.module.system.service.card;
 
-import com.relayflow.framework.messaging.DomainEvent;
-import com.relayflow.framework.messaging.DomainEventPublisher;
+import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.im.api.card.CardActionContext;
 import com.relayflow.module.im.api.card.CardActionResult;
-import com.relayflow.module.system.api.event.SystemDomainEventTypes;
-import com.relayflow.module.system.api.event.TenantUserActivatedPayload;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.enums.TenantUserStatus;
@@ -33,7 +30,7 @@ class MemberInviteAcceptCardHandlerTest {
     @Mock
     private TenantService tenantService;
     @Mock
-    private DomainEventPublisher domainEventPublisher;
+    private ImBotApi imBotApi;
 
     @InjectMocks
     private MemberInviteAcceptCardHandler handler;
@@ -56,13 +53,7 @@ class MemberInviteAcceptCardHandlerTest {
         ArgumentCaptor<SysTenantUserDO> captor = ArgumentCaptor.forClass(SysTenantUserDO.class);
         verify(tenantUserMapper).updateById(captor.capture());
         assertEquals(TenantUserStatus.ACTIVE, captor.getValue().getStatus());
-
-        ArgumentCaptor<DomainEvent> eventCaptor = ArgumentCaptor.forClass(DomainEvent.class);
-        verify(domainEventPublisher).publish(eventCaptor.capture());
-        assertEquals(SystemDomainEventTypes.TENANT_USER_ACTIVATED, eventCaptor.getValue().getEventType());
-        TenantUserActivatedPayload payload = (TenantUserActivatedPayload) eventCaptor.getValue().getPayload();
-        assertEquals(42L, payload.getTenantId());
-        assertEquals(200L, payload.getUserId());
+        verify(imBotApi).ensureUserEnablementsOnActive(42L, 200L);
 
         assertNotNull(result.getToast());
         assertEquals("success", result.getToast().getType());

@@ -2,13 +2,10 @@ package com.relayflow.module.system.service.memberinvite;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
-import com.relayflow.framework.messaging.DomainEvent;
-import com.relayflow.framework.messaging.DomainEventPublisher;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import com.relayflow.module.system.api.event.SystemDomainEventTypes;
-import com.relayflow.module.system.api.event.TenantUserActivatedPayload;
+import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.system.controller.admin.auth.vo.AuthLoginRespVO;
 import com.relayflow.module.system.controller.app.vo.MemberInvitePreviewRespVO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
@@ -20,6 +17,7 @@ import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,7 +37,9 @@ public class MemberInviteServiceImpl implements MemberInviteService {
     private final TenantProperties tenantProperties;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
-    private final DomainEventPublisher domainEventPublisher;
+    /** Breaks invite-accept → ImBotApi → ConversationService → UserApi cycle; do not pile more @Lazy without revisit. */
+    @Lazy
+    private final ImBotApi imBotApi;
 
     @Override
     public MemberInvitePreviewRespVO preview(String mobile) {
@@ -69,16 +69,7 @@ public class MemberInviteServiceImpl implements MemberInviteService {
 
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
         tenantUserMapper.updateById(tenantUser);
-        TenantUserActivatedPayload payload = new TenantUserActivatedPayload();
-        payload.setTenantId(tenantId);
-        payload.setUserId(user.getId());
-        domainEventPublisher.publish(DomainEvent.builder()
-                .eventType(SystemDomainEventTypes.TENANT_USER_ACTIVATED)
-                .tenantId(tenantId)
-                .producer(SystemDomainEventTypes.PRODUCER)
-                .schemaVersion(1)
-                .payload(payload)
-                .build());
+        imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
 
         TenantContextHolder.set(tenantId);
         String accessToken = jwtTokenService.createAccessToken(
