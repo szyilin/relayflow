@@ -10,6 +10,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 import com.relayflow.module.task.convert.TaskConvert;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
@@ -21,8 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,10 +47,13 @@ public class TaskItemServiceImpl implements TaskItemService {
                 new Page<>(request.getPageNo(), request.getPageSize()),
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getAssigneeId, userId)
+                        .isNull(TaskItemDO::getParentId)
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByDesc(TaskItemDO::getCreateTime));
         taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
-        return PageResult.of(TaskConvert.INSTANCE.toRespList(page.getRecords()), page.getTotal());
+        List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
+        fillSubtaskCounts(list);
+        return PageResult.of(list, page.getTotal());
     }
 
     @Override
@@ -60,6 +68,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemDO> rows = taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getAssigneeId, userId)
+                        .isNull(TaskItemDO::getParentId)
                         .like(TaskItemDO::getTitle, trimmed)
                         .orderByDesc(TaskItemDO::getCreateTime)
                         .last("LIMIT " + safeLimit));
@@ -89,6 +98,17 @@ public class TaskItemServiceImpl implements TaskItemService {
         return TaskConvert.INSTANCE.toRespList(rows);
     }
 
+    @Override
+    public TaskItemRespVO getTask(Long id) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        TaskItemDO row = requireOwnedTask(id, userId);
+        TaskItemRespVO vo = TaskConvert.INSTANCE.toResp(row);
+        if (row.getParentId() == null) {
+            fillSubtaskCounts(List.of(vo));
+        }
+        return vo;
+    }
+
     private static int clampSearchLimit(int limit) {
         if (limit <= 0) {
             return 5;
@@ -107,10 +127,11 @@ public class TaskItemServiceImpl implements TaskItemService {
     public Long createTask(TaskItemCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
-        return createTask(userId, tenantId, request);
+        validateTimeRange(request.getStartTime(), request.getDueTime());
+        return createRootTask(userId, tenantId, request);
     }
 
-    private Long createTask(Long userId, Long tenantId, TaskItemCreateReqVO request) {
+    private Long createRootTask(Long userId, Long tenantId, TaskItemCreateReqVO request) {
         String title = request.getTitle().trim();
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -119,7 +140,9 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setTitle(title);
         row.setAssigneeId(userId);
         row.setCreatorId(userId);
+        row.setStartTime(request.getStartTime());
         row.setDueTime(request.getDueTime());
+        row.setParentId(null);
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);
         row.setCreateTime(now);
@@ -137,18 +160,25 @@ public class TaskItemServiceImpl implements TaskItemService {
 
     private void updateTask(Long userId, TaskItemUpdateReqVO request) {
         TaskItemDO row = requireOwnedTask(request.getId(), userId);
-        boolean changed = false;
 
-        if (StringUtils.hasText(request.getTitle())) {
+        OffsetDateTime nextStart = request.isStartTimePresent() ? request.getStartTime() : row.getStartTime();
+        OffsetDateTime nextDue = request.isDueTimePresent() ? request.getDueTime() : row.getDueTime();
+        validateTimeRange(nextStart, nextDue);
+
+        if (request.isTitlePresent() && StringUtils.hasText(request.getTitle())) {
             row.setTitle(request.getTitle().trim());
-            changed = true;
         }
-        if (request.getDueTime() != null) {
+        if (request.isStartTimePresent()) {
+            row.setStartTime(request.getStartTime());
+        }
+        if (request.isDueTimePresent()) {
             row.setDueTime(request.getDueTime());
-            changed = true;
         }
-        if (!changed) {
-            return;
+        if (request.isRemindBeforeMinutesPresent()) {
+            row.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
+        }
+        if (request.isDescriptionPresent()) {
+            row.setDescription(request.getDescription());
         }
         row.setUpdater(userId);
         row.setUpdateTime(OffsetDateTime.now());
@@ -179,8 +209,95 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     private void deleteTask(Long userId, Long id) {
-        requireOwnedTask(id, userId);
+        TaskItemDO row = requireOwnedTask(id, userId);
+        if (row.getParentId() == null) {
+            List<TaskItemDO> children = taskItemMapper.selectList(
+                    Wrappers.<TaskItemDO>lambdaQuery().eq(TaskItemDO::getParentId, id));
+            for (TaskItemDO child : children) {
+                if (Objects.equals(child.getAssigneeId(), userId)) {
+                    taskItemMapper.deleteById(child.getId());
+                }
+            }
+        }
         taskItemMapper.deleteById(id);
+    }
+
+    @Override
+    public List<TaskItemRespVO> listSubtasks(Long parentId) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        requireOwnedTask(parentId, userId);
+        List<TaskItemDO> rows = taskItemMapper.selectList(
+                Wrappers.<TaskItemDO>lambdaQuery()
+                        .eq(TaskItemDO::getParentId, parentId)
+                        .orderByAsc(TaskItemDO::getCreateTime));
+        return TaskConvert.INSTANCE.toRespList(rows);
+    }
+
+    @Override
+    public Long createSubtask(TaskSubtaskCreateReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        TaskItemDO parent = requireOwnedTask(request.getParentId(), userId);
+        if (parent.getParentId() != null) {
+            throw new ServiceException(ErrorCodeConstants.TASK_SUBTASK_DEPTH_EXCEEDED);
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        TaskItemDO row = new TaskItemDO();
+        row.setTenantId(tenantId);
+        row.setTitle(request.getTitle().trim());
+        row.setAssigneeId(userId);
+        row.setCreatorId(userId);
+        row.setParentId(parent.getId());
+        row.setStatus(TaskItemStatus.TODO);
+        row.setCreator(userId);
+        row.setCreateTime(now);
+        row.setUpdater(userId);
+        row.setUpdateTime(now);
+        taskItemMapper.insert(row);
+        return row.getId();
+    }
+
+    private void fillSubtaskCounts(List<TaskItemRespVO> roots) {
+        if (roots == null || roots.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = roots.stream().map(TaskItemRespVO::getId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return;
+        }
+        List<TaskItemDO> children = taskItemMapper.selectList(
+                Wrappers.<TaskItemDO>lambdaQuery().in(TaskItemDO::getParentId, ids));
+        if (children == null || children.isEmpty()) {
+            for (TaskItemRespVO root : roots) {
+                root.setSubtaskTotal(0);
+                root.setSubtaskDoneCount(0);
+            }
+            return;
+        }
+        Map<Long, int[]> counts = new HashMap<>();
+        for (TaskItemDO child : children) {
+            int[] pair = counts.computeIfAbsent(child.getParentId(), k -> new int[]{0, 0});
+            pair[0]++;
+            if (TaskItemStatus.DONE.equals(child.getStatus())) {
+                pair[1]++;
+            }
+        }
+        for (TaskItemRespVO root : roots) {
+            int[] pair = counts.get(root.getId());
+            if (pair == null) {
+                root.setSubtaskTotal(0);
+                root.setSubtaskDoneCount(0);
+            } else {
+                root.setSubtaskTotal(pair[0]);
+                root.setSubtaskDoneCount(pair[1]);
+            }
+        }
+    }
+
+    private static void validateTimeRange(OffsetDateTime start, OffsetDateTime due) {
+        if (start != null && due != null && start.isAfter(due)) {
+            throw new ServiceException(ErrorCodeConstants.TASK_INVALID_TIME_RANGE);
+        }
     }
 
     private TaskItemDO requireOwnedTask(Long id, Long userId) {

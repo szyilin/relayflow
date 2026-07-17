@@ -32,10 +32,10 @@
 
 ## 2. workspace-task-detail-api（P0 · 后端第二步）
 
-- [ ] 2.1 Flyway：`task_item` 增 `start_time` / `description` / `remind_before_minutes` / `parent_id`；索引
-- [ ] 2.2 codegen diff 合入 DO/Mapper；详情 get/update、子任务 CRUD REST
-- [ ] 2.3 page 默认仅根任务；深度限制 1 层
-- [ ] 2.4 `./mvnw -pl relayflow-server -am compile` + curl
+- [x] 2.1 Flyway：`task_item` 增 `start_time` / `description` / `remind_before_minutes` / `parent_id`；索引
+- [x] 2.2 codegen diff 合入 DO/Mapper；详情 get/update、子任务 CRUD REST
+- [x] 2.3 page 默认仅根任务；深度限制 1 层
+- [x] 2.4 `./mvnw -pl relayflow-server -am compile` + curl
 
 **完成后**：可联调 detail。
 

@@ -13,5 +13,7 @@ public class TaskItemCreateReqVO {
     @Size(max = 200)
     private String title;
 
+    private OffsetDateTime startTime;
+
     private OffsetDateTime dueTime;
 }

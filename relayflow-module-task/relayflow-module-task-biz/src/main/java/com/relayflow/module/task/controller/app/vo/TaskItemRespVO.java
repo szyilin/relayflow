@@ -13,7 +13,23 @@ public class TaskItemRespVO {
 
     private String status;
 
+    private OffsetDateTime startTime;
+
     private OffsetDateTime dueTime;
 
+    private Integer remindBeforeMinutes;
+
+    private String description;
+
+    private Long parentId;
+
+    private Long assigneeId;
+
+    private Long creatorId;
+
     private OffsetDateTime createTime;
+
+    private Integer subtaskDoneCount;
+
+    private Integer subtaskTotal;
 }

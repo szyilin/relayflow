@@ -9,6 +9,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskSearchItemRespVO;
+import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.service.item.TaskItemService;
 import jakarta.validation.Valid;
@@ -59,6 +60,21 @@ public class TaskItemController {
             @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
             @RequestParam(value = "limit", defaultValue = "200") int limit) {
         return CommonResult.success(taskItemService.listDueRange(from, to, limit));
+    }
+
+    @GetMapping("/get")
+    public CommonResult<TaskItemRespVO> get(@RequestParam @NotNull Long id) {
+        return CommonResult.success(taskItemService.getTask(id));
+    }
+
+    @GetMapping("/subtasks")
+    public CommonResult<List<TaskItemRespVO>> subtasks(@RequestParam @NotNull Long parentId) {
+        return CommonResult.success(taskItemService.listSubtasks(parentId));
+    }
+
+    @PostMapping("/subtask/create")
+    public CommonResult<Long> createSubtask(@Valid @RequestBody TaskSubtaskCreateReqVO request) {
+        return CommonResult.success(taskItemService.createSubtask(request));
     }
 
     private TaskSearchItemRespVO toSearchItem(TaskItemRespVO item) {
