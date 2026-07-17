@@ -115,3 +115,135 @@ export async function getTaskDueRange(params: {
   )
   return (data ?? []).map(item => normalizeTaskItem(item))
 }
+
+// --- collab (P1) ---
+
+export type TaskActivityType =
+  | 'created'
+  | 'field_changed'
+  | 'subtask_created'
+  | 'subtask_done'
+  | 'follower_added'
+  | 'follower_removed'
+  | 'commented'
+  | 'assigned'
+
+export interface TaskFollower {
+  userId: string
+  nickname: string
+  avatarText: string
+  followTime: string
+}
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  authorId: string
+  authorNickname: string
+  content: string
+  createTime: string
+}
+
+export interface TaskActivity {
+  id: string
+  taskId: string
+  taskTitle: string
+  actorId: string
+  actorNickname: string
+  type: TaskActivityType
+  summary: string
+  createTime: string
+}
+
+function normalizeFollower(row: TaskFollower & { userId?: string | number }): TaskFollower {
+  return {
+    userId: String(row.userId),
+    nickname: row.nickname,
+    avatarText: row.avatarText || (row.nickname?.slice(0, 1) ?? '?'),
+    followTime: row.followTime
+  }
+}
+
+function normalizeComment(row: TaskComment & { id?: string | number, taskId?: string | number, authorId?: string | number }): TaskComment {
+  return {
+    id: String(row.id),
+    taskId: String(row.taskId),
+    authorId: String(row.authorId),
+    authorNickname: row.authorNickname,
+    content: row.content,
+    createTime: row.createTime
+  }
+}
+
+function normalizeActivity(row: TaskActivity & { id?: string | number, taskId?: string | number, actorId?: string | number }): TaskActivity {
+  return {
+    id: String(row.id),
+    taskId: String(row.taskId),
+    taskTitle: row.taskTitle,
+    actorId: String(row.actorId),
+    actorNickname: row.actorNickname,
+    type: row.type,
+    summary: row.summary,
+    createTime: row.createTime
+  }
+}
+
+export async function followTask(taskId: string): Promise<boolean> {
+  return post<boolean>('/app-api/task/item/follow', { taskId })
+}
+
+export async function unfollowTask(taskId: string): Promise<boolean> {
+  return post<boolean>('/app-api/task/item/unfollow', { taskId })
+}
+
+export async function getTaskFollowers(taskId: string): Promise<TaskFollower[]> {
+  const data = await get<Array<TaskFollower & { userId?: string | number }>>(
+    '/app-api/task/item/followers',
+    { params: { taskId } }
+  )
+  return (data ?? []).map(normalizeFollower)
+}
+
+export async function getFollowingTaskPage(params?: {
+  pageNo?: number
+  pageSize?: number
+}): Promise<TaskPageResult> {
+  const data = await get<TaskPageResult>('/app-api/task/item/following/page', { params })
+  return {
+    list: (data.list ?? []).map(item => normalizeTaskItem(item as TaskItem & { id?: string | number })),
+    total: data.total ?? 0
+  }
+}
+
+export async function assignTask(payload: { id: string, assigneeId: string }): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/assign', payload)
+}
+
+export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
+  const data = await get<Array<TaskComment & { id?: string | number }>>(
+    '/app-api/task/item/comments',
+    { params: { taskId } }
+  )
+  return (data ?? []).map(normalizeComment)
+}
+
+export async function createTaskComment(payload: { taskId: string, content: string }): Promise<string> {
+  const id = await post<number | string>('/app-api/task/item/comment/create', payload)
+  return String(id)
+}
+
+export async function getTaskActivities(taskId: string): Promise<TaskActivity[]> {
+  const data = await get<Array<TaskActivity & { id?: string | number }>>(
+    '/app-api/task/item/activities',
+    { params: { taskId } }
+  )
+  return (data ?? []).map(normalizeActivity)
+}
+
+export async function getTaskActivityFeed(limit = 50): Promise<TaskActivity[]> {
+  const data = await get<Array<TaskActivity & { id?: string | number }>>(
+    '/app-api/task/activity/feed',
+    { params: { limit } }
+  )
+  return (data ?? []).map(normalizeActivity)
+}

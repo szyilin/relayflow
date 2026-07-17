@@ -2,6 +2,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import type { TaskItem } from '../../api/app/task'
 import { ApiError } from '../../api/request'
+import { useAuthStore } from '../../stores/auth'
+import { useContactsStore } from '../../stores/contacts'
 import { useTasksStore } from '../../stores/tasks'
 
 const props = defineProps<{
@@ -15,6 +17,8 @@ const emit = defineEmits<{
 }>()
 
 const tasksStore = useTasksStore()
+const auth = useAuthStore()
+const contacts = useContactsStore()
 const toast = useToast()
 
 const form = reactive({
@@ -36,6 +40,54 @@ const remindOptions = [
 ]
 
 const newSubtaskTitle = ref('')
+const newComment = ref('')
+const assignOpen = ref(false)
+const memberKeyword = ref('')
+const membersLoaded = ref(false)
+
+const progressLabel = computed(() => {
+  const total = props.subtasks.length
+  if (!total) {
+    return '0/0'
+  }
+  const done = props.subtasks.filter(s => s.status === 'DONE').length
+  return `${done}/${total}`
+})
+
+const progressPct = computed(() => {
+  const total = props.subtasks.length
+  if (!total) {
+    return 0
+  }
+  return Math.round((props.subtasks.filter(s => s.status === 'DONE').length / total) * 100)
+})
+
+const assigneeLabel = computed(() => {
+  const id = props.task?.assigneeId
+  if (!id) {
+    return '未指定'
+  }
+  if (String(auth.userId) === id) {
+    return auth.user?.nickname || auth.user?.username || '我'
+  }
+  const member = contacts.members.find(m => m.id === id)
+  return member?.nickname || `用户 ${id}`
+})
+
+const candidateMembers = computed(() => {
+  const selfId = String(auth.userId ?? '')
+  const q = memberKeyword.value.trim().toLowerCase()
+  return contacts.members.filter((member) => {
+    if (member.id === selfId) {
+      return false
+    }
+    if (!q) {
+      return true
+    }
+    return member.nickname.toLowerCase().includes(q)
+      || member.username.toLowerCase().includes(q)
+  })
+})
 
 function toLocalInput(iso?: string | null): string {
   if (!iso) {
@@ -80,19 +132,39 @@ watch(() => props.task, (t) => {
   syncForm(t)
 }, { immediate: true, deep: true })
 
-const progressLabel = computed(() => {
-  const total = props.subtasks.length
-  const done = props.subtasks.filter(s => s.status === 'DONE').length
-  return `${done}/${total}`
-})
-
-const progressPct = computed(() => {
-  const total = props.subtasks.length
-  if (!total) {
-    return 0
+function formatTime(iso?: string | null) {
+  if (!iso) {
+    return ''
   }
-  return Math.round((props.subtasks.filter(s => s.status === 'DONE').length / total) * 100)
-})
+  return new Date(iso).toLocaleString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+async function ensureMembers() {
+  if (membersLoaded.value && contacts.members.length) {
+    return
+  }
+  try {
+    await contacts.fetchDepts()
+    const rootId = contacts.rootDeptId()
+    if (rootId) {
+      await contacts.fetchMembers({ deptId: rootId })
+    }
+    membersLoaded.value = true
+  } catch {
+    // member list optional for assign UI
+  }
+}
+
+async function openAssign() {
+  await ensureMembers()
+  memberKeyword.value = ''
+  assignOpen.value = true
+}
 
 async function handleSave() {
   if (!props.task) {
@@ -173,6 +245,50 @@ async function handleDeleteSubtask(id: string) {
     toast.add({ title: '删除失败', color: 'error' })
   }
 }
+
+async function handleToggleFollow() {
+  if (!props.task) {
+    return
+  }
+  const next = !tasksStore.iAmFollowing
+  try {
+    await tasksStore.toggleFollow(props.task.id, next)
+    toast.add({ title: next ? '已关注' : '已取消关注', color: 'success' })
+  } catch {
+    toast.add({ title: '操作失败', color: 'error' })
+  }
+}
+
+async function handleAddComment() {
+  if (!props.task) {
+    return
+  }
+  const content = newComment.value.trim()
+  if (!content) {
+    toast.add({ title: '请输入评论', color: 'error' })
+    return
+  }
+  try {
+    await tasksStore.addComment(props.task.id, content)
+    newComment.value = ''
+  } catch {
+    toast.add({ title: '发表评论失败', color: 'error' })
+  }
+}
+
+async function handleAssign(memberId: string, nickname: string) {
+  if (!props.task) {
+    return
+  }
+  try {
+    await tasksStore.assignTo(props.task.id, memberId, nickname)
+    assignOpen.value = false
+    toast.add({ title: `已指派给 ${nickname}`, color: 'success' })
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '指派失败'
+    toast.add({ title: message, color: 'error' })
+  }
+}
 </script>
 
 <template>
@@ -186,6 +302,16 @@ async function handleDeleteSubtask(id: string) {
         @click="handleComplete"
       >
         {{ task?.status === 'DONE' ? '重新打开' : '完成任务' }}
+      </UButton>
+      <UButton
+        v-if="task"
+        color="neutral"
+        size="sm"
+        variant="soft"
+        :icon="tasksStore.iAmFollowing ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+        @click="handleToggleFollow"
+      >
+        {{ tasksStore.iAmFollowing ? '取消关注' : '关注' }}
       </UButton>
       <div class="flex-1" />
       <UButton
@@ -214,6 +340,21 @@ async function handleDeleteSubtask(id: string) {
         placeholder="任务标题"
         @blur="handleSave"
       />
+
+      <div class="flex items-center gap-3 text-sm">
+        <UIcon name="i-lucide-user" class="size-4 shrink-0 text-[var(--ws-text-muted)]" />
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            负责人
+          </p>
+          <p class="font-medium">
+            {{ assigneeLabel }}
+          </p>
+        </div>
+        <UButton color="neutral" variant="soft" size="xs" @click="openAssign">
+          指派
+        </UButton>
+      </div>
 
       <div class="space-y-3 text-sm">
         <div class="flex items-start gap-3">
@@ -257,6 +398,25 @@ async function handleDeleteSubtask(id: string) {
           @blur="handleSave"
         />
       </UFormField>
+
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold">
+          关注人
+        </h3>
+        <div v-if="tasksStore.selectedFollowers.length" class="flex flex-wrap gap-2">
+          <UBadge
+            v-for="f in tasksStore.selectedFollowers"
+            :key="f.userId"
+            color="neutral"
+            variant="subtle"
+          >
+            {{ f.nickname }}
+          </UBadge>
+        </div>
+        <p v-else class="text-xs text-[var(--ws-text-muted)]">
+          暂无关注人
+        </p>
+      </section>
 
       <section class="space-y-2">
         <div class="flex items-center justify-between gap-2">
@@ -312,6 +472,95 @@ async function handleDeleteSubtask(id: string) {
           />
         </div>
       </section>
+
+      <section class="space-y-2">
+        <h3 class="text-sm font-semibold">
+          评论
+        </h3>
+        <ul class="space-y-3">
+          <li
+            v-for="c in tasksStore.selectedComments"
+            :key="c.id"
+            class="rounded-lg bg-[var(--ws-rail-hover)]/40 px-3 py-2"
+          >
+            <div class="flex items-baseline justify-between gap-2 text-xs text-[var(--ws-text-muted)]">
+              <span class="font-medium text-[var(--ws-text)]">{{ c.authorNickname }}</span>
+              <span>{{ formatTime(c.createTime) }}</span>
+            </div>
+            <p class="mt-1 whitespace-pre-wrap text-sm">
+              {{ c.content }}
+            </p>
+          </li>
+        </ul>
+        <div class="flex gap-2">
+          <UTextarea
+            v-model="newComment"
+            :rows="2"
+            placeholder="写评论…"
+            class="flex-1"
+          />
+          <UButton
+            color="primary"
+            variant="soft"
+            class="self-end"
+            :loading="tasksStore.saving"
+            @click="handleAddComment"
+          >
+            发送
+          </UButton>
+        </div>
+      </section>
+
+      <section class="space-y-2 pb-4">
+        <h3 class="text-sm font-semibold">
+          活动
+        </h3>
+        <ul class="space-y-2">
+          <li
+            v-for="a in tasksStore.selectedActivities"
+            :key="a.id"
+            class="flex gap-2 text-xs text-[var(--ws-text-muted)]"
+          >
+            <span class="shrink-0 font-medium text-[var(--ws-text)]">{{ a.actorNickname }}</span>
+            <span class="min-w-0 flex-1">{{ a.summary }}</span>
+            <span class="shrink-0">{{ formatTime(a.createTime) }}</span>
+          </li>
+        </ul>
+        <p v-if="!tasksStore.selectedActivities.length" class="text-xs text-[var(--ws-text-muted)]">
+          暂无活动
+        </p>
+      </section>
     </div>
+
+    <UModal v-model:open="assignOpen" title="指派负责人">
+      <template #body>
+        <div class="space-y-3">
+          <UInput
+            v-model="memberKeyword"
+            placeholder="搜索成员"
+            icon="i-lucide-search"
+          />
+          <ul class="max-h-64 space-y-1 overflow-y-auto">
+            <li v-for="m in candidateMembers" :key="m.id">
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--ws-rail-hover)]"
+                @click="handleAssign(m.id, m.nickname)"
+              >
+                <UAvatar :alt="m.nickname" size="xs" />
+                <span class="font-medium">{{ m.nickname }}</span>
+                <span class="text-xs text-[var(--ws-text-muted)]">{{ m.username }}</span>
+              </button>
+            </li>
+          </ul>
+          <UEmpty
+            v-if="!candidateMembers.length"
+            icon="i-lucide-users"
+            title="无匹配成员"
+            description="请调整关键词或确认通讯录已加载"
+          />
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
