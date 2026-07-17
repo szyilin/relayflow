@@ -48,8 +48,8 @@
 | im-bot-notify-foundation | **archived** | **done** | `ImBotApi` · `bot_dm` · 删 Rail/`infra_notify`；§7 子 change 已开单 | [im-bot-dm](../../openspec/lanes/im-bot-dm/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-im-bot-notify-foundation/proposal.md) |
 | workspace-search | **archived** | **done** | `GET /app-api/infra/workspace-search` · Rail ⌘K Modal | [contract](../../openspec/lanes/workspace-search/contract.md) | store 无 Mock；E2E 通过；[archive](../../openspec/changes/archive/2026-07-16-workspace-search-v1/proposal.md) |
 | workspace-profile-card | n/a | **done** | Rail 资料名片 · 更多账号 · 设置入口 | — | [archive](../../openspec/changes/archive/2026-07-16-workspace-profile-card-web/proposal.md) |
-| workspace-settings | n/a | **ui_ready** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；待 `user-preference-integrate` |
-| user-preference | **archived** | **ui_ready** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；store 仍含 localStorage 兜底，正式联调尚未立项 |
+| workspace-settings | n/a | **ui_ready** | 设置窗通用三项 · `/app/messages` 气泡布局 | [contract](../../openspec/lanes/user-preference/contract.md) | [archive](../../openspec/changes/archive/2026-07-16-workspace-settings-web/proposal.md)；偏好真源收紧并入 [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
+| user-preference | **archived** | **in_progress** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；客户端 API 真源 → [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
 | workspace-business-card | **archived** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
 | im-self-direct-chat | **archived** | **done** | self-DIRECT · 本人名片发消息 | — | [archive](../../openspec/changes/archive/2026-07-17-im-self-direct-chat/proposal.md) |
 | **workspace-calendar** | **archived** | **done** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1/proposal.md)；store 无 Mock |
@@ -69,7 +69,7 @@
 
 | 切片 | 说明 |
 |------|------|
-| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
+| `frontend-eng-hardening-v1` | 前端工程硬化：租户 reset、列表分页、偏好 API 真源、God 拆分、Dock 威胁模型；**含原 `user-preference-integrate` 范围** |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
@@ -88,7 +88,7 @@
 6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
 7. task-calendar-projection（任务图层投影）✅
 8. workspace-task-core-v1（任务详情 + 协作）✅
-9. user-preference-integrate（收紧 localStorage 真源）← 建议下一步
+9. frontend-eng-hardening-v1（含偏好 API 真源 / 原 user-preference-integrate）← 进行中
 10. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 

@@ -67,7 +67,7 @@ web/src/
 | 入口 | 名片「设置」→ `WorkspaceRailHeader` 打开 `WorkspaceSettingsPanel` |
 | 布局 | 左栏分类（账号与安全、通用、隐私、通知、快捷键）；右栏内容；默认「通用」 |
 | 通用 | 主题模式（跟随系统/浅色/深色 + 预览）、主题色色点、会话气泡布局（左对齐/左右分布） |
-| 数据 | `stores/userPreference`（本地默认 + localStorage；契约见 [`user-preference/contract.md`](../../openspec/lanes/user-preference/contract.md)） |
+| 数据 | `stores/userPreference` → **preference API 为真源**（登录/切租户后 GET 水合；PUT 失败须 toast）；localStorage 仅作带 `(tenantId, userId)` 作用域的短时缓存，**不得**作跨会话权威写路径；契约见 [`user-preference/contract.md`](../../openspec/lanes/user-preference/contract.md)；工程约定见 change [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
 | 占位分类 | 右侧空态「功能即将推出（占位）」+ toast |
 
 ## 全局搜索（⌘K / Rail）
@@ -142,7 +142,27 @@ Page → Pinia Store → api/admin|app/* → axios request.ts
 
 **禁止** 页面直接 `import mocks/`。仓库不保留常驻 `web/src/mocks/`；勿再实现已废弃的 `isApiUnavailable` 全局 Mock 回退。
 
-多账号切换（`stores/accountDock.ts`）会在 `localStorage` 缓存多个 JWT，属工作台产品能力，不是通用「前端风格」模板。
+### 模块体量（软上限）
+
+单 SFC / 单 Pinia store 建议 **≤ ~500 行**。日历、IM、消息、任务等易膨胀模块：逻辑进 `composables/`，大块 UI 进 `components/workspace|…`；页面只做编排与深链。超过软上限须拆分或在文件头注明待拆边界。详见 [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/design.md)。
+
+### 企业 / 账号切换与租户状态
+
+`tenantId` 或 `userId` 变更时（`useTenantSwitchReload` 等），MUST 清空并按需重载**全部**租户范围 store，至少包括：`profile`、`im`、`contacts`、`tasks`、`calendar`、`userPreference`。禁止切换后仍展示上一租户的任务、日程或偏好。
+
+### 列表分页
+
+工作台列表调用分页 API 时 MUST 使用显式分页或「加载更多」；默认 `pageSize` 建议与 [`api.md`](api.md) 一致（20），且不超过服务端上限 100。**禁止**固定拉一页 100 条且无翻页而假装列表完整。角标/计数若只有分页数据，不得静默冒充全量。
+
+### Account Dock 与 JWT（威胁模型）
+
+多账号切换（`stores/accountDock.ts`）属工作台产品能力：V1 可在 `localStorage`（键 `relayflow:account-dock`）持久化多条「账号×企业」会话以便一键切换，条目中 **MAY** 含 bearer `token`。
+
+| 项 | 说明 |
+|----|------|
+| 风险 | 页面 XSS 可读 `localStorage`，一次窃取 **Dock 内全部 JWT**（相对「仅当前会话 1 个 token」放大） |
+| V1 约束 | 登出 MUST 清除该 `userId` 下全部 dock 条目；同账号跨企业 MUST 走 `POST …/tenant/switch` 刷新 token，不得仅靠过期拷贝 token 当作切换成功 |
+| 目标态 | httpOnly Cookie / 服务端 opaque session id + 会话列表（另立项；本阶段不实现） |
 
 示范：
 
