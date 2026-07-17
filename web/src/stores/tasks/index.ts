@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   assignTask,
+  boardMoveTask,
   createSubtask,
   createTask,
   createTaskComment,
@@ -23,7 +24,8 @@ import {
   type TaskComment,
   type TaskDetailUpdatePayload,
   type TaskFollower,
-  type TaskItem
+  type TaskItem,
+  type TaskItemStatus
 } from '../../api/app/task'
 import {
   archiveTaskList as apiArchiveTaskList,
@@ -48,6 +50,13 @@ import {
   canEditListMeta,
   canMutateListTasks
 } from './listLocal'
+import {
+  BOARD_RANK_STEP,
+  BOARD_STATUSES,
+  USE_LOCAL_BOARD_MOVE,
+  type BoardStatus,
+  isBoardStatus
+} from './boardLocal'
 
 export type { TasksNavView } from './helpers'
 
@@ -343,17 +352,18 @@ export const useTasksStore = defineStore('tasks', () => {
     listMembers.value = await getTaskListMembers(listId)
   }
 
-  async function fetchListTasks(opts?: { pageNo?: number }) {
+  async function fetchListTasks(opts?: { pageNo?: number, pageSize?: number }) {
     const listId = activeListId.value
     if (!listId) {
       return
     }
     const nextPage = opts?.pageNo ?? listPageNo.value
+    const size = opts?.pageSize ?? pageSize.value
     loading.value = true
     try {
       const page = await getTaskPage({
         pageNo: nextPage,
-        pageSize: pageSize.value,
+        pageSize: size,
         listId
       })
       listItems.value = page.list
@@ -361,6 +371,111 @@ export const useTasksStore = defineStore('tasks', () => {
       listPageNo.value = nextPage
     } finally {
       loading.value = false
+    }
+  }
+
+  /** Load up to 100 root tasks for board columns. */
+  async function fetchListBoard() {
+    await fetchListTasks({ pageNo: 1, pageSize: 100 })
+  }
+
+  function sortBoardColumn(items: TaskItem[]): TaskItem[] {
+    return [...items].sort((a, b) => {
+      const ra = a.boardRank ?? Number.MAX_SAFE_INTEGER
+      const rb = b.boardRank ?? Number.MAX_SAFE_INTEGER
+      if (ra !== rb) {
+        return ra - rb
+      }
+      return String(a.id).localeCompare(String(b.id))
+    })
+  }
+
+  const boardColumns = computed(() => {
+    const map: Record<BoardStatus, TaskItem[]> = {
+      TODO: [],
+      IN_PROGRESS: [],
+      DONE: []
+    }
+    for (const item of listItems.value) {
+      const status = isBoardStatus(item.status) ? item.status : 'TODO'
+      map[status].push(item)
+    }
+    for (const status of BOARD_STATUSES) {
+      map[status] = sortBoardColumn(map[status])
+    }
+    return map
+  })
+
+  function computeBoardRank(column: TaskItem[], beforeId: string | null): number {
+    if (!beforeId) {
+      const last = column[column.length - 1]
+      return (last?.boardRank ?? 0) + BOARD_RANK_STEP
+    }
+    const idx = column.findIndex(t => t.id === beforeId)
+    if (idx <= 0) {
+      const first = column[0]
+      return Math.max(BOARD_RANK_STEP, Math.floor((first?.boardRank ?? BOARD_RANK_STEP) / 2) || BOARD_RANK_STEP)
+    }
+    const prev = column[idx - 1]!
+    const next = column[idx]!
+    const prevRank = prev.boardRank ?? (idx * BOARD_RANK_STEP)
+    const nextRank = next.boardRank ?? ((idx + 1) * BOARD_RANK_STEP)
+    if (nextRank - prevRank > 1) {
+      return Math.floor((prevRank + nextRank) / 2)
+    }
+    return prevRank + BOARD_RANK_STEP
+  }
+
+  async function moveBoardTask(payload: {
+    taskId: string
+    status: TaskItemStatus
+    beforeId?: string | null
+  }) {
+    if (!activeListId.value || !listCanMutateTasks.value) {
+      throw new Error('TASK_LIST_FORBIDDEN')
+    }
+    if (!isBoardStatus(payload.status)) {
+      throw new Error('TASK_INVALID_STATUS')
+    }
+    const task = listItems.value.find(t => t.id === payload.taskId)
+    if (!task || task.parentId) {
+      throw new Error('TASK_NOT_FOUND')
+    }
+
+    const targetStatus = payload.status
+    const columnWithout = sortBoardColumn(
+      listItems.value.filter(t => t.id !== payload.taskId && t.status === targetStatus)
+    )
+    const boardRank = computeBoardRank(columnWithout, payload.beforeId ?? null)
+    const snapshot = listItems.value.map(item => ({ ...item }))
+
+    listItems.value = listItems.value.map((item) => {
+      if (item.id !== payload.taskId) {
+        return item
+      }
+      return { ...item, status: targetStatus, boardRank }
+    })
+    if (selectedDetail.value?.id === payload.taskId) {
+      selectedDetail.value = {
+        ...selectedDetail.value,
+        status: targetStatus,
+        boardRank
+      }
+    }
+
+    if (USE_LOCAL_BOARD_MOVE) {
+      return
+    }
+
+    try {
+      await boardMoveTask({
+        id: payload.taskId,
+        status: targetStatus,
+        boardRank
+      })
+    } catch (error) {
+      listItems.value = snapshot
+      throw error
     }
   }
 
@@ -689,7 +804,10 @@ export const useTasksStore = defineStore('tasks', () => {
     fetchListMembers,
     inviteListMember,
     removeListMember,
-    fetchListTasks
+    fetchListTasks,
+    fetchListBoard,
+    boardColumns,
+    moveBoardTask
   }
 })
 
