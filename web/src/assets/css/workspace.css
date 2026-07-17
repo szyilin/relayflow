@@ -137,6 +137,35 @@
   border-bottom-right-radius: 0.25rem;
 }
 
+/* 连续对话：中间气泡两侧尖角更收，视觉连成一组 */
+.ws-msg-bubble--in.ws-msg-bubble--group-start {
+  border-bottom-left-radius: 0.375rem;
+}
+
+.ws-msg-bubble--in.ws-msg-bubble--group-mid {
+  border-top-left-radius: 0.375rem;
+  border-bottom-left-radius: 0.375rem;
+}
+
+.ws-msg-bubble--in.ws-msg-bubble--group-end {
+  border-top-left-radius: 0.375rem;
+  border-bottom-left-radius: 0.25rem;
+}
+
+.ws-msg-bubble--out.ws-msg-bubble--group-start {
+  border-bottom-right-radius: 0.375rem;
+}
+
+.ws-msg-bubble--out.ws-msg-bubble--group-mid {
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+}
+
+.ws-msg-bubble--out.ws-msg-bubble--group-end {
+  border-top-right-radius: 0.375rem;
+  border-bottom-right-radius: 0.25rem;
+}
+
 .workspace-auth-bg {
   background:
     radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in oklab, var(--ui-primary) 18%, transparent), transparent),

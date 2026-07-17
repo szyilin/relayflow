@@ -22,7 +22,11 @@ import { ApiError } from '../../api/request'
 import { uploadPrivateFile } from '../../api/app/file'
 import { useAuthStore } from '../auth'
 import {
+  buildMessageTimeline,
   fileBlockFromContent,
+  formatClockTime,
+  formatDayLabel,
+  formatMessageTimeHeader,
   formatRelativeTime,
   isFileMessage,
   isImageMessage,
@@ -613,6 +617,10 @@ export const useImStore = defineStore('im', () => {
     sendFileMessage,
     resetForTenantSwitch,
     formatRelativeTime,
+    formatClockTime,
+    formatDayLabel,
+    formatMessageTimeHeader,
+    buildMessageTimeline,
     textFromContent,
     fileBlockFromContent,
     isImageMessage,
