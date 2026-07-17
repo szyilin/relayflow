@@ -4,20 +4,30 @@ import { addDays, addMinutes, endOfDay, isBefore, parseISO, startOfDay } from 'd
 import {
   createCalendar as apiCreateCalendar,
   createEvent as apiCreateEvent,
+  createShare as apiCreateShare,
   deleteCalendar as apiDeleteCalendar,
   deleteEvent as apiDeleteEvent,
+  deleteShare as apiDeleteShare,
+  eventKey,
   getEvent as apiGetEvent,
   listCalendars as apiListCalendars,
   listEvents as apiListEvents,
+  listShares as apiListShares,
   respondEvent as apiRespondEvent,
+  rescheduleEvent as apiRescheduleEvent,
   updateCalendar as apiUpdateCalendar,
   updateEvent as apiUpdateEvent,
   type CalendarEvent,
   type CalendarEventCreatePayload,
+  type CalendarEventDeleteOptions,
+  type CalendarEventReschedulePayload,
   type CalendarEventUpdatePayload,
-  type CalendarItem
+  type CalendarItem,
+  type CalendarShare
 } from '../api/app/calendar'
 import { ApiError } from '../api/request'
+
+export { eventKey }
 
 const VISIBLE_KEY = 'relayflow-calendar-visible-ids-v1'
 const DEFAULT_COLORS = ['#3B82F6', '#10B981', '#EC4899', '#F59E0B', '#8B5CF6', '#06B6D4']
@@ -51,14 +61,30 @@ function toError(error: unknown, fallback: string): Error {
   return new Error(fallback)
 }
 
+function findEventIndex(events: CalendarEvent[], id: string, instanceStart?: string): number {
+  return events.findIndex((event) => {
+    if (event.id !== id) {
+      return false
+    }
+    if (instanceStart) {
+      return (event.instanceStart ?? event.startTime) === instanceStart
+    }
+    return !event.instanceStart || event.instanceStart === event.startTime
+  })
+}
+
 export const useCalendarStore = defineStore('calendar', () => {
   const calendars = ref<CalendarItem[]>([])
   const events = ref<CalendarEvent[]>([])
+  const shares = ref<CalendarShare[]>([])
   const visibleCalendarIds = ref<string[]>([])
   const loading = ref(false)
   const lastRange = ref<{ from: string, to: string } | null>(null)
 
-  const ownedCalendars = computed(() => calendars.value)
+  const ownedCalendars = computed(() =>
+    calendars.value.filter(c => c.type === 'PRIMARY' || c.type === 'OWNED'))
+  const sharedCalendars = computed(() =>
+    calendars.value.filter(c => c.type === 'SHARED'))
   const primaryCalendar = computed(() => calendars.value.find(c => c.type === 'PRIMARY') ?? null)
 
   const visibleEvents = computed(() => {
@@ -102,10 +128,43 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
+  async function fetchShares() {
+    try {
+      shares.value = await apiListShares()
+    } catch (error) {
+      throw toError(error, '加载共享失败')
+    }
+  }
+
+  async function createShare(payload: { calendarId: string, granteeUserId: string }) {
+    try {
+      const id = await apiCreateShare(payload)
+      await fetchShares()
+      await fetchCalendars()
+      return id
+    } catch (error) {
+      throw toError(error, '共享日历失败')
+    }
+  }
+
+  async function removeShare(id: string) {
+    try {
+      await apiDeleteShare(id)
+      await fetchShares()
+      await fetchCalendars()
+      return true
+    } catch (error) {
+      throw toError(error, '取消共享失败')
+    }
+  }
+
+  function outgoingSharesForCalendar(calendarId: string): CalendarShare[] {
+    return shares.value.filter(s => s.direction === 'OUTGOING' && s.calendarId === calendarId)
+  }
+
   async function fetchEvents(range: { from: string, to: string }) {
     lastRange.value = range
     try {
-      // Do not pass calendarIds: server still returns invited events; visibility is client-side.
       events.value = await apiListEvents({
         from: range.from,
         to: range.to
@@ -194,13 +253,36 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
-  async function removeEvent(id: string) {
+  async function removeEvent(id: string, opts?: CalendarEventDeleteOptions) {
     try {
-      await apiDeleteEvent(id)
+      await apiDeleteEvent(id, opts)
       await refreshLastRange()
       return true
     } catch (error) {
       throw toError(error, '删除日程失败')
+    }
+  }
+
+  async function rescheduleEvent(payload: CalendarEventReschedulePayload) {
+    const idx = findEventIndex(events.value, payload.id, payload.instanceStart)
+    const previous = idx >= 0 ? { ...events.value[idx]! } : null
+    if (idx >= 0) {
+      events.value[idx] = {
+        ...events.value[idx]!,
+        startTime: payload.startTime,
+        endTime: payload.endTime
+      }
+    }
+    try {
+      await apiRescheduleEvent(payload)
+      return true
+    } catch (error) {
+      if (previous && idx >= 0) {
+        events.value[idx] = previous
+      } else {
+        await refreshLastRange()
+      }
+      throw toError(error, '改期失败')
     }
   }
 
@@ -214,8 +296,9 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
   }
 
-  function getEventById(id: string): CalendarEvent | undefined {
-    return events.value.find(e => e.id === id && e.status !== 'CANCELLED')
+  function getEventById(id: string, instanceStart?: string): CalendarEvent | undefined {
+    const idx = findEventIndex(events.value.filter(e => e.status !== 'CANCELLED'), id, instanceStart)
+    return idx >= 0 ? events.value[idx] : undefined
   }
 
   async function fetchEventById(id: string): Promise<CalendarEvent | null> {
@@ -225,7 +308,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
     try {
       const event = await apiGetEvent(id)
-      const idx = events.value.findIndex(e => e.id === event.id)
+      const idx = findEventIndex(events.value, event.id, event.instanceStart)
       if (idx >= 0) {
         events.value[idx] = event
       } else {
@@ -258,12 +341,18 @@ export const useCalendarStore = defineStore('calendar', () => {
   return {
     calendars,
     events,
+    shares,
     visibleCalendarIds,
     loading,
     ownedCalendars,
+    sharedCalendars,
     primaryCalendar,
     visibleEvents,
     fetchCalendars,
+    fetchShares,
+    createShare,
+    removeShare,
+    outgoingSharesForCalendar,
     fetchEvents,
     listInRange,
     toggleCalendarVisible,
@@ -273,6 +362,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     createEvent,
     updateEvent,
     removeEvent,
+    rescheduleEvent,
     respondEvent,
     getEventById,
     fetchEventById,

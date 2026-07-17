@@ -21,8 +21,11 @@ import {
 import { zhCN } from 'date-fns/locale'
 import CalendarEventEditor from '../../../components/workspace/CalendarEventEditor.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
-import type { CalendarEvent } from '../../../api/app/calendar'
+import type { CalendarEvent, CalendarItem } from '../../../api/app/calendar'
+import { eventKey } from '../../../api/app/calendar'
+import { useAuthStore } from '../../../stores/auth'
 import { useCalendarStore } from '../../../stores/calendar'
+import { useContactsStore } from '../../../stores/contacts'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 
 type ViewMode = 'day' | 'week' | 'month'
@@ -30,11 +33,15 @@ type ViewMode = 'day' | 'week' | 'month'
 const HOUR_START = 0
 const HOUR_END = 24
 const HOUR_HEIGHT = 48
+const DRAG_THRESHOLD = 4
+const RESIZE_HANDLE_HEIGHT = 6
 
 const route = useRoute()
 const router = useRouter()
 const calendarStore = useCalendarStore()
 const preference = useUserPreferenceStore()
+const contacts = useContactsStore()
+const auth = useAuthStore()
 const toast = useToast()
 
 const viewMode = ref<ViewMode>('week')
@@ -56,6 +63,29 @@ const createCalendarForm = reactive({
   description: ''
 })
 const createCalendarSubmitting = ref(false)
+
+const shareModalOpen = ref(false)
+const shareCalendar = ref<CalendarItem | null>(null)
+const shareMemberKeyword = ref('')
+const shareSubmitting = ref(false)
+
+interface ActiveDrag {
+  event: CalendarEvent
+  day: Date
+  columnEl: HTMLElement
+  mode: 'move' | 'resize'
+  pointerId: number
+  startClientY: number
+  startClientX: number
+  originStart: Date
+  originEnd: Date
+  moved: boolean
+  previewStart: Date
+  previewEnd: Date
+}
+
+const activeDrag = ref<ActiveDrag | null>(null)
+const suppressClick = ref(false)
 
 const weekStartsOn = computed(() =>
   (preference.calendar.weekStartsOn === 1 ? 1 : 0) as 0 | 1)
@@ -140,12 +170,157 @@ function eventStyle(event: CalendarEvent): Record<string, string> {
   }
 }
 
+function eventTimes(event: CalendarEvent): { start: Date, end: Date } {
+  const drag = activeDrag.value
+  if (drag && eventKey(drag.event) === eventKey(event)) {
+    return { start: drag.previewStart, end: drag.previewEnd }
+  }
+  return { start: parseISO(event.startTime), end: parseISO(event.endTime) }
+}
+
+function canDragEvent(event: CalendarEvent): boolean {
+  return viewMode.value !== 'month'
+    && event.viewerRole === 'ORGANIZER'
+    && !event.allDay
+}
+
+function minutesFromClientY(clientY: number, columnEl: HTMLElement): number {
+  const rect = columnEl.getBoundingClientRect()
+  const relY = clientY - rect.top
+  const minutes = (relY / HOUR_HEIGHT) * 60 + HOUR_START * 60
+  return Math.round(Math.max(0, Math.min((HOUR_END - HOUR_START) * 60, minutes)) / 15) * 15
+}
+
+function dateWithMinutes(day: Date, minutes: number): Date {
+  const d = startOfDay(day)
+  d.setMinutes(minutes)
+  return d
+}
+
+function resolveColumnEl(clientX: number): HTMLElement | null {
+  const columns = document.querySelectorAll('[data-cal-day-column]')
+  for (const col of columns) {
+    const rect = col.getBoundingClientRect()
+    if (clientX >= rect.left && clientX <= rect.right) {
+      return col as HTMLElement
+    }
+  }
+  return null
+}
+
+function resolveDayIndex(clientX: number): number {
+  const columns = document.querySelectorAll('[data-cal-day-column]')
+  for (let i = 0; i < columns.length; i++) {
+    const rect = columns[i]!.getBoundingClientRect()
+    if (clientX >= rect.left && clientX <= rect.right) {
+      return i
+    }
+  }
+  return -1
+}
+
+function cleanupDragListeners() {
+  document.removeEventListener('pointermove', onDocumentPointerMove)
+  document.removeEventListener('pointerup', onDocumentPointerUp)
+}
+
+function onDocumentPointerMove(e: PointerEvent) {
+  const drag = activeDrag.value
+  if (!drag || e.pointerId !== drag.pointerId) {
+    return
+  }
+  const dx = Math.abs(e.clientX - drag.startClientX)
+  const dy = Math.abs(e.clientY - drag.startClientY)
+  if (!drag.moved && dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) {
+    return
+  }
+  drag.moved = true
+
+  const column = resolveColumnEl(e.clientX) ?? drag.columnEl
+  const dayIndex = resolveDayIndex(e.clientX)
+  const targetDay = dayIndex >= 0 ? daysInView.value[dayIndex]! : drag.day
+
+  if (drag.mode === 'resize') {
+    const endMinutes = minutesFromClientY(e.clientY, column)
+    const startMinutes = drag.previewStart.getHours() * 60 + drag.previewStart.getMinutes()
+    drag.previewEnd = dateWithMinutes(targetDay, Math.max(startMinutes + 15, endMinutes))
+  } else {
+    const duration = drag.originEnd.getTime() - drag.originStart.getTime()
+    const startMinutes = minutesFromClientY(e.clientY, column)
+    drag.previewStart = dateWithMinutes(targetDay, startMinutes)
+    drag.previewEnd = new Date(drag.previewStart.getTime() + duration)
+    drag.day = targetDay
+  }
+}
+
+async function onDocumentPointerUp(e: PointerEvent) {
+  const drag = activeDrag.value
+  if (!drag || e.pointerId !== drag.pointerId) {
+    return
+  }
+  cleanupDragListeners()
+
+  if (drag.moved) {
+    suppressClick.value = true
+    try {
+      await calendarStore.rescheduleEvent({
+        id: drag.event.id,
+        startTime: formatISO(drag.previewStart),
+        endTime: formatISO(drag.previewEnd),
+        editScope: drag.event.recurring ? 'THIS' : undefined,
+        instanceStart: drag.event.recurring
+          ? (drag.event.instanceStart ?? drag.event.startTime)
+          : undefined
+      })
+    } catch (error) {
+      toast.add({
+        title: error instanceof Error ? error.message : '改期失败',
+        color: 'error'
+      })
+    }
+  }
+  activeDrag.value = null
+}
+
+function onEventPointerDown(
+  e: PointerEvent,
+  event: CalendarEvent,
+  day: Date,
+  mode: 'move' | 'resize'
+) {
+  if (!canDragEvent(event)) {
+    return
+  }
+  e.stopPropagation()
+  const column = (e.currentTarget as HTMLElement).closest('[data-cal-day-column]') as HTMLElement | null
+  if (!column) {
+    return
+  }
+  const originStart = parseISO(event.startTime)
+  const originEnd = parseISO(event.endTime)
+  activeDrag.value = {
+    event,
+    day,
+    columnEl: column,
+    mode,
+    pointerId: e.pointerId,
+    startClientY: e.clientY,
+    startClientX: e.clientX,
+    originStart,
+    originEnd,
+    moved: false,
+    previewStart: originStart,
+    previewEnd: originEnd
+  }
+  document.addEventListener('pointermove', onDocumentPointerMove)
+  document.addEventListener('pointerup', onDocumentPointerUp)
+}
+
 function timedLayout(event: CalendarEvent, day: Date): { top: string, height: string } | null {
   if (event.allDay) {
     return null
   }
-  const start = parseISO(event.startTime)
-  const end = parseISO(event.endTime)
+  const { start, end } = eventTimes(event)
   const dayStart = startOfDay(day)
   const dayEnd = addDays(dayStart, 1)
   const clippedStart = start < dayStart ? dayStart : start
@@ -211,6 +386,7 @@ const nowLineVisibleDayIndex = computed(() => {
 
 async function refreshRange() {
   await calendarStore.fetchCalendars()
+  await calendarStore.fetchShares()
   await calendarStore.fetchEvents({
     from: formatISO(rangeStart.value),
     to: formatISO(rangeEnd.value)
@@ -288,6 +464,90 @@ function openEvent(event: CalendarEvent) {
       eventId: event.id
     }
   })
+}
+
+function handleEventClick(event: CalendarEvent) {
+  if (suppressClick.value) {
+    suppressClick.value = false
+    return
+  }
+  openEvent(event)
+}
+
+const outgoingShares = computed(() =>
+  shareCalendar.value
+    ? calendarStore.outgoingSharesForCalendar(shareCalendar.value.id)
+    : [])
+
+const shareCandidateMembers = computed(() => {
+  const selfId = String(auth.userId ?? '')
+  const granted = new Set(outgoingShares.value.map(s => s.granteeUserId))
+  const q = shareMemberKeyword.value.trim().toLowerCase()
+  return contacts.members.filter((member) => {
+    if (member.id === selfId || granted.has(member.id)) {
+      return false
+    }
+    if (!q) {
+      return true
+    }
+    return member.nickname.toLowerCase().includes(q)
+      || member.username.toLowerCase().includes(q)
+  })
+})
+
+async function openShareModal(cal: CalendarItem) {
+  shareCalendar.value = cal
+  shareModalOpen.value = true
+  shareMemberKeyword.value = ''
+  try {
+    await calendarStore.fetchShares()
+    await contacts.fetchDepts()
+    const rootId = contacts.rootDeptId()
+    if (rootId) {
+      await contacts.fetchMembers({ deptId: rootId })
+    }
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '加载共享信息失败',
+      color: 'error'
+    })
+  }
+}
+
+async function addShareGrantee(userId: string) {
+  if (!shareCalendar.value) {
+    return
+  }
+  shareSubmitting.value = true
+  try {
+    await calendarStore.createShare({
+      calendarId: shareCalendar.value.id,
+      granteeUserId: userId
+    })
+    toast.add({ title: '已共享', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '共享失败',
+      color: 'error'
+    })
+  } finally {
+    shareSubmitting.value = false
+  }
+}
+
+async function removeShareGrantee(shareId: string) {
+  shareSubmitting.value = true
+  try {
+    await calendarStore.removeShare(shareId)
+    toast.add({ title: '已取消共享', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '取消共享失败',
+      color: 'error'
+    })
+  } finally {
+    shareSubmitting.value = false
+  }
 }
 
 function onEditorClosed() {
@@ -393,6 +653,7 @@ onUnmounted(() => {
   if (nowTimer) {
     clearInterval(nowTimer)
   }
+  cleanupDragListeners()
 })
 
 watch([rangeStart, rangeEnd, viewMode], () => {
@@ -490,7 +751,7 @@ meta:
           </div>
           <ul class="space-y-1">
             <li
-              v-for="cal in calendarStore.calendars"
+              v-for="cal in calendarStore.ownedCalendars"
               :key="cal.id"
               class="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]"
             >
@@ -504,6 +765,15 @@ meta:
               />
               <span class="min-w-0 flex-1 truncate text-sm">{{ cal.name }}</span>
               <UButton
+                icon="i-lucide-share-2"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                class="opacity-0 group-hover:opacity-100"
+                title="共享"
+                @click="openShareModal(cal)"
+              />
+              <UButton
                 v-if="cal.type !== 'PRIMARY'"
                 icon="i-lucide-trash-2"
                 size="xs"
@@ -514,6 +784,29 @@ meta:
               />
             </li>
           </ul>
+
+          <div v-if="calendarStore.sharedCalendars.length" class="mt-4">
+            <p class="mb-2 text-xs font-medium text-[var(--ws-text-muted)]">
+              共享给我的
+            </p>
+            <ul class="space-y-1">
+              <li
+                v-for="cal in calendarStore.sharedCalendars"
+                :key="cal.id"
+                class="flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]"
+              >
+                <UCheckbox
+                  :model-value="calendarStore.visibleCalendarIds.includes(cal.id)"
+                  @update:model-value="(v: boolean | 'indeterminate') => calendarStore.toggleCalendarVisible(cal.id, v === true)"
+                />
+                <span
+                  class="size-2.5 shrink-0 rounded-full"
+                  :style="{ backgroundColor: cal.color }"
+                />
+                <span class="min-w-0 flex-1 truncate text-sm">{{ cal.name }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </template>
@@ -605,10 +898,10 @@ meta:
             <div class="min-h-0 flex-1 space-y-0.5 overflow-hidden">
               <div
                 v-for="event in monthEventsForDay(day)"
-                :key="event.id"
+                :key="eventKey(event)"
                 class="truncate rounded px-1 py-0.5 text-[10px] leading-tight"
                 :style="eventStyle(event)"
-                @click.stop="openEvent(event)"
+                @click.stop="handleEventClick(event)"
               >
                 {{ event.allDay ? '' : format(parseISO(event.startTime), 'HH:mm') + ' ' }}{{ event.title }}
               </div>
@@ -645,11 +938,11 @@ meta:
             <div class="mt-1 min-h-6 space-y-0.5 px-0.5">
               <button
                 v-for="event in allDayEventsForDay(day)"
-                :key="event.id"
+                :key="eventKey(event)"
                 type="button"
                 class="block w-full truncate rounded px-1 py-0.5 text-left text-[10px]"
                 :style="eventStyle(event)"
-                @click="openEvent(event)"
+                @click="handleEventClick(event)"
               >
                 {{ event.title }}
               </button>
@@ -678,6 +971,7 @@ meta:
           <div
             v-for="(day, dayIndex) in daysInView"
             :key="day.toISOString()"
+            data-cal-day-column
             class="relative border-r border-[var(--ws-border-subtle)] last:border-r-0"
           >
             <button
@@ -688,21 +982,28 @@ meta:
               :style="{ top: `${(hour - HOUR_START) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }"
               @click="openCreate(day, hour)"
             />
-            <button
+            <div
               v-for="event in timedEventsForDay(day)"
-              :key="event.id"
-              type="button"
+              :key="eventKey(event)"
               class="absolute inset-x-0.5 z-10 overflow-hidden rounded px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm"
+              :class="canDragEvent(event) ? 'cursor-grab active:cursor-grabbing' : ''"
               :style="{ ...eventStyle(event), ...timedLayout(event, day)! }"
-              @click.stop="openEvent(event)"
+              @click.stop="handleEventClick(event)"
+              @pointerdown="onEventPointerDown($event, event, day, 'move')"
             >
               <span class="font-medium">{{ event.title }}</span>
               <span class="mt-0.5 block opacity-80">
-                {{ format(parseISO(event.startTime), 'HH:mm') }}
+                {{ format(eventTimes(event).start, 'HH:mm') }}
                 –
-                {{ format(parseISO(event.endTime), 'HH:mm') }}
+                {{ format(eventTimes(event).end, 'HH:mm') }}
               </span>
-            </button>
+              <div
+                v-if="canDragEvent(event)"
+                class="absolute inset-x-0 bottom-0 cursor-ns-resize"
+                :style="{ height: `${RESIZE_HANDLE_HEIGHT}px` }"
+                @pointerdown.stop="onEventPointerDown($event, event, day, 'resize')"
+              />
+            </div>
 
             <div
               v-if="nowLineTop() && nowLineVisibleDayIndex === dayIndex"
@@ -778,6 +1079,81 @@ meta:
             @click="submitCreateCalendar"
           >
             创建
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal
+      v-model:open="shareModalOpen"
+      :title="shareCalendar ? `共享：${shareCalendar.name}` : '共享日历'"
+      description="添加成员只读访问此日历"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <div>
+            <p class="mb-2 text-sm font-medium">
+              已共享给
+            </p>
+            <ul v-if="outgoingShares.length" class="space-y-1">
+              <li
+                v-for="share in outgoingShares"
+                :key="share.id"
+                class="flex items-center justify-between gap-2 rounded-lg bg-[var(--ws-input-bar-bg)] px-2 py-1.5 text-sm"
+              >
+                <span>{{ share.granteeNickname || share.granteeUserId }}</span>
+                <UButton
+                  icon="i-lucide-x"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :loading="shareSubmitting"
+                  @click="removeShareGrantee(share.id)"
+                />
+              </li>
+            </ul>
+            <p v-else class="text-sm text-[var(--ws-text-muted)]">
+              尚未共享给任何人
+            </p>
+          </div>
+
+          <UFormField label="添加成员">
+            <UInput
+              v-model="shareMemberKeyword"
+              placeholder="搜索成员"
+              icon="i-lucide-search"
+              size="sm"
+            />
+            <div class="mt-2 max-h-40 space-y-1 overflow-y-auto">
+              <button
+                v-for="member in shareCandidateMembers"
+                :key="member.id"
+                type="button"
+                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-[var(--ws-rail-hover)]"
+                :disabled="shareSubmitting"
+                @click="addShareGrantee(member.id)"
+              >
+                <span class="truncate">{{ member.nickname }}</span>
+                <span class="ml-auto truncate text-xs text-[var(--ws-text-muted)]">{{ member.deptName }}</span>
+              </button>
+              <p
+                v-if="shareCandidateMembers.length === 0"
+                class="px-2 py-3 text-center text-xs text-[var(--ws-text-muted)]"
+              >
+                暂无可添加成员
+              </p>
+            </div>
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="shareModalOpen = false"
+          >
+            关闭
           </UButton>
         </div>
       </template>

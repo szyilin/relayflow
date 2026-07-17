@@ -3,6 +3,7 @@ package com.relayflow.module.calendar.controller.app;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.calendar.controller.app.vo.CalEventCreateReqVO;
+import com.relayflow.module.calendar.controller.app.vo.CalEventRescheduleReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespondReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventUpdateReqVO;
@@ -63,8 +64,18 @@ public class CalEventController {
     }
 
     @DeleteMapping("/delete")
-    public CommonResult<Boolean> delete(@RequestParam @NotNull Long id) {
-        calEventService.delete(id);
+    public CommonResult<Boolean> delete(
+            @RequestParam @NotNull Long id,
+            @RequestParam(value = "editScope", required = false) String editScope,
+            @RequestParam(value = "instanceStart", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime instanceStart) {
+        calEventService.delete(id, editScope, instanceStart);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/reschedule")
+    public CommonResult<Boolean> reschedule(@Valid @RequestBody CalEventRescheduleReqVO request) {
+        calEventService.reschedule(request);
         return CommonResult.success(true);
     }
 

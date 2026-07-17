@@ -8,7 +8,7 @@
 
 ## 背景
 
-员工工作台 `/app/calendar`：多日历容器、日程 CRUD、租户内邀约、日/周/月视图。V1 **无**整日历共享、RRULE、会议室、任务虚拟图层。
+员工工作台 `/app/calendar`：多日历容器、日程 CRUD、租户内邀约、日/周/月视图。V1.1 增加整日历共享（READ）、RRULE 重复、日/周拖拽改期。
 
 ## 鉴权
 
@@ -47,7 +47,9 @@
 
 | 字段 | 说明 |
 |------|------|
-| `type` | `PRIMARY` \| `OWNED` |
+| `type` | `PRIMARY` \| `OWNED` \| `SHARED` |
+| `ownerUserId` | 所有者 userId（SHARED 时） |
+| `permission` | `READ`（仅 type=SHARED） |
 
 ### POST /create
 
@@ -66,6 +68,36 @@
 ### DELETE /delete?id=
 
 PRIMARY 拒绝；OWNED 且仍有未删事件拒绝。
+
+## REST：日历共享（V1.1）
+
+前缀：`/app-api/calendar/share`
+
+### GET /list
+
+返回当前用户 outgoing + incoming 共享记录。
+
+**Response `data`** 元素：
+
+| 字段 | 说明 |
+|------|------|
+| `id` | 共享记录 id |
+| `calendarId` | 日历 id |
+| `calendarName` / `calendarColor` | 日历展示 |
+| `granteeUserId` / `granteeNickname` | 被共享者 |
+| `ownerUserId` / `ownerNickname` | 所有者 |
+| `permission` | `READ`（V1.1 仅只读） |
+| `direction` | `OUTGOING` \| `INCOMING` |
+
+### POST /create
+
+```json
+{ "calendarId": "9002", "granteeUserId": "2", "permission": "READ" }
+```
+
+### DELETE /delete?id=
+
+所有者撤销 outgoing 共享。
 
 ## REST：日程
 
@@ -113,6 +145,11 @@ PRIMARY 拒绝；OWNED 且仍有未删事件拒绝。
 |------|------|
 | `viewerRole` | 当前用户相对该事件：`ORGANIZER` \| `ATTENDEE` |
 | `invitedOnly` | true 表示当前用户不拥有该 `calendarId`（受邀可见） |
+| `rrule` | iCal RRULE 字符串；无重复时为 null |
+| `masterEventId` | 主事件 id（展开实例时） |
+| `instanceStart` | 展开实例原始开始时间 |
+| `isException` | 是否为例外实例 |
+| `recurring` | 是否属于重复系列 |
 
 ### GET /get?id=
 
@@ -130,7 +167,8 @@ PRIMARY 拒绝；OWNED 且仍有未删事件拒绝。
   "allDay": false,
   "remindBeforeMinutes": 5,
   "allDayRemindTime": null,
-  "attendeeUserIds": ["2"]
+  "attendeeUserIds": ["2"],
+  "rrule": "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;COUNT=10"
 }
 ```
 
@@ -140,9 +178,32 @@ PRIMARY 拒绝；OWNED 且仍有未删事件拒绝。
 
 同 create 字段 + `id`；仅组织者。可增删参与人（全量 `attendeeUserIds`，不含组织者自身亦可，服务端保证组织者行存在）。
 
+重复系列编辑可选：
+
+| 字段 | 说明 |
+|------|------|
+| `editScope` | `THIS` \| `ALL` |
+| `instanceStart` | `editScope=THIS` 时必填，目标实例原始开始 |
+
 ### DELETE /delete?id=
 
 组织者软删/取消；通知参与人（best-effort）。
+
+Query 可选：`editScope`、`instanceStart`（重复实例删单次时）。
+
+### PUT /reschedule
+
+```json
+{
+  "id": "1001",
+  "startTime": "2026-07-17T19:00:00+08:00",
+  "endTime": "2026-07-17T19:30:00+08:00",
+  "editScope": "THIS",
+  "instanceStart": "2026-07-17T18:30:00+08:00"
+}
+```
+
+日/周视图拖拽改期/改时长；重复实例默认 `editScope=THIS`。
 
 ### PUT /respond
 
@@ -193,6 +254,10 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
   "$BASE/app-api/calendar/event/list?from=2026-07-12T00:00:00%2B08:00&to=2026-07-19T00:00:00%2B08:00"
 ```
 
-## 前端临时实现（-web）
+## 前端实现（V1.1）
 
-（已 integrate）Store：`web/src/stores/calendar.ts` → `api/app/calendar.ts`；设置窗日历分类走 preference API。
+Store：`web/src/stores/calendar.ts` → `api/app/calendar.ts`。
+
+- **Share**：侧栏「我管理的」+「共享给我的」；owned 日历「共享」弹层管理 grantee（READ only）
+- **RRULE**：编辑器 none/daily/weekly/monthly + count；编辑/删除重复实例时 `editScope` THIS/ALL
+- **DnD**：日/周 timed 事件 pointer 拖动 + 底边 resize（组织者、非全天）；15 分钟吸附；乐观 + `PUT /reschedule`；月视图不可拖

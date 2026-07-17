@@ -36,4 +36,8 @@ public class CalEventCreateReqVO {
     private String allDayRemindTime;
 
     private List<Long> attendeeUserIds;
+
+    /** RFC5545 RRULE; null/blank = single instance */
+    @Size(max = 512)
+    private String rrule;
 }

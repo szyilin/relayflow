@@ -52,19 +52,22 @@
 | user-preference | **archived** | **ui_ready** | `GET/PUT …/user/preference` · 设置窗 | [contract](../../openspec/lanes/user-preference/contract.md) | API [archive](../../openspec/changes/archive/2026-07-16-user-preference-api/proposal.md)；store 仍含 localStorage 兜底，正式联调尚未立项 |
 | workspace-business-card | **archived** | **done** | 飞书式个人名片 · profile/remark API | [contract](../../openspec/lanes/workspace-business-card/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-business-card-api/proposal.md)；落库，无 localStorage 真源 |
 | im-self-direct-chat | **archived** | **done** | self-DIRECT · 本人名片发消息 | — | [archive](../../openspec/changes/archive/2026-07-17-im-self-direct-chat/proposal.md) |
+| **workspace-calendar** | **archived** | **done** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1/proposal.md)；store 无 Mock |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-calendar** | **ready** | **done** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；store 无 Mock；integrate 完成；待母 change archive |
+| **workspace-calendar-share** | **ready** | **done** | `/app-api/calendar/share/*` · 侧栏共享 | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [workspace-calendar-v1-1](../../openspec/changes/workspace-calendar-v1-1/proposal.md) |
+| **workspace-calendar-rrule** | **ready** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
+| **workspace-calendar-dnd** | **ready** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-calendar-v1` 子切片 | `calendar-schema-v1` → `workspace-calendar-web` → `-api` → `-integrate`（见母 change tasks） |
-| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底；日历设置键随 calendar 切片一并落地 |
+| `workspace-calendar-v1-1` | 共享/订阅 → RRULE → DnD（见母 change tasks）；默认前端优先 |
+| `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
@@ -79,9 +82,10 @@
 2. 群 Bot / card：group-member → runtime-platform → group-mention → interactive-card ✅
 3. workspace-profile-card-web / workspace-settings-web / user-preference-api ✅
 4. workspace-business-card-web / -api / im-self-direct-chat ✅
-5. workspace-calendar-v1（当前立项）→ schema → web → api → integrate
-6. user-preference-integrate（可与日历设置键一并收紧）
-7. bpm-v1 — deferred，见下方「暂缓实现」
+5. workspace-calendar-v1 ✅ archive
+6. workspace-calendar-v1-1（共享 / RRULE / DnD）← 当前立项
+7. user-preference-integrate（收紧 localStorage 真源）
+8. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 
 ## 已归档规划（暂缓实现）

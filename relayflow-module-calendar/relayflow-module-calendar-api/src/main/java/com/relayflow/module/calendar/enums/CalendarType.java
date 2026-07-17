@@ -6,5 +6,7 @@ package com.relayflow.module.calendar.enums;
 public enum CalendarType {
 
     PRIMARY,
-    OWNED
+    OWNED,
+    /** Response-only: calendar shared to current user (not stored on cal_calendar.type). */
+    SHARED
 }

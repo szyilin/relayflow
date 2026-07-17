@@ -5,14 +5,17 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.calendar.controller.app.vo.CalAttendeeRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventCreateReqVO;
+import com.relayflow.module.calendar.controller.app.vo.CalEventRescheduleReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespondReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventUpdateReqVO;
 import com.relayflow.module.calendar.dal.dataobject.CalAttendeeDO;
 import com.relayflow.module.calendar.dal.dataobject.CalCalendarDO;
 import com.relayflow.module.calendar.dal.dataobject.CalEventDO;
+import com.relayflow.module.calendar.dal.dataobject.CalEventExceptionDO;
 import com.relayflow.module.calendar.dal.mapper.CalAttendeeMapper;
 import com.relayflow.module.calendar.dal.mapper.CalCalendarMapper;
+import com.relayflow.module.calendar.dal.mapper.CalEventExceptionMapper;
 import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarAttendeeResponse;
 import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
@@ -20,6 +23,9 @@ import com.relayflow.module.calendar.enums.CalendarEventStatus;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
 import com.relayflow.module.calendar.service.notify.CalendarBotNotifyService;
+import com.relayflow.module.calendar.service.rrule.RecurrenceExpander;
+import com.relayflow.module.calendar.service.rrule.RecurrenceExpander.Occurrence;
+import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
@@ -30,11 +36,14 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -44,13 +53,26 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CalEventServiceImpl implements CalEventService {
 
+    private static final int CANCELLED = 1;
+    private static final int NOT_CANCELLED = 0;
+
     private final CalEventMapper calEventMapper;
     private final CalAttendeeMapper calAttendeeMapper;
     private final CalCalendarMapper calCalendarMapper;
+    private final CalEventExceptionMapper calEventExceptionMapper;
     private final CalCalendarService calCalendarService;
+    private final CalCalendarShareService calCalendarShareService;
     private final TenantMemberApi tenantMemberApi;
     private final UserApi userApi;
     private final CalendarBotNotifyService calendarBotNotifyService;
+
+    private enum EditScope {
+        THIS, ALL, THIS_AND_FUTURE
+    }
+
+    private record ExpandedInstance(OffsetDateTime instanceStart, OffsetDateTime instanceEnd,
+                                    CalEventExceptionDO exception) {
+    }
 
     @Override
     public List<CalEventRespVO> list(OffsetDateTime from, OffsetDateTime to, Set<Long> calendarIdsFilter) {
@@ -62,16 +84,26 @@ public class CalEventServiceImpl implements CalEventService {
         calCalendarService.ensurePrimary(tenantId, userId);
 
         Set<Long> ownedIds = ownedCalendarIds(userId);
-        Set<Long> ownedFilter = ownedIds;
+        Set<Long> sharedReadIds = calCalendarShareService.sharedReadCalendarIds(userId);
+
+        Set<Long> readableCalendarIds = new LinkedHashSet<>(ownedIds);
+        readableCalendarIds.addAll(sharedReadIds);
+
+        Set<Long> calendarQueryIds = readableCalendarIds;
         if (calendarIdsFilter != null && !calendarIdsFilter.isEmpty()) {
-            ownedFilter = ownedIds.stream().filter(calendarIdsFilter::contains).collect(Collectors.toCollection(LinkedHashSet::new));
+            calendarQueryIds = readableCalendarIds.stream()
+                    .filter(calendarIdsFilter::contains)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
         }
 
-        Map<Long, CalEventDO> byId = new LinkedHashMap<>();
+        Map<Long, CalEventDO> mastersById = new LinkedHashMap<>();
 
-        if (!ownedFilter.isEmpty()) {
-            for (CalEventDO event : selectOverlapping(ownedFilter, from, to)) {
-                byId.put(event.getId(), event);
+        if (!calendarQueryIds.isEmpty()) {
+            for (CalEventDO event : selectNonRecurringOverlapping(calendarQueryIds, from, to)) {
+                mastersById.put(event.getId(), event);
+            }
+            for (CalEventDO event : selectRecurringMasters(calendarQueryIds, to)) {
+                mastersById.put(event.getId(), event);
             }
         }
 
@@ -80,32 +112,37 @@ public class CalEventServiceImpl implements CalEventService {
         Set<Long> attendEventIds = myAttend.stream()
                 .map(CalAttendeeDO::getEventId)
                 .filter(Objects::nonNull)
+                .filter(id -> !mastersById.containsKey(id))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        attendEventIds.removeAll(byId.keySet());
         if (!attendEventIds.isEmpty()) {
             List<CalEventDO> invited = calEventMapper.selectList(
                     Wrappers.<CalEventDO>lambdaQuery()
                             .in(CalEventDO::getId, attendEventIds)
-                            .eq(CalEventDO::getStatus, CalendarEventStatus.CONFIRMED.name())
-                            .lt(CalEventDO::getStartTime, to)
-                            .gt(CalEventDO::getEndTime, from));
+                            .eq(CalEventDO::getStatus, CalendarEventStatus.CONFIRMED.name()));
             for (CalEventDO event : invited) {
-                byId.putIfAbsent(event.getId(), event);
+                if (matchesListWindow(event, from, to)) {
+                    mastersById.putIfAbsent(event.getId(), event);
+                }
             }
         }
 
-        List<CalEventDO> events = new ArrayList<>(byId.values());
-        events.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
+        List<CalEventDO> masters = new ArrayList<>(mastersById.values());
+        Map<Long, CalCalendarDO> calendarMap = loadCalendars(masters);
+        Map<Long, List<CalAttendeeDO>> attendeesByEvent = loadAttendees(masters);
+        Map<Long, List<CalEventExceptionDO>> exceptionsByMaster = loadExceptions(mastersById.keySet());
 
-        Map<Long, CalCalendarDO> calendarMap = loadCalendars(events);
-        Map<Long, List<CalAttendeeDO>> attendeesByEvent = loadAttendees(events);
-        List<CalEventRespVO> result = new ArrayList<>(events.size());
-        for (CalEventDO event : events) {
-            CalEventRespVO vo = toResp(event, userId, ownedIds, calendarMap, attendeesByEvent);
-            result.add(vo);
-            // remind compensate for self
-            calendarBotNotifyService.pushRemindIfDue(event, userId);
+        List<CalEventRespVO> result = new ArrayList<>();
+        for (CalEventDO master : masters) {
+            List<ExpandedInstance> instances = expandMaster(
+                    master, from, to, exceptionsByMaster.getOrDefault(master.getId(), List.of()));
+            for (ExpandedInstance instance : instances) {
+                result.add(toResp(master, instance, userId, ownedIds, sharedReadIds,
+                        calendarMap, attendeesByEvent));
+            }
+            calendarBotNotifyService.pushRemindIfDue(master, userId);
         }
+
+        result.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
         return result;
     }
 
@@ -114,9 +151,11 @@ public class CalEventServiceImpl implements CalEventService {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         CalEventDO event = requireVisibleEvent(id, userId);
         Set<Long> ownedIds = ownedCalendarIds(userId);
+        Set<Long> sharedReadIds = calCalendarShareService.sharedReadCalendarIds(userId);
         Map<Long, CalCalendarDO> calendarMap = loadCalendars(List.of(event));
         Map<Long, List<CalAttendeeDO>> attendeesByEvent = loadAttendees(List.of(event));
-        return toResp(event, userId, ownedIds, calendarMap, attendeesByEvent);
+        ExpandedInstance instance = new ExpandedInstance(event.getStartTime(), event.getEndTime(), null);
+        return toResp(event, instance, userId, ownedIds, sharedReadIds, calendarMap, attendeesByEvent);
     }
 
     @Override
@@ -126,6 +165,9 @@ public class CalEventServiceImpl implements CalEventService {
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         validateTime(request.getStartTime(), request.getEndTime());
         CalCalendarDO calendar = calCalendarService.requireOwnedCalendar(request.getCalendarId(), userId);
+
+        String rrule = normalizeRrule(request.getRrule());
+        RecurrenceExpander.validate(rrule);
 
         Set<Long> attendeeIds = normalizeAttendeeIds(tenantId, userId, request.getAttendeeUserIds());
 
@@ -142,6 +184,7 @@ public class CalEventServiceImpl implements CalEventService {
         event.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
         event.setStatus(CalendarEventStatus.CONFIRMED.name());
+        event.setRrule(rrule);
         event.setCreator(userId);
         event.setCreateTime(now);
         event.setUpdater(userId);
@@ -167,6 +210,27 @@ public class CalEventServiceImpl implements CalEventService {
         CalEventDO event = requireOrganizerEvent(request.getId(), userId);
         CalCalendarDO calendar = calCalendarService.requireOwnedCalendar(request.getCalendarId(), userId);
 
+        EditScope scope = parseEditScope(request.getEditScope(), event, request.getInstanceStart(), EditScope.ALL);
+        String rrule = normalizeRrule(request.getRrule());
+        RecurrenceExpander.validate(rrule);
+
+        if (scope == EditScope.THIS) {
+            upsertException(event.getId(), request.getInstanceStart(), NOT_CANCELLED,
+                    normalizeTitle(request.getTitle()), request.getStartTime(), request.getEndTime(),
+                    userId, tenantId);
+            notifyUpdateBestEffort(event, userId);
+            return;
+        }
+
+        if (scope == EditScope.THIS_AND_FUTURE) {
+            truncateSeriesUntil(event, request.getInstanceStart(), userId);
+            CalEventDO newMaster = createMasterFromRequest(request, event, calendar, rrule, userId, tenantId);
+            copyAttendees(event.getId(), newMaster, userId);
+            calendarBotNotifyService.notifyUpdate(newMaster, loadAttendeeUserIds(newMaster.getId()));
+            calendarBotNotifyService.pushRemindIfDue(newMaster, userId);
+            return;
+        }
+
         Set<Long> previousAttendees = loadAttendeeUserIds(event.getId());
         Set<Long> nextAttendees = normalizeAttendeeIds(tenantId, userId, request.getAttendeeUserIds());
 
@@ -178,27 +242,12 @@ public class CalEventServiceImpl implements CalEventService {
         event.setAllDay(Boolean.TRUE.equals(request.getAllDay()) ? 1 : 0);
         event.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
+        event.setRrule(rrule);
         event.setUpdater(userId);
         event.setUpdateTime(OffsetDateTime.now());
         calEventMapper.updateById(event);
 
-        // Replace ATTENDEE rows; keep ORGANIZER.
-        List<CalAttendeeDO> existing = calAttendeeMapper.selectList(
-                Wrappers.<CalAttendeeDO>lambdaQuery().eq(CalAttendeeDO::getEventId, event.getId()));
-        for (CalAttendeeDO row : existing) {
-            if (CalendarAttendeeRole.ATTENDEE.name().equals(row.getRole())) {
-                calAttendeeMapper.deleteById(row.getId());
-            }
-        }
-        OffsetDateTime now = OffsetDateTime.now();
-        Map<Long, String> prevResponse = existing.stream()
-                .filter(a -> CalendarAttendeeRole.ATTENDEE.name().equals(a.getRole()))
-                .collect(Collectors.toMap(CalAttendeeDO::getUserId, CalAttendeeDO::getResponse, (a, b) -> a));
-        for (Long attendeeId : nextAttendees) {
-            String response = prevResponse.getOrDefault(attendeeId, CalendarAttendeeResponse.NEEDS_ACTION.name());
-            insertAttendee(event, attendeeId, CalendarAttendeeRole.ATTENDEE,
-                    CalendarAttendeeResponse.valueOf(response), now);
-        }
+        replaceAttendees(event, nextAttendees, userId);
 
         Set<Long> newlyInvited = new LinkedHashSet<>(nextAttendees);
         newlyInvited.removeAll(previousAttendees);
@@ -217,16 +266,57 @@ public class CalEventServiceImpl implements CalEventService {
 
     @Override
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, String editScope, OffsetDateTime instanceStart) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         CalEventDO event = requireOrganizerEvent(id, userId);
         Set<Long> attendees = loadAttendeeUserIds(id);
+
+        EditScope scope = parseEditScope(editScope, event, instanceStart, EditScope.THIS);
+
+        if (scope == EditScope.THIS) {
+            upsertException(event.getId(), instanceStart, CANCELLED, null, null, null, userId, tenantId);
+            calendarBotNotifyService.notifyCancel(event, attendees);
+            return;
+        }
+
+        if (scope == EditScope.THIS_AND_FUTURE) {
+            truncateSeriesUntil(event, instanceStart, userId);
+            calendarBotNotifyService.notifyCancel(event, attendees);
+            return;
+        }
+
         event.setStatus(CalendarEventStatus.CANCELLED.name());
         event.setUpdater(userId);
         event.setUpdateTime(OffsetDateTime.now());
         calEventMapper.updateById(event);
         calEventMapper.deleteById(id);
         calendarBotNotifyService.notifyCancel(event, attendees);
+    }
+
+    @Override
+    @Transactional
+    public void reschedule(CalEventRescheduleReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        validateTime(request.getStartTime(), request.getEndTime());
+        CalEventDO event = requireOrganizerEvent(request.getId(), userId);
+
+        EditScope scope = parseEditScope(request.getEditScope(), event, request.getInstanceStart(), EditScope.THIS);
+
+        if (scope == EditScope.THIS && StringUtils.hasText(event.getRrule())) {
+            upsertException(event.getId(), request.getInstanceStart(), NOT_CANCELLED, null,
+                    request.getStartTime(), request.getEndTime(), userId, tenantId);
+            notifyUpdateBestEffort(event, userId);
+            return;
+        }
+
+        CalEventUpdateReqVO update = buildUpdateFromEvent(event);
+        update.setStartTime(request.getStartTime());
+        update.setEndTime(request.getEndTime());
+        update.setEditScope(EditScope.ALL.name());
+        update.setInstanceStart(null);
+        update(update);
     }
 
     @Override
@@ -256,13 +346,300 @@ public class CalEventServiceImpl implements CalEventService {
         calAttendeeMapper.updateById(attendee);
     }
 
-    private List<CalEventDO> selectOverlapping(Set<Long> calendarIds, OffsetDateTime from, OffsetDateTime to) {
+    private List<CalEventDO> selectNonRecurringOverlapping(Set<Long> calendarIds, OffsetDateTime from, OffsetDateTime to) {
         return calEventMapper.selectList(
                 Wrappers.<CalEventDO>lambdaQuery()
                         .in(CalEventDO::getCalendarId, calendarIds)
                         .eq(CalEventDO::getStatus, CalendarEventStatus.CONFIRMED.name())
+                        .isNull(CalEventDO::getRrule)
                         .lt(CalEventDO::getStartTime, to)
                         .gt(CalEventDO::getEndTime, from));
+    }
+
+    private List<CalEventDO> selectRecurringMasters(Set<Long> calendarIds, OffsetDateTime to) {
+        return calEventMapper.selectList(
+                Wrappers.<CalEventDO>lambdaQuery()
+                        .in(CalEventDO::getCalendarId, calendarIds)
+                        .eq(CalEventDO::getStatus, CalendarEventStatus.CONFIRMED.name())
+                        .isNotNull(CalEventDO::getRrule)
+                        .lt(CalEventDO::getStartTime, to));
+    }
+
+    private boolean matchesListWindow(CalEventDO event, OffsetDateTime from, OffsetDateTime to) {
+        if (!StringUtils.hasText(event.getRrule())) {
+            return event.getStartTime().isBefore(to) && event.getEndTime().isAfter(from);
+        }
+        return event.getStartTime().isBefore(to);
+    }
+
+    private List<ExpandedInstance> expandMaster(CalEventDO master, OffsetDateTime from, OffsetDateTime to,
+                                                List<CalEventExceptionDO> exceptions) {
+        Map<OffsetDateTime, CalEventExceptionDO> exceptionByStart = exceptions.stream()
+                .collect(Collectors.toMap(CalEventExceptionDO::getOriginalStart, e -> e, (a, b) -> a, LinkedHashMap::new));
+
+        if (!StringUtils.hasText(master.getRrule())) {
+            CalEventExceptionDO ex = exceptionByStart.get(master.getStartTime());
+            if (ex != null && Objects.equals(ex.getCancelled(), CANCELLED)) {
+                return List.of();
+            }
+            OffsetDateTime start = master.getStartTime();
+            OffsetDateTime end = master.getEndTime();
+            if (ex != null) {
+                if (ex.getOverrideStart() != null) {
+                    start = ex.getOverrideStart();
+                }
+                if (ex.getOverrideEnd() != null) {
+                    end = ex.getOverrideEnd();
+                }
+            }
+            if (start.isBefore(to) && end.isAfter(from)) {
+                return List.of(new ExpandedInstance(start, end, ex));
+            }
+            return List.of();
+        }
+
+        List<Occurrence> occurrences = RecurrenceExpander.expand(
+                master.getStartTime(), master.getEndTime(), master.getRrule(), from, to);
+        List<ExpandedInstance> result = new ArrayList<>(occurrences.size());
+        for (Occurrence occurrence : occurrences) {
+            CalEventExceptionDO ex = exceptionByStart.get(occurrence.start());
+            if (ex != null && Objects.equals(ex.getCancelled(), CANCELLED)) {
+                continue;
+            }
+            OffsetDateTime start = occurrence.start();
+            OffsetDateTime end = occurrence.end();
+            if (ex != null) {
+                if (ex.getOverrideStart() != null) {
+                    start = ex.getOverrideStart();
+                }
+                if (ex.getOverrideEnd() != null) {
+                    end = ex.getOverrideEnd();
+                }
+            }
+            if (start.isBefore(to) && end.isAfter(from)) {
+                result.add(new ExpandedInstance(occurrence.start(), end, ex));
+            }
+        }
+        return result;
+    }
+
+    private Map<Long, List<CalEventExceptionDO>> loadExceptions(Set<Long> masterIds) {
+        if (masterIds.isEmpty()) {
+            return Map.of();
+        }
+        List<CalEventExceptionDO> rows = calEventExceptionMapper.selectList(
+                Wrappers.<CalEventExceptionDO>lambdaQuery()
+                        .in(CalEventExceptionDO::getMasterEventId, masterIds));
+        Map<Long, List<CalEventExceptionDO>> map = new HashMap<>();
+        for (CalEventExceptionDO row : rows) {
+            map.computeIfAbsent(row.getMasterEventId(), k -> new ArrayList<>()).add(row);
+        }
+        return map;
+    }
+
+    private void upsertException(Long masterEventId, OffsetDateTime originalStart, Integer cancelled,
+                                 String overrideTitle, OffsetDateTime overrideStart, OffsetDateTime overrideEnd,
+                                 Long userId, Long tenantId) {
+        if (originalStart == null) {
+            throw new ServiceException(ErrorCodeConstants.EVENT_EDIT_SCOPE_INVALID);
+        }
+        CalEventExceptionDO existing = calEventExceptionMapper.selectOne(
+                Wrappers.<CalEventExceptionDO>lambdaQuery()
+                        .eq(CalEventExceptionDO::getMasterEventId, masterEventId)
+                        .eq(CalEventExceptionDO::getOriginalStart, originalStart)
+                        .last("LIMIT 1"));
+        OffsetDateTime now = OffsetDateTime.now();
+        if (existing != null) {
+            existing.setCancelled(cancelled);
+            existing.setOverrideTitle(overrideTitle);
+            existing.setOverrideStart(overrideStart);
+            existing.setOverrideEnd(overrideEnd);
+            existing.setUpdater(userId);
+            existing.setUpdateTime(now);
+            calEventExceptionMapper.updateById(existing);
+            return;
+        }
+        CalEventExceptionDO row = new CalEventExceptionDO();
+        row.setTenantId(tenantId);
+        row.setMasterEventId(masterEventId);
+        row.setOriginalStart(originalStart);
+        row.setCancelled(cancelled);
+        row.setOverrideTitle(overrideTitle);
+        row.setOverrideStart(overrideStart);
+        row.setOverrideEnd(overrideEnd);
+        row.setCreator(userId);
+        row.setCreateTime(now);
+        row.setUpdater(userId);
+        row.setUpdateTime(now);
+        calEventExceptionMapper.insert(row);
+    }
+
+    private void truncateSeriesUntil(CalEventDO event, OffsetDateTime instanceStart, Long userId) {
+        if (!StringUtils.hasText(event.getRrule())) {
+            throw new ServiceException(ErrorCodeConstants.EVENT_EDIT_SCOPE_INVALID);
+        }
+        OffsetDateTime until = instanceStart.minusSeconds(1);
+        event.setRrule(truncateRruleUntil(event.getRrule(), until));
+        event.setUpdater(userId);
+        event.setUpdateTime(OffsetDateTime.now());
+        calEventMapper.updateById(event);
+    }
+
+    private CalEventDO createMasterFromRequest(CalEventUpdateReqVO request, CalEventDO source,
+                                               CalCalendarDO calendar, String rrule, Long userId, Long tenantId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        CalEventDO event = new CalEventDO();
+        event.setTenantId(tenantId);
+        event.setCalendarId(calendar.getId());
+        event.setTitle(normalizeTitle(request.getTitle()));
+        event.setDescription(blankToNull(request.getDescription()));
+        event.setStartTime(request.getStartTime());
+        event.setEndTime(request.getEndTime());
+        event.setAllDay(Boolean.TRUE.equals(request.getAllDay()) ? 1 : 0);
+        event.setOrganizerId(source.getOrganizerId());
+        event.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
+        event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
+        event.setStatus(CalendarEventStatus.CONFIRMED.name());
+        event.setRrule(rrule);
+        event.setCreator(userId);
+        event.setCreateTime(now);
+        event.setUpdater(userId);
+        event.setUpdateTime(now);
+        calEventMapper.insert(event);
+        return event;
+    }
+
+    private void copyAttendees(Long sourceEventId, CalEventDO targetEvent, Long userId) {
+        List<CalAttendeeDO> existing = calAttendeeMapper.selectList(
+                Wrappers.<CalAttendeeDO>lambdaQuery().eq(CalAttendeeDO::getEventId, sourceEventId));
+        OffsetDateTime now = OffsetDateTime.now();
+        for (CalAttendeeDO row : existing) {
+            CalAttendeeDO copy = new CalAttendeeDO();
+            copy.setTenantId(targetEvent.getTenantId());
+            copy.setEventId(targetEvent.getId());
+            copy.setUserId(row.getUserId());
+            copy.setRole(row.getRole());
+            copy.setResponse(row.getResponse());
+            copy.setCreator(userId);
+            copy.setCreateTime(now);
+            copy.setUpdater(userId);
+            copy.setUpdateTime(now);
+            calAttendeeMapper.insert(copy);
+        }
+    }
+
+    private CalEventUpdateReqVO buildUpdateFromEvent(CalEventDO event) {
+        CalEventUpdateReqVO update = new CalEventUpdateReqVO();
+        update.setId(event.getId());
+        update.setCalendarId(event.getCalendarId());
+        update.setTitle(event.getTitle());
+        update.setDescription(event.getDescription());
+        update.setStartTime(event.getStartTime());
+        update.setEndTime(event.getEndTime());
+        update.setAllDay(event.getAllDay() != null && event.getAllDay() != 0);
+        update.setRemindBeforeMinutes(event.getRemindBeforeMinutes());
+        update.setAllDayRemindTime(event.getAllDayRemindTime());
+        update.setRrule(event.getRrule());
+        List<CalAttendeeDO> attendees = calAttendeeMapper.selectList(
+                Wrappers.<CalAttendeeDO>lambdaQuery()
+                        .eq(CalAttendeeDO::getEventId, event.getId())
+                        .eq(CalAttendeeDO::getRole, CalendarAttendeeRole.ATTENDEE.name()));
+        update.setAttendeeUserIds(attendees.stream().map(CalAttendeeDO::getUserId).toList());
+        return update;
+    }
+
+    private void replaceAttendees(CalEventDO event, Set<Long> nextAttendees, Long userId) {
+        List<CalAttendeeDO> existing = calAttendeeMapper.selectList(
+                Wrappers.<CalAttendeeDO>lambdaQuery().eq(CalAttendeeDO::getEventId, event.getId()));
+        for (CalAttendeeDO row : existing) {
+            if (CalendarAttendeeRole.ATTENDEE.name().equals(row.getRole())) {
+                calAttendeeMapper.deleteById(row.getId());
+            }
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        Map<Long, String> prevResponse = existing.stream()
+                .filter(a -> CalendarAttendeeRole.ATTENDEE.name().equals(a.getRole()))
+                .collect(Collectors.toMap(CalAttendeeDO::getUserId, CalAttendeeDO::getResponse, (a, b) -> a));
+        for (Long attendeeId : nextAttendees) {
+            String response = prevResponse.getOrDefault(attendeeId, CalendarAttendeeResponse.NEEDS_ACTION.name());
+            insertAttendee(event, attendeeId, CalendarAttendeeRole.ATTENDEE,
+                    CalendarAttendeeResponse.valueOf(response), now);
+        }
+    }
+
+    private EditScope parseEditScope(String scopeRaw, CalEventDO event, OffsetDateTime instanceStart,
+                                     EditScope defaultWithInstance) {
+        if (!StringUtils.hasText(event.getRrule())) {
+            return EditScope.ALL;
+        }
+        if (StringUtils.hasText(scopeRaw)) {
+            String scope = scopeRaw.trim().toUpperCase(Locale.ROOT);
+            if ("ALL".equals(scope)) {
+                return EditScope.ALL;
+            }
+            if ("THIS".equals(scope)) {
+                if (instanceStart == null) {
+                    throw new ServiceException(ErrorCodeConstants.EVENT_EDIT_SCOPE_INVALID);
+                }
+                return EditScope.THIS;
+            }
+            if ("THIS_AND_FUTURE".equals(scope)) {
+                if (instanceStart == null) {
+                    throw new ServiceException(ErrorCodeConstants.EVENT_EDIT_SCOPE_INVALID);
+                }
+                return EditScope.THIS_AND_FUTURE;
+            }
+            throw new ServiceException(ErrorCodeConstants.EVENT_EDIT_SCOPE_INVALID);
+        }
+        if (instanceStart != null) {
+            return defaultWithInstance;
+        }
+        return EditScope.ALL;
+    }
+
+    private static String truncateRruleUntil(String rrule, OffsetDateTime until) {
+        String body = rrule.trim();
+        if (body.toUpperCase(Locale.ROOT).startsWith("RRULE:")) {
+            body = body.substring(6);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String token : body.split(";")) {
+            if (!StringUtils.hasText(token) || !token.contains("=")) {
+                continue;
+            }
+            String key = token.split("=", 2)[0].trim().toUpperCase(Locale.ROOT);
+            if ("COUNT".equals(key) || "UNTIL".equals(key)) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(';');
+            }
+            sb.append(token.trim());
+        }
+        if (sb.length() > 0) {
+            sb.append(';');
+        }
+        sb.append("UNTIL=").append(formatUntil(until));
+        return sb.toString();
+    }
+
+    private static String formatUntil(OffsetDateTime until) {
+        return until.withOffsetSameInstant(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+
+    private static String normalizeRrule(String rrule) {
+        if (!StringUtils.hasText(rrule)) {
+            return null;
+        }
+        return rrule.trim();
+    }
+
+    private void notifyUpdateBestEffort(CalEventDO event, Long userId) {
+        Set<Long> attendees = loadAttendeeUserIds(event.getId());
+        attendees.remove(userId);
+        if (!attendees.isEmpty()) {
+            calendarBotNotifyService.notifyUpdate(event, attendees);
+        }
     }
 
     private Set<Long> ownedCalendarIds(Long userId) {
@@ -361,6 +738,10 @@ public class CalEventServiceImpl implements CalEventService {
         if (owned.contains(event.getCalendarId())) {
             return event;
         }
+        Set<Long> sharedRead = calCalendarShareService.sharedReadCalendarIds(userId);
+        if (sharedRead.contains(event.getCalendarId())) {
+            return event;
+        }
         Long count = calAttendeeMapper.selectCount(
                 Wrappers.<CalAttendeeDO>lambdaQuery()
                         .eq(CalAttendeeDO::getEventId, id)
@@ -371,31 +752,51 @@ public class CalEventServiceImpl implements CalEventService {
         return event;
     }
 
-    private CalEventRespVO toResp(CalEventDO event, Long viewerId, Set<Long> ownedCalendarIds,
+    private CalEventRespVO toResp(CalEventDO master, ExpandedInstance instance, Long viewerId,
+                                  Set<Long> ownedCalendarIds, Set<Long> sharedReadCalendarIds,
                                   Map<Long, CalCalendarDO> calendarMap,
                                   Map<Long, List<CalAttendeeDO>> attendeesByEvent) {
-        CalCalendarDO calendar = calendarMap.get(event.getCalendarId());
+        CalCalendarDO calendar = calendarMap.get(master.getCalendarId());
+        CalEventExceptionDO ex = instance.exception();
+
         CalEventRespVO vo = new CalEventRespVO();
-        vo.setId(event.getId());
-        vo.setCalendarId(event.getCalendarId());
+        vo.setId(master.getId());
+        vo.setCalendarId(master.getCalendarId());
         vo.setCalendarColor(calendar != null ? calendar.getColor() : "#3B82F6");
         vo.setCalendarName(calendar != null ? calendar.getName() : "");
-        vo.setTitle(event.getTitle());
-        vo.setDescription(event.getDescription());
-        vo.setStartTime(event.getStartTime());
-        vo.setEndTime(event.getEndTime());
-        vo.setAllDay(event.getAllDay() != null && event.getAllDay() != 0);
-        vo.setOrganizerId(event.getOrganizerId());
-        vo.setRemindBeforeMinutes(event.getRemindBeforeMinutes());
-        vo.setAllDayRemindTime(event.getAllDayRemindTime());
-        vo.setStatus(event.getStatus());
-        boolean invitedOnly = !ownedCalendarIds.contains(event.getCalendarId());
-        vo.setInvitedOnly(invitedOnly);
-        vo.setViewerRole(Objects.equals(event.getOrganizerId(), viewerId)
+        vo.setTitle(ex != null && StringUtils.hasText(ex.getOverrideTitle())
+                ? ex.getOverrideTitle() : master.getTitle());
+        vo.setDescription(master.getDescription());
+        vo.setStartTime(ex != null && ex.getOverrideStart() != null ? ex.getOverrideStart() : instance.instanceStart());
+        if (ex != null && ex.getOverrideEnd() != null) {
+            vo.setEndTime(ex.getOverrideEnd());
+        } else if (ex != null && ex.getOverrideStart() != null && ex.getOverrideEnd() == null) {
+            long durationSeconds = java.time.temporal.ChronoUnit.SECONDS.between(master.getStartTime(), master.getEndTime());
+            vo.setEndTime(ex.getOverrideStart().plusSeconds(durationSeconds));
+        } else {
+            vo.setEndTime(instance.instanceEnd());
+        }
+        vo.setAllDay(master.getAllDay() != null && master.getAllDay() != 0);
+        vo.setOrganizerId(master.getOrganizerId());
+        vo.setRemindBeforeMinutes(master.getRemindBeforeMinutes());
+        vo.setAllDayRemindTime(master.getAllDayRemindTime());
+        vo.setStatus(master.getStatus());
+        boolean owned = ownedCalendarIds.contains(master.getCalendarId());
+        boolean sharedRead = sharedReadCalendarIds.contains(master.getCalendarId());
+        vo.setInvitedOnly(!owned && !sharedRead);
+        vo.setViewerRole(Objects.equals(master.getOrganizerId(), viewerId)
                 ? CalendarAttendeeRole.ORGANIZER.name()
                 : CalendarAttendeeRole.ATTENDEE.name());
+        vo.setRrule(master.getRrule());
+        vo.setMasterEventId(master.getId());
+        vo.setInstanceStart(instance.instanceStart());
+        vo.setRecurring(StringUtils.hasText(master.getRrule()));
+        vo.setIsException(ex != null && (Objects.equals(ex.getCancelled(), CANCELLED)
+                || StringUtils.hasText(ex.getOverrideTitle())
+                || ex.getOverrideStart() != null
+                || ex.getOverrideEnd() != null));
 
-        List<CalAttendeeDO> attendees = attendeesByEvent.getOrDefault(event.getId(), List.of());
+        List<CalAttendeeDO> attendees = attendeesByEvent.getOrDefault(master.getId(), List.of());
         List<CalAttendeeRespVO> attendeeVos = new ArrayList<>(attendees.size());
         for (CalAttendeeDO a : attendees) {
             CalAttendeeRespVO item = new CalAttendeeRespVO();

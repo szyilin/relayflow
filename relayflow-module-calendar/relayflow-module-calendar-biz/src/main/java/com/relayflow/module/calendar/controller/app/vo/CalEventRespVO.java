@@ -40,6 +40,18 @@ public class CalEventRespVO {
 
     private List<CalAttendeeRespVO> attendees;
 
-    /** true when viewer does not own the calendar (invited) */
+    /** true when viewer does not own the calendar and is not a share reader (invited-only) */
     private Boolean invitedOnly;
+
+    private String rrule;
+
+    /** Master event id (= id for non-recurring / master row) */
+    private Long masterEventId;
+
+    /** Expanded instance start; equals startTime for single events */
+    private OffsetDateTime instanceStart;
+
+    private Boolean isException;
+
+    private Boolean recurring;
 }
