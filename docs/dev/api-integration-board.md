@@ -62,13 +62,13 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-task-core** | **planned** | **ui_ready** | `/app/tasks` 详情面板 · 扩展 `task_*` | [detail contract](../../openspec/lanes/workspace-task-detail/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 `-web` 完成；待 detail-api |
+| **workspace-task-core** | **ready** | **ui_ready** | `/app/tasks` 详情面板 · 扩展 `task_*` | [detail contract](../../openspec/lanes/workspace-task-detail/contract.md) | [母 change](../../openspec/changes/workspace-task-core-v1/proposal.md)；P0 detail-api 完成；待 `-integrate` 去 localStorage |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-task-detail-api` | 实现详情/子任务 REST + Flyway（`-web` 已 ui_ready） |
+| `workspace-task-detail-integrate` | 去掉 detail localStorage；联调 get/subtasks/update |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
@@ -87,7 +87,7 @@
 5. workspace-calendar-v1 ✅ archive
 6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
 7. task-calendar-projection（任务图层投影）✅
-8. workspace-task-core-v1（任务详情/协作）← 建议下一步：先 `workspace-task-detail-web`
+8. workspace-task-core-v1（任务详情/协作）← 建议下一步：`workspace-task-detail-integrate`
 9. user-preference-integrate（收紧 localStorage 真源）
 10. bpm-v1 — deferred，见下方「暂缓实现」
 ```

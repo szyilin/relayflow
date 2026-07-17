@@ -10,6 +10,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
@@ -200,5 +201,40 @@ class TaskItemServiceImplTest {
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).updateById(captor.capture());
         assertEquals("新标题", captor.getValue().getTitle());
+        verify(taskDueNotifyService).pushIfDueSoon(captor.getValue());
+    }
+
+    @Test
+    void createSubtask_rejectsWhenParentIsAlreadySubtask() {
+        TaskItemDO parent = new TaskItemDO();
+        parent.setId(TASK_ID);
+        parent.setAssigneeId(USER_ID);
+        parent.setParentId(999L);
+        when(taskItemMapper.selectById(TASK_ID)).thenReturn(parent);
+
+        TaskSubtaskCreateReqVO request = new TaskSubtaskCreateReqVO();
+        request.setParentId(TASK_ID);
+        request.setTitle("再下一层");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> taskItemService.createSubtask(request));
+        assertEquals(ErrorCodeConstants.TASK_SUBTASK_DEPTH_EXCEEDED.getCode(), exception.getCode());
+    }
+
+    @Test
+    void updateTask_rejectsWhenStartAfterDue() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setAssigneeId(USER_ID);
+        when(taskItemMapper.selectById(TASK_ID)).thenReturn(row);
+
+        TaskItemUpdateReqVO request = new TaskItemUpdateReqVO();
+        request.setId(TASK_ID);
+        request.setStartTime(OffsetDateTime.parse("2026-07-18T18:00:00+08:00"));
+        request.setDueTime(OffsetDateTime.parse("2026-07-17T18:00:00+08:00"));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> taskItemService.updateTask(request));
+        assertEquals(ErrorCodeConstants.TASK_INVALID_TIME_RANGE.getCode(), exception.getCode());
     }
 }

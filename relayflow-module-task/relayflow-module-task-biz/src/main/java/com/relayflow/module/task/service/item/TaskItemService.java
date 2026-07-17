@@ -6,6 +6,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,6 +26,8 @@ public interface TaskItemService {
 
     List<TaskItemRespVO> listDueRange(Long userId, OffsetDateTime from, OffsetDateTime to, int limit);
 
+    TaskItemRespVO getTask(Long id);
+
     Long createTask(TaskItemCreateReqVO request);
 
     void updateTask(TaskItemUpdateReqVO request);
@@ -32,4 +35,8 @@ public interface TaskItemService {
     void toggleDone(TaskItemToggleDoneReqVO request);
 
     void deleteTask(Long id);
+
+    List<TaskItemRespVO> listSubtasks(Long parentId);
+
+    Long createSubtask(TaskSubtaskCreateReqVO request);
 }

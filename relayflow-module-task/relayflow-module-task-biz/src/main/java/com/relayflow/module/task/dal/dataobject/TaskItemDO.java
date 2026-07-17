@@ -1,5 +1,6 @@
 package com.relayflow.module.task.dal.dataobject;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.TenantBaseDO;
@@ -34,8 +35,20 @@ public class TaskItemDO extends TenantBaseDO {
     @TableField("creator_id")
     private Long creatorId;
 
-    @TableField("due_time")
+    @TableField(value = "due_time", updateStrategy = FieldStrategy.ALWAYS)
     private OffsetDateTime dueTime;
+
+    @TableField(value = "start_time", updateStrategy = FieldStrategy.ALWAYS)
+    private OffsetDateTime startTime;
+
+    @TableField(value = "description", updateStrategy = FieldStrategy.ALWAYS)
+    private String description;
+
+    @TableField(value = "remind_before_minutes", updateStrategy = FieldStrategy.ALWAYS)
+    private Integer remindBeforeMinutes;
+
+    @TableField("parent_id")
+    private Long parentId;
 
     @TableField("status")
     private String status;

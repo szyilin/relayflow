@@ -1,7 +1,8 @@
 # API 契约：workspace-task-detail
 
-> **状态**：`-web` 起草中（ui_ready 后冻结）  
+> **状态**：frozen（`-api` ready；待 `-integrate`）  
 > **起草**：`workspace-task-core-v1` / `workspace-task-detail-web`  
+> **实现**：`workspace-task-detail-api`  
 > **母 change**：[`openspec/changes/workspace-task-core-v1`](../../changes/workspace-task-core-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks/contract.md`](../workspace-tasks/contract.md)（page/create/toggle/delete 仍有效）
