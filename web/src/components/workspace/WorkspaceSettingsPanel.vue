@@ -84,15 +84,41 @@ function selectCategory(id: SettingsCategory) {
 }
 
 function setThemeMode(mode: ThemeMode) {
-  preference.setThemeMode(mode)
+  void preference.setThemeMode(mode).then((ok) => {
+    if (!ok && preference.lastSyncError) {
+      toast.add({ title: '同步偏好失败', description: preference.lastSyncError, color: 'error' })
+    }
+  })
 }
 
 function setThemeColor(color: string) {
-  preference.setThemeColor(color)
+  void preference.setThemeColor(color).then((ok) => {
+    if (!ok && preference.lastSyncError) {
+      toast.add({ title: '同步偏好失败', description: preference.lastSyncError, color: 'error' })
+    }
+  })
 }
 
 function setBubbleLayout(layout: ChatBubbleLayout) {
-  preference.setChatBubbleLayout(layout)
+  void preference.setChatBubbleLayout(layout).then((ok) => {
+    if (!ok && preference.lastSyncError) {
+      toast.add({ title: '同步偏好失败', description: preference.lastSyncError, color: 'error' })
+    }
+  })
+}
+
+async function patchCalendar(patch: Parameters<typeof preference.patchCalendar>[0]) {
+  const ok = await preference.patchCalendar(patch)
+  if (!ok && preference.lastSyncError) {
+    toast.add({ title: '同步偏好失败', description: preference.lastSyncError, color: 'error' })
+  }
+}
+
+async function patchTask(patch: Parameters<typeof preference.patchTask>[0]) {
+  const ok = await preference.patchTask(patch)
+  if (!ok && preference.lastSyncError) {
+    toast.add({ title: '同步偏好失败', description: preference.lastSyncError, color: 'error' })
+  }
 }
 </script>
 
@@ -263,7 +289,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                   size="sm"
                   :variant="preference.calendar.weekStartsOn === opt.value ? 'solid' : 'soft'"
                   :color="preference.calendar.weekStartsOn === opt.value ? 'primary' : 'neutral'"
-                  @click="preference.patchCalendar({ weekStartsOn: opt.value })"
+                  @click="patchCalendar({ weekStartsOn: opt.value })"
                 >
                   {{ opt.label }}
                 </UButton>
@@ -283,7 +309,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                 :model-value="String(preference.calendar.defaultEventDurationMinutes)"
                 :items="durationOptions.map(m => ({ label: `${m} 分钟`, value: String(m) }))"
                 class="max-w-xs"
-                @update:model-value="(v: string) => preference.patchCalendar({ defaultEventDurationMinutes: Number(v) })"
+                @update:model-value="(v: string) => patchCalendar({ defaultEventDurationMinutes: Number(v) })"
               />
             </section>
 
@@ -303,7 +329,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                   value: String(m)
                 }))"
                 class="max-w-xs"
-                @update:model-value="(v: string) => preference.patchCalendar({ defaultRemindBeforeMinutes: Number(v) })"
+                @update:model-value="(v: string) => patchCalendar({ defaultRemindBeforeMinutes: Number(v) })"
               />
             </section>
 
@@ -320,7 +346,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                 :model-value="preference.calendar.allDayRemindTime"
                 class="max-w-xs"
                 placeholder="08:00"
-                @update:model-value="(v: string) => preference.patchCalendar({ allDayRemindTime: v || '08:00' })"
+                @update:model-value="(v: string) => patchCalendar({ allDayRemindTime: v || '08:00' })"
               />
             </section>
 
@@ -336,7 +362,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                 </div>
                 <USwitch
                   :model-value="preference.calendar.dimPastEvents"
-                  @update:model-value="(v: boolean) => preference.patchCalendar({ dimPastEvents: v })"
+                  @update:model-value="(v: boolean) => patchCalendar({ dimPastEvents: v })"
                 />
               </div>
             </section>
@@ -353,7 +379,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                 </div>
                 <USwitch
                   :model-value="preference.calendar.showTaskLayer"
-                  @update:model-value="(v: boolean) => preference.patchCalendar({ showTaskLayer: v })"
+                  @update:model-value="(v: boolean) => patchCalendar({ showTaskLayer: v })"
                 />
               </div>
             </section>
@@ -376,7 +402,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                   value: String(o.value)
                 }))"
                 class="max-w-xs"
-                @update:model-value="(v: string) => preference.patchTask({ defaultRemindBeforeMinutes: Number(v) })"
+                @update:model-value="(v: string) => patchTask({ defaultRemindBeforeMinutes: Number(v) })"
               />
             </section>
           </template>

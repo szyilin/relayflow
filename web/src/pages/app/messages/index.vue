@@ -9,6 +9,7 @@ import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
 import type { MessageItem } from '../../../api/app/im'
+import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
@@ -17,6 +18,7 @@ const im = useImStore()
 const presence = usePresenceStore()
 const preference = useUserPreferenceStore()
 const route = useRoute()
+const { selectConversation: selectConversationWithRoute } = useMessageConversationRoute(im)
 const toast = useToast()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
@@ -138,7 +140,7 @@ watch(() => im.messages.length, async () => {
 })
 
 async function handleSelect(conversationId: string) {
-  await im.selectConversation(conversationId)
+  await selectConversationWithRoute(conversationId)
 }
 
 async function handleSend() {

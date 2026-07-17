@@ -15,6 +15,7 @@ import {
   type RoleType
 } from '../api/admin/role'
 import { ApiError } from '../api/request'
+import { DEFAULT_LIST_PAGE_SIZE } from '../constants/pagination'
 
 export interface RoleListRecord {
   id: string
@@ -61,7 +62,7 @@ export const useRoleStore = defineStore('role', () => {
   const total = ref(0)
   const loading = ref(false)
   const page = ref(1)
-  const pageSize = ref(10)
+  const pageSize = ref(DEFAULT_LIST_PAGE_SIZE)
   const keyword = ref('')
   const lastError = ref<string | null>(null)
 
@@ -97,6 +98,27 @@ export const useRoleStore = defineStore('role', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  /** Load all roles for pickers (parent / assign); paginates — never silent single pageSize:100. */
+  async function fetchAllForOptions(): Promise<RolePageItem[]> {
+    const collected: RolePageItem[] = []
+    let pageNo = 1
+    let total = Infinity
+    const size = DEFAULT_LIST_PAGE_SIZE
+    while ((pageNo - 1) * size < total) {
+      const data = await getRolePage({ pageNo, pageSize: size })
+      collected.push(...data.list)
+      total = data.total
+      if (data.list.length === 0) {
+        break
+      }
+      pageNo += 1
+      if (pageNo > 50) {
+        break
+      }
+    }
+    return collected
   }
 
   async function fetchDetail(id: number): Promise<RoleDetail> {
@@ -144,6 +166,7 @@ export const useRoleStore = defineStore('role', () => {
     permissionTree,
     permissionsLoading,
     fetchPage,
+    fetchAllForOptions,
     fetchDetail,
     fetchPermissions,
     saveRole,

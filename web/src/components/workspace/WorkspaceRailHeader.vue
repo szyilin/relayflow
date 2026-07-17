@@ -47,8 +47,7 @@ onMounted(() => {
     return
   }
 
-  preferenceStore.hydrateFromLocal()
-  void preferenceStore.fetchFromServer()
+  preferenceStore.fetchFromServer()
 
   void Promise.all([
     authStore.fetchMyTenants().catch(() => {}),
