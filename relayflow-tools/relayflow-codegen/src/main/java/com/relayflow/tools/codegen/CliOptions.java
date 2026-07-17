@@ -84,7 +84,7 @@ public final class CliOptions {
                   relayflow-codegen --module <key> --tables <t1,t2,...> [options]
 
                 Options:
-                  -m, --module <key>     Module key from codegen.yml (system, infra, im, task)
+                  -m, --module <key>     Module key from codegen.yml (system, infra, im, task, calendar)
                   -t, --tables <list>    Comma-separated PostgreSQL table names (required)
                   -o, --output <dir>     Output directory (default: .relayflow/codegen-out/<timestamp>/)
                   --config <file>        Custom YAML (else codegen.local.yml, else classpath codegen.yml)
