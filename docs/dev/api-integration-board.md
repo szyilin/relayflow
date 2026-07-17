@@ -57,7 +57,7 @@
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **workspace-calendar** | planned | pending | `/app-api/calendar/*` · `/app/calendar` | 待 `workspace-calendar-web` 起草 | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；邀约要；整日历共享/RRULE/任务图层不做 |
+| **workspace-calendar** | planned | **ui_ready** | `/app-api/calendar/*` · `/app/calendar` | [contract](../../openspec/lanes/workspace-calendar/contract.md) | 母 change [workspace-calendar-v1](../../openspec/changes/workspace-calendar-v1/proposal.md)；store 临时数据；待 `-api` |
 
 ### 建议下一切片（尚未立项或可并行）
 

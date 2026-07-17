@@ -15,6 +15,7 @@ const toast = useToast()
 type SettingsCategory =
   | 'account'
   | 'general'
+  | 'calendar'
   | 'privacy'
   | 'notifications'
   | 'shortcuts'
@@ -22,6 +23,7 @@ type SettingsCategory =
 const categories: { id: SettingsCategory, label: string, icon: string, ready: boolean }[] = [
   { id: 'account', label: '账号与安全', icon: 'i-lucide-user-round-cog', ready: false },
   { id: 'general', label: '通用', icon: 'i-lucide-sliders-horizontal', ready: true },
+  { id: 'calendar', label: '日历', icon: 'i-lucide-calendar', ready: true },
   { id: 'privacy', label: '隐私', icon: 'i-lucide-shield', ready: false },
   { id: 'notifications', label: '通知', icon: 'i-lucide-bell', ready: false },
   { id: 'shortcuts', label: '快捷键', icon: 'i-lucide-keyboard', ready: false }
@@ -39,6 +41,14 @@ const bubbleLayouts: { value: ChatBubbleLayout, label: string, hint: string }[] 
   { value: 'left', label: '消息气泡左对齐', hint: '所有消息靠左排列' },
   { value: 'split', label: '消息气泡左右分布', hint: '己方靠右、对方靠左' }
 ]
+
+const weekStartOptions = [
+  { value: 0, label: '周日' },
+  { value: 1, label: '周一' }
+]
+
+const durationOptions = [15, 30, 45, 60, 90, 120]
+const remindOptions = [0, 5, 10, 15, 30, 60]
 
 const activeCategoryMeta = computed(() =>
   categories.find(item => item.id === activeCategory.value) ?? categories[1]!)
@@ -201,10 +211,7 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                   @click="setBubbleLayout(layout.value)"
                 >
                   <div class="mb-2 space-y-1.5 rounded-lg bg-[var(--ws-input-bar-bg)] p-2">
-                    <div
-                      class="flex"
-                      :class="layout.value === 'split' ? 'justify-start' : 'justify-start'"
-                    >
+                    <div class="flex justify-start">
                       <div class="h-4 w-16 rounded-md bg-[var(--ws-border-subtle)]" />
                     </div>
                     <div
@@ -224,6 +231,102 @@ function setBubbleLayout(layout: ChatBubbleLayout) {
                     {{ layout.hint }}
                   </p>
                 </button>
+              </div>
+            </section>
+          </template>
+
+          <template v-else-if="activeCategory === 'calendar'">
+            <section class="space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold">
+                  一周起始日
+                </h3>
+                <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  影响日/周/月视图的列顺序
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  v-for="opt in weekStartOptions"
+                  :key="opt.value"
+                  size="sm"
+                  :variant="preference.calendar.weekStartsOn === opt.value ? 'solid' : 'soft'"
+                  :color="preference.calendar.weekStartsOn === opt.value ? 'primary' : 'neutral'"
+                  @click="preference.patchCalendar({ weekStartsOn: opt.value })"
+                >
+                  {{ opt.label }}
+                </UButton>
+              </div>
+            </section>
+
+            <section class="mt-8 space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold">
+                  默认日程时长
+                </h3>
+                <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  快捷创建非全天日程时的默认长度
+                </p>
+              </div>
+              <USelect
+                :model-value="String(preference.calendar.defaultEventDurationMinutes)"
+                :items="durationOptions.map(m => ({ label: `${m} 分钟`, value: String(m) }))"
+                class="max-w-xs"
+                @update:model-value="(v: string) => preference.patchCalendar({ defaultEventDurationMinutes: Number(v) })"
+              />
+            </section>
+
+            <section class="mt-8 space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold">
+                  非全天默认提醒
+                </h3>
+                <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  创建日程时预填的提醒提前量
+                </p>
+              </div>
+              <USelect
+                :model-value="String(preference.calendar.defaultRemindBeforeMinutes)"
+                :items="remindOptions.map(m => ({
+                  label: m === 0 ? '不提醒' : `提前 ${m} 分钟`,
+                  value: String(m)
+                }))"
+                class="max-w-xs"
+                @update:model-value="(v: string) => preference.patchCalendar({ defaultRemindBeforeMinutes: Number(v) })"
+              />
+            </section>
+
+            <section class="mt-8 space-y-3">
+              <div>
+                <h3 class="text-sm font-semibold">
+                  全天日程提醒时刻
+                </h3>
+                <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  如 08:00（当天本地时间）
+                </p>
+              </div>
+              <UInput
+                :model-value="preference.calendar.allDayRemindTime"
+                class="max-w-xs"
+                placeholder="08:00"
+                @update:model-value="(v: string) => preference.patchCalendar({ allDayRemindTime: v || '08:00' })"
+              />
+            </section>
+
+            <section class="mt-8 space-y-3">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h3 class="text-sm font-semibold">
+                    已结束日程降低亮度
+                  </h3>
+                  <p class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                    仅影响日历网格展示
+                  </p>
+                </div>
+                <USwitch
+                  :model-value="preference.calendar.dimPastEvents"
+                  @update:model-value="(v: boolean) => preference.patchCalendar({ dimPastEvents: v })"
+                />
               </div>
             </section>
           </template>

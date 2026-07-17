@@ -30,6 +30,11 @@ export function useWorkspaceNav() {
     to: '/app/messages',
     badge: formatUnreadBadge(totalUnreadCount.value)
   }, {
+    id: 'calendar',
+    label: '日历',
+    icon: 'i-lucide-calendar',
+    to: '/app/calendar'
+  }, {
     id: 'tasks',
     label: '任务',
     icon: 'i-lucide-check-square',
@@ -49,6 +54,9 @@ export function useWorkspaceNav() {
   const activeRailId = computed(() => {
     if (route.path.startsWith('/app/messages')) {
       return 'messages'
+    }
+    if (route.path.startsWith('/app/calendar')) {
+      return 'calendar'
     }
     if (route.path.startsWith('/app/tasks')) {
       return 'tasks'

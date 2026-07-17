@@ -108,6 +108,18 @@ web/src/
 | Main | 成员列表；列表项可保留在线点（presence 数据层保留） |
 | 点人 | `WorkspaceBusinessCard`（peer；点自己则 self）；消息 → 单聊 |
 
+## 日历页 `/app/calendar`
+
+| 项 | 规范 |
+|----|------|
+| Shell | `#panel`：迷你月历 +「我管理的」日历勾选/色 + 添加日历；**无**任务虚拟图层 |
+| Main | 顶栏（今天/翻页/日周月/创建日程）+ 自研网格；当前时间红线（日/周） |
+| 弹层 | `CalendarEventEditor`：快捷创建/编辑；参与人来自通讯录；组织者可删 |
+| 设置 | 全局设置窗「日历」分类 → `settings.calendar`（非页内设置真源） |
+| 数据 | `stores/calendar` → `api/app/calendar`；`-web` 临时数据在 store |
+| 深链 | `?eventId=` / `?date=` |
+| 契约 | [`workspace-calendar/contract.md`](../../openspec/lanes/workspace-calendar/contract.md) |
+
 ## 数据层约定（对接 API）
 
 ```text

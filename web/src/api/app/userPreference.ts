@@ -1,5 +1,13 @@
 import { get, put } from '../request'
 
+export interface CalendarPreferenceSettings {
+  weekStartsOn?: number
+  defaultEventDurationMinutes?: number
+  defaultRemindBeforeMinutes?: number
+  allDayRemindTime?: string
+  dimPastEvents?: boolean
+}
+
 export interface UserPreferenceResp {
   schemaVersion: number
   settings: {
@@ -10,6 +18,7 @@ export interface UserPreferenceResp {
     im?: {
       chatBubbleLayout?: 'left' | 'split'
     }
+    calendar?: CalendarPreferenceSettings
   }
 }
 
