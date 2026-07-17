@@ -112,12 +112,12 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `#panel`：左导航「我负责的」；P1 起启用「我关注的」「动态」（此前可为占位） |
-| Main | 中栏：根任务列表（勾选完成、截止摘要、子任务进度）；**右侧详情面板**（飞书式） |
-| 详情 | 标题、负责人、开始/截止、提醒、描述、子任务 0/N、完成主按钮；P1：关注人、评论、活动 |
-| 深链 | `?taskId=` 打开对应详情（与日历投影、Bot 一致） |
-| 数据 | `stores/tasks` → `api/app/task`；detail/collab 契约见母 change 子切片 lane |
-| 契约 | 既有 [`workspace-tasks/contract.md`](../../openspec/lanes/workspace-tasks/contract.md)；增量见 [`workspace-task-core-v1`](../../openspec/changes/workspace-task-core-v1/proposal.md) |
+| Shell | `#panel`：左导航「我负责的」「我关注的」「动态」 |
+| Main | 中栏：按导航切换列表/动态；根任务列表（勾选、截止、子任务进度）；**右侧详情面板** |
+| 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动 |
+| 深链 | `?taskId=` 打开详情；`?view=following\|activity` 切换导航 |
+| 数据 | `stores/tasks` → `api/app/task`；collab `-web` 暂用 localStorage，integrate 删除 |
+| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md) |
 | 非目标（近端） | 清单容器、看板、自定义字段、仪表盘 |
 
 ## 日历页 `/app/calendar`

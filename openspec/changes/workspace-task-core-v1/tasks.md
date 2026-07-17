@@ -52,9 +52,9 @@
 
 ## 4. workspace-task-collab-web（P1 · 前端第一步）
 
-- [ ] 4.1 起草 `openspec/lanes/workspace-task-collab/contract.md`
-- [ ] 4.2 启用导航「我关注的」「动态」；详情：关注人、评论、活动流、指派
-- [ ] 4.3 `pnpm build && pnpm typecheck` + 浏览器路径
+- [x] 4.1 起草 `openspec/lanes/workspace-task-collab/contract.md`
+- [x] 4.2 启用导航「我关注的」「动态」；详情：关注人、评论、活动流、指派
+- [x] 4.3 `pnpm build && pnpm typecheck` + 浏览器路径
 
 **完成后**：看板 collab → `ui_ready`。
 
