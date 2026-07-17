@@ -1,8 +1,8 @@
 # API 契约：workspace-task-detail
 
-> **状态**：frozen（`-api` ready；待 `-integrate`）  
+> **状态**：done（`-integrate` 完成）  
 > **起草**：`workspace-task-core-v1` / `workspace-task-detail-web`  
-> **实现**：`workspace-task-detail-api`  
+> **实现**：`workspace-task-detail-api` + `workspace-task-detail-integrate`  
 > **母 change**：[`openspec/changes/workspace-task-core-v1`](../../changes/workspace-task-core-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks/contract.md`](../workspace-tasks/contract.md)（page/create/toggle/delete 仍有效）
@@ -100,7 +100,7 @@
 |----|------|
 | 布局 | 左导航 + 中列表 + 右详情；`?taskId=` 选中并打开详情 |
 | 看板 Tab | 仍占位 |
-| `-web` 临时 | API 未就绪时 store 本地覆盖详情字段与子任务（localStorage）；integrate 删除 |
+| 真源 | 详情/子任务仅走 API；不使用 localStorage 覆盖 |
 
 ## curl 示例
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { TaskItem } from '../../api/app/task'
+import { ApiError } from '../../api/request'
 import { useTasksStore } from '../../stores/tasks'
 
 const props = defineProps<{
@@ -122,8 +123,9 @@ async function handleSave() {
       description: form.description.trim() || null
     })
     toast.add({ title: '已保存', color: 'success' })
-  } catch {
-    toast.add({ title: '保存失败', color: 'error' })
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '保存失败'
+    toast.add({ title: message, color: 'error' })
   }
 }
 

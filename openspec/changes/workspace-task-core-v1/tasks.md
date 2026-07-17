@@ -43,10 +43,10 @@
 
 ## 3. workspace-task-detail-integrate（P0 · 联调）
 
-- [ ] 3.1 去掉 detail 临时数据；只走 API
-- [ ] 3.2 联调深链、子任务进度、非法时间窗
-- [ ] 3.3 `pnpm build && pnpm typecheck`；`mvn compile`
-- [ ] 3.4 看板 detail → done/archived
+- [x] 3.1 去掉 detail 临时数据；只走 API
+- [x] 3.2 联调深链、子任务进度、非法时间窗
+- [x] 3.3 `pnpm build && pnpm typecheck`；`mvn compile`
+- [x] 3.4 看板 detail → done/archived
 
 ---
 

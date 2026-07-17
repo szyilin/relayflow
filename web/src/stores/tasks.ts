@@ -15,45 +15,8 @@ import {
 } from '../api/app/task'
 
 const DUE_RANGE_LIMIT = 200
-/** -web interim: detail/subtask overlay until detail-api lands. Integrate: remove. */
-const DETAIL_LOCAL_KEY = 'relayflow-task-detail-local-v1'
-
-interface LocalDetailBundle {
-  extras: Record<string, Partial<TaskItem>>
-  subtasks: Record<string, TaskItem[]>
-}
-
-function readLocalBundle(): LocalDetailBundle {
-  try {
-    const raw = localStorage.getItem(DETAIL_LOCAL_KEY)
-    if (!raw) {
-      return { extras: {}, subtasks: {} }
-    }
-    const parsed = JSON.parse(raw) as LocalDetailBundle
-    return {
-      extras: parsed.extras ?? {},
-      subtasks: parsed.subtasks ?? {}
-    }
-  } catch {
-    return { extras: {}, subtasks: {} }
-  }
-}
-
-function writeLocalBundle(bundle: LocalDetailBundle) {
-  localStorage.setItem(DETAIL_LOCAL_KEY, JSON.stringify(bundle))
-}
-
-function mergeDetail(base: TaskItem, extra?: Partial<TaskItem>): TaskItem {
-  if (!extra) {
-    return { ...base }
-  }
-  return {
-    ...base,
-    ...extra,
-    id: base.id,
-    createTime: base.createTime || extra.createTime || new Date().toISOString()
-  }
-}
+/** Cleared once after detail-api integrate; was -web interim overlay. */
+const LEGACY_DETAIL_LOCAL_KEY = 'relayflow-task-detail-local-v1'
 
 function recomputeProgress(parent: TaskItem, children: TaskItem[]): TaskItem {
   const total = children.length
@@ -62,6 +25,14 @@ function recomputeProgress(parent: TaskItem, children: TaskItem[]): TaskItem {
     ...parent,
     subtaskTotal: total,
     subtaskDoneCount: done
+  }
+}
+
+function clearLegacyDetailLocal() {
+  try {
+    localStorage.removeItem(LEGACY_DETAIL_LOCAL_KEY)
+  } catch {
+    // ignore
   }
 }
 
@@ -76,9 +47,6 @@ export const useTasksStore = defineStore('tasks', () => {
   const selectedDetail = ref<TaskItem | null>(null)
   const selectedSubtasks = ref<TaskItem[]>([])
 
-  const localExtras = ref<Record<string, Partial<TaskItem>>>({})
-  const localSubtasks = ref<Record<string, TaskItem[]>>({})
-
   /** Calendar projection cache for visible range. */
   const dueRangeItems = ref<TaskItem[]>([])
   const dueRangeLoading = ref(false)
@@ -86,36 +54,12 @@ export const useTasksStore = defineStore('tasks', () => {
   const todoItems = computed(() => items.value.filter(item => item.status === 'TODO'))
   const doneItems = computed(() => items.value.filter(item => item.status === 'DONE'))
 
-  function hydrateLocal() {
-    const bundle = readLocalBundle()
-    localExtras.value = bundle.extras
-    localSubtasks.value = bundle.subtasks
-  }
-
-  function persistLocal() {
-    writeLocalBundle({
-      extras: localExtras.value,
-      subtasks: localSubtasks.value
-    })
-  }
-
-  function applyLocalToList(list: TaskItem[]): TaskItem[] {
-    return list.map((item) => {
-      const merged = mergeDetail(item, localExtras.value[item.id])
-      const children = localSubtasks.value[item.id]
-      if (children) {
-        return recomputeProgress(merged, children)
-      }
-      return merged
-    })
-  }
-
   async function fetchMyTasks() {
     loading.value = true
-    hydrateLocal()
+    clearLegacyDetailLocal()
     try {
       const data = await getTaskPage({ pageNo: 1, pageSize: 100 })
-      items.value = applyLocalToList(data.list)
+      items.value = data.list
       total.value = data.total
     } finally {
       loading.value = false
@@ -148,51 +92,21 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     detailLoading.value = true
     try {
-      let detail: TaskItem | null = null
-      try {
-        detail = await getTaskById(id)
-      } catch {
-        const fromList = items.value.find(t => t.id === id)
-        detail = fromList ? mergeDetail(fromList, localExtras.value[id]) : null
-        if (!detail && localExtras.value[id]) {
-          detail = mergeDetail({
-            id,
-            title: localExtras.value[id]!.title || '任务',
-            status: 'TODO',
-            createTime: new Date().toISOString()
-          }, localExtras.value[id])
-        }
-      }
-      if (!detail) {
-        selectedDetail.value = null
-        selectedSubtasks.value = []
-        return
-      }
-      detail = mergeDetail(detail, localExtras.value[id])
-
-      let subtasks: TaskItem[] = []
-      try {
-        subtasks = await getTaskSubtasks(id)
-      } catch {
-        subtasks = []
-      }
-      if (localSubtasks.value[id]?.length) {
-        // -web: keep local subtasks when API missing or empty
-        if (subtasks.length === 0) {
-          subtasks = [...localSubtasks.value[id]!]
-        }
-      }
-
+      const [detail, subtasks] = await Promise.all([
+        getTaskById(id),
+        getTaskSubtasks(id)
+      ])
       selectedDetail.value = recomputeProgress(detail, subtasks)
       selectedSubtasks.value = subtasks
 
       const idx = items.value.findIndex(t => t.id === id)
       if (idx >= 0) {
-        items.value[idx] = recomputeProgress(
-          mergeDetail(items.value[idx]!, localExtras.value[id]),
-          subtasks
-        )
+        items.value[idx] = recomputeProgress(detail, subtasks)
       }
+    } catch (error) {
+      selectedDetail.value = null
+      selectedSubtasks.value = []
+      throw error
     } finally {
       detailLoading.value = false
     }
@@ -211,55 +125,36 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function setTaskDone(id: string, done: boolean) {
+    const snapshotItems = items.value.map(item => ({ ...item }))
+    const snapshotDetail = selectedDetail.value ? { ...selectedDetail.value } : null
+    const snapshotSubtasks = selectedSubtasks.value.map(item => ({ ...item }))
+
     const patchStatus = (list: TaskItem[]) => {
       const row = list.find(item => item.id === id)
       if (row) {
         row.status = done ? 'DONE' : 'TODO'
       }
     }
-    const previousRoot = items.value.find(item => item.id === id)?.status
-    const previousDetail = selectedDetail.value?.id === id ? selectedDetail.value.status : null
-    const previousSub = selectedSubtasks.value.find(s => s.id === id)?.status
 
     patchStatus(items.value)
     if (selectedDetail.value?.id === id) {
       selectedDetail.value = { ...selectedDetail.value, status: done ? 'DONE' : 'TODO' }
     }
     patchStatus(selectedSubtasks.value)
-    if (selectedId.value) {
-      const children = selectedSubtasks.value
-      if (selectedDetail.value && children.some(c => c.id === id)) {
-        selectedDetail.value = recomputeProgress(selectedDetail.value, children)
-        const idx = items.value.findIndex(t => t.id === selectedId.value)
-        if (idx >= 0) {
-          items.value[idx] = recomputeProgress(items.value[idx]!, children)
-        }
-        localSubtasks.value = {
-          ...localSubtasks.value,
-          [selectedId.value]: children.map(c => ({ ...c }))
-        }
-        persistLocal()
+    if (selectedId.value && selectedDetail.value && selectedSubtasks.value.some(c => c.id === id)) {
+      selectedDetail.value = recomputeProgress(selectedDetail.value, selectedSubtasks.value)
+      const idx = items.value.findIndex(t => t.id === selectedId.value)
+      if (idx >= 0) {
+        items.value[idx] = recomputeProgress(items.value[idx]!, selectedSubtasks.value)
       }
     }
 
     try {
       await toggleTaskDone(id, done)
     } catch (error) {
-      if (previousRoot != null) {
-        const row = items.value.find(item => item.id === id)
-        if (row) {
-          row.status = previousRoot
-        }
-      }
-      if (previousDetail != null && selectedDetail.value?.id === id) {
-        selectedDetail.value = { ...selectedDetail.value, status: previousDetail }
-      }
-      if (previousSub != null) {
-        const row = selectedSubtasks.value.find(s => s.id === id)
-        if (row) {
-          row.status = previousSub
-        }
-      }
+      items.value = snapshotItems
+      selectedDetail.value = snapshotDetail
+      selectedSubtasks.value = snapshotSubtasks
       throw error
     }
   }
@@ -268,26 +163,6 @@ export const useTasksStore = defineStore('tasks', () => {
     saving.value = true
     try {
       await deleteTask(id)
-      if (localExtras.value[id]) {
-        const next = { ...localExtras.value }
-        delete next[id]
-        localExtras.value = next
-      }
-      if (localSubtasks.value[id]) {
-        const next = { ...localSubtasks.value }
-        delete next[id]
-        localSubtasks.value = next
-      }
-      // remove from parent local subtasks
-      for (const [parentId, list] of Object.entries(localSubtasks.value)) {
-        if (list.some(s => s.id === id)) {
-          localSubtasks.value = {
-            ...localSubtasks.value,
-            [parentId]: list.filter(s => s.id !== id)
-          }
-        }
-      }
-      persistLocal()
       if (selectedId.value === id) {
         await selectTask(null)
       } else if (selectedId.value) {
@@ -302,24 +177,7 @@ export const useTasksStore = defineStore('tasks', () => {
   async function saveDetail(payload: TaskDetailUpdatePayload) {
     saving.value = true
     try {
-      try {
-        await updateTask(payload)
-      } catch {
-        // -web: classic update may reject unknown fields; continue with local overlay
-      }
-      // Keep detail overlay until detail-api integrate (new fields + refresh resilience)
-      localExtras.value = {
-        ...localExtras.value,
-        [payload.id]: {
-          ...(localExtras.value[payload.id] ?? {}),
-          title: payload.title,
-          startTime: payload.startTime,
-          dueTime: payload.dueTime,
-          remindBeforeMinutes: payload.remindBeforeMinutes,
-          description: payload.description
-        }
-      }
-      persistLocal()
+      await updateTask(payload)
       await fetchMyTasks()
       if (selectedId.value === payload.id) {
         await selectTask(payload.id)
@@ -332,30 +190,9 @@ export const useTasksStore = defineStore('tasks', () => {
   async function addSubtask(parentId: string, title: string) {
     saving.value = true
     try {
-      let id: string
-      try {
-        id = await createSubtask({ parentId, title })
-      } catch {
-        id = `local-${Date.now()}`
-        const child: TaskItem = {
-          id,
-          title: title.trim(),
-          status: 'TODO',
-          parentId,
-          createTime: new Date().toISOString(),
-          dueTime: null,
-          startTime: null,
-          description: null,
-          remindBeforeMinutes: null
-        }
-        const prev = localSubtasks.value[parentId] ?? []
-        localSubtasks.value = {
-          ...localSubtasks.value,
-          [parentId]: [...prev, child]
-        }
-        persistLocal()
-      }
+      const id = await createSubtask({ parentId, title })
       await selectTask(parentId)
+      await fetchMyTasks()
       return id
     } finally {
       saving.value = false
@@ -375,7 +212,6 @@ export const useTasksStore = defineStore('tasks', () => {
     dueRangeLoading,
     todoItems,
     doneItems,
-    hydrateLocal,
     fetchMyTasks,
     fetchDueRange,
     clearDueRange,
