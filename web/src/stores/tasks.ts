@@ -11,17 +11,6 @@ import {
 
 const DUE_RANGE_LIMIT = 200
 
-function dueTimeInRange(dueTime: string | null | undefined, from: Date, to: Date): boolean {
-  if (!dueTime) {
-    return false
-  }
-  const due = new Date(dueTime)
-  if (Number.isNaN(due.getTime())) {
-    return false
-  }
-  return due >= from && due < to
-}
-
 export const useTasksStore = defineStore('tasks', () => {
   const items = ref<TaskItem[]>([])
   const total = ref(0)
@@ -46,28 +35,15 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  /**
-   * Load TODO tasks with dueTime in [from, to) for calendar projection.
-   * Prefers GET /due-range; falls back to page + client filter until -api lands.
-   */
+  /** Load TODO tasks with dueTime in [from, to) for calendar projection. */
   async function fetchDueRange(fromIso: string, toIso: string) {
     dueRangeLoading.value = true
-    const from = new Date(fromIso)
-    const to = new Date(toIso)
     try {
-      try {
-        dueRangeItems.value = await getTaskDueRange({
-          from: fromIso,
-          to: toIso,
-          limit: DUE_RANGE_LIMIT
-        })
-      } catch {
-        // -web interim: due-range not ready — filter existing page API
-        const data = await getTaskPage({ pageNo: 1, pageSize: DUE_RANGE_LIMIT, status: 'TODO' })
-        dueRangeItems.value = data.list
-          .filter(item => item.status === 'TODO' && dueTimeInRange(item.dueTime, from, to))
-          .slice(0, DUE_RANGE_LIMIT)
-      }
+      dueRangeItems.value = await getTaskDueRange({
+        from: fromIso,
+        to: toIso,
+        limit: DUE_RANGE_LIMIT
+      })
     } finally {
       dueRangeLoading.value = false
     }

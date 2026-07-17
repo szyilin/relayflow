@@ -1,7 +1,8 @@
 # API 契约：task-calendar-projection
 
-> **状态**：`-web` 起草中（ui_ready 后冻结）  
+> **状态**：已冻结（`-api` / integrate 完成）  
 > **起草**：`task-calendar-projection` / `-web`  
+> **实现**：`task-calendar-projection`（母 change §2–§3）  
 > **母 change**：[`openspec/changes/task-calendar-projection`](../../changes/task-calendar-projection/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
@@ -96,5 +97,4 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 ## `-web` 临时策略
 
-Store：`web/src/stores/tasks.ts` → `fetchDueRange`。  
-优先调本契约；若端点未就绪则回退 `GET /page` + 客户端按 `dueTime` 过滤（integrate 在 due-range 就绪后去掉回退）。
+（已移除）Store 仅调用本契约 `GET /due-range`，无 page 过滤回退。

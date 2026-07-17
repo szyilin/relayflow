@@ -56,18 +56,18 @@
 | **workspace-calendar-share** | **archived** | **done** | `/app-api/calendar/share/*` · 侧栏共享 | [contract](../../openspec/lanes/workspace-calendar/contract.md) | [archive](../../openspec/changes/archive/2026-07-17-workspace-calendar-v1-1/proposal.md) |
 | **workspace-calendar-rrule** | **archived** | **done** | RRULE / editScope · 编辑器重复 | 同上 | 同上 |
 | **workspace-calendar-dnd** | **archived** | **done** | `PUT /event/reschedule` · 日/周拖拽 | 同上 | 同上 |
+| **task-calendar-projection** | **archived** | **done** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；store 无 Mock/回退 |
 
 ## 规划中（OpenSpec 已立项 · 待实现）
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
-| **task-calendar-projection** | **planned** | **ui_ready** | `GET …/task/item/due-range` · `/app/calendar` 任务图层 | [contract](../../openspec/lanes/task-calendar-projection/contract.md) | [母 change](../../openspec/changes/task-calendar-projection/proposal.md)；`-web` 完成；due-range 未就绪时 store 回退 page 过滤 |
+| （暂无） | — | — | — | — | 见下方「建议下一切片」 |
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
-| `task-calendar-projection-api` | 实现 `GET /due-range` + `showTaskLayer` 默认键（`-web` 已 ui_ready） |
 | `user-preference-integrate` | 设置窗正式以 API 为真源；收紧 localStorage 兜底 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
@@ -85,8 +85,8 @@
 4. workspace-business-card-web / -api / im-self-direct-chat ✅
 5. workspace-calendar-v1 ✅ archive
 6. workspace-calendar-v1-1（共享 / RRULE / DnD）✅ archive
-7. task-calendar-projection（任务图层投影）← 建议下一步：先 `-web`
-8. user-preference-integrate（收紧 localStorage 真源）
+7. task-calendar-projection（任务图层投影）✅
+8. user-preference-integrate（收紧 localStorage 真源）← 建议下一步
 9. bpm-v1 — deferred，见下方「暂缓实现」
 ```
 

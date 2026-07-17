@@ -66,11 +66,41 @@ public class TaskItemServiceImpl implements TaskItemService {
         return TaskConvert.INSTANCE.toRespList(rows);
     }
 
+    @Override
+    public List<TaskItemRespVO> listDueRange(OffsetDateTime from, OffsetDateTime to, int limit) {
+        return listDueRange(SecurityFrameworkUtils.requireLoginUserId(), from, to, limit);
+    }
+
+    @Override
+    public List<TaskItemRespVO> listDueRange(Long userId, OffsetDateTime from, OffsetDateTime to, int limit) {
+        if (from == null || to == null || !from.isBefore(to)) {
+            return List.of();
+        }
+        int safeLimit = clampDueRangeLimit(limit);
+        List<TaskItemDO> rows = taskItemMapper.selectList(
+                Wrappers.<TaskItemDO>lambdaQuery()
+                        .eq(TaskItemDO::getAssigneeId, userId)
+                        .eq(TaskItemDO::getStatus, TaskItemStatus.TODO)
+                        .isNotNull(TaskItemDO::getDueTime)
+                        .ge(TaskItemDO::getDueTime, from)
+                        .lt(TaskItemDO::getDueTime, to)
+                        .orderByAsc(TaskItemDO::getDueTime)
+                        .last("LIMIT " + safeLimit));
+        return TaskConvert.INSTANCE.toRespList(rows);
+    }
+
     private static int clampSearchLimit(int limit) {
         if (limit <= 0) {
             return 5;
         }
         return Math.min(limit, 10);
+    }
+
+    private static int clampDueRangeLimit(int limit) {
+        if (limit <= 0) {
+            return 200;
+        }
+        return Math.min(limit, 200);
     }
 
     @Override

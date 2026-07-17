@@ -14,6 +14,7 @@ import com.relayflow.module.task.service.item.TaskItemService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Validated
@@ -49,6 +51,14 @@ public class TaskItemController {
                 .stream()
                 .map(this::toSearchItem)
                 .toList());
+    }
+
+    @GetMapping("/due-range")
+    public CommonResult<List<TaskItemRespVO>> dueRange(
+            @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
+            @RequestParam(value = "limit", defaultValue = "200") int limit) {
+        return CommonResult.success(taskItemService.listDueRange(from, to, limit));
     }
 
     private TaskSearchItemRespVO toSearchItem(TaskItemRespVO item) {

@@ -7,6 +7,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public interface TaskItemService {
@@ -16,6 +17,13 @@ public interface TaskItemService {
     List<TaskItemRespVO> searchMyTasks(String keyword, int limit);
 
     List<TaskItemRespVO> searchMyTasks(Long userId, String keyword, int limit);
+
+    /**
+     * TODO tasks assigned to the user with dueTime in {@code [from, to)}.
+     */
+    List<TaskItemRespVO> listDueRange(OffsetDateTime from, OffsetDateTime to, int limit);
+
+    List<TaskItemRespVO> listDueRange(Long userId, OffsetDateTime from, OffsetDateTime to, int limit);
 
     Long createTask(TaskItemCreateReqVO request);
 

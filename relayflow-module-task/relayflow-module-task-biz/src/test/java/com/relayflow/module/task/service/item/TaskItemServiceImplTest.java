@@ -130,6 +130,34 @@ class TaskItemServiceImplTest {
     }
 
     @Test
+    void listDueRange_queriesTodoWithDueInWindow() {
+        OffsetDateTime from = OffsetDateTime.parse("2026-07-17T00:00:00+08:00");
+        OffsetDateTime to = OffsetDateTime.parse("2026-07-18T00:00:00+08:00");
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setTitle("整理周报");
+        row.setStatus(TaskItemStatus.TODO);
+        row.setDueTime(OffsetDateTime.parse("2026-07-17T18:00:00+08:00"));
+        when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
+
+        List<TaskItemRespVO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
+
+        assertEquals(1, result.size());
+        assertEquals(TASK_ID, result.get(0).getId());
+        verify(taskItemMapper).selectList(any(Wrapper.class));
+    }
+
+    @Test
+    void listDueRange_emptyWhenInvalidWindow() {
+        OffsetDateTime from = OffsetDateTime.parse("2026-07-18T00:00:00+08:00");
+        OffsetDateTime to = OffsetDateTime.parse("2026-07-17T00:00:00+08:00");
+
+        List<TaskItemRespVO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
     void toggleDone_throwsForbiddenWhenNotAssignee() {
         TaskItemDO row = new TaskItemDO();
         row.setId(TASK_ID);

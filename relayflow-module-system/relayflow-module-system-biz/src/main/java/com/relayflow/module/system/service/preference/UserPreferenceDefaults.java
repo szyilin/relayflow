@@ -40,6 +40,7 @@ public class UserPreferenceDefaults {
         calendar.put("defaultRemindBeforeMinutes", 5);
         calendar.put("allDayRemindTime", "08:00");
         calendar.put("dimPastEvents", true);
+        calendar.put("showTaskLayer", true);
 
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("general", general);
@@ -196,6 +197,16 @@ public class UserPreferenceDefaults {
                     return null;
                 }
                 calendar.put("dimPastEvents", Boolean.parseBoolean(String.valueOf(dimPast)));
+            }
+            Object showTaskLayer = calendarMap.get("showTaskLayer");
+            if (showTaskLayer != null) {
+                if (!(showTaskLayer instanceof Boolean)
+                        && !"true".equalsIgnoreCase(String.valueOf(showTaskLayer))
+                        && !"false".equalsIgnoreCase(String.valueOf(showTaskLayer))) {
+                    errorOut.append("showTaskLayer 非法");
+                    return null;
+                }
+                calendar.put("showTaskLayer", Boolean.parseBoolean(String.valueOf(showTaskLayer)));
             }
             if (!calendar.isEmpty()) {
                 result.put("calendar", calendar);
