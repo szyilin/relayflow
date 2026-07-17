@@ -391,16 +391,14 @@ function pickInviteMember(m: MemberSearchItem) {
 }
 
 async function handleInviteMember() {
-  const nickname = inviteForm.nickname.trim() || inviteForm.keyword.trim()
-  const userId = inviteForm.userId.trim() || (nickname ? `local-invite-${Date.now()}` : '')
-  if (!userId || !nickname) {
-    toast.add({ title: '请选择或填写成员', color: 'error' })
+  if (!inviteForm.userId.trim()) {
+    toast.add({ title: '请先搜索并选择同事', color: 'error' })
     return
   }
   try {
     await tasksStore.inviteListMember({
-      userId,
-      nickname,
+      userId: inviteForm.userId.trim(),
+      nickname: inviteForm.nickname.trim() || inviteForm.keyword.trim(),
       role: inviteForm.role
     })
     inviteForm.keyword = ''
@@ -901,13 +899,13 @@ meta:
             <UButton
               color="primary"
               :loading="tasksStore.saving"
-              :disabled="!inviteForm.userId && !inviteForm.keyword.trim()"
+              :disabled="!inviteForm.userId"
               @click="handleInviteMember"
             >
               邀请
             </UButton>
             <p class="text-xs text-[var(--ws-text-muted)]">
-              可搜索同事后邀请；无结果时直接输入姓名并邀请（本地预览）。
+              搜索并选择同事后邀请（须为租户有效成员）。
             </p>
           </div>
         </div>

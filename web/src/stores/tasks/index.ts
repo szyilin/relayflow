@@ -46,10 +46,7 @@ import {
 } from './helpers'
 import {
   canEditListMeta,
-  canMutateListTasks,
-  nextLocalId,
-  seedLocalLists,
-  USE_LOCAL_TASK_LISTS
+  canMutateListTasks
 } from './listLocal'
 
 export type { TasksNavView } from './helpers'
@@ -94,10 +91,6 @@ export const useTasksStore = defineStore('tasks', () => {
   const listItems = ref<TaskItem[]>([])
   const listTotal = ref(0)
   const listPageNo = ref(1)
-  /** Local-only maps while USE_LOCAL_TASK_LISTS (integrate: delete). */
-  const localMembersByList = ref<Record<string, TaskListMember[]>>({})
-  const localTasksByList = ref<Record<string, TaskItem[]>>({})
-  const localSeeded = ref(false)
 
   const todoItems = computed(() => items.value.filter(item => item.status === 'TODO'))
   const doneItems = computed(() => items.value.filter(item => item.status === 'DONE'))
@@ -113,22 +106,6 @@ export const useTasksStore = defineStore('tasks', () => {
   function currentUserId(): string {
     const auth = useAuthStore()
     return auth.userId ? String(auth.userId) : ''
-  }
-
-  function currentNickname(): string {
-    const auth = useAuthStore()
-    return auth.user?.nickname?.trim() || auth.user?.username?.trim() || '我'
-  }
-
-  function ensureLocalSeed() {
-    if (!USE_LOCAL_TASK_LISTS || localSeeded.value) {
-      return
-    }
-    const seeded = seedLocalLists(currentUserId(), currentNickname())
-    myLists.value = seeded.lists
-    localMembersByList.value = seeded.membersByList
-    localTasksByList.value = seeded.tasksByList
-    localSeeded.value = true
   }
 
   function resetForTenantSwitch() {
@@ -160,9 +137,6 @@ export const useTasksStore = defineStore('tasks', () => {
     listItems.value = []
     listTotal.value = 0
     listPageNo.value = 1
-    localMembersByList.value = {}
-    localTasksByList.value = {}
-    localSeeded.value = false
   }
 
   /**
@@ -313,24 +287,6 @@ export const useTasksStore = defineStore('tasks', () => {
     iAmFollowing.value = uid !== '' && followers.some(f => f.userId === uid)
   }
 
-  function findLocalListTask(id: string): TaskItem | null {
-    const fromPage = listItems.value.find(t => t.id === id)
-    if (fromPage) {
-      return fromPage
-    }
-    for (const tasks of Object.values(localTasksByList.value)) {
-      const hit = tasks.find(t => t.id === id)
-      if (hit) {
-        return hit
-      }
-    }
-    return null
-  }
-
-  function isLocalTaskId(id: string): boolean {
-    return USE_LOCAL_TASK_LISTS && (id.startsWith('local-') || !!findLocalListTask(id))
-  }
-
   async function selectTask(id: string | null) {
     selectedId.value = id
     if (!id) {
@@ -344,20 +300,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     detailLoading.value = true
     try {
-      if (isLocalTaskId(id)) {
-        const local = findLocalListTask(id)
-        if (!local) {
-          throw new Error('TASK_NOT_FOUND')
-        }
-        selectedDetail.value = { ...local }
-        selectedSubtasks.value = []
-        selectedFollowers.value = []
-        selectedComments.value = []
-        selectedActivities.value = []
-        iAmFollowing.value = false
-        return
-      }
-
       const [detail, subtasks] = await Promise.all([
         getTaskById(id),
         getTaskSubtasks(id)
@@ -394,19 +336,10 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function fetchMyLists() {
-    if (USE_LOCAL_TASK_LISTS) {
-      ensureLocalSeed()
-      return
-    }
     myLists.value = await getMyTaskLists()
   }
 
   async function fetchListMembers(listId: string) {
-    if (USE_LOCAL_TASK_LISTS) {
-      ensureLocalSeed()
-      listMembers.value = [...(localMembersByList.value[listId] ?? [])]
-      return
-    }
     listMembers.value = await getTaskListMembers(listId)
   }
 
@@ -418,15 +351,6 @@ export const useTasksStore = defineStore('tasks', () => {
     const nextPage = opts?.pageNo ?? listPageNo.value
     loading.value = true
     try {
-      if (USE_LOCAL_TASK_LISTS) {
-        ensureLocalSeed()
-        const all = [...(localTasksByList.value[listId] ?? [])]
-        listTotal.value = all.length
-        listPageNo.value = nextPage
-        const start = (nextPage - 1) * pageSize.value
-        listItems.value = all.slice(start, start + pageSize.value)
-        return
-      }
       const page = await getTaskPage({
         pageNo: nextPage,
         pageSize: pageSize.value,
@@ -458,35 +382,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     saving.value = true
     try {
-      if (USE_LOCAL_TASK_LISTS) {
-        ensureLocalSeed()
-        const id = nextLocalId('local-list')
-        const now = new Date().toISOString()
-        const uid = currentUserId() || '1'
-        const nick = currentNickname()
-        const row: TaskList = {
-          id,
-          name,
-          description: payload.description ?? null,
-          ownerId: uid,
-          archived: false,
-          myRole: 'OWNER',
-          createTime: now
-        }
-        myLists.value = [...myLists.value, row]
-        localMembersByList.value = {
-          ...localMembersByList.value,
-          [id]: [{
-            userId: uid,
-            nickname: nick,
-            avatarText: nick.slice(0, 1),
-            role: 'OWNER',
-            joinTime: now
-          }]
-        }
-        localTasksByList.value = { ...localTasksByList.value, [id]: [] }
-        return id
-      }
       const id = await apiCreateTaskList(payload)
       await fetchMyLists()
       return id
@@ -501,16 +396,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     saving.value = true
     try {
-      if (USE_LOCAL_TASK_LISTS) {
-        myLists.value = myLists.value.filter(l => l.id !== listId)
-        if (activeListId.value === listId) {
-          activeListId.value = null
-          listItems.value = []
-          listMembers.value = []
-          listTotal.value = 0
-        }
-        return
-      }
       await apiArchiveTaskList(listId)
       await fetchMyLists()
       if (activeListId.value === listId) {
@@ -534,26 +419,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     saving.value = true
     try {
-      if (USE_LOCAL_TASK_LISTS) {
-        const now = new Date().toISOString()
-        const members = [...(localMembersByList.value[listId] ?? [])]
-        const idx = members.findIndex(m => m.userId === payload.userId)
-        const row: TaskListMember = {
-          userId: payload.userId,
-          nickname: payload.nickname,
-          avatarText: payload.nickname.slice(0, 1) || '?',
-          role: payload.role,
-          joinTime: now
-        }
-        if (idx >= 0) {
-          members[idx] = { ...members[idx]!, role: payload.role }
-        } else {
-          members.push(row)
-        }
-        localMembersByList.value = { ...localMembersByList.value, [listId]: members }
-        listMembers.value = [...members]
-        return
-      }
       await apiInviteTaskListMember({
         listId,
         userId: payload.userId,
@@ -572,15 +437,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     saving.value = true
     try {
-      if (USE_LOCAL_TASK_LISTS) {
-        const members = (localMembersByList.value[listId] ?? []).filter(m => m.userId !== userId)
-        if (!members.some(m => m.role === 'OWNER')) {
-          throw new Error('TASK_LIST_OWNER_REQUIRED')
-        }
-        localMembersByList.value = { ...localMembersByList.value, [listId]: members }
-        listMembers.value = [...members]
-        return
-      }
       await apiRemoveTaskListMember({ listId, userId })
       await fetchListMembers(listId)
     } finally {
@@ -598,37 +454,6 @@ export const useTasksStore = defineStore('tasks', () => {
     saving.value = true
     try {
       const listId = payload.listId ?? activeListId.value
-      if (listId && USE_LOCAL_TASK_LISTS) {
-        if (!canMutateListTasks(activeListRole.value)) {
-          throw new Error('TASK_LIST_FORBIDDEN')
-        }
-        ensureLocalSeed()
-        const id = nextLocalId('local-task')
-        const now = new Date().toISOString()
-        const uid = currentUserId() || '1'
-        const row: TaskItem = {
-          id,
-          title: payload.title.trim(),
-          status: 'TODO',
-          listId,
-          dueTime: payload.dueTime ?? null,
-          startTime: payload.startTime ?? null,
-          remindBeforeMinutes: payload.remindBeforeMinutes ?? null,
-          description: null,
-          parentId: null,
-          assigneeId: uid,
-          creatorId: uid,
-          createTime: now,
-          subtaskDoneCount: 0,
-          subtaskTotal: 0
-        }
-        const existing = [...(localTasksByList.value[listId] ?? [])]
-        localTasksByList.value = { ...localTasksByList.value, [listId]: [row, ...existing] }
-        await fetchListTasks({ pageNo: 1 })
-        await selectTask(id)
-        return id
-      }
-
       const id = await createTask({
         title: payload.title,
         dueTime: payload.dueTime,
@@ -679,17 +504,6 @@ export const useTasksStore = defineStore('tasks', () => {
     }
 
     try {
-      if (isLocalTaskId(id) && activeListId.value) {
-        const lid = activeListId.value
-        const all = [...(localTasksByList.value[lid] ?? [])]
-        const row = all.find(t => t.id === id)
-        if (row) {
-          row.status = done ? 'DONE' : 'TODO'
-        }
-        localTasksByList.value = { ...localTasksByList.value, [lid]: all }
-        await fetchListTasks()
-        return
-      }
       await toggleTaskDone(id, done)
       if (activeListId.value) {
         await fetchListTasks()
@@ -698,7 +512,7 @@ export const useTasksStore = defineStore('tasks', () => {
       } else {
         void refreshOverdueBadge()
       }
-      if (selectedId.value && !isLocalTaskId(selectedId.value)) {
+      if (selectedId.value) {
         await loadCollabDetail(selectedId.value)
       }
     } catch (error) {
@@ -713,18 +527,6 @@ export const useTasksStore = defineStore('tasks', () => {
   async function removeTask(id: string) {
     saving.value = true
     try {
-      if (isLocalTaskId(id) && activeListId.value) {
-        const lid = activeListId.value
-        localTasksByList.value = {
-          ...localTasksByList.value,
-          [lid]: (localTasksByList.value[lid] ?? []).filter(t => t.id !== id)
-        }
-        if (selectedId.value === id) {
-          await selectTask(null)
-        }
-        await fetchListTasks()
-        return
-      }
       await deleteTask(id)
       if (selectedId.value === id) {
         await selectTask(null)

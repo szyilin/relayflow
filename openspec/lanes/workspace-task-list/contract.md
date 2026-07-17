@@ -1,6 +1,6 @@
 # API 契约：workspace-task-list
 
-> **状态**：api ready（`-web` UI + contract；`-api` 已实现；待 integrate 去本地临时数据）  
+> **状态**：done（integrate 通过；store 无本地临时清单数据）  
 > **起草**：`workspace-task-list-board-v1` / `workspace-task-list-web`  
 > **母 change**：[`openspec/changes/workspace-task-list-board-v1`](../../changes/workspace-task-list-board-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
@@ -116,8 +116,8 @@
 | 切回个人 | 清除 `listId` query；恢复 `view` 语义 |
 | 清单中栏 | 根任务列表；新建默认带当前 `listId`；成员管理（OWNER 可邀） |
 | 看板 Tab | 本切片可保留占位文案；完整看板见 board 切片 |
-| `-web` 临时 | store 内本地清单/成员/清单任务可撑 UI；**integrate 删除** |
-| 真源（integrate 后） | 仅走 API；无 localStorage 覆盖 |
+| `-web` 临时 | ~~store 内本地清单~~ **已移除（integrate）** |
+| 真源 | 仅走 `/app-api/task/list/*` 与 item `listId`；无 localStorage 覆盖 |
 
 ## curl 示例
 
