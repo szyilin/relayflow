@@ -100,7 +100,6 @@ async function closeDetail() {
 }
 
 onMounted(async () => {
-  tasksStore.hydrateCollab()
   await applyViewFromRoute()
   if (tasksStore.navView === 'mine') {
     await tasksStore.fetchMyTasks()
