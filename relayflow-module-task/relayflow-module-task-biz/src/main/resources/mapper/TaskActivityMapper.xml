@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.task.dal.mapper.TaskActivityMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.relayflow.module.task.dal.dataobject.TaskActivityDO">
+        <result column="id" property="id" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="creator" property="creator" />
+        <result column="create_time" property="createTime" />
+        <result column="updater" property="updater" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+        <result column="task_id" property="taskId" />
+        <result column="task_title" property="taskTitle" />
+        <result column="actor_id" property="actorId" />
+        <result column="type" property="type" />
+        <result column="summary" property="summary" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        creator,
+        create_time,
+        updater,
+        update_time,
+        deleted,
+        task_id, task_title, actor_id, type, summary
+    </sql>
+
+</mapper>

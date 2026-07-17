@@ -10,7 +10,14 @@ import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskSearchItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskActivityRespVO;
+import com.relayflow.module.task.controller.app.vo.TaskAssignReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskCommentCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskCommentRespVO;
+import com.relayflow.module.task.controller.app.vo.TaskFollowReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskFollowerRespVO;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
+import com.relayflow.module.task.service.collab.TaskCollabService;
 import com.relayflow.module.task.service.item.TaskItemService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -37,6 +44,7 @@ import java.util.List;
 public class TaskItemController {
 
     private final TaskItemService taskItemService;
+    private final TaskCollabService taskCollabService;
 
     @GetMapping("/page")
     public CommonResult<PageResult<TaskItemRespVO>> page(@Valid TaskItemPageReqVO request) {
@@ -75,6 +83,49 @@ public class TaskItemController {
     @PostMapping("/subtask/create")
     public CommonResult<Long> createSubtask(@Valid @RequestBody TaskSubtaskCreateReqVO request) {
         return CommonResult.success(taskItemService.createSubtask(request));
+    }
+
+    @PostMapping("/follow")
+    public CommonResult<Boolean> follow(@Valid @RequestBody TaskFollowReqVO request) {
+        taskCollabService.follow(request.getTaskId());
+        return CommonResult.success(true);
+    }
+
+    @PostMapping("/unfollow")
+    public CommonResult<Boolean> unfollow(@Valid @RequestBody TaskFollowReqVO request) {
+        taskCollabService.unfollow(request.getTaskId());
+        return CommonResult.success(true);
+    }
+
+    @GetMapping("/followers")
+    public CommonResult<List<TaskFollowerRespVO>> followers(@RequestParam @NotNull Long taskId) {
+        return CommonResult.success(taskCollabService.listFollowers(taskId));
+    }
+
+    @GetMapping("/following/page")
+    public CommonResult<PageResult<TaskItemRespVO>> followingPage(@Valid TaskItemPageReqVO request) {
+        return CommonResult.success(taskCollabService.pageFollowing(request));
+    }
+
+    @PutMapping("/assign")
+    public CommonResult<Boolean> assign(@Valid @RequestBody TaskAssignReqVO request) {
+        taskCollabService.assign(request);
+        return CommonResult.success(true);
+    }
+
+    @GetMapping("/comments")
+    public CommonResult<List<TaskCommentRespVO>> comments(@RequestParam @NotNull Long taskId) {
+        return CommonResult.success(taskCollabService.listComments(taskId));
+    }
+
+    @PostMapping("/comment/create")
+    public CommonResult<Long> createComment(@Valid @RequestBody TaskCommentCreateReqVO request) {
+        return CommonResult.success(taskCollabService.createComment(request));
+    }
+
+    @GetMapping("/activities")
+    public CommonResult<List<TaskActivityRespVO>> activities(@RequestParam @NotNull Long taskId) {
+        return CommonResult.success(taskCollabService.listActivities(taskId));
     }
 
     private TaskSearchItemRespVO toSearchItem(TaskItemRespVO item) {

@@ -15,7 +15,10 @@ import com.relayflow.module.task.convert.TaskConvert;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
+import com.relayflow.module.task.enums.TaskActivityType;
 import com.relayflow.module.task.enums.TaskItemStatus;
+import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,8 @@ public class TaskItemServiceImpl implements TaskItemService {
 
     private final TaskItemMapper taskItemMapper;
     private final TaskDueNotifyService taskDueNotifyService;
+    private final TaskAccessService taskAccessService;
+    private final TaskActivityRecorder taskActivityRecorder;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
@@ -101,7 +106,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     @Override
     public TaskItemRespVO getTask(Long id) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
-        TaskItemDO row = requireOwnedTask(id, userId);
+        TaskItemDO row = taskAccessService.requireAccessible(id, userId);
         TaskItemRespVO vo = TaskConvert.INSTANCE.toResp(row);
         if (row.getParentId() == null) {
             fillSubtaskCounts(List.of(vo));
@@ -150,6 +155,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
         taskDueNotifyService.pushIfDueSoon(row);
+        taskActivityRecorder.record(row, userId, TaskActivityType.CREATED, "创建了任务");
         return row.getId();
     }
 
@@ -159,7 +165,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     private void updateTask(Long userId, TaskItemUpdateReqVO request) {
-        TaskItemDO row = requireOwnedTask(request.getId(), userId);
+        TaskItemDO row = taskAccessService.requireEditable(request.getId(), userId);
 
         OffsetDateTime nextStart = request.isStartTimePresent() ? request.getStartTime() : row.getStartTime();
         OffsetDateTime nextDue = request.isDueTimePresent() ? request.getDueTime() : row.getDueTime();
@@ -184,6 +190,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdateTime(OffsetDateTime.now());
         taskItemMapper.updateById(row);
         taskDueNotifyService.pushIfDueSoon(row);
+        taskActivityRecorder.record(row, userId, TaskActivityType.FIELD_CHANGED, "更新了任务详情");
     }
 
     @Override
@@ -192,7 +199,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     private void toggleDone(Long userId, TaskItemToggleDoneReqVO request) {
-        TaskItemDO row = requireOwnedTask(request.getId(), userId);
+        TaskItemDO row = taskAccessService.requireEditable(request.getId(), userId);
         String nextStatus = Boolean.TRUE.equals(request.getDone()) ? TaskItemStatus.DONE : TaskItemStatus.TODO;
         if (Objects.equals(nextStatus, row.getStatus())) {
             return;
@@ -201,6 +208,12 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdater(userId);
         row.setUpdateTime(OffsetDateTime.now());
         taskItemMapper.updateById(row);
+        if (row.getParentId() != null && TaskItemStatus.DONE.equals(nextStatus)) {
+            TaskItemDO parent = taskItemMapper.selectById(row.getParentId());
+            if (parent != null) {
+                taskActivityRecorder.record(parent, userId, TaskActivityType.SUBTASK_DONE, "完成了子任务");
+            }
+        }
     }
 
     @Override
@@ -209,12 +222,13 @@ public class TaskItemServiceImpl implements TaskItemService {
     }
 
     private void deleteTask(Long userId, Long id) {
-        TaskItemDO row = requireOwnedTask(id, userId);
+        TaskItemDO row = taskAccessService.requireEditable(id, userId);
         if (row.getParentId() == null) {
             List<TaskItemDO> children = taskItemMapper.selectList(
                     Wrappers.<TaskItemDO>lambdaQuery().eq(TaskItemDO::getParentId, id));
             for (TaskItemDO child : children) {
-                if (Objects.equals(child.getAssigneeId(), userId)) {
+                if (Objects.equals(child.getAssigneeId(), userId)
+                        || Objects.equals(child.getCreatorId(), userId)) {
                     taskItemMapper.deleteById(child.getId());
                 }
             }
@@ -225,7 +239,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     @Override
     public List<TaskItemRespVO> listSubtasks(Long parentId) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
-        requireOwnedTask(parentId, userId);
+        taskAccessService.requireAccessible(parentId, userId);
         List<TaskItemDO> rows = taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getParentId, parentId)
@@ -237,7 +251,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     public Long createSubtask(TaskSubtaskCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
-        TaskItemDO parent = requireOwnedTask(request.getParentId(), userId);
+        TaskItemDO parent = taskAccessService.requireEditable(request.getParentId(), userId);
         if (parent.getParentId() != null) {
             throw new ServiceException(ErrorCodeConstants.TASK_SUBTASK_DEPTH_EXCEEDED);
         }
@@ -254,6 +268,8 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdater(userId);
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
+        taskActivityRecorder.record(parent, userId, TaskActivityType.SUBTASK_CREATED,
+                "添加了子任务「" + row.getTitle() + "」");
         return row.getId();
     }
 
@@ -298,17 +314,6 @@ public class TaskItemServiceImpl implements TaskItemService {
         if (start != null && due != null && start.isAfter(due)) {
             throw new ServiceException(ErrorCodeConstants.TASK_INVALID_TIME_RANGE);
         }
-    }
-
-    private TaskItemDO requireOwnedTask(Long id, Long userId) {
-        TaskItemDO row = taskItemMapper.selectById(id);
-        if (row == null) {
-            throw new ServiceException(ErrorCodeConstants.TASK_NOT_FOUND);
-        }
-        if (!Objects.equals(row.getAssigneeId(), userId)) {
-            throw new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN);
-        }
-        return row;
     }
 
     private String normalizeStatusFilter(String status) {
