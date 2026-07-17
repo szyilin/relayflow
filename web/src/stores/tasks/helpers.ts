@@ -25,7 +25,7 @@ export function clearLegacyTaskLocal() {
 }
 
 export function isOverdueTask(item: TaskItem): boolean {
-  if (item.status !== 'TODO' || !item.dueTime) {
+  if (item.status === 'DONE' || !item.dueTime) {
     return false
   }
   return new Date(item.dueTime).getTime() < Date.now()

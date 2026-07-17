@@ -1,6 +1,6 @@
 import { del, get, post, put } from '../request'
 
-export type TaskItemStatus = 'TODO' | 'DONE'
+export type TaskItemStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
 
 export interface TaskItem {
   id: string
@@ -15,6 +15,7 @@ export interface TaskItem {
   assigneeId?: string | null
   creatorId?: string | null
   createTime: string
+  boardRank?: number | null
   subtaskDoneCount?: number
   subtaskTotal?: number
 }
@@ -55,6 +56,7 @@ function normalizeTaskItem(
     assigneeId: item.assigneeId != null ? String(item.assigneeId) : null,
     creatorId: item.creatorId != null ? String(item.creatorId) : null,
     createTime: item.createTime,
+    boardRank: item.boardRank ?? null,
     subtaskDoneCount: item.subtaskDoneCount ?? 0,
     subtaskTotal: item.subtaskTotal ?? 0
   }
@@ -94,6 +96,15 @@ export async function createTask(payload: {
 
 export async function toggleTaskDone(id: string, done: boolean): Promise<boolean> {
   return put<boolean>('/app-api/task/item/toggle-done', { id, done })
+}
+
+/** Board drag: set status + optional boardRank (list root tasks only). */
+export async function boardMoveTask(payload: {
+  id: string
+  status: TaskItemStatus
+  boardRank?: number | null
+}): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/board-move', payload)
 }
 
 export async function updateTask(payload: TaskDetailUpdatePayload): Promise<boolean> {

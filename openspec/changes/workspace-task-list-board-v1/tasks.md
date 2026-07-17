@@ -62,12 +62,14 @@
 **目标**：清单内看板三列 + 拖拽；contract 冻结 status/board-move。  
 **范围**：`web/` + `openspec/lanes/workspace-task-board/contract.md`。
 
-- [ ] 4.1 起草 `openspec/lanes/workspace-task-board/contract.md`（三态、拖拽、`board_rank`）
-- [ ] 4.2 清单上下文「列表 | 看板」：三列卡片；拖拽跨列/列内；点开详情
-- [ ] 4.3 个人入口：隐藏看板 Tab 或展示「请打开清单使用看板」（去掉空占位误导）
-- [ ] 4.4 `pnpm build && pnpm typecheck` + 浏览器路径
+- [x] 4.1 起草 `openspec/lanes/workspace-task-board/contract.md`（三态、拖拽、`board_rank`）
+- [x] 4.2 清单上下文「列表 | 看板」：三列卡片；拖拽跨列/列内；点开详情
+- [x] 4.3 个人入口：隐藏看板 Tab 或展示「请打开清单使用看板」（去掉空占位误导）
+- [x] 4.4 `pnpm build && pnpm typecheck` + 浏览器路径
 
 **完成后**：看板 board → `ui_ready`。
+
+**浏览器验证**：`/app/tasks?listId=…` →「看板」三列 → 拖到「进行中」；点卡片开详情；个人入口无看板 Tab。拖拽暂存于 store（`USE_LOCAL_BOARD_MOVE`），待 board-api。
 
 ---
 

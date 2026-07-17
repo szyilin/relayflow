@@ -3,10 +3,12 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchMembers, type MemberSearchItem } from '../../../api/app/member-search'
 import type { TaskListRole } from '../../../api/app/taskList'
+import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
+import type { BoardStatus } from '../../../stores/tasks/boardLocal'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,7 +81,7 @@ const displayItems = computed(() => {
   return tasksStore.items
 })
 
-const showListTabs = computed(() => inListContext.value || tasksStore.navView === 'mine')
+const showListTabs = computed(() => inListContext.value)
 const showCreateButton = computed(() => {
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
@@ -164,6 +166,29 @@ async function openList(listId: string) {
     tab.value = 'list'
   } catch {
     toast.add({ title: '无法打开该清单', color: 'error' })
+  }
+}
+
+async function switchTab(next: 'list' | 'board') {
+  tab.value = next
+  if (next === 'board' && inListContext.value) {
+    try {
+      await tasksStore.fetchListBoard()
+    } catch {
+      toast.add({ title: '加载看板失败', color: 'error' })
+    }
+  }
+}
+
+async function handleBoardMove(payload: {
+  taskId: string
+  status: BoardStatus
+  beforeId: string | null
+}) {
+  try {
+    await tasksStore.moveBoardTask(payload)
+  } catch {
+    toast.add({ title: '移动失败', color: 'error' })
   }
 }
 
@@ -632,15 +657,15 @@ meta:
           type="button"
           class="border-b-2 py-2 text-sm"
           :class="tab === 'list' ? 'border-primary text-primary font-medium' : 'border-transparent text-[var(--ws-text-muted)]'"
-          @click="tab = 'list'"
+          @click="switchTab('list')"
         >
           任务列表
         </button>
         <button
           type="button"
-          class="border-b-2 py-2 text-sm text-[var(--ws-text-muted)]"
-          :class="tab === 'board' ? 'border-primary text-primary font-medium' : 'border-transparent'"
-          @click="tab = 'board'"
+          class="border-b-2 py-2 text-sm"
+          :class="tab === 'board' ? 'border-primary text-primary font-medium' : 'border-transparent text-[var(--ws-text-muted)]'"
+          @click="switchTab('board')"
         >
           看板
         </button>
@@ -679,7 +704,7 @@ meta:
           />
         </div>
 
-        <div v-else-if="tab === 'list' || (!inListContext && tasksStore.navView === 'following')">
+        <div v-else-if="tab === 'list' || (!inListContext && tasksStore.navView === 'following') || (!inListContext && listNavViews.includes(tasksStore.navView))">
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>
@@ -749,11 +774,20 @@ meta:
             :description="emptyDescription()"
           />
         </div>
+        <TaskBoardView
+          v-else-if="inListContext && tab === 'board'"
+          :columns="tasksStore.boardColumns"
+          :can-drag="tasksStore.listCanMutateTasks"
+          :selected-id="tasksStore.selectedId"
+          :loading="tasksStore.loading"
+          @open="openTask"
+          @move="handleBoardMove"
+        />
         <UEmpty
           v-else
           icon="i-lucide-kanban-square"
           title="看板视图"
-          :description="inListContext ? '看板将在后续切片实现' : '请打开清单后使用看板'"
+          description="请打开清单后使用看板"
         />
       </div>
     </div>
