@@ -1,5 +1,6 @@
 package com.relayflow.module.task.service.item;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
@@ -14,6 +15,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 import com.relayflow.module.task.convert.TaskConvert;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
+import com.relayflow.module.task.dal.mapper.TaskItemExtMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskActivityType;
@@ -40,6 +42,7 @@ import java.util.stream.Collectors;
 public class TaskItemServiceImpl implements TaskItemService {
 
     private final TaskItemMapper taskItemMapper;
+    private final TaskItemExtMapper taskItemExtMapper;
     private final TaskDueNotifyService taskDueNotifyService;
     private final TaskAccessService taskAccessService;
     private final TaskListAccessService taskListAccessService;
@@ -55,8 +58,33 @@ public class TaskItemServiceImpl implements TaskItemService {
             return pageListTasks(userId, request);
         }
         String status = normalizeStatusFilter(request.getStatus());
-        boolean byCreator = "CREATOR".equalsIgnoreCase(
-                request.getScope() == null ? "" : request.getScope().trim());
+        String scope = normalizePageScope(request.getScope());
+        if ("ALL".equals(scope)) {
+            Page<TaskItemDO> page = new Page<>(request.getPageNo(), request.getPageSize());
+            IPage<TaskItemDO> result = taskItemExtMapper.selectVisibleUnionPage(
+                    page, userId, StringUtils.hasText(status) ? status : null);
+            taskDueNotifyService.compensateMissingDueReminders(result.getRecords());
+            List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(result.getRecords());
+            fillSubtaskCounts(list);
+            return PageResult.of(list, result.getTotal());
+        }
+        if ("ASSIGNED_BY_ME".equals(scope)) {
+            Page<TaskItemDO> page = taskItemMapper.selectPage(
+                    new Page<>(request.getPageNo(), request.getPageSize()),
+                    Wrappers.<TaskItemDO>lambdaQuery()
+                            .eq(TaskItemDO::getAssignerId, userId)
+                            .and(w -> w.isNull(TaskItemDO::getAssigneeId)
+                                    .or()
+                                    .ne(TaskItemDO::getAssigneeId, userId))
+                            .isNull(TaskItemDO::getParentId)
+                            .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
+                            .orderByDesc(TaskItemDO::getCreateTime));
+            taskDueNotifyService.compensateMissingDueReminders(page.getRecords());
+            List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
+            fillSubtaskCounts(list);
+            return PageResult.of(list, page.getTotal());
+        }
+        boolean byCreator = "CREATOR".equals(scope);
         Page<TaskItemDO> page = taskItemMapper.selectPage(
                 new Page<>(request.getPageNo(), request.getPageSize()),
                 Wrappers.<TaskItemDO>lambdaQuery()
@@ -69,6 +97,17 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
         return PageResult.of(list, page.getTotal());
+    }
+
+    private static String normalizePageScope(String scope) {
+        if (!StringUtils.hasText(scope)) {
+            return "ASSIGNEE";
+        }
+        String normalized = scope.trim().toUpperCase();
+        return switch (normalized) {
+            case "CREATOR", "ALL", "ASSIGNED_BY_ME", "ASSIGNEE" -> normalized;
+            default -> "ASSIGNEE";
+        };
     }
 
     private PageResult<TaskItemRespVO> pageListTasks(Long userId, TaskItemPageReqVO request) {

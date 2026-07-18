@@ -67,7 +67,7 @@
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
 | **workspace-task-board** | **archived** | **done** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
 | **workspace-task-view-model-v1** | **planned** | **planned** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 | [proposal](../../openspec/changes/workspace-task-view-model-v1/proposal.md) | 母 change；对齐飞书「快捷视图 ≠ 清单」；计划 B 个人组 |
-| **workspace-task-quick-views** | **planned** | **ui_ready** | `?view=all\|created\|assigned_by_me\|done` · `/app/tasks` 左栏快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | `-web`；ALL/ASSIGNED_BY_ME store 临时；待 `-api` |
+| **workspace-task-quick-views** | **archived** | **ui_ready** | `scope=ALL\|ASSIGNED_BY_ME` · `assignerId` · `/app/tasks` 快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | `-api` 完成；待 `-integrate` 关 `USE_LOCAL_QUICK_VIEWS` |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 

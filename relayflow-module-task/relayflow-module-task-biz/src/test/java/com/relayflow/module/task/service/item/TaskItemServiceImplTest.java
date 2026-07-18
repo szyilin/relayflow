@@ -12,6 +12,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemUpdateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskSubtaskCreateReqVO;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
+import com.relayflow.module.task.dal.mapper.TaskItemExtMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
@@ -49,6 +50,8 @@ class TaskItemServiceImplTest {
     @Mock
     private TaskItemMapper taskItemMapper;
     @Mock
+    private TaskItemExtMapper taskItemExtMapper;
+    @Mock
     private TaskDueNotifyService taskDueNotifyService;
     @Mock
     private TaskAccessService taskAccessService;
@@ -62,7 +65,12 @@ class TaskItemServiceImplTest {
     @BeforeEach
     void setUpMocks() {
         taskItemService = new TaskItemServiceImpl(
-                taskItemMapper, taskDueNotifyService, taskAccessService, taskListAccessService, taskActivityRecorder);
+                taskItemMapper,
+                taskItemExtMapper,
+                taskDueNotifyService,
+                taskAccessService,
+                taskListAccessService,
+                taskActivityRecorder);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -122,6 +130,60 @@ class TaskItemServiceImplTest {
         assertEquals(TASK_ID, result.getList().get(0).getId());
         verify(taskItemMapper).selectPage(any(Page.class), any(Wrapper.class));
         verify(taskDueNotifyService).compensateMissingDueReminders(page.getRecords());
+    }
+
+    @Test
+    void pageMyTasks_allUsesExtMapper() {
+        TaskItemPageReqVO request = new TaskItemPageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(20);
+        request.setScope("ALL");
+
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setTitle("可见任务");
+        row.setStatus(TaskItemStatus.TODO);
+        row.setCreateTime(OffsetDateTime.now());
+
+        Page<TaskItemDO> page = new Page<>(1, 20);
+        page.setRecords(List.of(row));
+        page.setTotal(1);
+        when(taskItemExtMapper.selectVisibleUnionPage(any(Page.class), eq(USER_ID), eq(null)))
+                .thenReturn(page);
+
+        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
+
+        assertEquals(1, result.getTotal());
+        assertEquals(TASK_ID, result.getList().get(0).getId());
+        verify(taskItemExtMapper).selectVisibleUnionPage(any(Page.class), eq(USER_ID), eq(null));
+        verify(taskItemMapper, org.mockito.Mockito.never()).selectPage(any(Page.class), any(Wrapper.class));
+    }
+
+    @Test
+    void pageMyTasks_assignedByMeFiltersAssigner() {
+        TaskItemPageReqVO request = new TaskItemPageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(20);
+        request.setScope("ASSIGNED_BY_ME");
+
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setTitle("已分配");
+        row.setStatus(TaskItemStatus.TODO);
+        row.setAssignerId(USER_ID);
+        row.setAssigneeId(999L);
+        row.setCreateTime(OffsetDateTime.now());
+
+        Page<TaskItemDO> page = new Page<>(1, 20);
+        page.setRecords(List.of(row));
+        page.setTotal(1);
+        when(taskItemMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
+
+        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
+
+        assertEquals(1, result.getTotal());
+        assertEquals(USER_ID, result.getList().get(0).getAssignerId());
+        verify(taskItemMapper).selectPage(any(Page.class), any(Wrapper.class));
     }
 
     @Test

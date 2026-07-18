@@ -1,7 +1,8 @@
 # API 契约：workspace-task-quick-views
 
-> **状态**：draft（`-web` 起草；`-api` 未实现）  
+> **状态**：api ready（`-web` ui_ready；`-api` 已实现 `ALL` / `ASSIGNED_BY_ME` + `assigner_id`；待 `-integrate` 关 store 临时）  
 > **起草**：`workspace-task-quick-views-web`  
+> **实现**：`workspace-task-quick-views-api`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks`](../workspace-tasks/contract.md)、[`workspace-task-collab`](../workspace-task-collab/contract.md)
@@ -45,9 +46,9 @@
 | `status` | string | 可选；`COMPLETED` 入口可由前端传 `DONE` 或 scope 暗示 |
 | `listId` | string | 有则忽略个人 scope（既有） |
 
-**`ASSIGNED_BY_ME`** 依赖任务 **分配人** 字段（见母 change P4）；未交付前前端用 store 临时数据。
+**`ASSIGNED_BY_ME`** 依赖 `task_item.assigner_id`（本 api 切片已落库；指派给他人时写入操作者，指派给自己时清空）。
 
-### TaskItem 增量（目标态）
+### TaskItem 增量
 
 ```json
 {
@@ -55,7 +56,14 @@
 }
 ```
 
-可为 `null`（从未指派给他人）。
+可为 `null`（从未指派给他人，或已收回给自己）。
+
+### 指派写入规则
+
+| 操作 | `assignee_id` | `assigner_id` |
+|------|---------------|---------------|
+| A 指派给 B（A≠B） | B | A |
+| A 指派给自己 | A | `null` |
 
 ## 前端深链
 

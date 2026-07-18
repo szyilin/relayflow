@@ -35,6 +35,10 @@ public class TaskItemDO extends TenantBaseDO {
     @TableField("creator_id")
     private Long creatorId;
 
+    /** User who last assigned this task to someone else; null if never or self-assigned. */
+    @TableField(value = "assigner_id", updateStrategy = FieldStrategy.ALWAYS)
+    private Long assignerId;
+
     @TableField(value = "due_time", updateStrategy = FieldStrategy.ALWAYS)
     private OffsetDateTime dueTime;
 

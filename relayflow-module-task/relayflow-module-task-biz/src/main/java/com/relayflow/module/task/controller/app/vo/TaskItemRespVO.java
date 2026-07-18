@@ -31,6 +31,8 @@ public class TaskItemRespVO {
 
     private Long creatorId;
 
+    private Long assignerId;
+
     private OffsetDateTime createTime;
 
     private Integer subtaskDoneCount;

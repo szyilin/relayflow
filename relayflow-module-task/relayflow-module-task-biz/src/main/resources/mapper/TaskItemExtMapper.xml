@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.task.dal.mapper.TaskItemExtMapper">
+
+    <!--
+      Visible union for scope=ALL:
+      assignee OR creator OR following OR member of non-archived list that owns the task.
+      Tenant / logic-delete filters are applied by MyBatis-Plus interceptors on task_item.
+    -->
+    <select id="selectVisibleUnionPage" resultType="com.relayflow.module.task.dal.dataobject.TaskItemDO">
+        SELECT t.*
+        FROM task_item t
+        WHERE t.parent_id IS NULL
+        <if test="status != null and status != ''">
+            AND t.status = #{status}
+        </if>
+          AND (
+            t.assignee_id = #{userId}
+            OR t.creator_id = #{userId}
+            OR EXISTS (
+                SELECT 1
+                FROM task_follower f
+                WHERE f.task_id = t.id
+                  AND f.user_id = #{userId}
+                  AND f.deleted = 0
+            )
+            OR (
+                t.list_id IS NOT NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM task_list_member m
+                    INNER JOIN task_list l ON l.id = m.list_id AND l.deleted = 0
+                    WHERE m.list_id = t.list_id
+                      AND m.user_id = #{userId}
+                      AND m.deleted = 0
+                      AND l.archived = 0
+                )
+            )
+          )
+        ORDER BY t.create_time DESC
+    </select>
+</mapper>

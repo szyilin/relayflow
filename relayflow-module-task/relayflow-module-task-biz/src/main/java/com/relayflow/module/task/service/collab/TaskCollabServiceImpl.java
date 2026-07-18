@@ -157,6 +157,11 @@ public class TaskCollabServiceImpl implements TaskCollabService {
             return;
         }
         task.setAssigneeId(assigneeId);
+        if (Objects.equals(userId, assigneeId)) {
+            task.setAssignerId(null);
+        } else {
+            task.setAssignerId(userId);
+        }
         task.setUpdater(userId);
         task.setUpdateTime(OffsetDateTime.now());
         taskItemMapper.updateById(task);

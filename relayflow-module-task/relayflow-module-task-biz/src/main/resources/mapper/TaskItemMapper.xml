@@ -14,6 +14,7 @@
         <result column="title" property="title" />
         <result column="assignee_id" property="assigneeId" />
         <result column="creator_id" property="creatorId" />
+        <result column="assigner_id" property="assignerId" />
         <result column="due_time" property="dueTime" />
         <result column="start_time" property="startTime" />
         <result column="description" property="description" />
@@ -33,7 +34,7 @@
         updater,
         update_time,
         deleted,
-        title, assignee_id, creator_id, due_time, start_time, description,
+        title, assignee_id, creator_id, assigner_id, due_time, start_time, description,
         remind_before_minutes, parent_id, list_id, board_rank, status
     </sql>
 

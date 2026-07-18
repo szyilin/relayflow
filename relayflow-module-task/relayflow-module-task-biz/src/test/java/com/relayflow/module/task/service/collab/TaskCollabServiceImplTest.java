@@ -133,6 +133,7 @@ class TaskCollabServiceImplTest {
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).updateById(captor.capture());
         assertEquals(ASSIGNEE_ID, captor.getValue().getAssigneeId());
+        assertEquals(USER_ID, captor.getValue().getAssignerId());
         verify(taskAssignNotifyService).notifyAssignee(any(TaskItemDO.class), eq(ASSIGNEE_ID));
         verify(taskActivityRecorder).record(any(TaskItemDO.class), eq(USER_ID), any(), any());
     }
