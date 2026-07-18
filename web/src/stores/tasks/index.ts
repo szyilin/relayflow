@@ -58,6 +58,10 @@ import {
   isBoardStatus
 } from './boardLocal'
 import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
+import {
+  USE_LOCAL_MULTI_ASSIGNEE,
+  withAssigneeIds
+} from './assigneeLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 
 export type { TasksNavView } from './helpers'
@@ -800,6 +804,10 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function assignTo(taskId: string, assigneeId: string, _assigneeNickname: string) {
+    if (USE_LOCAL_MULTI_ASSIGNEE) {
+      await setAssignees(taskId, [assigneeId])
+      return
+    }
     saving.value = true
     try {
       await assignTask({ id: taskId, assigneeId })
@@ -814,6 +822,36 @@ export const useTasksStore = defineStore('tasks', () => {
       }
     } finally {
       saving.value = false
+    }
+  }
+
+  /**
+   * Replace assignee set. Local until multi-assignee-api / integrate.
+   */
+  async function setAssignees(taskId: string, assigneeIds: string[]) {
+    if (!USE_LOCAL_MULTI_ASSIGNEE) {
+      throw new Error('MULTI_ASSIGNEE_NOT_READY')
+    }
+    const auth = useAuthStore()
+    const selfId = auth.userId != null ? String(auth.userId) : ''
+    const patch = (list: TaskItem[]) => list.map((item) => {
+      if (item.id !== taskId) {
+        return item
+      }
+      return withAssigneeIds(item, assigneeIds)
+    })
+    items.value = patch(items.value)
+    listItems.value = patch(listItems.value)
+    followingItems.value = patch(followingItems.value)
+    dueRangeItems.value = patch(dueRangeItems.value)
+    if (selectedDetail.value?.id === taskId) {
+      selectedDetail.value = withAssigneeIds(selectedDetail.value, assigneeIds)
+    }
+
+    // Mine preview: drop tasks that no longer contain me
+    if (navView.value === 'mine' && selfId && !assigneeIds.includes(selfId)) {
+      items.value = items.value.filter(item => item.id !== taskId)
+      total.value = Math.max(0, total.value - 1)
     }
   }
 
@@ -871,6 +909,7 @@ export const useTasksStore = defineStore('tasks', () => {
     toggleFollow,
     addComment,
     assignTo,
+    setAssignees,
     fetchMyLists,
     selectList,
     createList,

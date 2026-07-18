@@ -5,6 +5,7 @@ import { ApiError } from '../../api/request'
 import { useAuthStore } from '../../stores/auth'
 import { useContactsStore } from '../../stores/contacts'
 import { useTasksStore } from '../../stores/tasks'
+import { resolveAssigneeIds } from '../../stores/tasks/assigneeLocal'
 
 const props = defineProps<{
   task: TaskItem | null
@@ -47,6 +48,7 @@ const newComment = ref('')
 const assignOpen = ref(false)
 const memberKeyword = ref('')
 const membersLoaded = ref(false)
+const draftAssigneeIds = ref<string[]>([])
 
 const progressLabel = computed(() => {
   const total = props.subtasks.length
@@ -65,25 +67,25 @@ const progressPct = computed(() => {
   return Math.round((props.subtasks.filter(s => s.status === 'DONE').length / total) * 100)
 })
 
-const assigneeLabel = computed(() => {
-  const id = props.task?.assigneeId
-  if (!id) {
-    return '未指定'
-  }
-  if (String(auth.userId) === id) {
+const currentAssigneeIds = computed(() =>
+  props.task ? resolveAssigneeIds(props.task) : []
+)
+
+function nicknameFor(userId: string): string {
+  if (String(auth.userId) === userId) {
     return auth.user?.nickname || auth.user?.username || '我'
   }
-  const member = contacts.members.find(m => m.id === id)
-  return member?.nickname || `用户 ${id}`
-})
+  const member = contacts.members.find(m => m.id === userId)
+  return member?.nickname || `用户 ${userId}`
+}
+
+const assigneeLabels = computed(() =>
+  currentAssigneeIds.value.map(id => nicknameFor(id))
+)
 
 const candidateMembers = computed(() => {
-  const selfId = String(auth.userId ?? '')
   const q = memberKeyword.value.trim().toLowerCase()
   return contacts.members.filter((member) => {
-    if (member.id === selfId) {
-      return false
-    }
     if (!q) {
       return true
     }
@@ -91,6 +93,18 @@ const candidateMembers = computed(() => {
       || member.username.toLowerCase().includes(q)
   })
 })
+
+function isDraftSelected(id: string) {
+  return draftAssigneeIds.value.includes(id)
+}
+
+function toggleDraftAssignee(id: string) {
+  if (isDraftSelected(id)) {
+    draftAssigneeIds.value = draftAssigneeIds.value.filter(x => x !== id)
+  } else {
+    draftAssigneeIds.value = [...draftAssigneeIds.value, id]
+  }
+}
 
 function toLocalInput(iso?: string | null): string {
   if (!iso) {
@@ -168,7 +182,31 @@ async function ensureMembers() {
 async function openAssign() {
   await ensureMembers()
   memberKeyword.value = ''
+  draftAssigneeIds.value = [...currentAssigneeIds.value]
+  // Ensure current user appears as a toggle option even if not in contacts yet
+  const selfId = auth.userId != null ? String(auth.userId) : ''
+  if (selfId && !contacts.members.some(m => m.id === selfId)) {
+    // draft can still include self; chips use nicknameFor
+  }
   assignOpen.value = true
+}
+
+async function handleSaveAssignees() {
+  if (!props.task) {
+    return
+  }
+  try {
+    await tasksStore.setAssignees(props.task.id, [...draftAssigneeIds.value])
+    assignOpen.value = false
+    const n = draftAssigneeIds.value.length
+    toast.add({
+      title: n ? `已更新负责人（${n}）` : '已清除负责人',
+      color: 'success'
+    })
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '更新负责人失败'
+    toast.add({ title: message, color: 'error' })
+  }
 }
 
 async function handleSave() {
@@ -280,20 +318,6 @@ async function handleAddComment() {
     toast.add({ title: '发表评论失败', color: 'error' })
   }
 }
-
-async function handleAssign(memberId: string, nickname: string) {
-  if (!props.task) {
-    return
-  }
-  try {
-    await tasksStore.assignTo(props.task.id, memberId, nickname)
-    assignOpen.value = false
-    toast.add({ title: `已指派给 ${nickname}`, color: 'success' })
-  } catch (error) {
-    const message = error instanceof ApiError ? error.message : '指派失败'
-    toast.add({ title: message, color: 'error' })
-  }
-}
 </script>
 
 <template>
@@ -346,18 +370,28 @@ async function handleAssign(memberId: string, nickname: string) {
         @blur="handleSave"
       />
 
-      <div class="flex items-center gap-3 text-sm">
-        <UIcon name="i-lucide-user" class="size-4 shrink-0 text-[var(--ws-text-muted)]" />
+      <div class="flex items-start gap-3 text-sm">
+        <UIcon name="i-lucide-users" class="mt-0.5 size-4 shrink-0 text-[var(--ws-text-muted)]" />
         <div class="min-w-0 flex-1">
           <p class="text-xs text-[var(--ws-text-muted)]">
             负责人
           </p>
-          <p class="font-medium">
-            {{ assigneeLabel }}
+          <div v-if="assigneeLabels.length" class="mt-1 flex flex-wrap gap-1.5">
+            <UBadge
+              v-for="(label, idx) in assigneeLabels"
+              :key="currentAssigneeIds[idx]"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ label }}
+            </UBadge>
+          </div>
+          <p v-else class="font-medium">
+            未指定
           </p>
         </div>
         <UButton color="neutral" variant="soft" size="xs" @click="openAssign">
-          指派
+          编辑
         </UButton>
       </div>
 
@@ -537,7 +571,7 @@ async function handleAssign(memberId: string, nickname: string) {
       </section>
     </div>
 
-    <UModal v-model:open="assignOpen" title="指派负责人">
+    <UModal v-model:open="assignOpen" title="编辑负责人">
       <template #body>
         <div class="space-y-3">
           <UInput
@@ -546,12 +580,36 @@ async function handleAssign(memberId: string, nickname: string) {
             icon="i-lucide-search"
           />
           <ul class="max-h-64 space-y-1 overflow-y-auto">
-            <li v-for="m in candidateMembers" :key="m.id">
+            <li v-if="auth.userId">
               <button
                 type="button"
                 class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--ws-rail-hover)]"
-                @click="handleAssign(m.id, m.nickname)"
+                @click="toggleDraftAssignee(String(auth.userId))"
               >
+                <UCheckbox
+                  :model-value="isDraftSelected(String(auth.userId))"
+                  class="pointer-events-none"
+                  tabindex="-1"
+                />
+                <UAvatar :alt="nicknameFor(String(auth.userId))" size="xs" />
+                <span class="font-medium">{{ nicknameFor(String(auth.userId)) }}</span>
+                <span class="text-xs text-[var(--ws-text-muted)]">我</span>
+              </button>
+            </li>
+            <li
+              v-for="m in candidateMembers.filter(m => m.id !== String(auth.userId ?? ''))"
+              :key="m.id"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--ws-rail-hover)]"
+                @click="toggleDraftAssignee(m.id)"
+              >
+                <UCheckbox
+                  :model-value="isDraftSelected(m.id)"
+                  class="pointer-events-none"
+                  tabindex="-1"
+                />
                 <UAvatar :alt="m.nickname" size="xs" />
                 <span class="font-medium">{{ m.nickname }}</span>
                 <span class="text-xs text-[var(--ws-text-muted)]">{{ m.username }}</span>
@@ -559,11 +617,19 @@ async function handleAssign(memberId: string, nickname: string) {
             </li>
           </ul>
           <UEmpty
-            v-if="!candidateMembers.length"
+            v-if="!candidateMembers.length && !auth.userId"
             icon="i-lucide-users"
             title="无匹配成员"
             description="请调整关键词或确认通讯录已加载"
           />
+          <div class="flex justify-end gap-2 pt-1">
+            <UButton color="neutral" variant="soft" @click="assignOpen = false">
+              取消
+            </UButton>
+            <UButton color="primary" :loading="tasksStore.saving" @click="handleSaveAssignees">
+              保存
+            </UButton>
+          </div>
         </div>
       </template>
     </UModal>

@@ -26,7 +26,7 @@
 
 ## 5. P3 — 多负责人（子 change：multi-assignee）
 
-- [ ] 5.1 开 `workspace-task-multi-assignee-web`：详情负责人多选；MINE=包含我
+- [x] 5.1 开 `workspace-task-multi-assignee-web`：详情负责人多选；MINE=包含我
 - [ ] 5.2 开 `workspace-task-multi-assignee-api`：`task_item_assignee` + 迁移；page/Bot/日历改写
 - [ ] 5.3 开 `workspace-task-multi-assignee-integrate`：移出负责人后从「我负责的」消失
 
