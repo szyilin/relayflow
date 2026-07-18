@@ -1,8 +1,5 @@
 import type { TaskItem } from '../../api/app/task'
 
-/** Temporary until multi-assignee-api / integrate. */
-export const USE_LOCAL_MULTI_ASSIGNEE = true
-
 export function resolveAssigneeIds(task: Pick<TaskItem, 'assigneeId' | 'assigneeIds'>): string[] {
   if (task.assigneeIds && task.assigneeIds.length > 0) {
     return [...task.assigneeIds]

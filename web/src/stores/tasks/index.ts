@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  assignTask,
   boardMoveTask,
   createSubtask,
   createTask,
@@ -18,6 +17,7 @@ import {
   getTaskPage,
   getTaskSubtasks,
   groupMoveTask,
+  replaceTaskAssignees,
   toggleTaskDone,
   unfollowTask,
   updateTask,
@@ -58,10 +58,7 @@ import {
   isBoardStatus
 } from './boardLocal'
 import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
-import {
-  USE_LOCAL_MULTI_ASSIGNEE,
-  withAssigneeIds
-} from './assigneeLocal'
+import { withAssigneeIds } from './assigneeLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 
 export type { TasksNavView } from './helpers'
@@ -804,54 +801,77 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   async function assignTo(taskId: string, assigneeId: string, _assigneeNickname: string) {
-    if (USE_LOCAL_MULTI_ASSIGNEE) {
-      await setAssignees(taskId, [assigneeId])
-      return
-    }
-    saving.value = true
-    try {
-      await assignTask({ id: taskId, assigneeId })
-      await fetchMyTasks()
-      if (selectedId.value === taskId) {
-        await selectTask(taskId)
-      }
-      if (navView.value === 'following') {
-        await fetchFollowingTasks()
-      } else if (navView.value === 'activity') {
-        await fetchActivityFeed()
-      }
-    } finally {
-      saving.value = false
-    }
+    await setAssignees(taskId, [assigneeId])
   }
 
-  /**
-   * Replace assignee set. Local until multi-assignee-api / integrate.
-   */
+  /** Replace assignee set via PUT /assignees (optimistic + rollback). */
   async function setAssignees(taskId: string, assigneeIds: string[]) {
-    if (!USE_LOCAL_MULTI_ASSIGNEE) {
-      throw new Error('MULTI_ASSIGNEE_NOT_READY')
-    }
     const auth = useAuthStore()
     const selfId = auth.userId != null ? String(auth.userId) : ''
+    const unique = Array.from(new Set(assigneeIds.map(String).filter(Boolean)))
+
+    const snapshotItems = items.value.map(item => ({ ...item }))
+    const snapshotListItems = listItems.value.map(item => ({ ...item }))
+    const snapshotFollowing = followingItems.value.map(item => ({ ...item }))
+    const snapshotDueRange = dueRangeItems.value.map(item => ({ ...item }))
+    const snapshotDetail = selectedDetail.value ? { ...selectedDetail.value } : null
+    const snapshotTotal = total.value
+
     const patch = (list: TaskItem[]) => list.map((item) => {
       if (item.id !== taskId) {
         return item
       }
-      return withAssigneeIds(item, assigneeIds)
+      return withAssigneeIds(item, unique)
     })
     items.value = patch(items.value)
     listItems.value = patch(listItems.value)
     followingItems.value = patch(followingItems.value)
     dueRangeItems.value = patch(dueRangeItems.value)
     if (selectedDetail.value?.id === taskId) {
-      selectedDetail.value = withAssigneeIds(selectedDetail.value, assigneeIds)
+      selectedDetail.value = withAssigneeIds(selectedDetail.value, unique)
     }
-
-    // Mine preview: drop tasks that no longer contain me
-    if (navView.value === 'mine' && selfId && !assigneeIds.includes(selfId)) {
+    if (navView.value === 'mine' && selfId && !unique.includes(selfId)) {
       items.value = items.value.filter(item => item.id !== taskId)
       total.value = Math.max(0, total.value - 1)
+    }
+
+    saving.value = true
+    try {
+      await replaceTaskAssignees({ id: taskId, assigneeIds: unique })
+      if (
+        navView.value === 'mine'
+        || navView.value === 'assigned_by_me'
+        || navView.value === 'all'
+        || navView.value === 'created'
+        || navView.value === 'done'
+      ) {
+        await fetchMyTasks()
+      } else if (navView.value === 'following') {
+        await fetchFollowingTasks()
+      } else if (navView.value === 'activity') {
+        await fetchActivityFeed()
+      }
+      if (activeListId.value) {
+        await fetchListTasks()
+      }
+      if (selectedId.value === taskId) {
+        // Still selected but may have left mine list — reload detail if accessible
+        try {
+          await selectTask(taskId)
+        } catch {
+          await selectTask(null)
+        }
+      }
+    } catch (error) {
+      items.value = snapshotItems
+      listItems.value = snapshotListItems
+      followingItems.value = snapshotFollowing
+      dueRangeItems.value = snapshotDueRange
+      selectedDetail.value = snapshotDetail
+      total.value = snapshotTotal
+      throw error
+    } finally {
+      saving.value = false
     }
   }
 

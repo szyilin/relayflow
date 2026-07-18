@@ -273,6 +273,17 @@ export async function assignTask(payload: { id: string, assigneeId: string }): P
   return put<boolean>('/app-api/task/item/assign', payload)
 }
 
+/** Full replace of assignee set (multi-assignee). */
+export async function replaceTaskAssignees(payload: {
+  id: string
+  assigneeIds: string[]
+}): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/assignees', {
+    id: payload.id,
+    assigneeIds: payload.assigneeIds
+  })
+}
+
 export async function getTaskComments(taskId: string): Promise<TaskComment[]> {
   const data = await get<Array<TaskComment & { id?: string | number }>>(
     '/app-api/task/item/comments',
