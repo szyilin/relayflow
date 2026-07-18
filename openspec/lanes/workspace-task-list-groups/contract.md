@@ -1,7 +1,9 @@
 # API 契约：workspace-task-list-groups
 
-> **状态**：draft（`-web` 起草；`-api` 未实现）  
+> **状态**：done（integrate 完成）  
 > **起草**：`workspace-task-list-groups-web`  
+> **实现**：`workspace-task-list-groups-api`  
+> **联调**：`workspace-task-list-groups-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-multi-list`](../workspace-task-multi-list/contract.md)、[`workspace-task-view-config`](../workspace-task-view-config/contract.md)
@@ -31,7 +33,7 @@
 
 指向 `task_list_group.id`；空则视为默认组（或写入时 ensure 默认）。
 
-## REST（草案 · `-api`）
+## REST
 
 前缀：`/app-api/task/list-group`
 
@@ -43,9 +45,9 @@
 | `DELETE` | `/delete` | `?id=` 非默认；成员回默认组 |
 | `PUT` | `/move` | `{ listId, taskId, groupId, beforeId? }` |
 
-## `-web` 临时行为
+## `-web` 行为
 
-`USE_LOCAL_LIST_GROUPS`：按 listId 内存隔离；刷新丢失；integrate 删除。
+Store 按 listId 缓存；`fetchList` 拉取 `/list`；create/delete/move 走真 API。无本地 Mock。
 
 ## 错误码
 
