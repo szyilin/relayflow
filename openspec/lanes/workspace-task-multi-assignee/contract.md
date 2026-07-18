@@ -1,8 +1,9 @@
 # API 契约：workspace-task-multi-assignee
 
-> **状态**：api ready（`-api` 已实现；`-integrate` 待接前端）  
+> **状态**：done（integrate 完成；负责人集合走 `PUT /assignees`，无本地暂存）  
 > **起草**：`workspace-task-multi-assignee-web`  
 > **实现**：`workspace-task-multi-assignee-api`  
+> **联调**：`workspace-task-multi-assignee-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-quick-views`](../workspace-task-quick-views/contract.md)、[`workspace-task-detail`](../workspace-task-detail/contract.md)
@@ -74,9 +75,9 @@
 
 每负责人一条：`dedupeKey=TASK_DUE:{taskId}:{userId}`。
 
-## `-web` 临时行为（integrate 删除）
+## 前端
 
-`USE_LOCAL_MULTI_ASSIGNEE`：仅改 Pinia；integrate 后改走本 API。
+拖拽/详情编辑走 `PUT /assignees`；无 `USE_LOCAL_MULTI_ASSIGNEE`。
 
 ## 错误码
 
