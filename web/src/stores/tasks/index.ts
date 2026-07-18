@@ -60,6 +60,7 @@ import {
 import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
 import { withAssigneeIds } from './assigneeLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
+import { useMineGroupsStore } from './mineGroupsStore'
 
 export type { TasksNavView } from './helpers'
 
@@ -150,6 +151,7 @@ export const useTasksStore = defineStore('tasks', () => {
     listTotal.value = 0
     listPageNo.value = 1
     useTaskViewConfigStore().resetForTenantSwitch()
+    useMineGroupsStore().resetForTenantSwitch()
   }
 
   /**

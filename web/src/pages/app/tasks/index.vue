@@ -292,7 +292,7 @@ async function handleGroupMove(payload: {
       return
     }
     try {
-      mineGroupsStore.moveTask(payload.taskId, payload.bucketKey)
+      await mineGroupsStore.moveTask(payload.taskId, payload.bucketKey, payload.beforeId)
     } catch {
       toast.add({ title: '移动失败', color: 'error' })
     }
@@ -313,14 +313,14 @@ async function handleGroupMove(payload: {
   }
 }
 
-function handleCreateMineGroup() {
+async function handleCreateMineGroup() {
   const name = createMineGroupName.value.trim()
   if (!name) {
     toast.add({ title: '请输入分组名称', color: 'error' })
     return
   }
   try {
-    mineGroupsStore.createGroup(name)
+    await mineGroupsStore.createGroup(name)
     createMineGroupName.value = ''
     createMineGroupOpen.value = false
     toast.add({ title: '分组已创建', color: 'success' })
@@ -329,9 +329,9 @@ function handleCreateMineGroup() {
   }
 }
 
-function handleDeleteMineGroup(groupId: string) {
+async function handleDeleteMineGroup(groupId: string) {
   try {
-    mineGroupsStore.deleteGroup(groupId)
+    await mineGroupsStore.deleteGroup(groupId)
     toast.add({ title: '分组已删除，任务已回到默认组', color: 'success' })
   } catch {
     toast.add({ title: '删除分组失败', color: 'error' })
@@ -409,6 +409,14 @@ watch(
     void syncViewConfigContext()
   }
 )
+
+watch(isPersonalCustomActive, (active) => {
+  if (active) {
+    void mineGroupsStore.fetchList(true).catch(() => {
+      toast.add({ title: '加载个人分组失败', color: 'error' })
+    })
+  }
+})
 
 watch(
   () => viewConfigStore.activeConfig.displayMode,
@@ -534,6 +542,7 @@ async function handleCreate() {
     if (id) {
       if (isPersonalCustomActive.value) {
         mineGroupsStore.ensureTaskInDefault(id)
+        void mineGroupsStore.fetchList(true).catch(() => {})
       }
       await openTask(id)
     }
@@ -889,7 +898,7 @@ meta:
           新建分组
         </UButton>
         <span class="text-xs text-[var(--ws-text-muted)]">
-          仅对本账号可见；刷新后本地分组会重置（待 API）
+          仅对本账号可见
         </span>
       </div>
 
