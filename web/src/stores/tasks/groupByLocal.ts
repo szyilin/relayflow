@@ -22,10 +22,18 @@ export function partitionByGroupBy(
   if (!groupBy) {
     return [{ key: ALL_GROUP_KEY, label: ALL_GROUP_LABEL, items: [...items] }]
   }
-  if (groupBy.mode === 'PERSONAL_CUSTOM' || groupBy.mode === 'LIST_GROUP') {
+  if (groupBy.mode === 'LIST_GROUP') {
     return [{
       key: ALL_GROUP_KEY,
-      label: groupBy.mode === 'PERSONAL_CUSTOM' ? '自定义分组（即将支持）' : '清单分组（即将支持）',
+      label: '清单分组（即将支持）',
+      items: [...items]
+    }]
+  }
+  // PERSONAL_CUSTOM: prefer useMineGroupsStore.partition in the page; this is a safe fallback.
+  if (groupBy.mode === 'PERSONAL_CUSTOM') {
+    return [{
+      key: ALL_GROUP_KEY,
+      label: '自定义分组',
       items: [...items]
     }]
   }

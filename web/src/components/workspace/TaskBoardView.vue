@@ -9,12 +9,18 @@ const props = defineProps<{
   canDrag: boolean
   selectedId?: string | null
   loading?: boolean
+  deletableBucketKeys?: string[]
 }>()
 
 const emit = defineEmits<{
   open: [taskId: string]
   move: [payload: { taskId: string, bucketKey: string, beforeId: string | null }]
+  'delete-bucket': [bucketKey: string]
 }>()
+
+function canDeleteBucket(key: string): boolean {
+  return (props.deletableBucketKeys ?? []).includes(key)
+}
 
 const draggingId = ref<string | null>(null)
 const overBucketKey = ref<string | null>(null)
@@ -113,9 +119,20 @@ function onDropColumn(event: DragEvent, bucketKey: string) {
         <h3 class="text-sm font-medium">
           {{ bucket.label }}
         </h3>
-        <span class="text-xs text-[var(--ws-text-muted)]">
-          {{ bucket.items.length }}
-        </span>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-[var(--ws-text-muted)]">
+            {{ bucket.items.length }}
+          </span>
+          <UButton
+            v-if="canDeleteBucket(bucket.key)"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-trash-2"
+            size="xs"
+            aria-label="删除分组"
+            @click.stop="emit('delete-bucket', bucket.key)"
+          />
+        </div>
       </header>
       <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
         <div
