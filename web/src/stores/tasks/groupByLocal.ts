@@ -23,9 +23,10 @@ export function partitionByGroupBy(
     return [{ key: ALL_GROUP_KEY, label: ALL_GROUP_LABEL, items: [...items] }]
   }
   if (groupBy.mode === 'LIST_GROUP') {
+    // Prefer useListGroupsStore.partition in the page; this is a safe fallback.
     return [{
       key: ALL_GROUP_KEY,
-      label: '清单分组（即将支持）',
+      label: '清单分组',
       items: [...items]
     }]
   }

@@ -14,6 +14,7 @@ import {
 } from '../../../stores/tasks/groupByLocal'
 import { resolveAssigneeIds } from '../../../stores/tasks/assigneeLocal'
 import { useMineGroupsStore } from '../../../stores/tasks/mineGroupsStore'
+import { useListGroupsStore } from '../../../stores/tasks/listGroupsStore'
 import {
   navViewToContextType
 } from '../../../stores/tasks/viewConfigLocal'
@@ -24,12 +25,15 @@ const router = useRouter()
 const tasksStore = useTasksStore()
 const viewConfigStore = useTaskViewConfigStore()
 const mineGroupsStore = useMineGroupsStore()
+const listGroupsStore = useListGroupsStore()
 const preference = useUserPreferenceStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
 const createListOpen = ref(false)
 const createMineGroupOpen = ref(false)
 const createMineGroupName = ref('')
+const createListGroupOpen = ref(false)
+const createListGroupName = ref('')
 const membersOpen = ref(false)
 const toast = useToast()
 
@@ -115,15 +119,29 @@ const isPersonalCustomActive = computed(() => {
   return canUsePersonalCustomGroup.value && groupBy?.mode === 'PERSONAL_CUSTOM'
 })
 
+/** D7: list-local groups when not field-grouped. */
+const isListGroupActive = computed(() => {
+  if (!inListContext.value) {
+    return false
+  }
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  return groupBy === null || groupBy.mode === 'LIST_GROUP'
+})
+
 const displayBuckets = computed(() => {
   const groupBy = viewConfigStore.activeConfig.groupBy
   if (groupBy?.mode === 'PERSONAL_CUSTOM' && canUsePersonalCustomGroup.value) {
     return mineGroupsStore.partition(displayItems.value)
   }
+  if (isListGroupActive.value) {
+    return listGroupsStore.partition(displayItems.value)
+  }
   return partitionByGroupBy(displayItems.value, groupBy)
 })
 
-const showGroupHeaders = computed(() => viewConfigStore.activeConfig.groupBy !== null)
+const showGroupHeaders = computed(() =>
+  viewConfigStore.activeConfig.groupBy !== null || isListGroupActive.value
+)
 
 const showListTabs = computed(() => false)
 const showCreateButton = computed(() => {
@@ -147,6 +165,9 @@ const showTaskActions = computed(() => {
 
 const canDragGrouped = computed(() => {
   const groupBy = viewConfigStore.activeConfig.groupBy
+  if (isListGroupActive.value) {
+    return tasksStore.listCanMutateTasks
+  }
   if (!groupBy) {
     return false
   }
@@ -166,6 +187,20 @@ const deletableMineGroupKeys = computed(() =>
   isPersonalCustomActive.value
     ? mineGroupsStore.sortedGroups.filter(g => !g.isDefault).map(g => g.id)
     : []
+)
+
+const deletableListGroupKeys = computed(() =>
+  isListGroupActive.value
+    ? listGroupsStore.sortedGroups.filter(g => !g.isDefault).map(g => g.id)
+    : []
+)
+
+const deletableBucketKeys = computed(() =>
+  isPersonalCustomActive.value
+    ? deletableMineGroupKeys.value
+    : isListGroupActive.value
+      ? deletableListGroupKeys.value
+      : []
 )
 
 function parseView(raw: unknown): TasksNavView {
@@ -284,6 +319,17 @@ async function handleGroupMove(payload: {
   beforeId: string | null
 }) {
   const groupBy = viewConfigStore.activeConfig.groupBy
+  if (isListGroupActive.value) {
+    if (!tasksStore.listCanMutateTasks) {
+      return
+    }
+    try {
+      listGroupsStore.moveTask(payload.taskId, payload.bucketKey)
+    } catch {
+      toast.add({ title: '移动失败', color: 'error' })
+    }
+    return
+  }
   if (!groupBy) {
     return
   }
@@ -335,6 +381,39 @@ async function handleDeleteMineGroup(groupId: string) {
     toast.add({ title: '分组已删除，任务已回到默认组', color: 'success' })
   } catch {
     toast.add({ title: '删除分组失败', color: 'error' })
+  }
+}
+
+function handleCreateListGroup() {
+  const name = createListGroupName.value.trim()
+  if (!name) {
+    toast.add({ title: '请输入分组名称', color: 'error' })
+    return
+  }
+  try {
+    listGroupsStore.createGroup(name)
+    createListGroupName.value = ''
+    createListGroupOpen.value = false
+    toast.add({ title: '分组已创建', color: 'success' })
+  } catch {
+    toast.add({ title: '创建分组失败', color: 'error' })
+  }
+}
+
+function handleDeleteListGroup(groupId: string) {
+  try {
+    listGroupsStore.deleteGroup(groupId)
+    toast.add({ title: '分组已删除，任务已回到默认组', color: 'success' })
+  } catch {
+    toast.add({ title: '删除分组失败', color: 'error' })
+  }
+}
+
+function handleDeleteBucket(groupId: string) {
+  if (isPersonalCustomActive.value) {
+    void handleDeleteMineGroup(groupId)
+  } else if (isListGroupActive.value) {
+    handleDeleteListGroup(groupId)
   }
 }
 
@@ -407,7 +486,9 @@ watch(
   () => [tasksStore.navView, tasksStore.activeListId] as const,
   () => {
     void syncViewConfigContext()
-  }
+    listGroupsStore.setActiveList(tasksStore.activeListId)
+  },
+  { immediate: true }
 )
 
 watch(isPersonalCustomActive, (active) => {
@@ -543,6 +624,9 @@ async function handleCreate() {
       if (isPersonalCustomActive.value) {
         mineGroupsStore.ensureTaskInDefault(id)
         void mineGroupsStore.fetchList(true).catch(() => {})
+      }
+      if (isListGroupActive.value) {
+        listGroupsStore.ensureTaskInDefault(id)
       }
       await openTask(id)
     }
@@ -903,6 +987,24 @@ meta:
       </div>
 
       <div
+        v-else-if="isListGroupActive && tasksStore.listCanMutateTasks"
+        class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-2"
+      >
+        <UButton
+          color="neutral"
+          variant="soft"
+          size="xs"
+          icon="i-lucide-folder-plus"
+          @click="createListGroupOpen = true"
+        >
+          新建分组
+        </UButton>
+        <span class="text-xs text-[var(--ws-text-muted)]">
+          清单内分组；本地暂存，待 API
+        </span>
+      </div>
+
+      <div
         v-if="showListTabs"
         class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
       >
@@ -979,13 +1081,13 @@ meta:
                     {{ bucket.items.length }}
                   </span>
                   <UButton
-                    v-if="isPersonalCustomActive && deletableMineGroupKeys.includes(bucket.key)"
+                    v-if="deletableBucketKeys.includes(bucket.key)"
                     color="neutral"
                     variant="ghost"
                     icon="i-lucide-trash-2"
                     size="xs"
                     aria-label="删除分组"
-                    @click="handleDeleteMineGroup(bucket.key)"
+                    @click="handleDeleteBucket(bucket.key)"
                   />
                 </div>
               </header>
@@ -1071,12 +1173,12 @@ meta:
           v-else-if="tab === 'board' && (inListContext || showViewToolbar)"
           :buckets="displayBuckets"
           :can-drag="canDragGrouped"
-          :deletable-bucket-keys="deletableMineGroupKeys"
+          :deletable-bucket-keys="deletableBucketKeys"
           :selected-id="tasksStore.selectedId"
           :loading="tasksStore.loading"
           @open="openTask"
           @move="handleGroupMove"
-          @delete-bucket="handleDeleteMineGroup"
+          @delete-bucket="handleDeleteBucket"
         />
         <UEmpty
           v-else
@@ -1157,6 +1259,28 @@ meta:
           </UFormField>
           <div class="flex justify-end gap-2">
             <UButton color="neutral" variant="soft" @click="createMineGroupOpen = false">
+              取消
+            </UButton>
+            <UButton type="submit" color="primary">
+              创建
+            </UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="createListGroupOpen" title="新建清单分组">
+      <template #body>
+        <form class="space-y-4" @submit.prevent="handleCreateListGroup">
+          <UFormField label="名称" required>
+            <UInput
+              v-model="createListGroupName"
+              placeholder="例如：本周冲刺"
+              autofocus
+            />
+          </UFormField>
+          <div class="flex justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="createListGroupOpen = false">
               取消
             </UButton>
             <UButton type="submit" color="primary">

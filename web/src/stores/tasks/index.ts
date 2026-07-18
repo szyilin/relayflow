@@ -63,6 +63,7 @@ import { withAssigneeIds } from './assigneeLocal'
 import { withListIds } from './listMembershipLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 import { useMineGroupsStore } from './mineGroupsStore'
+import { useListGroupsStore } from './listGroupsStore'
 
 export type { TasksNavView } from './helpers'
 
@@ -154,6 +155,7 @@ export const useTasksStore = defineStore('tasks', () => {
     listPageNo.value = 1
     useTaskViewConfigStore().resetForTenantSwitch()
     useMineGroupsStore().resetForTenantSwitch()
+    useListGroupsStore().resetForTenantSwitch()
   }
 
   /**

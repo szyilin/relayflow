@@ -50,7 +50,7 @@
 
 ## 9. P7 — 清单内自定义组（子 change：list-groups）
 
-- [ ] 9.1 开 `workspace-task-list-groups-web`：默认组 + 新建分组；无字段分组时按 C 呈现
+- [x] 9.1 开 `workspace-task-list-groups-web`：默认组 + 新建分组；无字段分组时按 C 呈现
 - [ ] 9.2 开 `workspace-task-list-groups-api`：`task_list_group` + 成员 `group_id`
 - [ ] 9.3 开 `workspace-task-list-groups-integrate`：与字段分组共存按 D7 验收
 

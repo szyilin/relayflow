@@ -74,10 +74,11 @@
 | **workspace-task-assigner** | **archived** | **done** | `assignerId` 展示 · `scope=ASSIGNED_BY_ME`（既有） | [contract](../../openspec/lanes/workspace-task-assigner/contract.md) | integrate 完成；写入随 assignees；无本地 Mock |
 | **workspace-task-mine-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-multi-list** | **archived** | **done** | `PUT …/list-memberships` · 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | integrate 完成；store 无本地 Mock |
+| **workspace-task-list-groups** | **planned** | **ui_ready** | `list-group/*`（草案）· 清单内分组 | [contract](../../openspec/lanes/workspace-task-list-groups/contract.md) | `-web`：本地 Mock（`USE_LOCAL_LIST_GROUPS`）；待 `-api` |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
-**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list` ✅ → `list-groups` →（可选）`custom-field`。
+**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list` ✅ → `list-groups`（web ✅）→（可选）`custom-field`。
 
 ### 建议下一切片（尚未立项或可并行）
 
