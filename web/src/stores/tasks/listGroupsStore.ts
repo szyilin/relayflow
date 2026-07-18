@@ -1,42 +1,37 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { TaskItem } from '../../api/app/task'
+import {
+  createListGroup as createListGroupApi,
+  deleteListGroup as deleteListGroupApi,
+  listListGroups,
+  moveListGroupTask,
+  type ListGroup
+} from '../../api/app/taskListGroup'
 import type { TaskGroupBucket } from './groupByLocal'
 
-/** Temporary until list-groups-api / integrate. */
-export const USE_LOCAL_LIST_GROUPS = true
+export type { ListGroup }
 
-export interface ListGroup {
-  id: string
-  name: string
-  isDefault: boolean
-  rank: number
-}
-
-interface ListGroupState {
+interface ListGroupCache {
   groups: ListGroup[]
-  /** taskId → groupId */
   membership: Record<string, string>
-  nextCustomId: number
+  loaded: boolean
 }
 
-function emptyState(): ListGroupState {
-  return {
-    groups: [{ id: 'list-default', name: '默认', isDefault: true, rank: 0 }],
-    membership: {},
-    nextCustomId: 1
-  }
+function emptyCache(): ListGroupCache {
+  return { groups: [], membership: {}, loaded: false }
 }
 
 export const useListGroupsStore = defineStore('listGroups', () => {
-  const byListId = ref<Record<string, ListGroupState>>({})
+  const byListId = ref<Record<string, ListGroupCache>>({})
   const activeListId = ref<string | null>(null)
+  const loading = ref(false)
 
-  function ensureState(listId: string): ListGroupState {
+  function ensureCache(listId: string): ListGroupCache {
     if (!byListId.value[listId]) {
       byListId.value = {
         ...byListId.value,
-        [listId]: emptyState()
+        [listId]: emptyCache()
       }
     }
     return byListId.value[listId]!
@@ -44,50 +39,83 @@ export const useListGroupsStore = defineStore('listGroups', () => {
 
   function setActiveList(listId: string | null) {
     activeListId.value = listId
-    if (listId) {
-      ensureState(listId)
-    }
   }
 
-  const activeState = computed(() => {
+  const activeCache = computed(() => {
     const id = activeListId.value
     if (!id) {
-      return emptyState()
+      return emptyCache()
     }
-    return ensureState(id)
+    return ensureCache(id)
   })
 
-  const groups = computed(() => activeState.value.groups)
+  const groups = computed(() => activeCache.value.groups)
 
   const sortedGroups = computed(() =>
-    [...activeState.value.groups].sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
+    [...activeCache.value.groups].sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
   )
 
   const defaultGroupId = computed(
-    () => activeState.value.groups.find(g => g.isDefault)?.id ?? 'list-default'
+    () => activeCache.value.groups.find(g => g.isDefault)?.id ?? ''
   )
 
-  function mutateActive(updater: (state: ListGroupState) => ListGroupState) {
+  function applyList(listId: string, result: Awaited<ReturnType<typeof listListGroups>>) {
+    const membership: Record<string, string> = {}
+    for (const m of result.memberships) {
+      membership[m.taskId] = m.groupId
+    }
+    byListId.value = {
+      ...byListId.value,
+      [listId]: {
+        groups: result.groups,
+        membership,
+        loaded: true
+      }
+    }
+  }
+
+  async function fetchList(listId: string | null | undefined, force = false) {
+    if (!listId) {
+      return
+    }
+    if (loading.value) {
+      return
+    }
+    const cache = ensureCache(listId)
+    if (cache.loaded && !force) {
+      return
+    }
+    loading.value = true
+    try {
+      applyList(listId, await listListGroups(listId))
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function mutateActive(updater: (cache: ListGroupCache) => ListGroupCache) {
     const id = activeListId.value
     if (!id) {
       return
     }
-    const next = updater(ensureState(id))
-    byListId.value = { ...byListId.value, [id]: next }
+    byListId.value = {
+      ...byListId.value,
+      [id]: updater(ensureCache(id))
+    }
   }
 
   function ensureMembership(taskId: string) {
-    const id = activeListId.value
-    if (!id) {
+    const cache = activeCache.value
+    if (cache.membership[taskId]) {
       return
     }
-    const state = ensureState(id)
-    if (state.membership[taskId]) {
+    const fallback = defaultGroupId.value
+    if (!fallback) {
       return
     }
-    mutateActive(s => ({
-      ...s,
-      membership: { ...s.membership, [taskId]: defaultGroupId.value }
+    mutateActive(c => ({
+      ...c,
+      membership: { ...c.membership, [taskId]: fallback }
     }))
   }
 
@@ -95,74 +123,114 @@ export const useListGroupsStore = defineStore('listGroups', () => {
     for (const item of items) {
       ensureMembership(item.id)
     }
-    const state = activeState.value
-    return sortedGroups.value.map(g => ({
+    const cache = activeCache.value
+    const buckets = sortedGroups.value.map(g => ({
       key: g.id,
       label: g.name,
-      items: items.filter(item => state.membership[item.id] === g.id)
+      items: items.filter(item => cache.membership[item.id] === g.id)
     }))
+    if (!buckets.length) {
+      return [{ key: '__all__', label: '清单分组', items: [...items] }]
+    }
+    return buckets
   }
 
-  function createGroup(name: string): ListGroup {
+  async function createGroup(name: string): Promise<ListGroup> {
+    const listId = activeListId.value
+    if (!listId) {
+      throw new Error('TASK_LIST_GROUP_FORBIDDEN')
+    }
     const trimmed = name.trim()
     if (!trimmed) {
       throw new Error('TASK_LIST_GROUP_NAME_EMPTY')
     }
-    const state = activeState.value
-    const maxRank = state.groups.reduce((m, g) => Math.max(m, g.rank), 0)
-    const group: ListGroup = {
-      id: `list-custom-${state.nextCustomId}`,
-      name: trimmed,
-      isDefault: false,
-      rank: maxRank + 1
-    }
-    mutateActive(s => ({
-      ...s,
-      groups: [...s.groups, group],
-      nextCustomId: s.nextCustomId + 1
+    const group = await createListGroupApi(listId, trimmed)
+    mutateActive(c => ({
+      ...c,
+      groups: [...c.groups, group]
     }))
     return group
   }
 
-  function deleteGroup(groupId: string) {
-    const state = activeState.value
-    const target = state.groups.find(g => g.id === groupId)
+  async function deleteGroup(groupId: string) {
+    const listId = activeListId.value
+    if (!listId) {
+      throw new Error('TASK_LIST_GROUP_FORBIDDEN')
+    }
+    const cache = ensureCache(listId)
+    const target = cache.groups.find(g => g.id === groupId)
     if (!target) {
       throw new Error('TASK_LIST_GROUP_NOT_FOUND')
     }
     if (target.isDefault) {
       throw new Error('TASK_LIST_GROUP_FORBIDDEN')
     }
+    const prev = { ...cache, membership: { ...cache.membership }, groups: [...cache.groups] }
     const fallback = defaultGroupId.value
-    mutateActive((s) => {
-      const membership = { ...s.membership }
-      for (const [taskId, gid] of Object.entries(membership)) {
-        if (gid === groupId) {
-          membership[taskId] = fallback
-        }
+    const nextMembership = { ...cache.membership }
+    for (const [taskId, gid] of Object.entries(nextMembership)) {
+      if (gid === groupId) {
+        nextMembership[taskId] = fallback
       }
-      return {
-        ...s,
-        membership,
-        groups: s.groups.filter(g => g.id !== groupId)
+    }
+    byListId.value = {
+      ...byListId.value,
+      [listId]: {
+        ...cache,
+        membership: nextMembership,
+        groups: cache.groups.filter(g => g.id !== groupId)
       }
-    })
+    }
+    try {
+      await deleteListGroupApi(groupId)
+    } catch (e) {
+      byListId.value = { ...byListId.value, [listId]: prev }
+      throw e
+    }
   }
 
-  function moveTask(taskId: string, groupId: string) {
-    if (!activeState.value.groups.some(g => g.id === groupId)) {
+  async function moveTask(taskId: string, groupId: string, beforeId?: string | null) {
+    const listId = activeListId.value
+    if (!listId) {
+      throw new Error('TASK_LIST_GROUP_FORBIDDEN')
+    }
+    const cache = ensureCache(listId)
+    if (!cache.groups.some(g => g.id === groupId)) {
       throw new Error('TASK_LIST_GROUP_NOT_FOUND')
     }
-    mutateActive(s => ({
-      ...s,
-      membership: { ...s.membership, [taskId]: groupId }
-    }))
+    const prev = cache.membership[taskId]
+    byListId.value = {
+      ...byListId.value,
+      [listId]: {
+        ...cache,
+        membership: { ...cache.membership, [taskId]: groupId }
+      }
+    }
+    try {
+      await moveListGroupTask({ listId, taskId, groupId, beforeId })
+    } catch (e) {
+      const rolled = { ...ensureCache(listId).membership }
+      if (prev) {
+        rolled[taskId] = prev
+      } else {
+        delete rolled[taskId]
+      }
+      byListId.value = {
+        ...byListId.value,
+        [listId]: { ...ensureCache(listId), membership: rolled }
+      }
+      throw e
+    }
   }
 
   function ensureTaskInDefault(taskId: string) {
-    mutateActive(s => ({
-      ...s,
-      membership: { ...s.membership, [taskId]: defaultGroupId.value }
+    const fallback = defaultGroupId.value
+    if (!fallback) {
+      return
+    }
+    mutateActive(c => ({
+      ...c,
+      membership: { ...c.membership, [taskId]: fallback }
     }))
   }
 
@@ -176,7 +244,9 @@ export const useListGroupsStore = defineStore('listGroups', () => {
     groups,
     sortedGroups,
     defaultGroupId,
+    loading,
     setActiveList,
+    fetchList,
     partition,
     createGroup,
     deleteGroup,

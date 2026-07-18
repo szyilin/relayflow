@@ -324,7 +324,7 @@ async function handleGroupMove(payload: {
       return
     }
     try {
-      listGroupsStore.moveTask(payload.taskId, payload.bucketKey)
+      await listGroupsStore.moveTask(payload.taskId, payload.bucketKey, payload.beforeId)
     } catch {
       toast.add({ title: '移动失败', color: 'error' })
     }
@@ -384,14 +384,14 @@ async function handleDeleteMineGroup(groupId: string) {
   }
 }
 
-function handleCreateListGroup() {
+async function handleCreateListGroup() {
   const name = createListGroupName.value.trim()
   if (!name) {
     toast.add({ title: '请输入分组名称', color: 'error' })
     return
   }
   try {
-    listGroupsStore.createGroup(name)
+    await listGroupsStore.createGroup(name)
     createListGroupName.value = ''
     createListGroupOpen.value = false
     toast.add({ title: '分组已创建', color: 'success' })
@@ -400,9 +400,9 @@ function handleCreateListGroup() {
   }
 }
 
-function handleDeleteListGroup(groupId: string) {
+async function handleDeleteListGroup(groupId: string) {
   try {
-    listGroupsStore.deleteGroup(groupId)
+    await listGroupsStore.deleteGroup(groupId)
     toast.add({ title: '分组已删除，任务已回到默认组', color: 'success' })
   } catch {
     toast.add({ title: '删除分组失败', color: 'error' })
@@ -413,7 +413,7 @@ function handleDeleteBucket(groupId: string) {
   if (isPersonalCustomActive.value) {
     void handleDeleteMineGroup(groupId)
   } else if (isListGroupActive.value) {
-    handleDeleteListGroup(groupId)
+    void handleDeleteListGroup(groupId)
   }
 }
 
@@ -498,6 +498,18 @@ watch(isPersonalCustomActive, (active) => {
     })
   }
 })
+
+watch(
+  () => [isListGroupActive.value, tasksStore.activeListId] as const,
+  ([active, listId]) => {
+    if (active && listId) {
+      void listGroupsStore.fetchList(listId, true).catch(() => {
+        toast.add({ title: '加载清单分组失败', color: 'error' })
+      })
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   () => viewConfigStore.activeConfig.displayMode,
@@ -627,6 +639,7 @@ async function handleCreate() {
       }
       if (isListGroupActive.value) {
         listGroupsStore.ensureTaskInDefault(id)
+        void listGroupsStore.fetchList(tasksStore.activeListId, true).catch(() => {})
       }
       await openTask(id)
     }
@@ -1000,7 +1013,7 @@ meta:
           新建分组
         </UButton>
         <span class="text-xs text-[var(--ws-text-muted)]">
-          清单内分组；本地暂存，待 API
+          清单内分组；清单成员可见
         </span>
       </div>
 
