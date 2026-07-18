@@ -1,7 +1,8 @@
 # API 契约：workspace-task-view-config
 
-> **状态**：draft（`-web` 起草；`-api` 未实现）  
+> **状态**：api ready（`-web` ui_ready；`-api` 已实现 get/save；待 `-integrate` 关 localStorage）  
 > **起草**：`workspace-task-view-config-web`  
+> **实现**：`workspace-task-view-config-api`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
