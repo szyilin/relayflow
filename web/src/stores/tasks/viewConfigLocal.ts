@@ -43,12 +43,9 @@ export interface TaskViewContextKey {
   contextId?: string | null
 }
 
-/** Temporary until workspace-task-view-config-api / integrate. */
-export const USE_LOCAL_VIEW_CONFIG = true
-
-const STORAGE_PREFIX = 'relayflow-task-view-config-v1'
-
 export const DEFAULT_VISIBLE_FIELDS = ['dueTime', 'assignee', 'status'] as const
+
+const LEGACY_STORAGE_PREFIX = 'relayflow-task-view-config-v1'
 
 export function defaultViewConfig(contextType: TaskViewContextType): TaskViewConfig {
   if (contextType === 'COMPLETED') {
@@ -104,38 +101,21 @@ export function contextStorageKey(ctx: TaskViewContextKey): string {
   return ctx.contextType
 }
 
-function storageBucketKey(tenantId: string, userId: string): string {
-  return `${STORAGE_PREFIX}:${tenantId}:${userId}`
-}
-
-export function loadLocalViewConfigMap(tenantId: string, userId: string): Record<string, TaskViewConfig> {
-  if (!USE_LOCAL_VIEW_CONFIG || !tenantId || !userId) {
-    return {}
-  }
+/** One-shot cleanup of pre-integrate local draft configs. */
+export function clearLegacyViewConfigLocalStorage() {
   try {
-    const raw = localStorage.getItem(storageBucketKey(tenantId, userId))
-    if (!raw) {
-      return {}
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(LEGACY_STORAGE_PREFIX)) {
+        keys.push(key)
+      }
     }
-    const parsed = JSON.parse(raw) as Record<string, TaskViewConfig>
-    return parsed && typeof parsed === 'object' ? parsed : {}
+    for (const key of keys) {
+      localStorage.removeItem(key)
+    }
   } catch {
-    return {}
-  }
-}
-
-export function saveLocalViewConfigMap(
-  tenantId: string,
-  userId: string,
-  map: Record<string, TaskViewConfig>
-) {
-  if (!USE_LOCAL_VIEW_CONFIG || !tenantId || !userId) {
-    return
-  }
-  try {
-    localStorage.setItem(storageBucketKey(tenantId, userId), JSON.stringify(map))
-  } catch {
-    // ignore quota
+    // ignore
   }
 }
 

@@ -243,7 +243,7 @@ function clearFilters() {
             <span>{{ s === 'TODO' ? '未开始' : s === 'IN_PROGRESS' ? '进行中' : '已完成' }}</span>
           </label>
           <p class="text-[11px] text-[var(--ws-text-muted)]">
-            叠在当前入口默认条件之上（本地暂存）
+            叠在当前入口默认条件之上
           </p>
         </div>
       </template>

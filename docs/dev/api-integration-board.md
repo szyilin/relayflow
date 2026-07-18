@@ -68,11 +68,11 @@
 | **workspace-task-board** | **archived** | **done** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
 | **workspace-task-view-model-v1** | **planned** | **planned** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 | [proposal](../../openspec/changes/workspace-task-view-model-v1/proposal.md) | 母 change；对齐飞书「快捷视图 ≠ 清单」；计划 B 个人组 |
 | **workspace-task-quick-views** | **archived** | **done** | `scope=ALL\|ASSIGNED_BY_ME` · `assignerId` · `/app/tasks` 快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | integrate 完成；store 无本地临时 |
-| **workspace-task-view-config** | **archived** | **ui_ready** | `GET/PUT …/view-config/*` · `/app/tasks` 工具栏 | [contract](../../openspec/lanes/workspace-task-view-config/contract.md) | `-api` 完成；待 `-integrate` 关 `USE_LOCAL_VIEW_CONFIG` |
+| **workspace-task-view-config** | **archived** | **done** | `GET/PUT …/view-config/*` · `/app/tasks` 工具栏 | [contract](../../openspec/lanes/workspace-task-view-config/contract.md) | integrate 完成；store 无本地暂存 |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
-**下一母 change 建议顺序**：`quick-views` ✅ → `view-config`（web ✅ → api ✅ → integrate）→ `group-by-field` → `multi-assignee` → `assigner`（部分已随 quick-views）→ `mine-groups` → `multi-list` → `list-groups` →（可选）`custom-field`。
+**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` → `multi-assignee` → `assigner`（部分已随 quick-views）→ `mine-groups` → `multi-list` → `list-groups` →（可选）`custom-field`。
 
 ### 建议下一切片（尚未立项或可并行）
 

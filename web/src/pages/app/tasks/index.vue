@@ -233,17 +233,17 @@ async function switchTab(next: 'list' | 'board') {
   }
 }
 
-function syncViewConfigContext() {
+async function syncViewConfigContext() {
   viewConfigStore.ensureLoaded()
   if (inListContext.value && tasksStore.activeListId) {
-    viewConfigStore.setActiveContext({
+    await viewConfigStore.setActiveContext({
       contextType: 'LIST',
       contextId: tasksStore.activeListId
     })
   } else {
     const type = navViewToContextType(tasksStore.navView)
     if (type) {
-      viewConfigStore.setActiveContext({ contextType: type })
+      await viewConfigStore.setActiveContext({ contextType: type })
     }
   }
   const mode = viewConfigStore.activeConfig.displayMode
@@ -320,7 +320,7 @@ onMounted(async () => {
   if (!itemPageViews.includes(tasksStore.navView) && !inListContext.value) {
     void tasksStore.refreshOverdueBadge()
   }
-  syncViewConfigContext()
+  await syncViewConfigContext()
   if (tab.value === 'board' && inListContext.value) {
     void tasksStore.fetchListBoard().catch(() => {})
   }
@@ -330,7 +330,7 @@ onMounted(async () => {
 watch(
   () => [tasksStore.navView, tasksStore.activeListId] as const,
   () => {
-    syncViewConfigContext()
+    void syncViewConfigContext()
   }
 )
 
