@@ -5,6 +5,7 @@ import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import com.relayflow.module.task.dal.dataobject.TaskListItemDO;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.dal.mapper.TaskListItemMapper;
+import com.relayflow.module.task.service.listgroup.TaskListGroupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class TaskListItemService {
 
     private final TaskListItemMapper taskListItemMapper;
     private final TaskItemMapper taskItemMapper;
+    private final TaskListGroupService taskListGroupService;
 
     public List<Long> listListIds(Long taskId) {
         if (taskId == null) {
@@ -95,6 +97,7 @@ public class TaskListItemService {
             row.setTenantId(tenantId);
             row.setListId(listId);
             row.setTaskId(task.getId());
+            row.setGroupId(taskListGroupService.ensureDefaultGroupId(listId, tenantId, operatorUserId));
             row.setRank(rank++);
             row.setCreator(operatorUserId);
             row.setCreateTime(now);
@@ -125,6 +128,7 @@ public class TaskListItemService {
         row.setTenantId(tenantId);
         row.setListId(listId);
         row.setTaskId(task.getId());
+        row.setGroupId(taskListGroupService.ensureDefaultGroupId(listId, tenantId, operatorUserId));
         row.setRank(0);
         row.setCreator(operatorUserId);
         row.setCreateTime(now);
