@@ -14,7 +14,7 @@
 
 ## 3. P1 — 视图配置持久化（子 change：view-config）
 
-- [ ] 3.1 开 `workspace-task-view-config-web`：工具栏筛选/排序/分组/字段/列表|看板；按上下文读写 Mock
+- [x] 3.1 开 `workspace-task-view-config-web`：工具栏筛选/排序/分组/字段/列表|看板；按上下文读写 Mock
 - [ ] 3.2 开 `workspace-task-view-config-api`：私有 context 与 LIST 共享默认 REST；权限按 D1/D3
 - [ ] 3.3 开 `workspace-task-view-config-integrate`：验证两用户「我负责的」配置互不影响
 

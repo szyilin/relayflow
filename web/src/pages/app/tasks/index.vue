@@ -5,14 +5,20 @@ import { searchMembers, type MemberSearchItem } from '../../../api/app/member-se
 import type { TaskListRole } from '../../../api/app/taskList'
 import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
+import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
 import type { BoardStatus } from '../../../stores/tasks/boardLocal'
+import {
+  navViewToContextType
+} from '../../../stores/tasks/viewConfigLocal'
+import { useTaskViewConfigStore } from '../../../stores/tasks/viewConfigStore'
 
 const route = useRoute()
 const router = useRouter()
 const tasksStore = useTasksStore()
+const viewConfigStore = useTaskViewConfigStore()
 const preference = useUserPreferenceStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
@@ -76,16 +82,45 @@ const viewTitle = computed(() => {
 })
 
 const displayItems = computed(() => {
+  let raw
   if (inListContext.value) {
-    return tasksStore.listItems
+    raw = tasksStore.listItems
+  } else if (tasksStore.navView === 'following') {
+    raw = tasksStore.followingItems
+  } else {
+    raw = tasksStore.items
   }
-  if (tasksStore.navView === 'following') {
-    return tasksStore.followingItems
-  }
-  return tasksStore.items
+  return viewConfigStore.applyClientTransforms(raw)
 })
 
-const showListTabs = computed(() => inListContext.value)
+const showViewToolbar = computed(
+  () => !inListContext.value
+    ? tasksStore.navView !== 'activity'
+    : true
+)
+
+const canUsePersonalCustomGroup = computed(
+  () => !inListContext.value && tasksStore.navView === 'mine'
+)
+
+const personalBoardColumns = computed(() => {
+  const columns = {
+    TODO: [] as typeof displayItems.value,
+    IN_PROGRESS: [] as typeof displayItems.value,
+    DONE: [] as typeof displayItems.value
+  }
+  for (const item of displayItems.value) {
+    const status = item.status
+    if (status === 'TODO' || status === 'IN_PROGRESS' || status === 'DONE') {
+      columns[status].push(item)
+    } else {
+      columns.TODO.push(item)
+    }
+  }
+  return columns
+})
+
+const showListTabs = computed(() => false)
 const showCreateButton = computed(() => {
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
@@ -188,6 +223,7 @@ async function openList(listId: string) {
 
 async function switchTab(next: 'list' | 'board') {
   tab.value = next
+  viewConfigStore.patchActiveConfig({ displayMode: next === 'board' ? 'BOARD' : 'LIST' })
   if (next === 'board' && inListContext.value) {
     try {
       await tasksStore.fetchListBoard()
@@ -195,6 +231,23 @@ async function switchTab(next: 'list' | 'board') {
       toast.add({ title: '加载看板失败', color: 'error' })
     }
   }
+}
+
+function syncViewConfigContext() {
+  viewConfigStore.ensureLoaded()
+  if (inListContext.value && tasksStore.activeListId) {
+    viewConfigStore.setActiveContext({
+      contextType: 'LIST',
+      contextId: tasksStore.activeListId
+    })
+  } else {
+    const type = navViewToContextType(tasksStore.navView)
+    if (type) {
+      viewConfigStore.setActiveContext({ contextType: type })
+    }
+  }
+  const mode = viewConfigStore.activeConfig.displayMode
+  tab.value = mode === 'BOARD' ? 'board' : 'list'
 }
 
 async function handleBoardMove(payload: {
@@ -267,8 +320,36 @@ onMounted(async () => {
   if (!itemPageViews.includes(tasksStore.navView) && !inListContext.value) {
     void tasksStore.refreshOverdueBadge()
   }
+  syncViewConfigContext()
+  if (tab.value === 'board' && inListContext.value) {
+    void tasksStore.fetchListBoard().catch(() => {})
+  }
   await applyTaskIdFromRoute()
 })
+
+watch(
+  () => [tasksStore.navView, tasksStore.activeListId] as const,
+  () => {
+    syncViewConfigContext()
+  }
+)
+
+watch(
+  () => viewConfigStore.activeConfig.displayMode,
+  async (mode) => {
+    const next = mode === 'BOARD' ? 'board' : 'list'
+    if (tab.value !== next) {
+      tab.value = next
+    }
+    if (next === 'board' && inListContext.value) {
+      try {
+        await tasksStore.fetchListBoard()
+      } catch {
+        // keep previous columns
+      }
+    }
+  }
+)
 
 watch(() => route.query.taskId, () => {
   void applyTaskIdFromRoute()
@@ -700,6 +781,13 @@ meta:
         </UButton>
       </header>
 
+      <TaskViewToolbar
+        v-if="showViewToolbar"
+        :show-board-mode="true"
+        :can-use-personal-custom-group="canUsePersonalCustomGroup"
+        :can-use-list-group="inListContext"
+      />
+
       <div
         v-if="showListTabs"
         class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
@@ -755,7 +843,7 @@ meta:
           />
         </div>
 
-        <div v-else-if="tab === 'list' || (!inListContext && tasksStore.navView === 'following') || (!inListContext && itemPageViews.includes(tasksStore.navView))">
+        <div v-else-if="tab === 'list'">
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>
@@ -787,10 +875,16 @@ meta:
                 </p>
                 <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
                   <span
-                    v-if="formatDue(task.dueTime)"
+                    v-if="viewConfigStore.isFieldVisible('dueTime') && formatDue(task.dueTime)"
                     :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
                   >
                     {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
+                  </span>
+                  <span v-if="viewConfigStore.isFieldVisible('status')">
+                    {{ task.status === 'TODO' ? '未开始' : task.status === 'IN_PROGRESS' ? '进行中' : '已完成' }}
+                  </span>
+                  <span v-if="viewConfigStore.isFieldVisible('assignee') && task.assigneeId">
+                    负责人 {{ task.assigneeId }}
                   </span>
                   <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
                 </p>
@@ -826,7 +920,7 @@ meta:
           />
         </div>
         <TaskBoardView
-          v-else-if="inListContext && tab === 'board'"
+          v-else-if="tab === 'board' && inListContext"
           :columns="tasksStore.boardColumns"
           :can-drag="tasksStore.listCanMutateTasks"
           :selected-id="tasksStore.selectedId"
@@ -834,11 +928,20 @@ meta:
           @open="openTask"
           @move="handleBoardMove"
         />
+        <TaskBoardView
+          v-else-if="tab === 'board' && showViewToolbar"
+          :columns="personalBoardColumns"
+          :can-drag="false"
+          :selected-id="tasksStore.selectedId"
+          :loading="tasksStore.loading"
+          @open="openTask"
+          @move="() => {}"
+        />
         <UEmpty
           v-else
           icon="i-lucide-kanban-square"
           title="看板视图"
-          description="请打开清单后使用看板"
+          description="切换到列表或打开有任务的入口"
         />
       </div>
     </div>
