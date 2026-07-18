@@ -13,6 +13,7 @@ import {
   partitionByGroupBy
 } from '../../../stores/tasks/groupByLocal'
 import { resolveAssigneeIds } from '../../../stores/tasks/assigneeLocal'
+import { useMineGroupsStore } from '../../../stores/tasks/mineGroupsStore'
 import {
   navViewToContextType
 } from '../../../stores/tasks/viewConfigLocal'
@@ -22,10 +23,13 @@ const route = useRoute()
 const router = useRouter()
 const tasksStore = useTasksStore()
 const viewConfigStore = useTaskViewConfigStore()
+const mineGroupsStore = useMineGroupsStore()
 const preference = useUserPreferenceStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
 const createListOpen = ref(false)
+const createMineGroupOpen = ref(false)
+const createMineGroupName = ref('')
 const membersOpen = ref(false)
 const toast = useToast()
 
@@ -106,9 +110,18 @@ const canUsePersonalCustomGroup = computed(
   () => !inListContext.value && tasksStore.navView === 'mine'
 )
 
-const displayBuckets = computed(() =>
-  partitionByGroupBy(displayItems.value, viewConfigStore.activeConfig.groupBy)
-)
+const isPersonalCustomActive = computed(() => {
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  return canUsePersonalCustomGroup.value && groupBy?.mode === 'PERSONAL_CUSTOM'
+})
+
+const displayBuckets = computed(() => {
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  if (groupBy?.mode === 'PERSONAL_CUSTOM' && canUsePersonalCustomGroup.value) {
+    return mineGroupsStore.partition(displayItems.value)
+  }
+  return partitionByGroupBy(displayItems.value, groupBy)
+})
 
 const showGroupHeaders = computed(() => viewConfigStore.activeConfig.groupBy !== null)
 
@@ -134,7 +147,13 @@ const showTaskActions = computed(() => {
 
 const canDragGrouped = computed(() => {
   const groupBy = viewConfigStore.activeConfig.groupBy
-  if (!groupBy || groupBy.mode !== 'FIELD') {
+  if (!groupBy) {
+    return false
+  }
+  if (groupBy.mode === 'PERSONAL_CUSTOM') {
+    return canUsePersonalCustomGroup.value && showTaskActions.value
+  }
+  if (groupBy.mode !== 'FIELD') {
     return false
   }
   if (inListContext.value) {
@@ -142,6 +161,12 @@ const canDragGrouped = computed(() => {
   }
   return showTaskActions.value
 })
+
+const deletableMineGroupKeys = computed(() =>
+  isPersonalCustomActive.value
+    ? mineGroupsStore.sortedGroups.filter(g => !g.isDefault).map(g => g.id)
+    : []
+)
 
 function parseView(raw: unknown): TasksNavView {
   const v = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null
@@ -259,7 +284,21 @@ async function handleGroupMove(payload: {
   beforeId: string | null
 }) {
   const groupBy = viewConfigStore.activeConfig.groupBy
-  if (!groupBy || groupBy.mode !== 'FIELD') {
+  if (!groupBy) {
+    return
+  }
+  if (groupBy.mode === 'PERSONAL_CUSTOM') {
+    if (!canUsePersonalCustomGroup.value) {
+      return
+    }
+    try {
+      mineGroupsStore.moveTask(payload.taskId, payload.bucketKey)
+    } catch {
+      toast.add({ title: '移动失败', color: 'error' })
+    }
+    return
+  }
+  if (groupBy.mode !== 'FIELD') {
     return
   }
   try {
@@ -271,6 +310,31 @@ async function handleGroupMove(payload: {
     })
   } catch {
     toast.add({ title: '移动失败', color: 'error' })
+  }
+}
+
+function handleCreateMineGroup() {
+  const name = createMineGroupName.value.trim()
+  if (!name) {
+    toast.add({ title: '请输入分组名称', color: 'error' })
+    return
+  }
+  try {
+    mineGroupsStore.createGroup(name)
+    createMineGroupName.value = ''
+    createMineGroupOpen.value = false
+    toast.add({ title: '分组已创建', color: 'success' })
+  } catch {
+    toast.add({ title: '创建分组失败', color: 'error' })
+  }
+}
+
+function handleDeleteMineGroup(groupId: string) {
+  try {
+    mineGroupsStore.deleteGroup(groupId)
+    toast.add({ title: '分组已删除，任务已回到默认组', color: 'success' })
+  } catch {
+    toast.add({ title: '删除分组失败', color: 'error' })
   }
 }
 
@@ -468,6 +532,9 @@ async function handleCreate() {
     createOpen.value = false
     toast.add({ title: '任务已创建', color: 'success' })
     if (id) {
+      if (isPersonalCustomActive.value) {
+        mineGroupsStore.ensureTaskInDefault(id)
+      }
       await openTask(id)
     }
   } catch {
@@ -809,6 +876,24 @@ meta:
       />
 
       <div
+        v-if="isPersonalCustomActive"
+        class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-2"
+      >
+        <UButton
+          color="neutral"
+          variant="soft"
+          size="xs"
+          icon="i-lucide-folder-plus"
+          @click="createMineGroupOpen = true"
+        >
+          新建分组
+        </UButton>
+        <span class="text-xs text-[var(--ws-text-muted)]">
+          仅对本账号可见；刷新后本地分组会重置（待 API）
+        </span>
+      </div>
+
+      <div
         v-if="showListTabs"
         class="flex gap-4 border-b border-[var(--ws-border-subtle)] px-5"
       >
@@ -880,9 +965,20 @@ meta:
                 <h2 class="text-sm font-medium text-[var(--ws-text)]">
                   {{ bucket.label }}
                 </h2>
-                <span class="text-xs text-[var(--ws-text-muted)]">
-                  {{ bucket.items.length }}
-                </span>
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-[var(--ws-text-muted)]">
+                    {{ bucket.items.length }}
+                  </span>
+                  <UButton
+                    v-if="isPersonalCustomActive && deletableMineGroupKeys.includes(bucket.key)"
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-lucide-trash-2"
+                    size="xs"
+                    aria-label="删除分组"
+                    @click="handleDeleteMineGroup(bucket.key)"
+                  />
+                </div>
               </header>
               <div
                 v-for="task in bucket.items"
@@ -966,10 +1062,12 @@ meta:
           v-else-if="tab === 'board' && (inListContext || showViewToolbar)"
           :buckets="displayBuckets"
           :can-drag="canDragGrouped"
+          :deletable-bucket-keys="deletableMineGroupKeys"
           :selected-id="tasksStore.selectedId"
           :loading="tasksStore.loading"
           @open="openTask"
           @move="handleGroupMove"
+          @delete-bucket="handleDeleteMineGroup"
         />
         <UEmpty
           v-else
@@ -1031,6 +1129,28 @@ meta:
               取消
             </UButton>
             <UButton type="submit" color="primary" :loading="tasksStore.saving">
+              创建
+            </UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="createMineGroupOpen" title="新建分组">
+      <template #body>
+        <form class="space-y-4" @submit.prevent="handleCreateMineGroup">
+          <UFormField label="名称" required>
+            <UInput
+              v-model="createMineGroupName"
+              placeholder="例如：本周"
+              autofocus
+            />
+          </UFormField>
+          <div class="flex justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="createMineGroupOpen = false">
+              取消
+            </UButton>
+            <UButton type="submit" color="primary">
               创建
             </UButton>
           </div>
