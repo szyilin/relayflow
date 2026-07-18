@@ -645,7 +645,7 @@ function emptyDescription(): string {
     return '你负责、创建、关注或清单内的任务会出现在这里'
   }
   if (tasksStore.navView === 'assigned_by_me') {
-    return '将任务分配给他人后会出现在这里'
+    return '将任务负责人改为他人（自己不再是负责人）后会出现在这里'
   }
   return '点击右上角「新建」添加第一条任务'
 }

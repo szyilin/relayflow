@@ -32,7 +32,7 @@
 
 ## 6. P4 — 分配人与「我分配的」（子 change：assigner）
 
-- [ ] 6.1 开 `workspace-task-assigner-web`：指派 UI；「我分配的」按种子展示
+- [x] 6.1 开 `workspace-task-assigner-web`：指派 UI；「我分配的」按种子展示
 - [ ] 6.2 开 `workspace-task-assigner-api`：持久化 assigner；ASSIGNED_BY_ME 查询真条件
 - [ ] 6.3 开 `workspace-task-assigner-integrate`：A 派给 B 后 A 在「我分配的」、B 在「我负责的」
 

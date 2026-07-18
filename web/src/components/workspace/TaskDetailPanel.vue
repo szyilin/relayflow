@@ -83,6 +83,14 @@ const assigneeLabels = computed(() =>
   currentAssigneeIds.value.map(id => nicknameFor(id))
 )
 
+const assignerLabel = computed(() => {
+  const id = props.task?.assignerId
+  if (!id) {
+    return null
+  }
+  return nicknameFor(String(id))
+})
+
 const candidateMembers = computed(() => {
   const q = memberKeyword.value.trim().toLowerCase()
   return contacts.members.filter((member) => {
@@ -395,6 +403,21 @@ async function handleAddComment() {
         </UButton>
       </div>
 
+      <div
+        v-if="assignerLabel"
+        class="flex items-center gap-3 text-sm"
+      >
+        <UIcon name="i-lucide-user-cog" class="size-4 shrink-0 text-[var(--ws-text-muted)]" />
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            分配人
+          </p>
+          <p class="font-medium">
+            {{ assignerLabel }}
+          </p>
+        </div>
+      </div>
+
       <div class="space-y-3 text-sm">
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-calendar-clock" class="mt-2 size-4 shrink-0 text-[var(--ws-text-muted)]" />
@@ -579,6 +602,9 @@ async function handleAddComment() {
             placeholder="搜索成员"
             icon="i-lucide-search"
           />
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            若保存后自己不在负责人中，你将成为分配人，任务会出现在「我分配的」。
+          </p>
           <ul class="max-h-64 space-y-1 overflow-y-auto">
             <li v-if="auth.userId">
               <button
