@@ -1,6 +1,6 @@
 # API 契约：workspace-task-board
 
-> **状态**：api ready（`-web` UI + contract；`-api` 已实现；待 integrate 关 `USE_LOCAL_BOARD_MOVE`）  
+> **状态**：done（integrate 完成；拖拽走 `PUT /board-move`，无本地暂存）  
 > **起草**：`workspace-task-list-board-v1` / `workspace-task-board-web`  
 > **母 change**：[`openspec/changes/workspace-task-list-board-v1`](../../changes/workspace-task-list-board-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
@@ -83,9 +83,8 @@ done=true → `DONE`；done=false → `TODO`。
 |----|------|
 | 看板 Tab | **仅清单上下文**显示；个人「我负责的」等不显示看板 Tab |
 | 列 | 待办 / 进行中 / 已完成 |
-| 拖拽 | HTML5 DnD：跨列改 status；列内改 `boardRank` |
+| 拖拽 | HTML5 DnD：跨列改 status；列内改 `boardRank`；落库 `PUT /board-move` |
 | 点卡片 | 打开既有详情 slideover |
-| `-web` 临时 | API 未就绪时 store 内本地应用拖拽结果（`USE_LOCAL_BOARD_MOVE`）；**integrate 删除** |
 | VIEWER | 可看不可拖 |
 
 ## curl 示例

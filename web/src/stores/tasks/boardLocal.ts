@@ -1,9 +1,6 @@
 /**
- * Board-web temporary: persist drag in store until board-api / integrate.
- * Flip to false when PUT /board-move is live and store always calls API.
+ * Board column constants for /app/tasks list-context kanban.
  */
-export const USE_LOCAL_BOARD_MOVE = true
-
 export const BOARD_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'] as const
 
 export type BoardStatus = (typeof BOARD_STATUSES)[number]
