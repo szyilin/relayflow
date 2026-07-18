@@ -119,7 +119,7 @@ web/src/
 | 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动（复用既有面板） |
 | 深链 | `?taskId=` 打开详情；`?listId=` 进入清单上下文；`?view=following\|activity` 切换个人导航 |
 | 数据 | `stores/tasks` → `api/app/task`；详情与协作均无 localStorage 真源；清单/看板 integrate 后无 Mock |
-| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md)；清单/看板见母 change [`workspace-task-list-board-v1`](../../openspec/changes/workspace-task-list-board-v1/proposal.md)（lane contract 由各 `-web` 起草） |
+| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md)、[`workspace-task-list`](../../openspec/lanes/workspace-task-list/contract.md)、[`workspace-task-board`](../../openspec/lanes/workspace-task-board/contract.md) |
 | 非目标（近端） | 自定义看板列、自定义字段、仪表盘、甘特 |
 
 ## 日历页 `/app/calendar`

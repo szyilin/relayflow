@@ -53,7 +53,6 @@ import {
 import {
   BOARD_RANK_STEP,
   BOARD_STATUSES,
-  USE_LOCAL_BOARD_MOVE,
   type BoardStatus,
   isBoardStatus
 } from './boardLocal'
@@ -448,6 +447,7 @@ export const useTasksStore = defineStore('tasks', () => {
     )
     const boardRank = computeBoardRank(columnWithout, payload.beforeId ?? null)
     const snapshot = listItems.value.map(item => ({ ...item }))
+    const snapshotDetail = selectedDetail.value ? { ...selectedDetail.value } : null
 
     listItems.value = listItems.value.map((item) => {
       if (item.id !== payload.taskId) {
@@ -463,10 +463,6 @@ export const useTasksStore = defineStore('tasks', () => {
       }
     }
 
-    if (USE_LOCAL_BOARD_MOVE) {
-      return
-    }
-
     try {
       await boardMoveTask({
         id: payload.taskId,
@@ -475,6 +471,7 @@ export const useTasksStore = defineStore('tasks', () => {
       })
     } catch (error) {
       listItems.value = snapshot
+      selectedDetail.value = snapshotDetail
       throw error
     }
   }
