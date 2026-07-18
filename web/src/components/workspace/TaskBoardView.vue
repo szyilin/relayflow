@@ -2,14 +2,10 @@
 import { ref } from 'vue'
 import type { TaskItem } from '../../api/app/task'
 import { isOverdueTask } from '../../stores/tasks'
-import {
-  BOARD_COLUMN_LABELS,
-  BOARD_STATUSES,
-  type BoardStatus
-} from '../../stores/tasks/boardLocal'
+import type { TaskGroupBucket } from '../../stores/tasks/groupByLocal'
 
 const props = defineProps<{
-  columns: Record<BoardStatus, TaskItem[]>
+  buckets: TaskGroupBucket[]
   canDrag: boolean
   selectedId?: string | null
   loading?: boolean
@@ -17,11 +13,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   open: [taskId: string]
-  move: [payload: { taskId: string, status: BoardStatus, beforeId: string | null }]
+  move: [payload: { taskId: string, bucketKey: string, beforeId: string | null }]
 }>()
 
 const draggingId = ref<string | null>(null)
-const overColumn = ref<BoardStatus | null>(null)
+const overBucketKey = ref<string | null>(null)
 const overBeforeId = ref<string | null>(null)
 
 function formatDue(iso?: string | null) {
@@ -58,30 +54,30 @@ function onDragStart(event: DragEvent, taskId: string) {
 
 function onDragEnd() {
   draggingId.value = null
-  overColumn.value = null
+  overBucketKey.value = null
   overBeforeId.value = null
 }
 
-function onColumnDragOver(event: DragEvent, status: BoardStatus) {
+function onColumnDragOver(event: DragEvent, bucketKey: string) {
   if (!props.canDrag || !draggingId.value) {
     return
   }
   event.preventDefault()
-  overColumn.value = status
+  overBucketKey.value = bucketKey
   overBeforeId.value = null
 }
 
-function onCardDragOver(event: DragEvent, status: BoardStatus, beforeId: string) {
+function onCardDragOver(event: DragEvent, bucketKey: string, beforeId: string) {
   if (!props.canDrag || !draggingId.value || draggingId.value === beforeId) {
     return
   }
   event.preventDefault()
   event.stopPropagation()
-  overColumn.value = status
+  overBucketKey.value = bucketKey
   overBeforeId.value = beforeId
 }
 
-function onDropColumn(event: DragEvent, status: BoardStatus) {
+function onDropColumn(event: DragEvent, bucketKey: string) {
   event.preventDefault()
   const taskId = event.dataTransfer?.getData('text/plain') || draggingId.value
   if (!taskId || !props.canDrag) {
@@ -90,7 +86,7 @@ function onDropColumn(event: DragEvent, status: BoardStatus) {
   }
   emit('move', {
     taskId,
-    status,
+    bucketKey,
     beforeId: overBeforeId.value
   })
   onDragEnd()
@@ -106,24 +102,24 @@ function onDropColumn(event: DragEvent, status: BoardStatus) {
     class="flex h-full min-h-[420px] gap-3 overflow-x-auto pb-2"
   >
     <section
-      v-for="status in BOARD_STATUSES"
-      :key="status"
+      v-for="bucket in buckets"
+      :key="bucket.key"
       class="flex w-72 shrink-0 flex-col rounded-xl border border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)]/60"
-      :class="overColumn === status && overBeforeId === null ? 'ring-2 ring-primary/30' : ''"
-      @dragover="onColumnDragOver($event, status)"
-      @drop="onDropColumn($event, status)"
+      :class="overBucketKey === bucket.key && overBeforeId === null ? 'ring-2 ring-primary/30' : ''"
+      @dragover="onColumnDragOver($event, bucket.key)"
+      @drop="onDropColumn($event, bucket.key)"
     >
       <header class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-3 py-2">
         <h3 class="text-sm font-medium">
-          {{ BOARD_COLUMN_LABELS[status] }}
+          {{ bucket.label }}
         </h3>
         <span class="text-xs text-[var(--ws-text-muted)]">
-          {{ columns[status].length }}
+          {{ bucket.items.length }}
         </span>
       </header>
       <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
         <div
-          v-for="task in columns[status]"
+          v-for="task in bucket.items"
           :key="task.id"
           class="rounded-lg border px-3 py-2 transition-colors"
           :class="[
@@ -139,7 +135,7 @@ function onDropColumn(event: DragEvent, status: BoardStatus) {
           tabindex="0"
           @dragstart="onDragStart($event, task.id)"
           @dragend="onDragEnd"
-          @dragover="onCardDragOver($event, status, task.id)"
+          @dragover="onCardDragOver($event, bucket.key, task.id)"
           @click="emit('open', task.id)"
           @keydown.enter.prevent="emit('open', task.id)"
         >
@@ -160,7 +156,7 @@ function onDropColumn(event: DragEvent, status: BoardStatus) {
           </p>
         </div>
         <p
-          v-if="!columns[status].length"
+          v-if="!bucket.items.length"
           class="px-2 py-6 text-center text-xs text-[var(--ws-text-muted)]"
         >
           {{ canDrag ? '拖到此处' : '暂无任务' }}

@@ -56,6 +56,7 @@ import {
   type BoardStatus,
   isBoardStatus
 } from './boardLocal'
+import { applyGroupTargetToTask } from './groupByLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 
 export type { TasksNavView } from './helpers'
@@ -500,6 +501,34 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  /**
+   * Temporary client-side field update for group-by drag until group-by-field-api.
+   * Patches all in-memory collections that may hold the task.
+   */
+  function applyLocalFieldGroupMove(payload: {
+    taskId: string
+    fieldKey: 'status' | 'dueTime' | 'assigneeId'
+    targetKey: string
+  }) {
+    const patchList = (list: TaskItem[]) => list.map((item) => {
+      if (item.id !== payload.taskId) {
+        return item
+      }
+      return applyGroupTargetToTask(item, payload.fieldKey, payload.targetKey)
+    })
+    items.value = patchList(items.value)
+    listItems.value = patchList(listItems.value)
+    followingItems.value = patchList(followingItems.value)
+    dueRangeItems.value = patchList(dueRangeItems.value)
+    if (selectedDetail.value?.id === payload.taskId) {
+      selectedDetail.value = applyGroupTargetToTask(
+        selectedDetail.value,
+        payload.fieldKey,
+        payload.targetKey
+      )
+    }
+  }
+
   async function selectList(listId: string) {
     activeListId.value = listId
     listPageNo.value = 1
@@ -828,7 +857,8 @@ export const useTasksStore = defineStore('tasks', () => {
     fetchListTasks,
     fetchListBoard,
     boardColumns,
-    moveBoardTask
+    moveBoardTask,
+    applyLocalFieldGroupMove
   }
 })
 
