@@ -9,7 +9,7 @@
 ## 2. P0 — 快速访问预设视图（子 change：quick-views）
 
 - [x] 2.1 开 `workspace-task-quick-views-web`：左栏全部/我创建的/我分配的/已完成 + 默认筛选种子 Mock；contract
-- [ ] 2.2 开 `workspace-task-quick-views-api`：按 contextType 查询；写死 ALL 可见范围；CREATED/COMPLETED 真条件（ASSIGNED_BY_ME 可先占位至 P4）
+- [x] 2.2 开 `workspace-task-quick-views-api`：按 contextType 查询；写死 ALL 可见范围；CREATED/COMPLETED 真条件（ASSIGNED_BY_ME 可先占位至 P4）
 - [ ] 2.3 开 `workspace-task-quick-views-integrate`：去 Mock；浏览器点开各入口验证默认条件
 
 ## 3. P1 — 视图配置持久化（子 change：view-config）

@@ -17,7 +17,8 @@ public class TaskItemPageReqVO {
     private String status;
 
     /**
-     * ASSIGNEE (default) = 我负责的；CREATOR = 我创建的。
+     * ASSIGNEE (default) = 我负责的；CREATOR = 我创建的；
+     * ALL = 可见并集；ASSIGNED_BY_ME = 我分配的。
      * Ignored when {@code listId} is set (list member page).
      */
     private String scope;
