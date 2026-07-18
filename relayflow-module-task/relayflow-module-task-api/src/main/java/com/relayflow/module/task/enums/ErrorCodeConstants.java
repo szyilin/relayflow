@@ -20,7 +20,9 @@ public enum ErrorCodeConstants implements ErrorCode {
     TASK_LIST_FORBIDDEN(1_004_002_002, "无权操作该清单"),
     TASK_LIST_NAME_EMPTY(1_004_002_003, "清单名称不能为空"),
     TASK_LIST_MEMBER_NOT_TENANT(1_004_002_004, "邀请对象非本租户有效成员"),
-    TASK_LIST_OWNER_REQUIRED(1_004_002_005, "清单须保留至少一名所有者");
+    TASK_LIST_OWNER_REQUIRED(1_004_002_005, "清单须保留至少一名所有者"),
+
+    TASK_VIEW_CONFIG_FORBIDDEN(1_004_003_001, "无权保存该视图配置");
 
     private final Integer code;
     private final String msg;
