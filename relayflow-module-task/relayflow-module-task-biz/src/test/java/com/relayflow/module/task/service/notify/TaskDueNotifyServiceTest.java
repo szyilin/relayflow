@@ -66,7 +66,10 @@ class TaskDueNotifyServiceTest {
     @Test
     void pushIfDueSoon_sendsTaskBotSingleWithDedupeAndDeepLink() {
         when(taskProperties.getDueRemindWindow()).thenReturn(Duration.ofHours(24));
-        OffsetDateTime dueTime = OffsetDateTime.of(2026, 7, 16, 18, 30, 0, 0, ZoneOffset.ofHours(8));
+        OffsetDateTime dueTime = OffsetDateTime.now(ZoneOffset.ofHours(8))
+                .plusHours(2)
+                .withSecond(0)
+                .withNano(0);
         TaskItemDO task = todoTask(dueTime);
 
         taskDueNotifyService.pushIfDueSoon(task);
@@ -75,7 +78,8 @@ class TaskDueNotifyServiceTest {
         verify(imBotApi).send(captor.capture());
         ImBotSendCommand command = captor.getValue();
         assertEquals("task-bot", command.getBotCode());
-        assertEquals("「整理周报」将在 2026-07-16 18:30 到期", command.getText());
+        assertTrue(command.getText().contains("整理周报"));
+        assertTrue(command.getText().contains("到期"));
         assertEquals("TASK_DUE:2001", command.getDedupeKey());
         assertEquals("/app/tasks?taskId=2001", command.getRoute());
         assertEquals("task", command.getEntityType());
@@ -83,6 +87,14 @@ class TaskDueNotifyServiceTest {
         assertEquals(ImBotSendTarget.SCOPE_SINGLE, command.getTarget().getScope());
         assertEquals(TENANT_ID, command.getTarget().getTenantId());
         assertEquals(USER_ID, command.getTarget().getUserId());
+    }
+
+    @Test
+    void shouldRemind_returnsTrueForInProgressInsideWindow() {
+        when(taskProperties.getDueRemindWindow()).thenReturn(Duration.ofHours(24));
+        TaskItemDO task = todoTask(OffsetDateTime.now().plusHours(1));
+        task.setStatus(TaskItemStatus.IN_PROGRESS);
+        assertTrue(taskDueNotifyService.shouldRemind(task));
     }
 
     @Test

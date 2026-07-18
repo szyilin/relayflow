@@ -1,6 +1,6 @@
 # API 契约：workspace-task-board
 
-> **状态**：ui_ready（`-web` 草稿；board-api 未实现时前端可本地暂存拖拽）  
+> **状态**：api ready（`-web` UI + contract；`-api` 已实现；待 integrate 关 `USE_LOCAL_BOARD_MOVE`）  
 > **起草**：`workspace-task-list-board-v1` / `workspace-task-board-web`  
 > **母 change**：[`openspec/changes/workspace-task-list-board-v1`](../../changes/workspace-task-list-board-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  

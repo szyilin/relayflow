@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
+import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -79,6 +80,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .eq(TaskItemDO::getListId, request.getListId())
                         .isNull(TaskItemDO::getParentId)
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
+                        .orderByAsc(TaskItemDO::getBoardRank)
                         .orderByDesc(TaskItemDO::getCreateTime));
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
@@ -119,7 +121,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         return taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .eq(TaskItemDO::getAssigneeId, userId)
-                        .eq(TaskItemDO::getStatus, TaskItemStatus.TODO)
+                        .in(TaskItemDO::getStatus, TaskItemStatus.TODO, TaskItemStatus.IN_PROGRESS)
                         .isNotNull(TaskItemDO::getDueTime)
                         .ge(TaskItemDO::getDueTime, from)
                         .lt(TaskItemDO::getDueTime, to)
@@ -309,6 +311,52 @@ public class TaskItemServiceImpl implements TaskItemService {
         return row.getId();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void boardMove(TaskItemBoardMoveReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        TaskItemDO row = taskAccessService.requireEditable(request.getId(), userId);
+        if (row.getParentId() != null) {
+            throw new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN);
+        }
+        String status = request.getStatus() == null ? "" : request.getStatus().trim().toUpperCase();
+        if (!TaskItemStatus.isValid(status)) {
+            throw new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN);
+        }
+        Integer boardRank = request.getBoardRank();
+        if (boardRank == null) {
+            boardRank = nextBoardRank(row.getListId(), status, row.getId());
+        }
+        String previous = row.getStatus();
+        row.setStatus(status);
+        row.setBoardRank(boardRank);
+        row.setUpdater(userId);
+        row.setUpdateTime(OffsetDateTime.now());
+        taskItemMapper.updateById(row);
+        if (!Objects.equals(previous, status)) {
+            taskActivityRecorder.record(row, userId, TaskActivityType.FIELD_CHANGED,
+                    "将状态改为「" + status + "」");
+        }
+        taskDueNotifyService.pushIfDueSoon(row);
+    }
+
+    private Integer nextBoardRank(Long listId, String status, Long excludeId) {
+        var query = Wrappers.<TaskItemDO>lambdaQuery()
+                .eq(TaskItemDO::getStatus, status)
+                .isNull(TaskItemDO::getParentId)
+                .ne(excludeId != null, TaskItemDO::getId, excludeId)
+                .orderByDesc(TaskItemDO::getBoardRank)
+                .last("LIMIT 1");
+        if (listId != null) {
+            query.eq(TaskItemDO::getListId, listId);
+        } else {
+            query.isNull(TaskItemDO::getListId);
+        }
+        TaskItemDO last = taskItemMapper.selectOne(query);
+        int base = last != null && last.getBoardRank() != null ? last.getBoardRank() : 0;
+        return base + 1000;
+    }
+
     private void fillSubtaskCounts(List<TaskItemRespVO> roots) {
         if (roots == null || roots.isEmpty()) {
             return;
@@ -357,7 +405,7 @@ public class TaskItemServiceImpl implements TaskItemService {
             return null;
         }
         String normalized = status.trim().toUpperCase();
-        if (TaskItemStatus.TODO.equals(normalized) || TaskItemStatus.DONE.equals(normalized)) {
+        if (TaskItemStatus.isValid(normalized)) {
             return normalized;
         }
         return null;

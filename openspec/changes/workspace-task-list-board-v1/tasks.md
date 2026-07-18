@@ -75,11 +75,12 @@
 
 ## 5. workspace-task-board-api（P1 · 后端第二步）
 
-- [ ] 5.1 Flyway：`status` CHECK 含 `IN_PROGRESS`；`board_rank`（可与 list-api 合并迁移若尚未合入）
-- [ ] 5.2 status / board-move REST；due-range 与 due Bot 将 `IN_PROGRESS` 视为未完成
-- [ ] 5.3 toggle-done：done→`DONE`，取消→`TODO`；VIEWER 不可改状态
-- [ ] 5.4 `./mvnw -pl relayflow-server -am compile` + curl
+- [x] 5.1 Flyway：`status` CHECK 含 `IN_PROGRESS`；`board_rank`（可与 list-api 合并迁移若尚未合入）
+- [x] 5.2 status / board-move REST；due-range 与 due Bot 将 `IN_PROGRESS` 视为未完成
+- [x] 5.3 toggle-done：done→`DONE`，取消→`TODO`；VIEWER 不可改状态
+- [x] 5.4 `./mvnw -pl relayflow-server -am compile` + curl
 
+**验证**：compile 通过；`TaskDueNotifyServiceTest` / `TaskItemServiceImplTest` 通过；Flyway `V0.1.0.26` 已 migrate。curl：起 server 后 `PUT /app-api/task/item/board-move`（见 contract）。
 ---
 
 ## 6. workspace-task-board-integrate（P1 · 联调）

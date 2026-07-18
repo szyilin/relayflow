@@ -3,6 +3,7 @@ package com.relayflow.module.task.controller.app;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -167,6 +168,12 @@ public class TaskItemController {
     @PutMapping("/toggle-done")
     public CommonResult<Boolean> toggleDone(@Valid @RequestBody TaskItemToggleDoneReqVO request) {
         taskItemService.toggleDone(request);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/board-move")
+    public CommonResult<Boolean> boardMove(@Valid @RequestBody TaskItemBoardMoveReqVO request) {
+        taskItemService.boardMove(request);
         return CommonResult.success(true);
     }
 

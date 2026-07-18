@@ -25,6 +25,8 @@ public class TaskItemRespVO {
 
     private Long listId;
 
+    private Integer boardRank;
+
     private Long assigneeId;
 
     private Long creatorId;
