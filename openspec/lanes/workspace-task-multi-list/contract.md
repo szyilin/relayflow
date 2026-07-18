@@ -1,7 +1,8 @@
 # API 契约：workspace-task-multi-list
 
-> **状态**：draft（`-web` 起草；`-api` 未实现）  
+> **状态**：api ready（`-api` 已实现；待 integrate）  
 > **起草**：`workspace-task-multi-list-web`  
+> **实现**：`workspace-task-multi-list-api`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-list`](../workspace-task-list/contract.md)
@@ -12,11 +13,12 @@
 
 ## 鉴权
 
-对每个目标清单须有可变更任务权限（OWNER/EDITOR，或既有 `requireCanMutateTasks` 规则）。读详情须能访问任务。
+- 读详情：须能访问任务。
+- `PUT /list-memberships`：须 `requireEditable`；**新增**的每个清单须 `requireCanMutateTasks`（OWNER/EDITOR）。
 
-## 数据模型（`-api`）
+## 数据模型
 
-### `task_list_item`
+### `task_list_item`（Flyway `V0.1.0.31`）
 
 | 列 | 说明 |
 |----|------|
@@ -24,11 +26,11 @@
 | `tenant_id` | 租户 |
 | `list_id` | 清单 |
 | `task_id` | 根任务 |
-| `group_id` | 可选；P7 清单内组 |
-| `rank` | 可选排序 |
+| `group_id` | 可选；P7 |
+| `rank` | 排序 |
 | 唯一 | `(tenant_id, list_id, task_id)` WHERE `deleted=0` |
 
-迁移：非空 `task_item.list_id` → 插入一行；之后停写 `list_id`（可读兼容投影）。
+迁移：非空根任务 `list_id` → 插入一行。兼容投影：`task_item.list_id` = `listIds` 首个（或 null）。
 
 ## TaskItem 响应增量
 
@@ -36,24 +38,23 @@
 |------|------|
 | `listIds` | 所属清单 id 列表 |
 | `listId` | 兼容：首个或 null |
-| `listMemberships` | 可选：`[{ listId, listName, groupId? }]` |
 
-## REST（草案 · `-api`）
+## REST
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `PUT` | `/app-api/task/item/list-memberships` | `{ id, listIds: long[] }` 全量替换 |
 
-`GET …/page?listId=` → 按 `task_list_item` 过滤。
+`GET …/page?listId=` → `EXISTS task_list_item`。创建根任务带 `listId` → 写入成员表。子任务复制父成员集。
 
 ## `-web` 临时行为
 
-`USE_LOCAL_MULTI_LIST`：仅改 Pinia 缓存；刷新丢失；integrate 删除。
+`USE_LOCAL_MULTI_LIST`：仅改 Pinia；**integrate 删除并改走本契约**。
 
 ## 错误码
 
 | code | 说明 |
 |------|------|
 | `TASK_LIST_NOT_FOUND` | 清单不存在 |
-| `TASK_LIST_FORBIDDEN` | 无权加入/移出该清单 |
+| `TASK_LIST_FORBIDDEN` | 无权加入该清单 |
 | `TASK_NOT_FOUND` / `TASK_FORBIDDEN` | 任务无权 |

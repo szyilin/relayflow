@@ -30,17 +30,15 @@
                   AND f.user_id = #{userId}
                   AND f.deleted = 0
             )
-            OR (
-                t.list_id IS NOT NULL
-                AND EXISTS (
-                    SELECT 1
-                    FROM task_list_member m
-                    INNER JOIN task_list l ON l.id = m.list_id AND l.deleted = 0
-                    WHERE m.list_id = t.list_id
-                      AND m.user_id = #{userId}
-                      AND m.deleted = 0
-                      AND l.archived = 0
-                )
+            OR EXISTS (
+                SELECT 1
+                FROM task_list_item i
+                INNER JOIN task_list_member m ON m.list_id = i.list_id AND m.deleted = 0
+                INNER JOIN task_list l ON l.id = i.list_id AND l.deleted = 0
+                WHERE i.task_id = t.id
+                  AND i.deleted = 0
+                  AND m.user_id = #{userId}
+                  AND l.archived = 0
             )
           )
         ORDER BY t.create_time DESC

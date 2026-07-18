@@ -7,6 +7,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemListMembershipsReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -119,6 +120,13 @@ public class TaskItemController {
     @PutMapping("/assignees")
     public CommonResult<Boolean> replaceAssignees(@Valid @RequestBody TaskItemAssigneesReplaceReqVO request) {
         taskItemService.replaceAssignees(request);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/list-memberships")
+    public CommonResult<Boolean> replaceListMemberships(
+            @Valid @RequestBody TaskItemListMembershipsReplaceReqVO request) {
+        taskItemService.replaceListMemberships(request);
         return CommonResult.success(true);
     }
 
