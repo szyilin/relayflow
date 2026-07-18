@@ -1,8 +1,9 @@
 # API 契约：workspace-task-group-by-field
 
-> **状态**：api ready（`-api` 已实现；`-integrate` 待接前端）  
+> **状态**：done（integrate 完成；拖拽走 `PUT /group-move`，无本地暂存）  
 > **起草**：`workspace-task-group-by-field-web`  
 > **实现**：`workspace-task-group-by-field-api`  
+> **联调**：`workspace-task-group-by-field-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-view-config`](../workspace-task-view-config/contract.md)、[`workspace-task-board`](../workspace-task-board/contract.md)
@@ -78,4 +79,4 @@ curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/j
 
 ## `-web` 临时行为（integrate 删除）
 
-`USE_LOCAL_GROUP_MOVE`：仅改 Pinia 内存；integrate 后改走本 API。
+~~`USE_LOCAL_GROUP_MOVE`~~：已删除；拖拽走 `PUT /group-move`。

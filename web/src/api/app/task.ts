@@ -103,13 +103,23 @@ export async function toggleTaskDone(id: string, done: boolean): Promise<boolean
   return put<boolean>('/app-api/task/item/toggle-done', { id, done })
 }
 
-/** Board drag: set status + optional boardRank (list root tasks only). */
+/** Board drag: set status + optional boardRank (list root tasks only; prefer groupMoveTask). */
 export async function boardMoveTask(payload: {
   id: string
   status: TaskItemStatus
   boardRank?: number | null
 }): Promise<boolean> {
   return put<boolean>('/app-api/task/item/board-move', payload)
+}
+
+/** Field group-by drag: persist status / dueTime / assigneeId bucket. */
+export async function groupMoveTask(payload: {
+  id: string
+  fieldKey: 'status' | 'dueTime' | 'assigneeId'
+  value: string | null
+  beforeId?: string | null
+}): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/group-move', payload)
 }
 
 export async function updateTask(payload: TaskDetailUpdatePayload): Promise<boolean> {

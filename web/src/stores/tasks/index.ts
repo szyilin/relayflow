@@ -17,6 +17,7 @@ import {
   getTaskFollowers,
   getTaskPage,
   getTaskSubtasks,
+  groupMoveTask,
   toggleTaskDone,
   unfollowTask,
   updateTask,
@@ -56,7 +57,7 @@ import {
   type BoardStatus,
   isBoardStatus
 } from './boardLocal'
-import { applyGroupTargetToTask } from './groupByLocal'
+import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 
 export type { TasksNavView } from './helpers'
@@ -502,14 +503,20 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   /**
-   * Temporary client-side field update for group-by drag until group-by-field-api.
-   * Patches all in-memory collections that may hold the task.
+   * Persist field group-by drag via PUT /group-move (optimistic + rollback).
    */
-  function applyLocalFieldGroupMove(payload: {
+  async function moveGroupedField(payload: {
     taskId: string
     fieldKey: 'status' | 'dueTime' | 'assigneeId'
     targetKey: string
+    beforeId?: string | null
   }) {
+    const snapshotItems = items.value.map(item => ({ ...item }))
+    const snapshotListItems = listItems.value.map(item => ({ ...item }))
+    const snapshotFollowing = followingItems.value.map(item => ({ ...item }))
+    const snapshotDueRange = dueRangeItems.value.map(item => ({ ...item }))
+    const snapshotDetail = selectedDetail.value ? { ...selectedDetail.value } : null
+
     const patchList = (list: TaskItem[]) => list.map((item) => {
       if (item.id !== payload.taskId) {
         return item
@@ -526,6 +533,23 @@ export const useTasksStore = defineStore('tasks', () => {
         payload.fieldKey,
         payload.targetKey
       )
+    }
+
+    const value = payload.targetKey === EMPTY_GROUP_KEY ? null : payload.targetKey
+    try {
+      await groupMoveTask({
+        id: payload.taskId,
+        fieldKey: payload.fieldKey,
+        value,
+        beforeId: payload.beforeId ?? null
+      })
+    } catch (error) {
+      items.value = snapshotItems
+      listItems.value = snapshotListItems
+      followingItems.value = snapshotFollowing
+      dueRangeItems.value = snapshotDueRange
+      selectedDetail.value = snapshotDetail
+      throw error
     }
   }
 
@@ -858,7 +882,7 @@ export const useTasksStore = defineStore('tasks', () => {
     fetchListBoard,
     boardColumns,
     moveBoardTask,
-    applyLocalFieldGroupMove
+    moveGroupedField
   }
 })
 
