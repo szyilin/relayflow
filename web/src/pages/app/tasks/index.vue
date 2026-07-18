@@ -48,7 +48,8 @@ const inviteForm = reactive({
 const inviteHits = ref<MemberSearchItem[]>([])
 const inviteSearching = ref(false)
 
-const listNavViews: TasksNavView[] = ['mine', 'done', 'created']
+/** Views that load into tasksStore.items via fetchMyTasks */
+const itemPageViews: TasksNavView[] = ['mine', 'all', 'created', 'assigned_by_me', 'done']
 
 const inListContext = computed(() => !!tasksStore.activeListId)
 
@@ -56,19 +57,22 @@ const viewTitle = computed(() => {
   if (inListContext.value) {
     return tasksStore.activeList?.name ?? '清单'
   }
-  if (tasksStore.navView === 'following') {
-    return '我关注的'
+  switch (tasksStore.navView) {
+    case 'following':
+      return '我关注的'
+    case 'activity':
+      return '动态'
+    case 'all':
+      return '全部任务'
+    case 'done':
+      return '已完成'
+    case 'created':
+      return '我创建的'
+    case 'assigned_by_me':
+      return '我分配的'
+    default:
+      return '我负责的'
   }
-  if (tasksStore.navView === 'activity') {
-    return '动态'
-  }
-  if (tasksStore.navView === 'done') {
-    return '已完成'
-  }
-  if (tasksStore.navView === 'created') {
-    return '我创建的'
-  }
-  return '我负责的'
 })
 
 const displayItems = computed(() => {
@@ -86,18 +90,31 @@ const showCreateButton = computed(() => {
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
   }
-  return tasksStore.navView === 'mine' || tasksStore.navView === 'created'
+  return tasksStore.navView === 'mine'
+    || tasksStore.navView === 'created'
+    || tasksStore.navView === 'all'
 })
 const showTaskActions = computed(() => {
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
   }
-  return tasksStore.navView === 'mine' || tasksStore.navView === 'done' || tasksStore.navView === 'created'
+  return tasksStore.navView === 'mine'
+    || tasksStore.navView === 'done'
+    || tasksStore.navView === 'created'
+    || tasksStore.navView === 'all'
+    || tasksStore.navView === 'assigned_by_me'
 })
 
 function parseView(raw: unknown): TasksNavView {
   const v = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : null
-  if (v === 'following' || v === 'activity' || v === 'done' || v === 'created') {
+  if (
+    v === 'following'
+    || v === 'activity'
+    || v === 'done'
+    || v === 'created'
+    || v === 'all'
+    || v === 'assigned_by_me'
+  ) {
     return v
   }
   return 'mine'
@@ -218,7 +235,7 @@ async function openTask(id: string) {
 }
 
 async function openTaskFromActivity(taskId: string) {
-  if (!listNavViews.includes(tasksStore.navView) && tasksStore.navView !== 'following') {
+  if (!itemPageViews.includes(tasksStore.navView) && tasksStore.navView !== 'following') {
     await switchView('mine')
   }
   await openTask(taskId)
@@ -239,7 +256,7 @@ onMounted(async () => {
     await applyListIdFromRoute()
   } else {
     await applyViewFromRoute()
-    if (listNavViews.includes(tasksStore.navView) && tasksStore.items.length === 0 && !tasksStore.loading) {
+    if (itemPageViews.includes(tasksStore.navView) && tasksStore.items.length === 0 && !tasksStore.loading) {
       await tasksStore.fetchMyTasks({ pageNo: 1 })
     } else if (tasksStore.navView === 'following' && tasksStore.followingItems.length === 0 && !tasksStore.loading) {
       await tasksStore.fetchFollowingTasks({ pageNo: 1 })
@@ -247,7 +264,7 @@ onMounted(async () => {
       await tasksStore.fetchActivityFeed()
     }
   }
-  if (!listNavViews.includes(tasksStore.navView) && !inListContext.value) {
+  if (!itemPageViews.includes(tasksStore.navView) && !inListContext.value) {
     void tasksStore.refreshOverdueBadge()
   }
   await applyTaskIdFromRoute()
@@ -501,6 +518,12 @@ function emptyTitle(): string {
   if (tasksStore.navView === 'created') {
     return '暂无我创建的任务'
   }
+  if (tasksStore.navView === 'all') {
+    return '暂无可见任务'
+  }
+  if (tasksStore.navView === 'assigned_by_me') {
+    return '暂无我分配的任务'
+  }
   return '暂无任务'
 }
 
@@ -516,6 +539,12 @@ function emptyDescription(): string {
   }
   if (tasksStore.navView === 'created') {
     return '你创建的任务会出现在这里'
+  }
+  if (tasksStore.navView === 'all') {
+    return '你负责、创建、关注或清单内的任务会出现在这里'
+  }
+  if (tasksStore.navView === 'assigned_by_me') {
+    return '将任务分配给他人后会出现在这里（分配人 API 就绪前可能为演示数据）'
   }
   return '点击右上角「新建」添加第一条任务'
 }
@@ -553,22 +582,6 @@ meta:
         </button>
         <button
           type="button"
-          :class="navItemClass('done')"
-          :data-active="!inListContext && tasksStore.navView === 'done' ? 'true' : undefined"
-          @click="switchView('done')"
-        >
-          已完成
-        </button>
-        <button
-          type="button"
-          :class="navItemClass('created')"
-          :data-active="!inListContext && tasksStore.navView === 'created' ? 'true' : undefined"
-          @click="switchView('created')"
-        >
-          我创建的
-        </button>
-        <button
-          type="button"
           :class="navItemClass('following')"
           :data-active="!inListContext && tasksStore.navView === 'following' ? 'true' : undefined"
           @click="switchView('following')"
@@ -585,8 +598,46 @@ meta:
         </button>
 
         <div class="mt-3 border-t border-[var(--ws-border-subtle)] pt-3">
+          <div class="mb-1 px-3 text-xs font-medium text-[var(--ws-text-muted)]">
+            快速访问
+          </div>
+          <button
+            type="button"
+            :class="navItemClass('all')"
+            :data-active="!inListContext && tasksStore.navView === 'all' ? 'true' : undefined"
+            @click="switchView('all')"
+          >
+            全部任务
+          </button>
+          <button
+            type="button"
+            :class="navItemClass('created')"
+            :data-active="!inListContext && tasksStore.navView === 'created' ? 'true' : undefined"
+            @click="switchView('created')"
+          >
+            我创建的
+          </button>
+          <button
+            type="button"
+            :class="navItemClass('assigned_by_me')"
+            :data-active="!inListContext && tasksStore.navView === 'assigned_by_me' ? 'true' : undefined"
+            @click="switchView('assigned_by_me')"
+          >
+            我分配的
+          </button>
+          <button
+            type="button"
+            :class="navItemClass('done')"
+            :data-active="!inListContext && tasksStore.navView === 'done' ? 'true' : undefined"
+            @click="switchView('done')"
+          >
+            已完成
+          </button>
+        </div>
+
+        <div class="mt-3 border-t border-[var(--ws-border-subtle)] pt-3">
           <div class="mb-1 flex items-center justify-between px-3">
-            <span class="text-xs font-medium text-[var(--ws-text-muted)]">清单</span>
+            <span class="text-xs font-medium text-[var(--ws-text-muted)]">任务清单</span>
             <UButton
               color="neutral"
               variant="ghost"
@@ -704,7 +755,7 @@ meta:
           />
         </div>
 
-        <div v-else-if="tab === 'list' || (!inListContext && tasksStore.navView === 'following') || (!inListContext && listNavViews.includes(tasksStore.navView))">
+        <div v-else-if="tab === 'list' || (!inListContext && tasksStore.navView === 'following') || (!inListContext && itemPageViews.includes(tasksStore.navView))">
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>

@@ -56,6 +56,12 @@ import {
   type BoardStatus,
   isBoardStatus
 } from './boardLocal'
+import {
+  USE_LOCAL_QUICK_VIEWS,
+  buildAssignedByMeMock,
+  filterOpenTasks,
+  mergeTasksById
+} from './quickViewsLocal'
 
 export type { TasksNavView } from './helpers'
 
@@ -191,6 +197,41 @@ export const useTasksStore = defineStore('tasks', () => {
         })
         items.value = data.list
         total.value = data.total
+      } else if (view === 'all') {
+        if (USE_LOCAL_QUICK_VIEWS) {
+          const [assigneeOpen, creator, following] = await Promise.all([
+            getTaskPage({ pageNo: 1, pageSize: pageSize.value, scope: 'ASSIGNEE' }),
+            getTaskPage({ pageNo: 1, pageSize: pageSize.value, scope: 'CREATOR' }),
+            getFollowingTaskPage({ pageNo: 1, pageSize: pageSize.value })
+          ])
+          const merged = filterOpenTasks(
+            mergeTasksById(assigneeOpen.list, creator.list, following.list)
+          )
+          items.value = merged
+          total.value = merged.length
+        } else {
+          const data = await getTaskPage({
+            pageNo: pageNo.value,
+            pageSize: pageSize.value,
+            scope: 'ALL'
+          })
+          items.value = data.list
+          total.value = data.total
+        }
+      } else if (view === 'assigned_by_me') {
+        if (USE_LOCAL_QUICK_VIEWS) {
+          const mock = buildAssignedByMeMock(currentUserId())
+          items.value = mock
+          total.value = mock.length
+        } else {
+          const data = await getTaskPage({
+            pageNo: pageNo.value,
+            pageSize: pageSize.value,
+            scope: 'ASSIGNED_BY_ME'
+          })
+          items.value = data.list
+          total.value = data.total
+        }
       } else {
         const data = await getTaskPage({
           pageNo: pageNo.value,
@@ -242,7 +283,7 @@ export const useTasksStore = defineStore('tasks', () => {
     navView.value = view
     pageNo.value = 1
     followingPageNo.value = 1
-    if (view === 'mine' || view === 'done' || view === 'created') {
+    if (view === 'mine' || view === 'done' || view === 'created' || view === 'all' || view === 'assigned_by_me') {
       await fetchMyTasks({ pageNo: 1 })
     } else if (view === 'following') {
       await fetchFollowingTasks({ pageNo: 1 })
@@ -260,7 +301,13 @@ export const useTasksStore = defineStore('tasks', () => {
       await fetchFollowingTasks({ pageNo: nextPage })
       return
     }
-    if (navView.value === 'mine' || navView.value === 'done' || navView.value === 'created') {
+    if (
+      navView.value === 'mine'
+      || navView.value === 'done'
+      || navView.value === 'created'
+      || navView.value === 'all'
+      || navView.value === 'assigned_by_me'
+    ) {
       await fetchMyTasks({ pageNo: nextPage })
     }
   }

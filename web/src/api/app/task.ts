@@ -14,6 +14,8 @@ export interface TaskItem {
   listId?: string | null
   assigneeId?: string | null
   creatorId?: string | null
+  /** 分配人；quick-views / assigner 切片目标字段 */
+  assignerId?: string | null
   createTime: string
   boardRank?: number | null
   subtaskDoneCount?: number
@@ -41,6 +43,7 @@ function normalizeTaskItem(
     listId?: string | number | null
     assigneeId?: string | number | null
     creatorId?: string | number | null
+    assignerId?: string | number | null
   }
 ): TaskItem {
   return {
@@ -55,6 +58,7 @@ function normalizeTaskItem(
     listId: item.listId != null && item.listId !== '' ? String(item.listId) : null,
     assigneeId: item.assigneeId != null ? String(item.assigneeId) : null,
     creatorId: item.creatorId != null ? String(item.creatorId) : null,
+    assignerId: item.assignerId != null ? String(item.assignerId) : null,
     createTime: item.createTime,
     boardRank: item.boardRank ?? null,
     subtaskDoneCount: item.subtaskDoneCount ?? 0,
@@ -62,7 +66,8 @@ function normalizeTaskItem(
   }
 }
 
-export type TaskPageScope = 'ASSIGNEE' | 'CREATOR'
+/** ALL / ASSIGNED_BY_ME：契约草案；-api 就绪前 store 走临时逻辑 */
+export type TaskPageScope = 'ASSIGNEE' | 'CREATOR' | 'ALL' | 'ASSIGNED_BY_ME'
 
 export async function getTaskPage(params?: {
   pageNo?: number

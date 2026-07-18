@@ -1,6 +1,13 @@
 import type { TaskItem } from '../../api/app/task'
 
-export type TasksNavView = 'mine' | 'done' | 'created' | 'following' | 'activity'
+export type TasksNavView =
+  | 'mine'
+  | 'all'
+  | 'created'
+  | 'assigned_by_me'
+  | 'done'
+  | 'following'
+  | 'activity'
 
 const LEGACY_DETAIL_LOCAL_KEY = 'relayflow-task-detail-local-v1'
 const LEGACY_COLLAB_LOCAL_KEY = 'relayflow-task-collab-local-v1'
