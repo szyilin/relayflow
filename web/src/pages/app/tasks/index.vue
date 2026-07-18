@@ -12,6 +12,7 @@ import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores
 import {
   partitionByGroupBy
 } from '../../../stores/tasks/groupByLocal'
+import { resolveAssigneeIds } from '../../../stores/tasks/assigneeLocal'
 import {
   navViewToContextType
 } from '../../../stores/tasks/viewConfigLocal'
@@ -403,6 +404,14 @@ function subtaskHint(task: { subtaskDoneCount?: number, subtaskTotal?: number })
     return null
   }
   return `${task.subtaskDoneCount ?? 0}/${total}`
+}
+
+function assigneeFieldLabel(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
+  const ids = resolveAssigneeIds(task)
+  if (!ids.length) {
+    return ''
+  }
+  return ids.length > 1 ? `${ids.length} 人` : ids[0]!
 }
 
 function overdueBadgeLabel(count: number, capped: boolean): string {
@@ -910,8 +919,8 @@ meta:
                     <span v-if="viewConfigStore.isFieldVisible('status')">
                       {{ task.status === 'TODO' ? '未开始' : task.status === 'IN_PROGRESS' ? '进行中' : '已完成' }}
                     </span>
-                    <span v-if="viewConfigStore.isFieldVisible('assignee') && task.assigneeId">
-                      负责人 {{ task.assigneeId }}
+                    <span v-if="viewConfigStore.isFieldVisible('assignee') && assigneeFieldLabel(task)">
+                      负责人 {{ assigneeFieldLabel(task) }}
                     </span>
                     <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
                   </p>

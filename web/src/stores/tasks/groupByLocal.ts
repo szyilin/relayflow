@@ -131,9 +131,11 @@ export function applyGroupTargetToTask(
     return { ...task, status: targetKey }
   }
   if (fieldKey === 'assigneeId') {
+    const nextId = targetKey === EMPTY_GROUP_KEY ? null : targetKey
     return {
       ...task,
-      assigneeId: targetKey === EMPTY_GROUP_KEY ? null : targetKey
+      assigneeId: nextId,
+      assigneeIds: nextId ? [nextId] : []
     }
   }
   // dueTime

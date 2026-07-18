@@ -12,7 +12,10 @@ export interface TaskItem {
   description?: string | null
   parentId?: string | null
   listId?: string | null
+  /** Primary assignee projection (first of assigneeIds); compat with group-by / legacy. */
   assigneeId?: string | null
+  /** Multi-assignee set; empty = 无负责人. */
+  assigneeIds?: string[]
   creatorId?: string | null
   /** 分配人；quick-views / assigner 切片目标字段 */
   assignerId?: string | null
@@ -42,10 +45,20 @@ function normalizeTaskItem(
     parentId?: string | number | null
     listId?: string | number | null
     assigneeId?: string | number | null
+    assigneeIds?: Array<string | number> | null
     creatorId?: string | number | null
     assignerId?: string | number | null
   }
 ): TaskItem {
+  const fromList = (item.assigneeIds ?? [])
+    .map(id => (id != null && id !== '' ? String(id) : ''))
+    .filter(Boolean)
+  const primary = item.assigneeId != null && item.assigneeId !== '' ? String(item.assigneeId) : null
+  const assigneeIds = fromList.length > 0
+    ? Array.from(new Set(fromList))
+    : primary
+      ? [primary]
+      : []
   return {
     id: String(item.id),
     title: item.title,
@@ -56,7 +69,8 @@ function normalizeTaskItem(
     description: item.description ?? null,
     parentId: item.parentId != null && item.parentId !== '' ? String(item.parentId) : null,
     listId: item.listId != null && item.listId !== '' ? String(item.listId) : null,
-    assigneeId: item.assigneeId != null ? String(item.assigneeId) : null,
+    assigneeId: assigneeIds[0] ?? null,
+    assigneeIds,
     creatorId: item.creatorId != null ? String(item.creatorId) : null,
     assignerId: item.assignerId != null ? String(item.assignerId) : null,
     createTime: item.createTime,
