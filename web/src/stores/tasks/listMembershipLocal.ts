@@ -1,8 +1,5 @@
 import type { TaskItem } from '../../api/app/task'
 
-/** Temporary until multi-list-api / integrate. */
-export const USE_LOCAL_MULTI_LIST = true
-
 export function resolveListIds(task: Pick<TaskItem, 'listId' | 'listIds'>): string[] {
   if (task.listIds && task.listIds.length > 0) {
     return [...task.listIds]

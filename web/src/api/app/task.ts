@@ -297,7 +297,7 @@ export async function replaceTaskAssignees(payload: {
   })
 }
 
-/** Full replace of list memberships (multi-list). Used after -api; -web may mock. */
+/** Full replace of list memberships (multi-list). */
 export async function replaceTaskListMemberships(payload: {
   id: string
   listIds: string[]
