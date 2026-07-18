@@ -26,6 +26,7 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
+import com.relayflow.module.task.service.minegroup.TaskMineGroupService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskListAccessService taskListAccessService;
     private final TaskActivityRecorder taskActivityRecorder;
     private final TaskAssigneeService taskAssigneeService;
+    private final TaskMineGroupService taskMineGroupService;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
@@ -246,6 +248,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
         taskAssigneeService.replaceAssignees(row, userId, tenantId, List.of(userId), false, false);
+        taskMineGroupService.ensureMembershipInDefault(row.getId(), userId, tenantId);
         taskDueNotifyService.pushIfDueSoon(row);
         taskActivityRecorder.record(row, userId, TaskActivityType.CREATED, "创建了任务");
         return row.getId();
