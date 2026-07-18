@@ -56,6 +56,7 @@ import {
   type BoardStatus,
   isBoardStatus
 } from './boardLocal'
+import { useTaskViewConfigStore } from './viewConfigStore'
 
 export type { TasksNavView } from './helpers'
 
@@ -145,6 +146,7 @@ export const useTasksStore = defineStore('tasks', () => {
     listItems.value = []
     listTotal.value = 0
     listPageNo.value = 1
+    useTaskViewConfigStore().resetForTenantSwitch()
   }
 
   /**
