@@ -1,8 +1,9 @@
 # API 契约：workspace-task-quick-views
 
-> **状态**：api ready（`-web` ui_ready；`-api` 已实现 `ALL` / `ASSIGNED_BY_ME` + `assigner_id`；待 `-integrate` 关 store 临时）  
+> **状态**：done（integrate：store 无本地临时；`ALL` / `ASSIGNED_BY_ME` 走真 API）  
 > **起草**：`workspace-task-quick-views-web`  
 > **实现**：`workspace-task-quick-views-api`  
+> **联调**：`workspace-task-quick-views-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **既有**：[`workspace-tasks`](../workspace-tasks/contract.md)、[`workspace-task-collab`](../workspace-task-collab/contract.md)
@@ -91,12 +92,13 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ## `-web` 临时行为
 
-| 入口 | 临时策略（integrate 删除） |
-|------|---------------------------|
-| `ALL` | Store 合并 ASSIGNEE（无 status）+ CREATOR + FOLLOWING，按 id 去重 |
-| `ASSIGNED_BY_ME` | Store 内 mock 列表（含 `assignerId`）；真实 API 前可为空或演示条 |
+~~已删除。~~ Integrate 后 store **不得**保留 `USE_LOCAL_QUICK_VIEWS` / 客户端合并 Mock。
 
-开关：`USE_LOCAL_QUICK_VIEWS`（store）。
+| 入口 | 真 API |
+|------|--------|
+| `ALL` | `scope=ALL` |
+| `ASSIGNED_BY_ME` | `scope=ASSIGNED_BY_ME` |
+| `COMPLETED`（已完成） | `scope=ALL&status=DONE` |
 
 ## 错误码
 
