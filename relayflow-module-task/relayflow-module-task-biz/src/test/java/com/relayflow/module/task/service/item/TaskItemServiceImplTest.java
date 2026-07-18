@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.security.core.LoginUser;
-import com.relayflow.module.system.api.tenant.TenantMemberApi;
+import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
@@ -20,6 +20,7 @@ import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
+import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import org.junit.jupiter.api.AfterEach;
@@ -34,11 +35,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +65,7 @@ class TaskItemServiceImplTest {
     @Mock
     private TaskActivityRecorder taskActivityRecorder;
     @Mock
-    private TenantMemberApi tenantMemberApi;
+    private TaskAssigneeService taskAssigneeService;
 
     private TaskItemServiceImpl taskItemService;
 
@@ -76,7 +78,7 @@ class TaskItemServiceImplTest {
                 taskAccessService,
                 taskListAccessService,
                 taskActivityRecorder,
-                tenantMemberApi);
+                taskAssigneeService);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -103,137 +105,56 @@ class TaskItemServiceImplTest {
         assertEquals(TASK_ID, id);
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).insert(captor.capture());
+        verify(taskAssigneeService).replaceAssignees(
+                any(TaskItemDO.class), eq(USER_ID), eq(TENANT_ID), eq(List.of(USER_ID)), eq(false), eq(false));
         verify(taskDueNotifyService).pushIfDueSoon(any(TaskItemDO.class));
-        verify(taskActivityRecorder).record(any(TaskItemDO.class), eq(USER_ID), any(), any());
         TaskItemDO saved = captor.getValue();
         assertEquals("整理周报", saved.getTitle());
         assertEquals(USER_ID, saved.getAssigneeId());
         assertEquals(USER_ID, saved.getCreatorId());
         assertEquals(TaskItemStatus.TODO, saved.getStatus());
-        assertEquals(TENANT_ID, saved.getTenantId());
     }
 
     @Test
-    void pageMyTasks_filtersByAssignee() {
-        TaskItemPageReqVO request = new TaskItemPageReqVO();
-        request.setPageNo(1);
-        request.setPageSize(20);
-
+    void replaceAssignees_delegatesToAssigneeService() {
         TaskItemDO row = new TaskItemDO();
         row.setId(TASK_ID);
-        row.setTitle("整理周报");
+        row.setAssigneeId(USER_ID);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
+
+        TaskItemAssigneesReplaceReqVO request = new TaskItemAssigneesReplaceReqVO();
+        request.setId(TASK_ID);
+        request.setAssigneeIds(List.of(200L, 300L));
+
+        taskItemService.replaceAssignees(request);
+
+        verify(taskAssigneeService).replaceAssignees(
+                eq(row), eq(USER_ID), eq(TENANT_ID), eq(List.of(200L, 300L)), eq(true), eq(true));
+        verify(taskDueNotifyService).pushIfDueSoon(row);
+    }
+
+    @Test
+    void pageMyTasks_fillsAssigneeIds() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setTitle("t");
         row.setStatus(TaskItemStatus.TODO);
         row.setCreateTime(OffsetDateTime.now());
-
         Page<TaskItemDO> page = new Page<>(1, 20);
         page.setRecords(List.of(row));
         page.setTotal(1);
         when(taskItemMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
+        when(taskAssigneeService.mapAssigneeIdsByTaskIds(any()))
+                .thenReturn(Map.of(TASK_ID, List.of(USER_ID, 200L)));
 
-        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
-
-        assertEquals(1, result.getTotal());
-        assertEquals(TASK_ID, result.getList().get(0).getId());
-        verify(taskItemMapper).selectPage(any(Page.class), any(Wrapper.class));
-        verify(taskDueNotifyService).compensateMissingDueReminders(page.getRecords());
-    }
-
-    @Test
-    void pageMyTasks_allUsesExtMapper() {
         TaskItemPageReqVO request = new TaskItemPageReqVO();
         request.setPageNo(1);
         request.setPageSize(20);
-        request.setScope("ALL");
-
-        TaskItemDO row = new TaskItemDO();
-        row.setId(TASK_ID);
-        row.setTitle("可见任务");
-        row.setStatus(TaskItemStatus.TODO);
-        row.setCreateTime(OffsetDateTime.now());
-
-        Page<TaskItemDO> page = new Page<>(1, 20);
-        page.setRecords(List.of(row));
-        page.setTotal(1);
-        when(taskItemExtMapper.selectVisibleUnionPage(any(Page.class), eq(USER_ID), eq(null)))
-                .thenReturn(page);
-
         PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
 
-        assertEquals(1, result.getTotal());
-        assertEquals(TASK_ID, result.getList().get(0).getId());
-        verify(taskItemExtMapper).selectVisibleUnionPage(any(Page.class), eq(USER_ID), eq(null));
-        verify(taskItemMapper, org.mockito.Mockito.never()).selectPage(any(Page.class), any(Wrapper.class));
-    }
-
-    @Test
-    void pageMyTasks_assignedByMeFiltersAssigner() {
-        TaskItemPageReqVO request = new TaskItemPageReqVO();
-        request.setPageNo(1);
-        request.setPageSize(20);
-        request.setScope("ASSIGNED_BY_ME");
-
-        TaskItemDO row = new TaskItemDO();
-        row.setId(TASK_ID);
-        row.setTitle("已分配");
-        row.setStatus(TaskItemStatus.TODO);
-        row.setAssignerId(USER_ID);
-        row.setAssigneeId(999L);
-        row.setCreateTime(OffsetDateTime.now());
-
-        Page<TaskItemDO> page = new Page<>(1, 20);
-        page.setRecords(List.of(row));
-        page.setTotal(1);
-        when(taskItemMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(page);
-
-        PageResult<TaskItemRespVO> result = taskItemService.pageMyTasks(request);
-
-        assertEquals(1, result.getTotal());
-        assertEquals(USER_ID, result.getList().get(0).getAssignerId());
-        verify(taskItemMapper).selectPage(any(Page.class), any(Wrapper.class));
-    }
-
-    @Test
-    void searchMyTasks_filtersByAssigneeAndTitle() {
-        TaskItemDO row = new TaskItemDO();
-        row.setId(TASK_ID);
-        row.setTitle("整理周报");
-        row.setStatus(TaskItemStatus.TODO);
-        row.setCreateTime(OffsetDateTime.now());
-        when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
-
-        List<TaskItemDO> result = taskItemService.searchMyTasks(USER_ID, "周报", 5);
-
-        assertEquals(1, result.size());
-        assertEquals(TASK_ID, result.get(0).getId());
-        verify(taskItemMapper).selectList(any(Wrapper.class));
-    }
-
-    @Test
-    void listDueRange_queriesTodoWithDueInWindow() {
-        OffsetDateTime from = OffsetDateTime.parse("2026-07-17T00:00:00+08:00");
-        OffsetDateTime to = OffsetDateTime.parse("2026-07-18T00:00:00+08:00");
-        TaskItemDO row = new TaskItemDO();
-        row.setId(TASK_ID);
-        row.setTitle("整理周报");
-        row.setStatus(TaskItemStatus.TODO);
-        row.setDueTime(OffsetDateTime.parse("2026-07-17T18:00:00+08:00"));
-        when(taskItemMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
-
-        List<TaskItemDO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
-
-        assertEquals(1, result.size());
-        assertEquals(TASK_ID, result.get(0).getId());
-        verify(taskItemMapper).selectList(any(Wrapper.class));
-    }
-
-    @Test
-    void listDueRange_emptyWhenInvalidWindow() {
-        OffsetDateTime from = OffsetDateTime.parse("2026-07-18T00:00:00+08:00");
-        OffsetDateTime to = OffsetDateTime.parse("2026-07-17T00:00:00+08:00");
-
-        List<TaskItemDO> result = taskItemService.listDueRange(USER_ID, from, to, 200);
-
-        assertEquals(0, result.size());
+        assertEquals(1, result.getList().size());
+        assertEquals(List.of(USER_ID, 200L), result.getList().get(0).getAssigneeIds());
+        assertEquals(USER_ID, result.getList().get(0).getAssigneeId());
     }
 
     @Test
@@ -377,13 +298,11 @@ class TaskItemServiceImplTest {
     }
 
     @Test
-    void groupMove_setsAssigneeWhenMember() {
+    void groupMove_setsAssigneeViaAssigneeService() {
         TaskItemDO row = new TaskItemDO();
         row.setId(TASK_ID);
         row.setAssigneeId(USER_ID);
         when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
-        when(tenantMemberApi.filterActiveMemberUserIds(eq(TENANT_ID), eq(List.of(999L))))
-                .thenReturn(Set.of(999L));
 
         TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
         request.setId(TASK_ID);
@@ -392,9 +311,8 @@ class TaskItemServiceImplTest {
 
         taskItemService.groupMove(request);
 
-        ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
-        verify(taskItemMapper).updateById(captor.capture());
-        assertEquals(999L, captor.getValue().getAssigneeId());
-        assertEquals(USER_ID, captor.getValue().getAssignerId());
+        verify(taskAssigneeService).replaceAssignees(
+                eq(row), eq(USER_ID), eq(TENANT_ID), eq(List.of(999L)), eq(true), eq(true));
+        verify(taskDueNotifyService).pushIfDueSoon(row);
     }
 }

@@ -9,14 +9,15 @@ import com.relayflow.module.task.dal.mapper.TaskFollowerMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskListRole;
+import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
 /**
- * Task visibility: assignee / creator / follower / list member may read;
- * assignee / creator / list OWNER|EDITOR may edit core fields.
+ * Task visibility: assignee (set) / creator / follower / list member may read;
+ * assignee (set) / creator / list OWNER|EDITOR may edit core fields.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +26,7 @@ public class TaskAccessService {
     private final TaskItemMapper taskItemMapper;
     private final TaskFollowerMapper taskFollowerMapper;
     private final TaskListAccessService taskListAccessService;
+    private final TaskAssigneeService taskAssigneeService;
 
     public TaskItemDO requireTask(Long id) {
         TaskItemDO row = taskItemMapper.selectById(id);
@@ -57,8 +59,8 @@ public class TaskAccessService {
     }
 
     public boolean canEdit(TaskItemDO row, Long userId) {
-        if (Objects.equals(row.getAssigneeId(), userId)
-                || Objects.equals(row.getCreatorId(), userId)) {
+        if (Objects.equals(row.getCreatorId(), userId)
+                || taskAssigneeService.isAssignee(row.getId(), userId)) {
             return true;
         }
         return canMutateViaList(row.getListId(), userId);

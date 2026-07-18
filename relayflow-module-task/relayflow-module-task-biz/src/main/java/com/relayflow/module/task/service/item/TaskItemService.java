@@ -1,6 +1,7 @@
 package com.relayflow.module.task.service.item;
 
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
@@ -46,4 +47,6 @@ public interface TaskItemService {
     void boardMove(TaskItemBoardMoveReqVO request);
 
     void groupMove(TaskItemGroupMoveReqVO request);
+
+    void replaceAssignees(TaskItemAssigneesReplaceReqVO request);
 }

@@ -15,7 +15,13 @@
             AND t.status = #{status}
         </if>
           AND (
-            t.assignee_id = #{userId}
+            EXISTS (
+                SELECT 1
+                FROM task_item_assignee a
+                WHERE a.task_id = t.id
+                  AND a.user_id = #{userId}
+                  AND a.deleted = 0
+            )
             OR t.creator_id = #{userId}
             OR EXISTS (
                 SELECT 1
