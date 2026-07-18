@@ -27,7 +27,11 @@ public enum ErrorCodeConstants implements ErrorCode {
 
     TASK_MINE_GROUP_NOT_FOUND(1_004_004_001, "个人分组不存在"),
     TASK_MINE_GROUP_FORBIDDEN(1_004_004_002, "无权操作该个人分组"),
-    TASK_MINE_GROUP_NAME_EMPTY(1_004_004_003, "分组名称不能为空");
+    TASK_MINE_GROUP_NAME_EMPTY(1_004_004_003, "分组名称不能为空"),
+
+    TASK_LIST_GROUP_NOT_FOUND(1_004_005_001, "清单分组不存在"),
+    TASK_LIST_GROUP_FORBIDDEN(1_004_005_002, "无权操作该清单分组"),
+    TASK_LIST_GROUP_NAME_EMPTY(1_004_005_003, "分组名称不能为空");
 
     private final Integer code;
     private final String msg;
