@@ -3,6 +3,7 @@ package com.relayflow.module.task.service.item;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -43,4 +44,6 @@ public interface TaskItemService {
     Long createSubtask(TaskSubtaskCreateReqVO request);
 
     void boardMove(TaskItemBoardMoveReqVO request);
+
+    void groupMove(TaskItemGroupMoveReqVO request);
 }

@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -32,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,6 +62,8 @@ class TaskItemServiceImplTest {
     private TaskListAccessService taskListAccessService;
     @Mock
     private TaskActivityRecorder taskActivityRecorder;
+    @Mock
+    private TenantMemberApi tenantMemberApi;
 
     private TaskItemServiceImpl taskItemService;
 
@@ -70,7 +75,8 @@ class TaskItemServiceImplTest {
                 taskDueNotifyService,
                 taskAccessService,
                 taskListAccessService,
-                taskActivityRecorder);
+                taskActivityRecorder,
+                tenantMemberApi);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -306,5 +312,89 @@ class TaskItemServiceImplTest {
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> taskItemService.updateTask(request));
         assertEquals(ErrorCodeConstants.TASK_INVALID_TIME_RANGE.getCode(), exception.getCode());
+    }
+
+    @Test
+    void groupMove_updatesStatusAndBoardRank() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setAssigneeId(USER_ID);
+        row.setStatus(TaskItemStatus.TODO);
+        row.setListId(null);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
+        when(taskItemMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+
+        TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
+        request.setId(TASK_ID);
+        request.setFieldKey("status");
+        request.setValue("IN_PROGRESS");
+
+        taskItemService.groupMove(request);
+
+        ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
+        verify(taskItemMapper).updateById(captor.capture());
+        assertEquals(TaskItemStatus.IN_PROGRESS, captor.getValue().getStatus());
+        assertEquals(1000, captor.getValue().getBoardRank());
+        verify(taskDueNotifyService).pushIfDueSoon(captor.getValue());
+    }
+
+    @Test
+    void groupMove_rejectsClearingStatus() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setAssigneeId(USER_ID);
+        row.setStatus(TaskItemStatus.TODO);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
+
+        TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
+        request.setId(TASK_ID);
+        request.setFieldKey("status");
+        request.setValue("__empty__");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> taskItemService.groupMove(request));
+        assertEquals(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID.getCode(), exception.getCode());
+    }
+
+    @Test
+    void groupMove_clearsDueTimeForEmptyBucket() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setAssigneeId(USER_ID);
+        row.setDueTime(OffsetDateTime.parse("2026-07-17T18:00:00+08:00"));
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
+
+        TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
+        request.setId(TASK_ID);
+        request.setFieldKey("dueTime");
+        request.setValue(null);
+
+        taskItemService.groupMove(request);
+
+        ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
+        verify(taskItemMapper).updateById(captor.capture());
+        assertEquals(null, captor.getValue().getDueTime());
+    }
+
+    @Test
+    void groupMove_setsAssigneeWhenMember() {
+        TaskItemDO row = new TaskItemDO();
+        row.setId(TASK_ID);
+        row.setAssigneeId(USER_ID);
+        when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(row);
+        when(tenantMemberApi.filterActiveMemberUserIds(eq(TENANT_ID), eq(List.of(999L))))
+                .thenReturn(Set.of(999L));
+
+        TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
+        request.setId(TASK_ID);
+        request.setFieldKey("assigneeId");
+        request.setValue("999");
+
+        taskItemService.groupMove(request);
+
+        ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
+        verify(taskItemMapper).updateById(captor.capture());
+        assertEquals(999L, captor.getValue().getAssigneeId());
+        assertEquals(USER_ID, captor.getValue().getAssignerId());
     }
 }

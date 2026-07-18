@@ -21,7 +21,7 @@
 ## 4. P2 — 按系统字段分组（子 change：group-by-field）
 
 - [x] 4.1 开 `workspace-task-group-by-field-web`：列表分区 + 看板列由字段 `groupBy` 驱动；「无分组」；拖拽 Mock
-- [ ] 4.2 开 `workspace-task-group-by-field-api`：分组查询与拖拽落库；废弃说明旧 `board-move`
+- [x] 4.2 开 `workspace-task-group-by-field-api`：分组查询与拖拽落库；废弃说明旧 `board-move`
 - [ ] 4.3 开 `workspace-task-group-by-field-integrate`：替换写死三列唯一看板
 
 ## 5. P3 — 多负责人（子 change：multi-assignee）
