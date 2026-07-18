@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
+import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -29,7 +31,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +53,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskAccessService taskAccessService;
     private final TaskListAccessService taskListAccessService;
     private final TaskActivityRecorder taskActivityRecorder;
+    private final TenantMemberApi tenantMemberApi;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
@@ -366,6 +373,84 @@ public class TaskItemServiceImpl implements TaskItemService {
         if (boardRank == null) {
             boardRank = nextBoardRank(row.getListId(), status, row.getId());
         }
+        applyStatusMove(row, status, boardRank, userId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void groupMove(TaskItemGroupMoveReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        TaskItemDO row = taskAccessService.requireEditable(request.getId(), userId);
+        if (row.getParentId() != null) {
+            throw new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN);
+        }
+        String fieldKey = request.getFieldKey() == null ? "" : request.getFieldKey().trim();
+        String rawValue = request.getValue();
+        boolean emptyBucket = isEmptyGroupValue(rawValue);
+
+        switch (fieldKey) {
+            case "status" -> {
+                if (emptyBucket) {
+                    throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+                }
+                String status = rawValue.trim().toUpperCase();
+                if (!TaskItemStatus.isValid(status)) {
+                    throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+                }
+                Integer boardRank = boardRankForBefore(row, status, request.getBeforeId());
+                applyStatusMove(row, status, boardRank, userId);
+            }
+            case "dueTime" -> {
+                OffsetDateTime previous = row.getDueTime();
+                if (emptyBucket) {
+                    row.setDueTime(null);
+                } else {
+                    row.setDueTime(parseDueDay(rawValue.trim(), previous));
+                }
+                row.setUpdater(userId);
+                row.setUpdateTime(OffsetDateTime.now());
+                taskItemMapper.updateById(row);
+                if (!Objects.equals(previous, row.getDueTime())) {
+                    taskActivityRecorder.record(row, userId, TaskActivityType.FIELD_CHANGED,
+                            emptyBucket ? "清除了截止时间" : "将截止时间改为「" + rawValue.trim() + "」");
+                }
+                taskDueNotifyService.pushIfDueSoon(row);
+            }
+            case "assigneeId" -> {
+                Long previousAssignee = row.getAssigneeId();
+                if (emptyBucket) {
+                    row.setAssigneeId(null);
+                    row.setAssignerId(null);
+                } else {
+                    Long assigneeId;
+                    try {
+                        assigneeId = Long.parseLong(rawValue.trim());
+                    } catch (NumberFormatException ex) {
+                        throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+                    }
+                    requireActiveMember(tenantId, assigneeId);
+                    row.setAssigneeId(assigneeId);
+                    if (Objects.equals(userId, assigneeId)) {
+                        row.setAssignerId(null);
+                    } else {
+                        row.setAssignerId(userId);
+                    }
+                }
+                row.setUpdater(userId);
+                row.setUpdateTime(OffsetDateTime.now());
+                taskItemMapper.updateById(row);
+                if (!Objects.equals(previousAssignee, row.getAssigneeId())) {
+                    taskActivityRecorder.record(row, userId, TaskActivityType.FIELD_CHANGED,
+                            emptyBucket ? "清除了负责人" : "将负责人改为「" + row.getAssigneeId() + "」");
+                }
+                taskDueNotifyService.pushIfDueSoon(row);
+            }
+            default -> throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+        }
+    }
+
+    private void applyStatusMove(TaskItemDO row, String status, Integer boardRank, Long userId) {
         String previous = row.getStatus();
         row.setStatus(status);
         row.setBoardRank(boardRank);
@@ -377,6 +462,68 @@ public class TaskItemServiceImpl implements TaskItemService {
                     "将状态改为「" + status + "」");
         }
         taskDueNotifyService.pushIfDueSoon(row);
+    }
+
+    private Integer boardRankForBefore(TaskItemDO row, String status, Long beforeId) {
+        if (beforeId == null) {
+            return nextBoardRank(row.getListId(), status, row.getId());
+        }
+        TaskItemDO before = taskItemMapper.selectById(beforeId);
+        if (before == null
+                || before.getParentId() != null
+                || !Objects.equals(before.getListId(), row.getListId())
+                || !Objects.equals(before.getStatus(), status)) {
+            return nextBoardRank(row.getListId(), status, row.getId());
+        }
+        Integer beforeRank = before.getBoardRank();
+        if (beforeRank == null) {
+            return nextBoardRank(row.getListId(), status, row.getId());
+        }
+        var query = Wrappers.<TaskItemDO>lambdaQuery()
+                .eq(TaskItemDO::getStatus, status)
+                .isNull(TaskItemDO::getParentId)
+                .ne(TaskItemDO::getId, row.getId())
+                .lt(TaskItemDO::getBoardRank, beforeRank)
+                .orderByDesc(TaskItemDO::getBoardRank)
+                .last("LIMIT 1");
+        if (row.getListId() != null) {
+            query.eq(TaskItemDO::getListId, row.getListId());
+        } else {
+            query.isNull(TaskItemDO::getListId);
+        }
+        TaskItemDO prev = taskItemMapper.selectOne(query);
+        int prevRank = prev != null && prev.getBoardRank() != null ? prev.getBoardRank() : 0;
+        if (beforeRank - prevRank > 1) {
+            return (prevRank + beforeRank) / 2;
+        }
+        return Math.max(1, beforeRank - 1);
+    }
+
+    private static boolean isEmptyGroupValue(String value) {
+        if (value == null) {
+            return true;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() || "__empty__".equals(trimmed);
+    }
+
+    private OffsetDateTime parseDueDay(String day, OffsetDateTime previous) {
+        LocalDate date;
+        try {
+            date = LocalDate.parse(day);
+        } catch (DateTimeParseException ex) {
+            throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+        }
+        ZoneOffset offset = previous != null ? previous.getOffset() : OffsetDateTime.now().getOffset();
+        LocalTime time = previous != null ? previous.toLocalTime() : LocalTime.of(12, 0);
+        return OffsetDateTime.of(date, time, offset);
+    }
+
+    private void requireActiveMember(Long tenantId, Long userId) {
+        Set<Long> active = tenantMemberApi.filterActiveMemberUserIds(tenantId, List.of(userId));
+        if (active == null || !active.contains(userId)) {
+            throw new ServiceException(ErrorCodeConstants.TASK_ASSIGNEE_NOT_MEMBER);
+        }
     }
 
     private Integer nextBoardRank(Long listId, String status, Long excludeId) {

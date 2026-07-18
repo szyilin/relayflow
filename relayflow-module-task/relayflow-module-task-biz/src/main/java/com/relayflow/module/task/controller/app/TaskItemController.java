@@ -5,6 +5,7 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -174,6 +175,12 @@ public class TaskItemController {
     @PutMapping("/board-move")
     public CommonResult<Boolean> boardMove(@Valid @RequestBody TaskItemBoardMoveReqVO request) {
         taskItemService.boardMove(request);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/group-move")
+    public CommonResult<Boolean> groupMove(@Valid @RequestBody TaskItemGroupMoveReqVO request) {
+        taskItemService.groupMove(request);
         return CommonResult.success(true);
     }
 

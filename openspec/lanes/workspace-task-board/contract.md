@@ -4,7 +4,8 @@
 > **起草**：`workspace-task-list-board-v1` / `workspace-task-board-web`  
 > **母 change**：[`openspec/changes/workspace-task-list-board-v1`](../../changes/workspace-task-list-board-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
-> **前置**：[`workspace-task-list`](../workspace-task-list/contract.md)
+> **前置**：[`workspace-task-list`](../workspace-task-list/contract.md)  
+> **演进**：字段分组请优先 [`workspace-task-group-by-field`](../workspace-task-group-by-field/contract.md) 的 `PUT /group-move`；本 `board-move` **过渡兼容** status 拖拽，integrate 后新客户端不再依赖。
 
 ## 背景
 

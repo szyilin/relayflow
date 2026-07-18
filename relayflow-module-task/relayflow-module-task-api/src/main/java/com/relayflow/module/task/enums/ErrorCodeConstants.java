@@ -15,6 +15,7 @@ public enum ErrorCodeConstants implements ErrorCode {
     TASK_SUBTASK_DEPTH_EXCEEDED(1_004_001_005, "子任务不能再添加子任务"),
     TASK_ASSIGNEE_NOT_MEMBER(1_004_001_006, "指派对象非本租户有效成员"),
     TASK_COMMENT_EMPTY(1_004_001_007, "评论内容为空"),
+    TASK_GROUP_MOVE_INVALID(1_004_001_008, "分组移动字段或值非法"),
 
     TASK_LIST_NOT_FOUND(1_004_002_001, "清单不存在"),
     TASK_LIST_FORBIDDEN(1_004_002_002, "无权操作该清单"),
