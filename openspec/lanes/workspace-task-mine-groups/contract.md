@@ -1,8 +1,9 @@
 # API 契约：workspace-task-mine-groups
 
-> **状态**：api ready（`-api` 已实现；待 integrate）  
+> **状态**：done（integrate 完成）  
 > **起草**：`workspace-task-mine-groups-web`  
 > **实现**：`workspace-task-mine-groups-api`  
+> **联调**：`workspace-task-mine-groups-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-view-config`](../workspace-task-view-config/contract.md)
@@ -62,11 +63,11 @@
 }
 ```
 
-未出现在 `memberships` 中的任务：前端可视为默认组（或在展示前调用 list 后由 ensure 补齐；创建路径已写入）。
+未出现在 `memberships` 中的任务：前端可视为默认组（创建路径已写入）。
 
-## `-web` 临时行为
+## 前端
 
-`USE_LOCAL_MINE_GROUPS`：Pinia 内存；**integrate 删除并改走本契约**。
+Store `mineGroups` 走真 API；无本地 Mock 标志。
 
 ## 错误码
 
