@@ -28,6 +28,7 @@ import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskActivityType;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.notify.TaskAssignNotifyService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,7 @@ public class TaskCollabServiceImpl implements TaskCollabService {
     private final TaskActivityMapper taskActivityMapper;
     private final TaskAccessService taskAccessService;
     private final TaskActivityRecorder taskActivityRecorder;
+    private final TaskAssigneeService taskAssigneeService;
     private final TaskAssignNotifyService taskAssignNotifyService;
     private final TaskDueNotifyService taskDueNotifyService;
     private final TenantMemberApi tenantMemberApi;
@@ -142,6 +144,7 @@ public class TaskCollabServiceImpl implements TaskCollabService {
                         .orderByDesc(TaskItemDO::getCreateTime));
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
+        fillAssigneeIds(list);
         return PageResult.of(list, page.getTotal());
     }
 
@@ -151,24 +154,8 @@ public class TaskCollabServiceImpl implements TaskCollabService {
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         TaskItemDO task = taskAccessService.requireEditable(request.getId(), userId);
         Long assigneeId = request.getAssigneeId();
-        requireActiveMember(tenantId, assigneeId);
-
-        if (Objects.equals(task.getAssigneeId(), assigneeId)) {
-            return;
-        }
-        task.setAssigneeId(assigneeId);
-        if (Objects.equals(userId, assigneeId)) {
-            task.setAssignerId(null);
-        } else {
-            task.setAssignerId(userId);
-        }
-        task.setUpdater(userId);
-        task.setUpdateTime(OffsetDateTime.now());
-        taskItemMapper.updateById(task);
-
-        String nickname = resolveNickname(assigneeId);
-        taskActivityRecorder.record(task, userId, TaskActivityType.ASSIGNED, "指派给 " + nickname);
-        taskAssignNotifyService.notifyAssignee(task, assigneeId);
+        // Compat: single-assignee assign = replace set with one element
+        taskAssigneeService.replaceAssignees(task, userId, tenantId, List.of(assigneeId), true, true);
         taskDueNotifyService.pushIfDueSoon(task);
     }
 
@@ -236,11 +223,12 @@ public class TaskCollabServiceImpl implements TaskCollabService {
 
     private Set<Long> relatedTaskIds(Long userId) {
         Set<Long> ids = new HashSet<>();
-        List<TaskItemDO> owned = taskItemMapper.selectList(
+        ids.addAll(taskAssigneeService.listTaskIdsByUserId(userId));
+        List<TaskItemDO> created = taskItemMapper.selectList(
                 Wrappers.<TaskItemDO>lambdaQuery()
-                        .and(w -> w.eq(TaskItemDO::getAssigneeId, userId).or().eq(TaskItemDO::getCreatorId, userId))
+                        .eq(TaskItemDO::getCreatorId, userId)
                         .select(TaskItemDO::getId));
-        for (TaskItemDO row : owned) {
+        for (TaskItemDO row : created) {
             ids.add(row.getId());
         }
         List<TaskFollowerDO> follows = taskFollowerMapper.selectList(
@@ -251,6 +239,22 @@ public class TaskCollabServiceImpl implements TaskCollabService {
             ids.add(row.getTaskId());
         }
         return ids;
+    }
+
+    private void fillAssigneeIds(List<TaskItemRespVO> roots) {
+        if (roots == null || roots.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = roots.stream().map(TaskItemRespVO::getId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, List<Long>> map = taskAssigneeService.mapAssigneeIdsByTaskIds(ids);
+        for (TaskItemRespVO root : roots) {
+            List<Long> assigneeIds = map.getOrDefault(root.getId(), List.of());
+            root.setAssigneeIds(assigneeIds);
+            root.setAssigneeId(assigneeIds.isEmpty() ? null : assigneeIds.get(0));
+        }
     }
 
     private void requireActiveMember(Long tenantId, Long userId) {

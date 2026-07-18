@@ -29,6 +29,9 @@ public class TaskItemRespVO {
 
     private Long assigneeId;
 
+    /** Multi-assignee ids (sorted ascending). */
+    private java.util.List<Long> assigneeIds;
+
     private Long creatorId;
 
     private Long assignerId;

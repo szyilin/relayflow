@@ -4,7 +4,6 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
-import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import com.relayflow.module.task.controller.app.vo.TaskAssignReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskCommentCreateReqVO;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
@@ -14,13 +13,13 @@ import com.relayflow.module.task.dal.mapper.TaskFollowerMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.service.access.TaskAccessService;
+import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.notify.TaskAssignNotifyService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -33,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +57,8 @@ class TaskCollabServiceImplTest {
     @Mock
     private TaskActivityRecorder taskActivityRecorder;
     @Mock
+    private TaskAssigneeService taskAssigneeService;
+    @Mock
     private TaskAssignNotifyService taskAssignNotifyService;
     @Mock
     private TaskDueNotifyService taskDueNotifyService;
@@ -77,6 +78,7 @@ class TaskCollabServiceImplTest {
                 taskActivityMapper,
                 taskAccessService,
                 taskActivityRecorder,
+                taskAssigneeService,
                 taskAssignNotifyService,
                 taskDueNotifyService,
                 tenantMemberApi,
@@ -98,8 +100,9 @@ class TaskCollabServiceImplTest {
         task.setAssigneeId(USER_ID);
         task.setTitle("整理周报");
         when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(task);
-        when(tenantMemberApi.filterActiveMemberUserIds(eq(TENANT_ID), any()))
-                .thenReturn(Set.of());
+        doThrow(new ServiceException(ErrorCodeConstants.TASK_ASSIGNEE_NOT_MEMBER))
+                .when(taskAssigneeService)
+                .replaceAssignees(eq(task), eq(USER_ID), eq(TENANT_ID), eq(List.of(ASSIGNEE_ID)), eq(true), eq(true));
 
         TaskAssignReqVO request = new TaskAssignReqVO();
         request.setId(TASK_ID);
@@ -107,22 +110,16 @@ class TaskCollabServiceImplTest {
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.assign(request));
         assertEquals(ErrorCodeConstants.TASK_ASSIGNEE_NOT_MEMBER.getCode(), ex.getCode());
-        verify(taskItemMapper, never()).updateById(any(TaskItemDO.class));
     }
 
     @Test
-    void assign_updatesAssigneeAndNotifies() {
+    void assign_delegatesToReplaceAssignees() {
         TaskItemDO task = new TaskItemDO();
         task.setId(TASK_ID);
         task.setTenantId(TENANT_ID);
         task.setAssigneeId(USER_ID);
         task.setTitle("整理周报");
         when(taskAccessService.requireEditable(TASK_ID, USER_ID)).thenReturn(task);
-        when(tenantMemberApi.filterActiveMemberUserIds(eq(TENANT_ID), any()))
-                .thenReturn(Set.of(ASSIGNEE_ID));
-        UserBasicDTO basic = new UserBasicDTO();
-        basic.setNickname("李四");
-        when(userApi.getUserBasic(ASSIGNEE_ID)).thenReturn(basic);
 
         TaskAssignReqVO request = new TaskAssignReqVO();
         request.setId(TASK_ID);
@@ -130,19 +127,16 @@ class TaskCollabServiceImplTest {
 
         service.assign(request);
 
-        ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
-        verify(taskItemMapper).updateById(captor.capture());
-        assertEquals(ASSIGNEE_ID, captor.getValue().getAssigneeId());
-        assertEquals(USER_ID, captor.getValue().getAssignerId());
-        verify(taskAssignNotifyService).notifyAssignee(any(TaskItemDO.class), eq(ASSIGNEE_ID));
-        verify(taskActivityRecorder).record(any(TaskItemDO.class), eq(USER_ID), any(), any());
+        verify(taskAssigneeService).replaceAssignees(
+                eq(task), eq(USER_ID), eq(TENANT_ID), eq(List.of(ASSIGNEE_ID)), eq(true), eq(true));
+        verify(taskDueNotifyService).pushIfDueSoon(task);
     }
 
     @Test
     void createComment_rejectsEmpty() {
         TaskCommentCreateReqVO request = new TaskCommentCreateReqVO();
         request.setTaskId(TASK_ID);
-        request.setContent("   ");
+        request.setContent("  ");
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.createComment(request));
         assertEquals(ErrorCodeConstants.TASK_COMMENT_EMPTY.getCode(), ex.getCode());

@@ -3,6 +3,7 @@ package com.relayflow.module.task.controller.app;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
@@ -112,6 +113,12 @@ public class TaskItemController {
     @PutMapping("/assign")
     public CommonResult<Boolean> assign(@Valid @RequestBody TaskAssignReqVO request) {
         taskCollabService.assign(request);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/assignees")
+    public CommonResult<Boolean> replaceAssignees(@Valid @RequestBody TaskItemAssigneesReplaceReqVO request) {
+        taskItemService.replaceAssignees(request);
         return CommonResult.success(true);
     }
 

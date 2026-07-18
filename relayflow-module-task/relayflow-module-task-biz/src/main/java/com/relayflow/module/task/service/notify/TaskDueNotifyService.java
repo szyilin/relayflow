@@ -1,10 +1,13 @@
 package com.relayflow.module.task.service.notify;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
 import com.relayflow.module.task.config.TaskProperties;
+import com.relayflow.module.task.dal.dataobject.TaskItemAssigneeDO;
 import com.relayflow.module.task.dal.dataobject.TaskItemDO;
+import com.relayflow.module.task.dal.mapper.TaskItemAssigneeMapper;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +17,7 @@ import org.springframework.util.StringUtils;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Delivers task due reminders via {@code task-bot} + {@link ImBotApi}
@@ -31,12 +35,19 @@ public class TaskDueNotifyService {
 
     private final TaskProperties taskProperties;
     private final ImBotApi imBotApi;
+    private final TaskItemAssigneeMapper taskItemAssigneeMapper;
 
     public void pushIfDueSoon(TaskItemDO task) {
         if (!shouldRemind(task)) {
             return;
         }
-        sendDueReminder(task);
+        List<Long> assigneeIds = listAssigneeUserIds(task.getId());
+        if (assigneeIds.isEmpty() && task.getAssigneeId() != null) {
+            assigneeIds = List.of(task.getAssigneeId());
+        }
+        for (Long assigneeId : assigneeIds) {
+            sendDueReminder(task, assigneeId);
+        }
     }
 
     public void compensateMissingDueReminders(List<TaskItemDO> tasks) {
@@ -46,10 +57,14 @@ public class TaskDueNotifyService {
     }
 
     boolean shouldRemind(TaskItemDO task) {
-        if (task == null || task.getId() == null || task.getAssigneeId() == null || task.getTenantId() == null) {
+        if (task == null || task.getId() == null || task.getTenantId() == null) {
             return false;
         }
         if (!TaskItemStatus.isOpen(task.getStatus()) || task.getDueTime() == null) {
+            return false;
+        }
+        List<Long> assigneeIds = listAssigneeUserIds(task.getId());
+        if (assigneeIds.isEmpty() && task.getAssigneeId() == null) {
             return false;
         }
         OffsetDateTime now = OffsetDateTime.now();
@@ -58,16 +73,30 @@ public class TaskDueNotifyService {
         return !dueTime.isBefore(now) && !dueTime.isAfter(windowEnd);
     }
 
-    private void sendDueReminder(TaskItemDO task) {
+    private List<Long> listAssigneeUserIds(Long taskId) {
+        return taskItemAssigneeMapper.selectList(
+                        Wrappers.<TaskItemAssigneeDO>lambdaQuery()
+                                .eq(TaskItemAssigneeDO::getTaskId, taskId)
+                                .orderByAsc(TaskItemAssigneeDO::getUserId))
+                .stream()
+                .map(TaskItemAssigneeDO::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private void sendDueReminder(TaskItemDO task, Long assigneeId) {
+        if (assigneeId == null) {
+            return;
+        }
         ImBotSendTarget target = new ImBotSendTarget();
         target.setScope(ImBotSendTarget.SCOPE_SINGLE);
         target.setTenantId(task.getTenantId());
-        target.setUserId(task.getAssigneeId());
+        target.setUserId(assigneeId);
 
         ImBotSendCommand command = new ImBotSendCommand();
         command.setBotCode(TASK_BOT_CODE);
         command.setText(buildReminderText(task));
-        command.setDedupeKey(TASK_DUE_DEDUPE_PREFIX + task.getId());
+        command.setDedupeKey(TASK_DUE_DEDUPE_PREFIX + task.getId() + ":" + assigneeId);
         command.setRoute("/app/tasks?taskId=" + task.getId());
         command.setEntityType("task");
         command.setEntityId(String.valueOf(task.getId()));
@@ -76,9 +105,8 @@ public class TaskDueNotifyService {
         try {
             imBotApi.send(command);
         } catch (Exception ex) {
-            // Best-effort reach: task CRUD / list must succeed even if Bot delivery fails.
             log.warn("Task due bot message failed: taskId={}, assigneeId={}, botCode={}",
-                    task.getId(), task.getAssigneeId(), TASK_BOT_CODE, ex);
+                    task.getId(), assigneeId, TASK_BOT_CODE, ex);
         }
     }
 
