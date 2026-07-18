@@ -60,10 +60,7 @@ import {
 } from './boardLocal'
 import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
 import { withAssigneeIds } from './assigneeLocal'
-import {
-  USE_LOCAL_MULTI_LIST,
-  withListIds
-} from './listMembershipLocal'
+import { withListIds } from './listMembershipLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 import { useMineGroupsStore } from './mineGroupsStore'
 
@@ -882,7 +879,7 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  /** Replace list memberships (optimistic). Local mock until multi-list-api/integrate. */
+  /** Replace list memberships via PUT /list-memberships (optimistic + rollback). */
   async function setListMemberships(taskId: string, listIds: string[]) {
     const unique = Array.from(new Set(listIds.map(String).filter(Boolean)))
 
@@ -914,17 +911,15 @@ export const useTasksStore = defineStore('tasks', () => {
 
     saving.value = true
     try {
-      if (!USE_LOCAL_MULTI_LIST) {
-        await replaceTaskListMemberships({ id: taskId, listIds: unique })
-        if (activeListId.value) {
-          await fetchListTasks()
-        }
-        if (selectedId.value === taskId) {
-          try {
-            await selectTask(taskId)
-          } catch {
-            await selectTask(null)
-          }
+      await replaceTaskListMemberships({ id: taskId, listIds: unique })
+      if (activeListId.value) {
+        await fetchListTasks()
+      }
+      if (selectedId.value === taskId) {
+        try {
+          await selectTask(taskId)
+        } catch {
+          await selectTask(null)
         }
       }
     } catch (error) {

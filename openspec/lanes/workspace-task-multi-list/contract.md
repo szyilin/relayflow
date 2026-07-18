@@ -1,8 +1,9 @@
 # API 契约：workspace-task-multi-list
 
-> **状态**：api ready（`-api` 已实现；待 integrate）  
+> **状态**：done（integrate 完成）  
 > **起草**：`workspace-task-multi-list-web`  
 > **实现**：`workspace-task-multi-list-api`  
+> **联调**：`workspace-task-multi-list-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-list`](../workspace-task-list/contract.md)
@@ -47,9 +48,9 @@
 
 `GET …/page?listId=` → `EXISTS task_list_item`。创建根任务带 `listId` → 写入成员表。子任务复制父成员集。
 
-## `-web` 临时行为
+## 前端
 
-`USE_LOCAL_MULTI_LIST`：仅改 Pinia；**integrate 删除并改走本契约**。
+Store `setListMemberships` 走真 API；无本地 Mock 标志。
 
 ## 错误码
 

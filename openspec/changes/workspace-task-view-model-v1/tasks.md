@@ -46,7 +46,7 @@
 
 - [x] 8.1 开 `workspace-task-multi-list-web`：详情多清单加入/移出
 - [x] 8.2 开 `workspace-task-multi-list-api`：成员表 + 迁移 `list_id`
-- [ ] 8.3 开 `workspace-task-multi-list-integrate`：一任务两清单；移出不删任务
+- [x] 8.3 开 `workspace-task-multi-list-integrate`：一任务两清单；移出不删任务
 
 ## 9. P7 — 清单内自定义组（子 change：list-groups）
 

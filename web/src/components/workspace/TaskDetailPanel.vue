@@ -762,7 +762,7 @@ async function handleAddComment() {
             icon="i-lucide-search"
           />
           <p class="text-xs text-[var(--ws-text-muted)]">
-            移出清单不会删除任务；可同时属于多个清单（本地暂存，待 API）。
+            移出清单不会删除任务；可同时属于多个清单。
           </p>
           <ul class="max-h-64 space-y-1 overflow-y-auto">
             <li
