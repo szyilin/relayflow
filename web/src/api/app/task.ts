@@ -12,6 +12,8 @@ export interface TaskItem {
   description?: string | null
   parentId?: string | null
   listId?: string | null
+  /** Multi-list memberships; empty = 不属于任何清单. */
+  listIds?: string[]
   /** Primary assignee projection (first of assigneeIds); compat with group-by / legacy. */
   assigneeId?: string | null
   /** Multi-assignee set; empty = 无负责人. */
@@ -44,12 +46,22 @@ function normalizeTaskItem(
     id?: string | number
     parentId?: string | number | null
     listId?: string | number | null
+    listIds?: Array<string | number> | null
     assigneeId?: string | number | null
     assigneeIds?: Array<string | number> | null
     creatorId?: string | number | null
     assignerId?: string | number | null
   }
 ): TaskItem {
+  const fromListIds = (item.listIds ?? [])
+    .map(id => (id != null && id !== '' ? String(id) : ''))
+    .filter(Boolean)
+  const primaryList = item.listId != null && item.listId !== '' ? String(item.listId) : null
+  const listIds = fromListIds.length > 0
+    ? Array.from(new Set(fromListIds))
+    : primaryList
+      ? [primaryList]
+      : []
   const fromList = (item.assigneeIds ?? [])
     .map(id => (id != null && id !== '' ? String(id) : ''))
     .filter(Boolean)
@@ -68,7 +80,8 @@ function normalizeTaskItem(
     remindBeforeMinutes: item.remindBeforeMinutes ?? null,
     description: item.description ?? null,
     parentId: item.parentId != null && item.parentId !== '' ? String(item.parentId) : null,
-    listId: item.listId != null && item.listId !== '' ? String(item.listId) : null,
+    listId: listIds[0] ?? null,
+    listIds,
     assigneeId: assigneeIds[0] ?? null,
     assigneeIds,
     creatorId: item.creatorId != null ? String(item.creatorId) : null,
@@ -281,6 +294,17 @@ export async function replaceTaskAssignees(payload: {
   return put<boolean>('/app-api/task/item/assignees', {
     id: payload.id,
     assigneeIds: payload.assigneeIds
+  })
+}
+
+/** Full replace of list memberships (multi-list). Used after -api; -web may mock. */
+export async function replaceTaskListMemberships(payload: {
+  id: string
+  listIds: string[]
+}): Promise<boolean> {
+  return put<boolean>('/app-api/task/item/list-memberships', {
+    id: payload.id,
+    listIds: payload.listIds
   })
 }
 

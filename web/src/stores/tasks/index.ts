@@ -18,6 +18,7 @@ import {
   getTaskSubtasks,
   groupMoveTask,
   replaceTaskAssignees,
+  replaceTaskListMemberships,
   toggleTaskDone,
   unfollowTask,
   updateTask,
@@ -59,6 +60,10 @@ import {
 } from './boardLocal'
 import { applyGroupTargetToTask, EMPTY_GROUP_KEY } from './groupByLocal'
 import { withAssigneeIds } from './assigneeLocal'
+import {
+  USE_LOCAL_MULTI_LIST,
+  withListIds
+} from './listMembershipLocal'
 import { useTaskViewConfigStore } from './viewConfigStore'
 import { useMineGroupsStore } from './mineGroupsStore'
 
@@ -877,6 +882,64 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  /** Replace list memberships (optimistic). Local mock until multi-list-api/integrate. */
+  async function setListMemberships(taskId: string, listIds: string[]) {
+    const unique = Array.from(new Set(listIds.map(String).filter(Boolean)))
+
+    const snapshotItems = items.value.map(item => ({ ...item }))
+    const snapshotListItems = listItems.value.map(item => ({ ...item }))
+    const snapshotFollowing = followingItems.value.map(item => ({ ...item }))
+    const snapshotDueRange = dueRangeItems.value.map(item => ({ ...item }))
+    const snapshotDetail = selectedDetail.value ? { ...selectedDetail.value } : null
+    const snapshotListTotal = listTotal.value
+
+    const patch = (list: TaskItem[]) => list.map((item) => {
+      if (item.id !== taskId) {
+        return item
+      }
+      return withListIds(item, unique)
+    })
+    items.value = patch(items.value)
+    followingItems.value = patch(followingItems.value)
+    dueRangeItems.value = patch(dueRangeItems.value)
+    listItems.value = patch(listItems.value)
+    if (selectedDetail.value?.id === taskId) {
+      selectedDetail.value = withListIds(selectedDetail.value, unique)
+    }
+    const active = activeListId.value
+    if (active && !unique.includes(active)) {
+      listItems.value = listItems.value.filter(item => item.id !== taskId)
+      listTotal.value = Math.max(0, listTotal.value - 1)
+    }
+
+    saving.value = true
+    try {
+      if (!USE_LOCAL_MULTI_LIST) {
+        await replaceTaskListMemberships({ id: taskId, listIds: unique })
+        if (activeListId.value) {
+          await fetchListTasks()
+        }
+        if (selectedId.value === taskId) {
+          try {
+            await selectTask(taskId)
+          } catch {
+            await selectTask(null)
+          }
+        }
+      }
+    } catch (error) {
+      items.value = snapshotItems
+      listItems.value = snapshotListItems
+      followingItems.value = snapshotFollowing
+      dueRangeItems.value = snapshotDueRange
+      selectedDetail.value = snapshotDetail
+      listTotal.value = snapshotListTotal
+      throw error
+    } finally {
+      saving.value = false
+    }
+  }
+
   return {
     items,
     total,
@@ -932,6 +995,7 @@ export const useTasksStore = defineStore('tasks', () => {
     addComment,
     assignTo,
     setAssignees,
+    setListMemberships,
     fetchMyLists,
     selectList,
     createList,
