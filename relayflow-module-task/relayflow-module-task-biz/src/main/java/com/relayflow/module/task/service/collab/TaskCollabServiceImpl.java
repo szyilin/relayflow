@@ -343,7 +343,7 @@ public class TaskCollabServiceImpl implements TaskCollabService {
             return null;
         }
         String normalized = status.trim().toUpperCase();
-        if (TaskItemStatus.TODO.equals(normalized) || TaskItemStatus.DONE.equals(normalized)) {
+        if (TaskItemStatus.isValid(normalized)) {
             return normalized;
         }
         return null;

@@ -65,7 +65,7 @@
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
-| **workspace-task-board** | planned | **ui_ready** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；拖拽本地暂存，待 `-api` |
+| **workspace-task-board** | **ready** | **ui_ready** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；待 integrate 关 `USE_LOCAL_BOARD_MOVE` |
 
 **实现顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 

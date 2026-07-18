@@ -53,6 +53,9 @@ public class TaskItemDO extends TenantBaseDO {
     @TableField("list_id")
     private Long listId;
 
+    @TableField("board_rank")
+    private Integer boardRank;
+
     @TableField("status")
     private String status;
 }

@@ -1,6 +1,7 @@
 package com.relayflow.module.task.service.item;
 
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
@@ -21,7 +22,7 @@ public interface TaskItemService {
     List<TaskItemDO> searchMyTasks(Long userId, String keyword, int limit);
 
     /**
-     * TODO tasks assigned to the user with dueTime in {@code [from, to)}.
+     * Open (TODO / IN_PROGRESS) tasks assigned to the user with dueTime in {@code [from, to)}.
      */
     List<TaskItemRespVO> listDueRange(OffsetDateTime from, OffsetDateTime to, int limit);
 
@@ -40,4 +41,6 @@ public interface TaskItemService {
     List<TaskItemRespVO> listSubtasks(Long parentId);
 
     Long createSubtask(TaskSubtaskCreateReqVO request);
+
+    void boardMove(TaskItemBoardMoveReqVO request);
 }

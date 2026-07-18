@@ -49,7 +49,7 @@ public class TaskDueNotifyService {
         if (task == null || task.getId() == null || task.getAssigneeId() == null || task.getTenantId() == null) {
             return false;
         }
-        if (!TaskItemStatus.TODO.equals(task.getStatus()) || task.getDueTime() == null) {
+        if (!TaskItemStatus.isOpen(task.getStatus()) || task.getDueTime() == null) {
             return false;
         }
         OffsetDateTime now = OffsetDateTime.now();
