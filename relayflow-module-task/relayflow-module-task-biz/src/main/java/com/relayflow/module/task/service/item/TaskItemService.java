@@ -5,6 +5,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemListMembershipsReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -49,4 +50,6 @@ public interface TaskItemService {
     void groupMove(TaskItemGroupMoveReqVO request);
 
     void replaceAssignees(TaskItemAssigneesReplaceReqVO request);
+
+    void replaceListMemberships(TaskItemListMembershipsReplaceReqVO request);
 }

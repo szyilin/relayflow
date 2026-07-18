@@ -10,6 +10,7 @@ import com.relayflow.module.task.controller.app.vo.TaskItemAssigneesReplaceReqVO
 import com.relayflow.module.task.controller.app.vo.TaskItemBoardMoveReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemCreateReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemGroupMoveReqVO;
+import com.relayflow.module.task.controller.app.vo.TaskItemListMembershipsReplaceReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemPageReqVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemRespVO;
 import com.relayflow.module.task.controller.app.vo.TaskItemToggleDoneReqVO;
@@ -26,6 +27,7 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
+import com.relayflow.module.task.service.listitem.TaskListItemService;
 import com.relayflow.module.task.service.minegroup.TaskMineGroupService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +60,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskActivityRecorder taskActivityRecorder;
     private final TaskAssigneeService taskAssigneeService;
     private final TaskMineGroupService taskMineGroupService;
+    private final TaskListItemService taskListItemService;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
@@ -77,6 +81,7 @@ public class TaskItemServiceImpl implements TaskItemService {
             List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(result.getRecords());
             fillSubtaskCounts(list);
             fillAssigneeIds(list);
+            fillListIds(list);
             return PageResult.of(list, result.getTotal());
         }
         if ("ASSIGNED_BY_ME".equals(scope)) {
@@ -93,6 +98,7 @@ public class TaskItemServiceImpl implements TaskItemService {
             List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
             fillSubtaskCounts(list);
             fillAssigneeIds(list);
+            fillListIds(list);
             return PageResult.of(list, page.getTotal());
         }
         boolean byCreator = "CREATOR".equals(scope);
@@ -109,6 +115,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
         fillAssigneeIds(list);
+        fillListIds(list);
         return PageResult.of(list, page.getTotal());
     }
 
@@ -129,7 +136,9 @@ public class TaskItemServiceImpl implements TaskItemService {
         Page<TaskItemDO> page = taskItemMapper.selectPage(
                 new Page<>(request.getPageNo(), request.getPageSize()),
                 Wrappers.<TaskItemDO>lambdaQuery()
-                        .eq(TaskItemDO::getListId, request.getListId())
+                        .apply("EXISTS (SELECT 1 FROM task_list_item i "
+                                + "WHERE i.task_id = task_item.id AND i.list_id = {0} AND i.deleted = 0)",
+                                request.getListId())
                         .isNull(TaskItemDO::getParentId)
                         .eq(StringUtils.hasText(status), TaskItemDO::getStatus, status)
                         .orderByAsc(TaskItemDO::getBoardRank)
@@ -137,6 +146,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(page.getRecords());
         fillSubtaskCounts(list);
         fillAssigneeIds(list);
+        fillListIds(list);
         return PageResult.of(list, page.getTotal());
     }
 
@@ -145,6 +155,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(
                 searchMyTasks(SecurityFrameworkUtils.requireLoginUserId(), keyword, limit));
         fillAssigneeIds(list);
+        fillListIds(list);
         return list;
     }
 
@@ -167,6 +178,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(
                 listDueRange(SecurityFrameworkUtils.requireLoginUserId(), from, to, limit));
         fillAssigneeIds(list);
+        fillListIds(list);
         return list;
     }
 
@@ -197,6 +209,7 @@ public class TaskItemServiceImpl implements TaskItemService {
             fillSubtaskCounts(List.of(vo));
         }
         fillAssigneeIds(List.of(vo));
+        fillListIds(List.of(vo));
         return vo;
     }
 
@@ -240,7 +253,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setDueTime(request.getDueTime());
         row.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         row.setParentId(null);
-        row.setListId(listId);
+        row.setListId(null);
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);
         row.setCreateTime(now);
@@ -248,6 +261,9 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
         taskAssigneeService.replaceAssignees(row, userId, tenantId, List.of(userId), false, false);
+        if (listId != null) {
+            taskListItemService.ensureMembership(row, listId, userId, tenantId);
+        }
         taskMineGroupService.ensureMembershipInDefault(row.getId(), userId, tenantId);
         taskDueNotifyService.pushIfDueSoon(row);
         taskActivityRecorder.record(row, userId, TaskActivityType.CREATED, "创建了任务");
@@ -344,6 +360,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                         .orderByAsc(TaskItemDO::getCreateTime));
         List<TaskItemRespVO> list = TaskConvert.INSTANCE.toRespList(rows);
         fillAssigneeIds(list);
+        fillListIds(list);
         return list;
     }
 
@@ -363,7 +380,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setAssigneeId(userId);
         row.setCreatorId(userId);
         row.setParentId(parent.getId());
-        row.setListId(parent.getListId());
+        row.setListId(null);
         row.setStatus(TaskItemStatus.TODO);
         row.setCreator(userId);
         row.setCreateTime(now);
@@ -371,6 +388,7 @@ public class TaskItemServiceImpl implements TaskItemService {
         row.setUpdateTime(now);
         taskItemMapper.insert(row);
         taskAssigneeService.replaceAssignees(row, userId, tenantId, List.of(userId), false, false);
+        taskListItemService.copyMembershipsFromParent(row, parent.getId(), userId, tenantId);
         taskActivityRecorder.record(parent, userId, TaskActivityType.SUBTASK_CREATED,
                 "添加了子任务「" + row.getTitle() + "」");
         return row.getId();
@@ -465,6 +483,22 @@ public class TaskItemServiceImpl implements TaskItemService {
         List<Long> ids = request.getAssigneeIds() == null ? List.of() : request.getAssigneeIds();
         taskAssigneeService.replaceAssignees(row, userId, tenantId, ids, true, true);
         taskDueNotifyService.pushIfDueSoon(row);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void replaceListMemberships(TaskItemListMembershipsReplaceReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        TaskItemDO row = taskAccessService.requireEditable(request.getId(), userId);
+        List<Long> next = request.getListIds() == null ? List.of() : request.getListIds();
+        Set<Long> previous = new HashSet<>(taskListItemService.listListIds(row.getId()));
+        for (Long listId : next) {
+            if (listId != null && !previous.contains(listId)) {
+                taskListAccessService.requireCanMutateTasks(listId, userId);
+            }
+        }
+        taskListItemService.replaceMemberships(row, userId, tenantId, next);
     }
 
     private void applyStatusMove(TaskItemDO row, String status, Integer boardRank, Long userId) {
@@ -566,6 +600,23 @@ public class TaskItemServiceImpl implements TaskItemService {
             List<Long> assigneeIds = map.getOrDefault(root.getId(), List.of());
             root.setAssigneeIds(assigneeIds);
             root.setAssigneeId(assigneeIds.isEmpty() ? null : assigneeIds.get(0));
+        }
+    }
+
+    private void fillListIds(List<TaskItemRespVO> roots) {
+        if (roots == null || roots.isEmpty()) {
+            return;
+        }
+        for (TaskItemRespVO root : roots) {
+            if (root.getId() == null) {
+                continue;
+            }
+            List<Long> listIds = taskListItemService.listListIds(root.getId());
+            if (listIds.isEmpty() && root.getListId() != null) {
+                listIds = List.of(root.getListId());
+            }
+            root.setListIds(listIds);
+            root.setListId(listIds.isEmpty() ? null : listIds.get(0));
         }
     }
 

@@ -73,11 +73,11 @@
 | **workspace-task-multi-assignee** | **archived** | **done** | `PUT …/assignees` · 详情多选负责人 · MINE=包含我 | [contract](../../openspec/lanes/workspace-task-multi-assignee/contract.md) | integrate 完成；store 无本地暂存 |
 | **workspace-task-assigner** | **archived** | **done** | `assignerId` 展示 · `scope=ASSIGNED_BY_ME`（既有） | [contract](../../openspec/lanes/workspace-task-assigner/contract.md) | integrate 完成；写入随 assignees；无本地 Mock |
 | **workspace-task-mine-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | integrate 完成；store 无本地 Mock |
-| **workspace-task-multi-list** | **planned** | **ui_ready** | `PUT …/list-memberships`（草案）· 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | `-web`：本地 Mock（`USE_LOCAL_MULTI_LIST`）；待 `-api` |
+| **workspace-task-multi-list** | **ready** | **ui_ready** | `PUT …/list-memberships` · 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | `-api` 完成；前端仍 `USE_LOCAL_MULTI_LIST`，待 integrate |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
-**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list`（web ✅）→ `list-groups` →（可选）`custom-field`。
+**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list`（web ✅ · api ✅）→ `list-groups` →（可选）`custom-field`。
 
 ### 建议下一切片（尚未立项或可并行）
 

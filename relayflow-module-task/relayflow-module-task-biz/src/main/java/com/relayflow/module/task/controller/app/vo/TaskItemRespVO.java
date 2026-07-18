@@ -25,6 +25,9 @@ public class TaskItemRespVO {
 
     private Long listId;
 
+    /** Multi-list memberships (sorted by rank). */
+    private java.util.List<Long> listIds;
+
     private Integer boardRank;
 
     private Long assigneeId;
