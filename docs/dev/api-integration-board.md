@@ -72,11 +72,11 @@
 | **workspace-task-group-by-field** | **archived** | **done** | `PUT …/group-move` · `/app/tasks` 按字段分区/看板列 | [contract](../../openspec/lanes/workspace-task-group-by-field/contract.md) | integrate 完成；store 无本地拖拽暂存；`board-move` 过渡兼容 |
 | **workspace-task-multi-assignee** | **archived** | **done** | `PUT …/assignees` · 详情多选负责人 · MINE=包含我 | [contract](../../openspec/lanes/workspace-task-multi-assignee/contract.md) | integrate 完成；store 无本地暂存 |
 | **workspace-task-assigner** | **archived** | **done** | `assignerId` 展示 · `scope=ASSIGNED_BY_ME`（既有） | [contract](../../openspec/lanes/workspace-task-assigner/contract.md) | integrate 完成；写入随 assignees；无本地 Mock |
-| **workspace-task-mine-groups** | **planned** | **ui_ready** | `mine-group/*`（草案）· `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | `-web`：本地 Pinia Mock（`USE_LOCAL_MINE_GROUPS`）；待 `-api` |
+| **workspace-task-mine-groups** | **ready** | **ui_ready** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | `-api` 完成；前端仍 `USE_LOCAL_MINE_GROUPS`，待 integrate |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
-**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups`（web ✅）→ `multi-list` → `list-groups` →（可选）`custom-field`。
+**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups`（web ✅ · api ✅）→ `multi-list` → `list-groups` →（可选）`custom-field`。
 
 ### 建议下一切片（尚未立项或可并行）
 

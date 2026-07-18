@@ -39,7 +39,7 @@
 ## 7. P5 — 「我负责的」个人自定义分组 · 计划 B（子 change：mine-groups）
 
 - [x] 7.1 开 `workspace-task-mine-groups-web`：默认组 + 新建组；`groupBy=PERSONAL_CUSTOM` 看板/列表
-- [ ] 7.2 开 `workspace-task-mine-groups-api`：私有组表 + 任务归属；删组回默认组
+- [x] 7.2 开 `workspace-task-mine-groups-api`：私有组表 + 任务归属；删组回默认组
 - [ ] 7.3 开 `workspace-task-mine-groups-integrate`：两用户同任务、分组互不可见
 
 ## 8. P6 — 多清单归属（子 change：multi-list）

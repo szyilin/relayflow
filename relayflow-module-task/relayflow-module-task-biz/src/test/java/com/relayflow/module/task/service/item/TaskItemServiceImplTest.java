@@ -22,6 +22,7 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
+import com.relayflow.module.task.service.minegroup.TaskMineGroupService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,8 @@ class TaskItemServiceImplTest {
     private TaskActivityRecorder taskActivityRecorder;
     @Mock
     private TaskAssigneeService taskAssigneeService;
+    @Mock
+    private TaskMineGroupService taskMineGroupService;
 
     private TaskItemServiceImpl taskItemService;
 
@@ -78,7 +81,8 @@ class TaskItemServiceImplTest {
                 taskAccessService,
                 taskListAccessService,
                 taskActivityRecorder,
-                taskAssigneeService);
+                taskAssigneeService,
+                taskMineGroupService);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
