@@ -9,10 +9,8 @@ import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
-import { isBoardStatus, type BoardStatus } from '../../../stores/tasks/boardLocal'
 import {
-  partitionByGroupBy,
-  USE_LOCAL_GROUP_MOVE
+  partitionByGroupBy
 } from '../../../stores/tasks/groupByLocal'
 import {
   navViewToContextType
@@ -141,7 +139,7 @@ const canDragGrouped = computed(() => {
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
   }
-  return showTaskActions.value && USE_LOCAL_GROUP_MOVE
+  return showTaskActions.value
 })
 
 function parseView(raw: unknown): TasksNavView {
@@ -263,35 +261,16 @@ async function handleGroupMove(payload: {
   if (!groupBy || groupBy.mode !== 'FIELD') {
     return
   }
-  const { fieldKey } = groupBy
-
-  // List + status still uses real board-move until group-move API lands.
-  if (
-    fieldKey === 'status'
-    && inListContext.value
-    && isBoardStatus(payload.bucketKey)
-  ) {
-    try {
-      await tasksStore.moveBoardTask({
-        taskId: payload.taskId,
-        status: payload.bucketKey as BoardStatus,
-        beforeId: payload.beforeId
-      })
-    } catch {
-      toast.add({ title: '移动失败', color: 'error' })
-    }
-    return
+  try {
+    await tasksStore.moveGroupedField({
+      taskId: payload.taskId,
+      fieldKey: groupBy.fieldKey,
+      targetKey: payload.bucketKey,
+      beforeId: payload.beforeId
+    })
+  } catch {
+    toast.add({ title: '移动失败', color: 'error' })
   }
-
-  if (!USE_LOCAL_GROUP_MOVE) {
-    toast.add({ title: '分组移动尚未对接', color: 'warning' })
-    return
-  }
-  tasksStore.applyLocalFieldGroupMove({
-    taskId: payload.taskId,
-    fieldKey,
-    targetKey: payload.bucketKey
-  })
 }
 
 async function applyTaskIdFromRoute() {

@@ -2,9 +2,6 @@ import type { TaskItem, TaskItemStatus } from '../../api/app/task'
 import type { TaskViewGroupBy } from './viewConfigLocal'
 import { BOARD_COLUMN_LABELS, isBoardStatus } from './boardLocal'
 
-/** Temporary until group-by-field-api / integrate. */
-export const USE_LOCAL_GROUP_MOVE = true
-
 export const EMPTY_GROUP_KEY = '__empty__'
 export const EMPTY_GROUP_LABEL = '无分组'
 export const ALL_GROUP_KEY = '__all__'
