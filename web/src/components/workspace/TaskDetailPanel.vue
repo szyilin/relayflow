@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useContactsStore } from '../../stores/contacts'
 import { useTasksStore } from '../../stores/tasks'
 import { resolveAssigneeIds } from '../../stores/tasks/assigneeLocal'
+import { resolveListIds } from '../../stores/tasks/listMembershipLocal'
 
 const props = defineProps<{
   task: TaskItem | null
@@ -46,9 +47,12 @@ const remindOptions = [
 const newSubtaskTitle = ref('')
 const newComment = ref('')
 const assignOpen = ref(false)
+const listsOpen = ref(false)
 const memberKeyword = ref('')
+const listKeyword = ref('')
 const membersLoaded = ref(false)
 const draftAssigneeIds = ref<string[]>([])
+const draftListIds = ref<string[]>([])
 
 const progressLabel = computed(() => {
   const total = props.subtasks.length
@@ -83,6 +87,27 @@ const assigneeLabels = computed(() =>
   currentAssigneeIds.value.map(id => nicknameFor(id))
 )
 
+const currentListIds = computed(() =>
+  props.task ? resolveListIds(props.task) : []
+)
+
+const listLabels = computed(() =>
+  currentListIds.value.map((id) => {
+    const list = tasksStore.myLists.find(l => l.id === id)
+    return list?.name ?? `清单 ${id}`
+  })
+)
+
+const candidateLists = computed(() => {
+  const q = listKeyword.value.trim().toLowerCase()
+  return tasksStore.myLists.filter((list) => {
+    if (!q) {
+      return true
+    }
+    return list.name.toLowerCase().includes(q)
+  })
+})
+
 const assignerLabel = computed(() => {
   const id = props.task?.assignerId
   if (!id) {
@@ -111,6 +136,18 @@ function toggleDraftAssignee(id: string) {
     draftAssigneeIds.value = draftAssigneeIds.value.filter(x => x !== id)
   } else {
     draftAssigneeIds.value = [...draftAssigneeIds.value, id]
+  }
+}
+
+function isDraftListSelected(id: string) {
+  return draftListIds.value.includes(id)
+}
+
+function toggleDraftList(id: string) {
+  if (isDraftListSelected(id)) {
+    draftListIds.value = draftListIds.value.filter(x => x !== id)
+  } else {
+    draftListIds.value = [...draftListIds.value, id]
   }
 }
 
@@ -199,6 +236,19 @@ async function openAssign() {
   assignOpen.value = true
 }
 
+async function openLists() {
+  try {
+    if (!tasksStore.myLists.length) {
+      await tasksStore.fetchMyLists()
+    }
+  } catch {
+    // lists optional
+  }
+  listKeyword.value = ''
+  draftListIds.value = [...currentListIds.value]
+  listsOpen.value = true
+}
+
 async function handleSaveAssignees() {
   if (!props.task) {
     return
@@ -213,6 +263,24 @@ async function handleSaveAssignees() {
     })
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '更新负责人失败'
+    toast.add({ title: message, color: 'error' })
+  }
+}
+
+async function handleSaveLists() {
+  if (!props.task) {
+    return
+  }
+  try {
+    await tasksStore.setListMemberships(props.task.id, [...draftListIds.value])
+    listsOpen.value = false
+    const n = draftListIds.value.length
+    toast.add({
+      title: n ? `已更新所属清单（${n}）` : '已移出全部清单',
+      color: 'success'
+    })
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '更新清单失败'
     toast.add({ title: message, color: 'error' })
   }
 }
@@ -399,6 +467,31 @@ async function handleAddComment() {
           </p>
         </div>
         <UButton color="neutral" variant="soft" size="xs" @click="openAssign">
+          编辑
+        </UButton>
+      </div>
+
+      <div class="flex items-start gap-3 text-sm">
+        <UIcon name="i-lucide-folders" class="mt-0.5 size-4 shrink-0 text-[var(--ws-text-muted)]" />
+        <div class="min-w-0 flex-1">
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            所属清单
+          </p>
+          <div v-if="listLabels.length" class="mt-1 flex flex-wrap gap-1.5">
+            <UBadge
+              v-for="(label, idx) in listLabels"
+              :key="currentListIds[idx]"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ label }}
+            </UBadge>
+          </div>
+          <p v-else class="font-medium">
+            未加入清单
+          </p>
+        </div>
+        <UButton color="neutral" variant="soft" size="xs" @click="openLists">
           编辑
         </UButton>
       </div>
@@ -653,6 +746,54 @@ async function handleAddComment() {
               取消
             </UButton>
             <UButton color="primary" :loading="tasksStore.saving" @click="handleSaveAssignees">
+              保存
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="listsOpen" title="编辑所属清单">
+      <template #body>
+        <div class="space-y-3">
+          <UInput
+            v-model="listKeyword"
+            placeholder="搜索清单"
+            icon="i-lucide-search"
+          />
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            移出清单不会删除任务；可同时属于多个清单（本地暂存，待 API）。
+          </p>
+          <ul class="max-h-64 space-y-1 overflow-y-auto">
+            <li
+              v-for="list in candidateLists"
+              :key="list.id"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--ws-rail-hover)]"
+                @click="toggleDraftList(list.id)"
+              >
+                <UCheckbox
+                  :model-value="isDraftListSelected(list.id)"
+                  class="pointer-events-none"
+                  tabindex="-1"
+                />
+                <span class="font-medium">{{ list.name }}</span>
+              </button>
+            </li>
+          </ul>
+          <UEmpty
+            v-if="!candidateLists.length"
+            icon="i-lucide-folder"
+            title="暂无清单"
+            description="请先在左侧创建清单"
+          />
+          <div class="flex justify-end gap-2 pt-1">
+            <UButton color="neutral" variant="soft" @click="listsOpen = false">
+              取消
+            </UButton>
+            <UButton color="primary" :loading="tasksStore.saving" @click="handleSaveLists">
               保存
             </UButton>
           </div>
