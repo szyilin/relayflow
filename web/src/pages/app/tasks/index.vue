@@ -9,7 +9,11 @@ import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
-import type { BoardStatus } from '../../../stores/tasks/boardLocal'
+import { isBoardStatus, type BoardStatus } from '../../../stores/tasks/boardLocal'
+import {
+  partitionByGroupBy,
+  USE_LOCAL_GROUP_MOVE
+} from '../../../stores/tasks/groupByLocal'
 import {
   navViewToContextType
 } from '../../../stores/tasks/viewConfigLocal'
@@ -103,22 +107,11 @@ const canUsePersonalCustomGroup = computed(
   () => !inListContext.value && tasksStore.navView === 'mine'
 )
 
-const personalBoardColumns = computed(() => {
-  const columns = {
-    TODO: [] as typeof displayItems.value,
-    IN_PROGRESS: [] as typeof displayItems.value,
-    DONE: [] as typeof displayItems.value
-  }
-  for (const item of displayItems.value) {
-    const status = item.status
-    if (status === 'TODO' || status === 'IN_PROGRESS' || status === 'DONE') {
-      columns[status].push(item)
-    } else {
-      columns.TODO.push(item)
-    }
-  }
-  return columns
-})
+const displayBuckets = computed(() =>
+  partitionByGroupBy(displayItems.value, viewConfigStore.activeConfig.groupBy)
+)
+
+const showGroupHeaders = computed(() => viewConfigStore.activeConfig.groupBy !== null)
 
 const showListTabs = computed(() => false)
 const showCreateButton = computed(() => {
@@ -138,6 +131,17 @@ const showTaskActions = computed(() => {
     || tasksStore.navView === 'created'
     || tasksStore.navView === 'all'
     || tasksStore.navView === 'assigned_by_me'
+})
+
+const canDragGrouped = computed(() => {
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  if (!groupBy || groupBy.mode !== 'FIELD') {
+    return false
+  }
+  if (inListContext.value) {
+    return tasksStore.listCanMutateTasks
+  }
+  return showTaskActions.value && USE_LOCAL_GROUP_MOVE
 })
 
 function parseView(raw: unknown): TasksNavView {
@@ -250,16 +254,44 @@ async function syncViewConfigContext() {
   tab.value = mode === 'BOARD' ? 'board' : 'list'
 }
 
-async function handleBoardMove(payload: {
+async function handleGroupMove(payload: {
   taskId: string
-  status: BoardStatus
+  bucketKey: string
   beforeId: string | null
 }) {
-  try {
-    await tasksStore.moveBoardTask(payload)
-  } catch {
-    toast.add({ title: '移动失败', color: 'error' })
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  if (!groupBy || groupBy.mode !== 'FIELD') {
+    return
   }
+  const { fieldKey } = groupBy
+
+  // List + status still uses real board-move until group-move API lands.
+  if (
+    fieldKey === 'status'
+    && inListContext.value
+    && isBoardStatus(payload.bucketKey)
+  ) {
+    try {
+      await tasksStore.moveBoardTask({
+        taskId: payload.taskId,
+        status: payload.bucketKey as BoardStatus,
+        beforeId: payload.beforeId
+      })
+    } catch {
+      toast.add({ title: '移动失败', color: 'error' })
+    }
+    return
+  }
+
+  if (!USE_LOCAL_GROUP_MOVE) {
+    toast.add({ title: '分组移动尚未对接', color: 'warning' })
+    return
+  }
+  tasksStore.applyLocalFieldGroupMove({
+    taskId: payload.taskId,
+    fieldKey,
+    targetKey: payload.bucketKey
+  })
 }
 
 async function applyTaskIdFromRoute() {
@@ -847,58 +879,81 @@ meta:
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>
-          <div v-else-if="displayItems.length" class="mx-auto max-w-3xl space-y-2">
-            <div
-              v-for="task in displayItems"
-              :key="task.id"
-              role="button"
-              tabindex="0"
-              class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
-              :class="tasksStore.selectedId === task.id
-                ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
-                : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] hover:bg-[var(--ws-rail-hover)]/40'"
-              @click="openTask(task.id)"
-              @keydown.enter.prevent="openTask(task.id)"
+          <div v-else-if="displayItems.length" class="mx-auto max-w-3xl space-y-4">
+            <section
+              v-for="bucket in displayBuckets"
+              :key="bucket.key"
+              class="space-y-2"
             >
-              <UCheckbox
-                v-if="showTaskActions"
-                :model-value="task.status === 'DONE'"
-                @click.stop
-                @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
-              />
-              <div class="min-w-0 flex-1">
-                <p
-                  class="font-medium"
-                  :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
-                >
-                  {{ task.title }}
-                </p>
-                <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
-                  <span
-                    v-if="viewConfigStore.isFieldVisible('dueTime') && formatDue(task.dueTime)"
-                    :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
+              <header
+                v-if="showGroupHeaders"
+                class="flex items-center justify-between px-1 pt-1"
+              >
+                <h2 class="text-sm font-medium text-[var(--ws-text)]">
+                  {{ bucket.label }}
+                </h2>
+                <span class="text-xs text-[var(--ws-text-muted)]">
+                  {{ bucket.items.length }}
+                </span>
+              </header>
+              <div
+                v-for="task in bucket.items"
+                :key="task.id"
+                role="button"
+                tabindex="0"
+                class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
+                :class="tasksStore.selectedId === task.id
+                  ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                  : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] hover:bg-[var(--ws-rail-hover)]/40'"
+                @click="openTask(task.id)"
+                @keydown.enter.prevent="openTask(task.id)"
+              >
+                <UCheckbox
+                  v-if="showTaskActions"
+                  :model-value="task.status === 'DONE'"
+                  @click.stop
+                  @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
+                />
+                <div class="min-w-0 flex-1">
+                  <p
+                    class="font-medium"
+                    :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
                   >
-                    {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
-                  </span>
-                  <span v-if="viewConfigStore.isFieldVisible('status')">
-                    {{ task.status === 'TODO' ? '未开始' : task.status === 'IN_PROGRESS' ? '进行中' : '已完成' }}
-                  </span>
-                  <span v-if="viewConfigStore.isFieldVisible('assignee') && task.assigneeId">
-                    负责人 {{ task.assigneeId }}
-                  </span>
-                  <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
-                </p>
+                    {{ task.title }}
+                  </p>
+                  <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
+                    <span
+                      v-if="viewConfigStore.isFieldVisible('dueTime') && formatDue(task.dueTime)"
+                      :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
+                    >
+                      {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
+                    </span>
+                    <span v-if="viewConfigStore.isFieldVisible('status')">
+                      {{ task.status === 'TODO' ? '未开始' : task.status === 'IN_PROGRESS' ? '进行中' : '已完成' }}
+                    </span>
+                    <span v-if="viewConfigStore.isFieldVisible('assignee') && task.assigneeId">
+                      负责人 {{ task.assigneeId }}
+                    </span>
+                    <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
+                  </p>
+                </div>
+                <UButton
+                  v-if="showTaskActions"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  size="xs"
+                  aria-label="删除"
+                  @click.stop="handleDelete(task.id)"
+                />
               </div>
-              <UButton
-                v-if="showTaskActions"
-                color="neutral"
-                variant="ghost"
-                icon="i-lucide-trash-2"
-                size="xs"
-                aria-label="删除"
-                @click.stop="handleDelete(task.id)"
-              />
-            </div>
+              <p
+                v-if="showGroupHeaders && !bucket.items.length"
+                class="px-1 py-2 text-xs text-[var(--ws-text-muted)]"
+              >
+                暂无任务
+              </p>
+            </section>
             <div
               v-if="showListPagination"
               class="flex items-center justify-between gap-3 pt-3 text-sm text-[var(--ws-text-muted)]"
@@ -920,22 +975,13 @@ meta:
           />
         </div>
         <TaskBoardView
-          v-else-if="tab === 'board' && inListContext"
-          :columns="tasksStore.boardColumns"
-          :can-drag="tasksStore.listCanMutateTasks"
+          v-else-if="tab === 'board' && (inListContext || showViewToolbar)"
+          :buckets="displayBuckets"
+          :can-drag="canDragGrouped"
           :selected-id="tasksStore.selectedId"
           :loading="tasksStore.loading"
           @open="openTask"
-          @move="handleBoardMove"
-        />
-        <TaskBoardView
-          v-else-if="tab === 'board' && showViewToolbar"
-          :columns="personalBoardColumns"
-          :can-drag="false"
-          :selected-id="tasksStore.selectedId"
-          :loading="tasksStore.loading"
-          @open="openTask"
-          @move="() => {}"
+          @move="handleGroupMove"
         />
         <UEmpty
           v-else
