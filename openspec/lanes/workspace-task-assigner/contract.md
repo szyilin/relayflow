@@ -1,7 +1,9 @@
 # API 契约：workspace-task-assigner
 
-> **状态**：draft（`-web` 起草；写入/查询 largely 已在 quick-views + multi-assignee）  
+> **状态**：done（integrate 完成；无本地 Mock；详情读 `assignerId`）  
 > **起草**：`workspace-task-assigner-web`  
+> **实现**：`workspace-task-assigner-api`  
+> **联调**：`workspace-task-assigner-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-quick-views`](../workspace-task-quick-views/contract.md)、[`workspace-task-multi-assignee`](../workspace-task-multi-assignee/contract.md)
@@ -17,7 +19,7 @@
 | 不含自己、含他人 | 当前操作者 |
 | 含自己，或空集合 | `null` |
 
-「我分配的」=`scope=ASSIGNED_BY_ME`（见 quick-views contract）。
+「我分配的」=`scope=ASSIGNED_BY_ME`：`assigner_id = me` AND NOT EXISTS me in `task_item_assignee`。
 
 ## REST
 
@@ -31,9 +33,9 @@
 
 ## 前端
 
-- 详情只读展示分配人
-- 左栏「我分配的」已存在；空态提示需指派他人后方有数据
+- 详情只读展示分配人（API 字段）
+- 左栏「我分配的」；将负责人改为他人且自己不在集合后出现
 
-## `-api` 收口
+## 验收
 
-确认 `TaskAssigneeService.syncProjection` 与上表一致；无需新 Flyway（`assigner_id` 已有）。
+A 将任务负责人设为仅 B → A 在「我分配的」、B 在「我负责的」；详情对双方可见分配人 A。
