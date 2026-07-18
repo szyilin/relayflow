@@ -1,74 +1,110 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { TaskItem } from '../../api/app/task'
-import { useAuthStore } from '../auth'
+import {
+  getTaskViewConfig,
+  saveTaskViewConfig
+} from '../../api/app/taskViewConfig'
 import {
   type TaskViewConfig,
   type TaskViewContextKey,
+  clearLegacyViewConfigLocalStorage,
   contextStorageKey,
   defaultViewConfig,
-  loadLocalViewConfigMap,
-  resolveViewConfig,
-  saveLocalViewConfigMap
+  resolveViewConfig
 } from './viewConfigLocal'
 
 export const useTaskViewConfigStore = defineStore('taskViewConfig', () => {
   const map = ref<Record<string, TaskViewConfig>>({})
   const activeContext = ref<TaskViewContextKey>({ contextType: 'MINE' })
-  const loaded = ref(false)
+  const loading = ref(false)
+  const saving = ref(false)
+  let legacyCleared = false
 
   const activeConfig = computed(() =>
     resolveViewConfig(map.value, activeContext.value))
 
-  function ensureLoaded() {
-    if (loaded.value) {
+  function ensureLegacyCleared() {
+    if (legacyCleared) {
       return
     }
-    const auth = useAuthStore()
-    const tenantId = auth.tenantId ? String(auth.tenantId) : ''
-    const userId = auth.userId ? String(auth.userId) : ''
-    map.value = loadLocalViewConfigMap(tenantId, userId)
-    loaded.value = true
+    clearLegacyViewConfigLocalStorage()
+    legacyCleared = true
   }
 
-  function persist() {
-    const auth = useAuthStore()
-    const tenantId = auth.tenantId ? String(auth.tenantId) : ''
-    const userId = auth.userId ? String(auth.userId) : ''
-    saveLocalViewConfigMap(tenantId, userId, map.value)
-  }
-
-  function setActiveContext(ctx: TaskViewContextKey) {
-    ensureLoaded()
+  async function setActiveContext(ctx: TaskViewContextKey) {
+    ensureLegacyCleared()
     activeContext.value = {
       contextType: ctx.contextType,
       contextId: ctx.contextType === 'LIST' ? ctx.contextId ?? null : null
     }
+    const key = contextStorageKey(activeContext.value)
+    loading.value = true
+    try {
+      const config = await getTaskViewConfig({
+        contextType: activeContext.value.contextType,
+        contextId: activeContext.value.contextId
+      })
+      map.value = { ...map.value, [key]: config }
+    } catch {
+      if (!map.value[key]) {
+        map.value = {
+          ...map.value,
+          [key]: defaultViewConfig(activeContext.value.contextType)
+        }
+      }
+    } finally {
+      loading.value = false
+    }
   }
 
-  function patchActiveConfig(patch: Partial<TaskViewConfig>) {
-    ensureLoaded()
+  async function persistActive(config: TaskViewConfig) {
+    saving.value = true
+    try {
+      await saveTaskViewConfig({
+        contextType: activeContext.value.contextType,
+        contextId: activeContext.value.contextId,
+        config
+      })
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function patchActiveConfig(patch: Partial<TaskViewConfig>) {
     const key = contextStorageKey(activeContext.value)
     const next: TaskViewConfig = {
       ...resolveViewConfig(map.value, activeContext.value),
       ...patch
     }
     map.value = { ...map.value, [key]: next }
-    persist()
+    try {
+      await persistActive(next)
+    } catch {
+      // keep optimistic UI; next context reload will reconcile
+    }
   }
 
-  function resetActiveToDefault() {
-    ensureLoaded()
+  async function resetActiveToDefault() {
     const key = contextStorageKey(activeContext.value)
     const next = defaultViewConfig(activeContext.value.contextType)
     map.value = { ...map.value, [key]: next }
-    persist()
+    try {
+      await persistActive(next)
+    } catch {
+      // keep optimistic UI
+    }
   }
 
   function resetForTenantSwitch() {
     map.value = {}
-    loaded.value = false
     activeContext.value = { contextType: 'MINE' }
+    legacyCleared = false
+  }
+
+  /** @deprecated no-op; kept for call sites that ran sync ensure before fetch */
+  function ensureLoaded() {
+    ensureLegacyCleared()
   }
 
   function applyClientTransforms(items: TaskItem[]): TaskItem[] {
@@ -119,20 +155,11 @@ export const useTaskViewConfigStore = defineStore('taskViewConfig', () => {
     return activeConfig.value.visibleFieldKeys.includes(fieldKey)
   }
 
-  watch(
-    () => {
-      const auth = useAuthStore()
-      return `${auth.tenantId ?? ''}:${auth.userId ?? ''}`
-    },
-    () => {
-      loaded.value = false
-      ensureLoaded()
-    }
-  )
-
   return {
     activeContext,
     activeConfig,
+    loading,
+    saving,
     setActiveContext,
     patchActiveConfig,
     resetActiveToDefault,

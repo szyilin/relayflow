@@ -1,8 +1,9 @@
 # API 契约：workspace-task-view-config
 
-> **状态**：api ready（`-web` ui_ready；`-api` 已实现 get/save；待 `-integrate` 关 localStorage）  
+> **状态**：done（integrate：store 走真 API；无 localStorage 真源）  
 > **起草**：`workspace-task-view-config-web`  
 > **实现**：`workspace-task-view-config-api`  
+> **联调**：`workspace-task-view-config-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md)  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
@@ -79,7 +80,7 @@ AND 组合；V1 至少支持：
 
 ## `-web` 临时行为
 
-`USE_LOCAL_VIEW_CONFIG`：浏览器 `localStorage` 按 `tenantId+userId` 存 map；integrate 删除。
+~~已删除。~~ Integrate 后 **不得**使用 `USE_LOCAL_VIEW_CONFIG` / localStorage 作为 ViewConfig 真源。
 
 ## 错误码
 
