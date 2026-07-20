@@ -377,7 +377,7 @@ async function handleGroupMove(payload: {
       return
     }
     try {
-      customFieldsStore.moveTask(payload.taskId, groupBy.fieldKey, payload.bucketKey)
+      await customFieldsStore.moveTask(payload.taskId, groupBy.fieldKey, payload.bucketKey)
     } catch {
       toast.add({ title: '移动失败', color: 'error' })
     }
@@ -524,6 +524,11 @@ watch(
     void syncViewConfigContext()
     listGroupsStore.setActiveList(tasksStore.activeListId)
     customFieldsStore.setActiveList(tasksStore.activeListId)
+    if (tasksStore.activeListId) {
+      void customFieldsStore.fetchList(tasksStore.activeListId, true).catch(() => {
+        toast.add({ title: '加载自定义字段失败', color: 'error' })
+      })
+    }
   },
   { immediate: true }
 )
@@ -1069,7 +1074,7 @@ meta:
         class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-2"
       >
         <span class="text-xs text-[var(--ws-text-muted)]">
-          按自定义字段分组；空值在「无分组」（会话 Mock）
+          按自定义字段分组；空值在「无分组」
         </span>
       </div>
 

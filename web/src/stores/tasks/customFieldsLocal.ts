@@ -4,27 +4,9 @@ import {
   EMPTY_GROUP_LABEL,
   type TaskGroupBucket
 } from './groupByLocal'
+import type { ListCustomField, ListCustomFieldOption } from '../../api/app/taskListField'
 
-/** Session-local until custom-field-api / integrate. */
-export const USE_LOCAL_CUSTOM_FIELD = true
-
-export type ListCustomFieldType = 'SINGLE_SELECT'
-
-export interface ListCustomFieldOption {
-  id: string
-  valueKey: string
-  label: string
-  rank: number
-}
-
-export interface ListCustomField {
-  id: string
-  listId: string
-  name: string
-  fieldType: ListCustomFieldType
-  rank: number
-  options: ListCustomFieldOption[]
-}
+export type { ListCustomField, ListCustomFieldOption }
 
 export type CustomFieldKey = `custom:${string}`
 
@@ -45,29 +27,6 @@ export function parseCustomFieldId(fieldKey: string): string | null {
 
 export function valueStorageKey(listId: string, itemId: string, fieldId: string): string {
   return `${listId}:${itemId}:${fieldId}`
-}
-
-let seq = 1
-export function nextLocalId(prefix: string): string {
-  seq += 1
-  return `local-${prefix}-${Date.now()}-${seq}`
-}
-
-export function createSeedField(listId: string): ListCustomField {
-  const fieldId = nextLocalId('field')
-  const options: ListCustomFieldOption[] = [
-    { id: nextLocalId('opt'), valueKey: 'high', label: '高', rank: 0 },
-    { id: nextLocalId('opt'), valueKey: 'medium', label: '中', rank: 1 },
-    { id: nextLocalId('opt'), valueKey: 'low', label: '低', rank: 2 }
-  ]
-  return {
-    id: fieldId,
-    listId,
-    name: '优先级',
-    fieldType: 'SINGLE_SELECT',
-    rank: 0,
-    options
-  }
 }
 
 export function partitionByCustomField(

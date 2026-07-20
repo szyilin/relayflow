@@ -1,22 +1,29 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { TaskItem } from '../../api/app/task'
+import { groupMoveTask } from '../../api/app/task'
+import {
+  createListField as createListFieldApi,
+  createListFieldOption,
+  deleteListField as deleteListFieldApi,
+  deleteListFieldOption,
+  listListFields,
+  putListFieldValue,
+  updateListField,
+  updateListFieldOption,
+  type ListCustomField,
+  type ListCustomFieldOption
+} from '../../api/app/taskListField'
 import type { TaskGroupBucket } from './groupByLocal'
 import { EMPTY_GROUP_KEY } from './groupByLocal'
 import {
-  USE_LOCAL_CUSTOM_FIELD,
-  createSeedField,
-  nextLocalId,
   parseCustomFieldId,
   partitionByCustomField,
   toCustomFieldKey,
-  valueStorageKey,
-  type ListCustomField,
-  type ListCustomFieldOption
+  valueStorageKey
 } from './customFieldsLocal'
 
 export {
-  USE_LOCAL_CUSTOM_FIELD,
   isCustomFieldKey,
   parseCustomFieldId,
   toCustomFieldKey
@@ -27,16 +34,17 @@ interface ListFieldCache {
   fields: ListCustomField[]
   /** optionId or null when explicitly cleared; missing key = empty */
   values: Record<string, string | null>
-  seeded: boolean
+  loaded: boolean
 }
 
 function emptyCache(): ListFieldCache {
-  return { fields: [], values: {}, seeded: false }
+  return { fields: [], values: {}, loaded: false }
 }
 
 export const useCustomFieldsStore = defineStore('customFields', () => {
   const byListId = ref<Record<string, ListFieldCache>>({})
   const activeListId = ref<string | null>(null)
+  const loading = ref(false)
 
   function ensureCache(listId: string): ListFieldCache {
     if (!byListId.value[listId]) {
@@ -50,23 +58,39 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
 
   function setActiveList(listId: string | null) {
     activeListId.value = listId
-    if (listId && USE_LOCAL_CUSTOM_FIELD) {
-      ensureSeed(listId)
-    }
   }
 
-  function ensureSeed(listId: string) {
-    const cache = ensureCache(listId)
-    if (cache.seeded) {
-      return
+  function applyList(listId: string, result: Awaited<ReturnType<typeof listListFields>>) {
+    const values: Record<string, string | null> = {}
+    for (const v of result.values) {
+      values[valueStorageKey(listId, v.itemId, v.fieldId)] = v.optionId
     }
     byListId.value = {
       ...byListId.value,
       [listId]: {
-        fields: [createSeedField(listId)],
-        values: { ...cache.values },
-        seeded: true
+        fields: result.fields,
+        values,
+        loaded: true
       }
+    }
+  }
+
+  async function fetchList(listId: string | null | undefined, force = false) {
+    if (!listId) {
+      return
+    }
+    if (loading.value) {
+      return
+    }
+    const cache = ensureCache(listId)
+    if (cache.loaded && !force) {
+      return
+    }
+    loading.value = true
+    try {
+      applyList(listId, await listListFields(listId))
+    } finally {
+      loading.value = false
     }
   }
 
@@ -97,7 +121,7 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     return cache.values[key] ?? null
   }
 
-  function setValue(listId: string, itemId: string, fieldId: string, optionId: string | null) {
+  function patchValueLocal(listId: string, itemId: string, fieldId: string, optionId: string | null) {
     const cache = ensureCache(listId)
     const key = valueStorageKey(listId, itemId, fieldId)
     byListId.value = {
@@ -106,6 +130,17 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
         ...cache,
         values: { ...cache.values, [key]: optionId }
       }
+    }
+  }
+
+  async function setValue(listId: string, itemId: string, fieldId: string, optionId: string | null) {
+    const prev = getValue(listId, itemId, fieldId)
+    patchValueLocal(listId, itemId, fieldId, optionId)
+    try {
+      await putListFieldValue({ listId, itemId, fieldId, optionId })
+    } catch (e) {
+      patchValueLocal(listId, itemId, fieldId, prev)
+      throw e
     }
   }
 
@@ -118,7 +153,7 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     return partitionByCustomField(items, field, itemId => getValue(listId, itemId, field.id))
   }
 
-  function createField(name: string, optionLabels: string[]): ListCustomField {
+  async function createField(name: string, optionLabels: string[]): Promise<ListCustomField> {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
@@ -131,33 +166,24 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     if (labels.length < 2) {
       throw new Error('TASK_LIST_FIELD_OPTIONS_MIN')
     }
-    const cache = ensureCache(listId)
-    const options: ListCustomFieldOption[] = labels.map((label, rank) => ({
-      id: nextLocalId('opt'),
-      valueKey: `opt_${rank}_${nextLocalId('vk')}`,
-      label,
-      rank
-    }))
-    const field: ListCustomField = {
-      id: nextLocalId('field'),
+    const field = await createListFieldApi({
       listId,
       name: trimmed,
-      fieldType: 'SINGLE_SELECT',
-      rank: cache.fields.length,
-      options
-    }
+      options: labels.map(label => ({ label }))
+    })
+    const cache = ensureCache(listId)
     byListId.value = {
       ...byListId.value,
       [listId]: {
         ...cache,
-        seeded: true,
-        fields: [...cache.fields, field]
+        loaded: true,
+        fields: [...cache.fields.filter(f => f.id !== field.id), field]
       }
     }
     return field
   }
 
-  function renameField(fieldId: string, name: string) {
+  async function renameField(fieldId: string, name: string) {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
@@ -166,10 +192,8 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     if (!trimmed) {
       throw new Error('TASK_LIST_FIELD_NAME_EMPTY')
     }
+    await updateListField({ id: fieldId, name: trimmed })
     const cache = ensureCache(listId)
-    if (!cache.fields.some(f => f.id === fieldId)) {
-      throw new Error('TASK_LIST_FIELD_NOT_FOUND')
-    }
     byListId.value = {
       ...byListId.value,
       [listId]: {
@@ -179,15 +203,13 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     }
   }
 
-  function deleteField(fieldId: string) {
+  async function deleteField(fieldId: string) {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
     }
+    await deleteListFieldApi(fieldId)
     const cache = ensureCache(listId)
-    if (!cache.fields.some(f => f.id === fieldId)) {
-      throw new Error('TASK_LIST_FIELD_NOT_FOUND')
-    }
     const prefix = `${listId}:`
     const suffix = `:${fieldId}`
     const nextValues = { ...cache.values }
@@ -206,7 +228,7 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     }
   }
 
-  function addOption(fieldId: string, label: string) {
+  async function addOption(fieldId: string, label: string) {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
@@ -215,17 +237,8 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     if (!trimmed) {
       throw new Error('TASK_LIST_FIELD_OPTION_EMPTY')
     }
+    const option = await createListFieldOption({ fieldId, label: trimmed })
     const cache = ensureCache(listId)
-    const field = cache.fields.find(f => f.id === fieldId)
-    if (!field) {
-      throw new Error('TASK_LIST_FIELD_NOT_FOUND')
-    }
-    const option: ListCustomFieldOption = {
-      id: nextLocalId('opt'),
-      valueKey: `opt_${field.options.length}_${nextLocalId('vk')}`,
-      label: trimmed,
-      rank: field.options.length
-    }
     byListId.value = {
       ...byListId.value,
       [listId]: {
@@ -238,7 +251,7 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     return option
   }
 
-  function renameOption(fieldId: string, optionId: string, label: string) {
+  async function renameOption(fieldId: string, optionId: string, label: string) {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
@@ -247,11 +260,8 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     if (!trimmed) {
       throw new Error('TASK_LIST_FIELD_OPTION_EMPTY')
     }
+    await updateListFieldOption({ id: optionId, label: trimmed })
     const cache = ensureCache(listId)
-    const field = cache.fields.find(f => f.id === fieldId)
-    if (!field?.options.some(o => o.id === optionId)) {
-      throw new Error('TASK_LIST_FIELD_OPTION_NOT_FOUND')
-    }
     byListId.value = {
       ...byListId.value,
       [listId]: {
@@ -270,22 +280,17 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     }
   }
 
-  function deleteOption(fieldId: string, optionId: string) {
+  async function deleteOption(fieldId: string, optionId: string) {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
     }
     const cache = ensureCache(listId)
     const field = cache.fields.find(f => f.id === fieldId)
-    if (!field) {
-      throw new Error('TASK_LIST_FIELD_NOT_FOUND')
-    }
-    if (field.options.length <= 2) {
+    if (field && field.options.length <= 2) {
       throw new Error('TASK_LIST_FIELD_OPTIONS_MIN')
     }
-    if (!field.options.some(o => o.id === optionId)) {
-      throw new Error('TASK_LIST_FIELD_OPTION_NOT_FOUND')
-    }
+    await deleteListFieldOption(optionId)
     const nextValues = { ...cache.values }
     for (const [key, val] of Object.entries(nextValues)) {
       if (val === optionId) {
@@ -311,21 +316,35 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     }
   }
 
-  function moveTask(taskId: string, fieldKey: string, targetKey: string) {
+  async function moveTask(taskId: string, fieldKey: string, targetKey: string) {
     const listId = activeListId.value
     const field = fieldByGroupKey(fieldKey)
     if (!listId || !field) {
       throw new Error('TASK_LIST_FIELD_NOT_FOUND')
     }
-    if (targetKey === EMPTY_GROUP_KEY) {
-      setValue(listId, taskId, field.id, null)
-      return
+    const prev = getValue(listId, taskId, field.id)
+    let nextOptionId: string | null = null
+    let apiValue: string | null = null
+    if (targetKey !== EMPTY_GROUP_KEY) {
+      const opt = field.options.find(o => o.valueKey === targetKey)
+      if (!opt) {
+        throw new Error('TASK_LIST_FIELD_OPTION_NOT_FOUND')
+      }
+      nextOptionId = opt.id
+      apiValue = opt.valueKey
     }
-    const opt = field.options.find(o => o.valueKey === targetKey)
-    if (!opt) {
-      throw new Error('TASK_LIST_FIELD_OPTION_NOT_FOUND')
+    patchValueLocal(listId, taskId, field.id, nextOptionId)
+    try {
+      await groupMoveTask({
+        id: taskId,
+        fieldKey,
+        value: apiValue,
+        listId
+      })
+    } catch (e) {
+      patchValueLocal(listId, taskId, field.id, prev)
+      throw e
     }
-    setValue(listId, taskId, field.id, opt.id)
   }
 
   function groupByMenuItems(): { fieldKey: string, label: string }[] {
@@ -343,8 +362,9 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
   return {
     activeListId,
     fields,
+    loading,
     setActiveList,
-    ensureSeed,
+    fetchList,
     fieldById,
     fieldByGroupKey,
     getValue,
