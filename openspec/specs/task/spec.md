@@ -3,9 +3,7 @@
 ## Purpose
 
 定义员工工作台协作任务（`task_item`）的领域模块、API 与 `/app/tasks` 页面对接行为。含详情字段、子任务、关注/评论/动态/指派；清单容器、看板、自定义字段见后续 change。
-
 ## Requirements
-
 ### Requirement: Task item domain module
 
 The system SHALL provide a `task` domain with Maven modules `relayflow-module-task-api` and `relayflow-module-task-biz`, and persist task data in tables prefixed with `task_`.
@@ -242,4 +240,70 @@ The `/app/tasks` left navigation SHALL enable「我负责的」, and after colla
 - **WHEN** collab APIs are integrated
 - **THEN**「我关注的」and「动态」are usable
 - **AND** each loads via store/API without page-local mock as source of truth
+
+### Requirement: List custom single-select field UI (web)
+
+Within a task list context, the workspace tasks UI MUST allow users with list edit rights to define list-scoped **single-select** custom fields (name + ordered options). Field schemas MUST NOT appear on quick-access contexts. Until custom-field API integrate, definitions and values MAY persist only in the client session (store mock).
+
+#### Scenario: Create field and options
+
+- **WHEN** a list OWNER/EDITOR creates a single-select field with two or more options
+- **THEN** the field appears in that list's field list for the current session
+- **AND** quick-access contexts MUST NOT show a list field schema editor
+
+#### Scenario: Viewer read-only
+
+- **WHEN** a list VIEWER opens the list
+- **THEN** they MUST NOT be able to create, rename, reorder, or delete custom fields or options
+
+### Requirement: Custom field as groupBy source (web)
+
+When ViewConfig `groupBy.mode` is `FIELD` and `fieldKey` is `custom:{fieldId}` for a field belonging to the current list, the list and board MUST partition root tasks by that field's selected option. Empty/missing values MUST appear under「无分组」(`__empty__`). Dragging between partitions MUST update the mock value for the current session until API integrate.
+
+#### Scenario: Board columns from custom select
+
+- **WHEN** the user sets groupBy to a list custom single-select field
+- **THEN** board columns (or list sections) match the field's options plus「无分组」for empty values
+
+#### Scenario: Drag updates value
+
+- **WHEN** the user drags a root task into an option column
+- **THEN** that task's mock custom-field value becomes that option for the current list context
+
+### Requirement: Detail panel custom field value (web)
+
+In a list context, the task detail panel MUST show the current list's custom single-select fields and allow EDITOR+/OWNER to change or clear the value (clear →「无分组」). Values for other lists MUST NOT be edited unless the user switches list context.
+
+#### Scenario: Edit value in detail
+
+- **WHEN** an EDITOR sets a custom single-select value on a task in list L
+- **THEN** that value is reflected in list L's groupBy partitions in the current session
+
+### Requirement: List custom field persistence API
+
+The system SHALL persist list-scoped single-select custom fields in `task_list_field`, options in `task_list_field_option`, and task values in `task_item_field_value` (EAV). REST under `/app-api/task/list-field` MUST support list/create/update/delete field, option CRUD, and PUT value. Deleting an option MUST clear referencing values; deleting a field MUST cascade options and values without deleting tasks. `PUT /app-api/task/item/group-move` MUST accept `fieldKey=custom:{fieldId}` with required `listId` and write the matching option by `value_key` (or clear for empty).
+
+#### Scenario: Create and list fields
+
+- **WHEN** an OWNER/EDITOR creates a SINGLE_SELECT field with options for a list
+- **THEN** `GET /list-field/list?listId=` returns that field and options for list members
+
+#### Scenario: Custom group-move
+
+- **WHEN** an editable user calls group-move with `fieldKey=custom:{id}`, `listId`, and an option `value_key`
+- **THEN** the task's EAV value for that field is updated to the option
+
+### Requirement: Custom field API integration (web)
+
+When viewing a task list, the workspace MUST load custom field definitions and values from `/app-api/task/list-field`. Create/update/delete field and options, put value, and custom `group-move` MUST call the API. The client MUST NOT keep an in-memory-only mock flag for production path.
+
+#### Scenario: Persist after refresh
+
+- **WHEN** a user creates a single-select field and sets a task value, then refreshes
+- **THEN** the field and value remain
+
+#### Scenario: Drag persists
+
+- **WHEN** the user drags a task into an option column under custom groupBy
+- **THEN** `PUT /item/group-move` succeeds and refresh keeps the bucket
 
