@@ -67,13 +67,16 @@ public class DocDocumentServiceImpl implements DocDocumentService {
         OffsetDateTime now = OffsetDateTime.now();
         int nextVersion = row.getContentVersion() + 1;
 
+        // Entity update applies JsonbTypeHandler; wrapper.set(String) binds varchar and fails on jsonb.
+        DocObjectDO patch = new DocObjectDO();
+        patch.setBody(bodyJson);
+        patch.setContentVersion(nextVersion);
+        patch.setUpdater(userId);
+        patch.setUpdateTime(now);
+
         int updated = docObjectMapper.update(
-                null,
+                patch,
                 Wrappers.<DocObjectDO>lambdaUpdate()
-                        .set(DocObjectDO::getBody, bodyJson)
-                        .set(DocObjectDO::getContentVersion, nextVersion)
-                        .set(DocObjectDO::getUpdater, userId)
-                        .set(DocObjectDO::getUpdateTime, now)
                         .eq(DocObjectDO::getId, objectId)
                         .eq(DocObjectDO::getOwnerUserId, userId)
                         .eq(DocObjectDO::getContentVersion, expectedVersion));

@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import DocsTreeNodes from '../../../components/workspace/DocsTreeNodes.vue'
 import DocsDriveBrowser from '../../../components/workspace/DocsDriveBrowser.vue'
+import DocsRichEditor from '../../../components/workspace/DocsRichEditor.vue'
 import type { DocsLibraryNode, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
 import { useDocsStore } from '../../../stores/docs'
 import { useDocsDriveStore } from '../../../stores/docsDrive'
 import { listDriveFolders } from '../../../api/app/docs-drive'
-
-const DocsRichEditor = defineAsyncComponent(() =>
-  import('../../../components/workspace/DocsRichEditor.vue')
-)
 
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +36,18 @@ const driveFolderTargets = ref<{ folderId: string | null, label: string }[]>([
 const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
 const saveHint = ref('')
+
+const docMoreItems = computed(() => [
+  [
+    {
+      label: '导出 Markdown',
+      icon: 'i-lucide-download',
+      onSelect: () => {
+        void onExportMd()
+      }
+    }
+  ]
+])
 
 const panelItems = [
   { key: 'library' as const, label: '我的文档库', enabled: true },
@@ -434,34 +443,28 @@ meta:
       <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-2">
         <UInput
           v-model="draftTitle"
-          class="max-w-xl flex-1"
+          class="min-w-0 flex-1"
           size="lg"
           variant="ghost"
           placeholder="未命名文档"
           @blur="onTitleBlur"
         />
-        <span class="text-xs text-[var(--ws-text-muted)]">{{ saveHint }}</span>
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          icon="i-lucide-download"
-          label="导出 Markdown"
-          @click="onExportMd"
-        />
+        <span class="shrink-0 text-xs text-[var(--ws-text-muted)]">{{ saveHint }}</span>
+        <UDropdownMenu :items="docMoreItems">
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-ellipsis"
+            aria-label="更多"
+          />
+        </UDropdownMenu>
       </div>
-      <Suspense>
-        <DocsRichEditor
-          :model-value="draftBody"
-          class="min-h-0 flex-1"
-          @update:model-value="onBodyUpdate"
-        />
-        <template #fallback>
-          <div class="flex flex-1 items-center justify-center text-sm text-[var(--ws-text-muted)]">
-            加载编辑器…
-          </div>
-        </template>
-      </Suspense>
+      <DocsRichEditor
+        :model-value="draftBody"
+        class="min-h-0 flex-1"
+        @update:model-value="onBodyUpdate"
+      />
     </div>
   </WorkspaceShell>
 
