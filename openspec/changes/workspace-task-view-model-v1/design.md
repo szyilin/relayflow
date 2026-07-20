@@ -114,6 +114,21 @@ ViewConfig {
 
 - 各 P 段 `-web` → `-api` → `-integrate`；母 `tasks.md` 不替代子 change tasks。
 
+### D12 — 清单自定义字段存储（P8 · 关闭 OQ#3）
+
+**拍板（2026-07-20）：定义表 + 选项表 + EAV 取值表**；不做 JSONB 整包存值、不做按字段加宽列。
+
+| 表（示意） | 职责 |
+|------------|------|
+| `task_list_field` | 清单侧字段定义：`list_id`、名称、`field_key`、类型、排序；V1 仅 `SINGLE_SELECT` |
+| `task_list_field_option` | 单选选项：稳定 `value_key`、展示名、排序（可选色） |
+| `task_item_field_value` | 任务取值：`(item_id, field_id)` → `option_id`（可空 =「无分组」） |
+
+- **为何 EAV：** `groupBy` / `group-move` 需按 option 分桶与写回；EAV 可索引、可扩展多类型；JSONB 整包不利于按值过滤与跨任务聚合；宽表会随字段增删改 schema。
+- **作用域：** 字段定义仅挂清单；快捷视图不定义字段。多清单任务：各清单字段独立；详情按当前清单上下文编辑取值。
+- **`groupBy`：** `mode=FIELD` 且 `fieldKey` 指向自定义字段（contract 写死前缀，如 `custom:{fieldId}`）；桶 key = option.`value_key` 或 `__empty__`。
+- **非本 P8：** 公式/关联/多选/数字、字段级权限、跨清单超级字段库。
+
 ## Risks / Trade-offs
 
 | 风险 | 缓解 |
@@ -142,5 +157,5 @@ ViewConfig {
 
 1. **完成态展示：** 库内三态 vs 工具栏「未完成/已完成」二分映射（建议：库内保留三态，快捷「已完成」筛 DONE；未完成含 TODO+IN_PROGRESS）。
 2. **VIEWER 会话级改清单视图：** 建议允许临时、不落库。
-3. **自定义字段存储（P8）：** EAV vs JSONB vs 宽表 — 开 P8 前再定。
+3. ~~**自定义字段存储（P8）：**~~ → **已关闭，见 D12**（定义 + 选项 + EAV）。
 4. **「全部任务」可见范围：** 仅我负责∪我创建∪我关注∪我是清单成员的任务，或更宽 — **实现 P0 contract 前必须写死**（建议：并集上述，避免全租户泄漏）。
