@@ -7,11 +7,16 @@ import { useContactsStore } from '../../stores/contacts'
 import { useTasksStore } from '../../stores/tasks'
 import { resolveAssigneeIds } from '../../stores/tasks/assigneeLocal'
 import { resolveListIds } from '../../stores/tasks/listMembershipLocal'
+import { useCustomFieldsStore } from '../../stores/tasks/customFieldsStore'
+import { EMPTY_GROUP_KEY } from '../../stores/tasks/groupByLocal'
 
 const props = defineProps<{
   task: TaskItem | null
   subtasks: TaskItem[]
   loading?: boolean
+  /** Current list context for custom field values. */
+  listId?: string | null
+  canEditCustomFields?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const tasksStore = useTasksStore()
+const customFieldsStore = useCustomFieldsStore()
 const auth = useAuthStore()
 const contacts = useContactsStore()
 const toast = useToast()
@@ -115,6 +121,42 @@ const assignerLabel = computed(() => {
   }
   return nicknameFor(String(id))
 })
+
+const listCustomFields = computed(() => {
+  if (!props.listId) {
+    return []
+  }
+  return customFieldsStore.fields.filter(f => f.listId === props.listId)
+})
+
+function optionItemsFor(fieldId: string) {
+  const field = customFieldsStore.fieldById(fieldId)
+  if (!field) {
+    return [{ label: '无分组', value: EMPTY_GROUP_KEY }]
+  }
+  return [
+    { label: '无分组', value: EMPTY_GROUP_KEY },
+    ...field.options
+      .slice()
+      .sort((a, b) => a.rank - b.rank)
+      .map(o => ({ label: o.label, value: o.id }))
+  ]
+}
+
+function customFieldValue(fieldId: string): string {
+  if (!props.listId || !props.task) {
+    return EMPTY_GROUP_KEY
+  }
+  return customFieldsStore.getValue(props.listId, props.task.id, fieldId) ?? EMPTY_GROUP_KEY
+}
+
+function setCustomFieldValue(fieldId: string, optionIdOrEmpty: string) {
+  if (!props.listId || !props.task || !props.canEditCustomFields) {
+    return
+  }
+  const optionId = optionIdOrEmpty === EMPTY_GROUP_KEY ? null : optionIdOrEmpty
+  customFieldsStore.setValue(props.listId, props.task.id, fieldId, optionId)
+}
 
 const candidateMembers = computed(() => {
   const q = memberKeyword.value.trim().toLowerCase()
@@ -508,6 +550,28 @@ async function handleAddComment() {
           <p class="font-medium">
             {{ assignerLabel }}
           </p>
+        </div>
+      </div>
+
+      <div
+        v-if="listId && listCustomFields.length"
+        class="space-y-3 text-sm"
+      >
+        <div
+          v-for="field in listCustomFields"
+          :key="field.id"
+          class="flex items-start gap-3"
+        >
+          <UIcon name="i-lucide-tags" class="mt-2 size-4 shrink-0 text-[var(--ws-text-muted)]" />
+          <UFormField :label="field.name" class="min-w-0 flex-1">
+            <USelect
+              :model-value="customFieldValue(field.id)"
+              :items="optionItemsFor(field.id)"
+              :disabled="!canEditCustomFields"
+              class="w-full"
+              @update:model-value="(v: string) => setCustomFieldValue(field.id, v)"
+            />
+          </UFormField>
         </div>
       </div>
 

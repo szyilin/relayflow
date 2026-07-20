@@ -7,13 +7,17 @@ import {
   type TaskViewGroupBy,
   type TaskViewSort,
   type TaskViewSortKey,
-  type TaskViewDisplayMode
+  type TaskViewDisplayMode,
+  type TaskViewFieldKey
 } from '../../stores/tasks/viewConfigStore'
+import { isCustomFieldKey } from '../../stores/tasks/customFieldsLocal'
 
 const props = defineProps<{
   canUsePersonalCustomGroup?: boolean
   canUseListGroup?: boolean
   showBoardMode?: boolean
+  /** List-scoped custom single-select fields for groupBy menu. */
+  customFieldGroupItems?: { fieldKey: string, label: string }[]
 }>()
 
 const viewConfig = useTaskViewConfigStore()
@@ -45,12 +49,16 @@ const groupLabel = computed(() => {
   if (g.mode === 'LIST_GROUP') {
     return '清单分组'
   }
+  if (isCustomFieldKey(g.fieldKey)) {
+    const hit = props.customFieldGroupItems?.find(i => i.fieldKey === g.fieldKey)
+    return hit?.label ?? '自定义字段'
+  }
   const names = {
     status: '状态',
     dueTime: '截止时间',
     assigneeId: '负责人'
   } as const
-  return names[g.fieldKey]
+  return names[g.fieldKey as keyof typeof names] ?? g.fieldKey
 })
 
 const filterCount = computed(() => viewConfig.activeConfig.filters.length)
@@ -117,6 +125,18 @@ const groupItems = computed<DropdownMenuItem[][]>(() => {
         })
     }
   ]
+  for (const cf of props.customFieldGroupItems ?? []) {
+    items.push({
+      label: cf.label,
+      onSelect: () =>
+        viewConfig.patchActiveConfig({
+          groupBy: {
+            mode: 'FIELD',
+            fieldKey: cf.fieldKey as TaskViewFieldKey
+          }
+        })
+    })
+  }
   if (props.canUsePersonalCustomGroup) {
     items.push({
       label: '自定义分组',

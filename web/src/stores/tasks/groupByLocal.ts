@@ -40,6 +40,15 @@ export function partitionByGroupBy(
   }
 
   const fieldKey = groupBy.fieldKey
+  // Custom fields: prefer useCustomFieldsStore.partition in the page.
+  if (fieldKey.startsWith('custom:')) {
+    return [{
+      key: ALL_GROUP_KEY,
+      label: '自定义字段',
+      items: [...items]
+    }]
+  }
+
   const map = new Map<string, TaskItem[]>()
 
   for (const item of items) {
@@ -95,8 +104,11 @@ export function partitionByGroupBy(
 
 function bucketKeyForItem(
   item: TaskItem,
-  fieldKey: 'status' | 'dueTime' | 'assigneeId'
+  fieldKey: 'status' | 'dueTime' | 'assigneeId' | string
 ): string {
+  if (fieldKey.startsWith('custom:')) {
+    return EMPTY_GROUP_KEY
+  }
   if (fieldKey === 'status') {
     return item.status || EMPTY_GROUP_KEY
   }
@@ -130,9 +142,12 @@ function labelForBucket(fieldKey: string, key: string): string {
 /** Apply a drag target to a task clone (local mock). */
 export function applyGroupTargetToTask(
   task: TaskItem,
-  fieldKey: 'status' | 'dueTime' | 'assigneeId',
+  fieldKey: 'status' | 'dueTime' | 'assigneeId' | string,
   targetKey: string
 ): TaskItem {
+  if (fieldKey.startsWith('custom:')) {
+    return task
+  }
   if (fieldKey === 'status') {
     if (targetKey === EMPTY_GROUP_KEY || !isBoardStatus(targetKey)) {
       return task
