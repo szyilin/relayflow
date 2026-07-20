@@ -1,9 +1,9 @@
 # API 契约：workspace-task-custom-field
 
-> **状态**：ui_ready（`-web` Mock；待 `-api` / `-integrate`）  
+> **状态**：done（integrate 完成；无本地 Mock）  
 > **起草**：`workspace-task-custom-field-web`  
-> **实现**：`workspace-task-custom-field-api`（待开）  
-> **联调**：`workspace-task-custom-field-integrate`（待开）  
+> **实现**：`workspace-task-custom-field-api`  
+> **联调**：`workspace-task-custom-field-integrate`  
 > **母 change**：[`workspace-task-view-model-v1`](../../changes/workspace-task-view-model-v1/proposal.md) D12  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
 > **相关**：[`workspace-task-group-by-field`](../workspace-task-group-by-field/contract.md)、[`workspace-task-view-config`](../workspace-task-view-config/contract.md)、[`workspace-task-list`](../workspace-task-list/contract.md)
@@ -142,4 +142,4 @@ curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/j
 
 ## `-web` 临时行为（integrate 删除）
 
-`USE_LOCAL_CUSTOM_FIELD = true`：定义与取值仅 Pinia 会话内；不调上述 REST。拖拽 / 详情改值写 Mock。
+~~`USE_LOCAL_CUSTOM_FIELD`~~：已删除；定义/取值/拖拽均走 `/list-field/*` 与 `group-move`。

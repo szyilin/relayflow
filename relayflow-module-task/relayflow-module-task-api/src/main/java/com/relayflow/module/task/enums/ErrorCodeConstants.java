@@ -31,7 +31,13 @@ public enum ErrorCodeConstants implements ErrorCode {
 
     TASK_LIST_GROUP_NOT_FOUND(1_004_005_001, "清单分组不存在"),
     TASK_LIST_GROUP_FORBIDDEN(1_004_005_002, "无权操作该清单分组"),
-    TASK_LIST_GROUP_NAME_EMPTY(1_004_005_003, "分组名称不能为空");
+    TASK_LIST_GROUP_NAME_EMPTY(1_004_005_003, "分组名称不能为空"),
+
+    TASK_LIST_FIELD_NOT_FOUND(1_004_006_001, "清单自定义字段不存在"),
+    TASK_LIST_FIELD_OPTION_NOT_FOUND(1_004_006_002, "自定义字段选项不存在"),
+    TASK_LIST_FIELD_FORBIDDEN(1_004_006_003, "无权操作该清单自定义字段"),
+    TASK_LIST_FIELD_NAME_EMPTY(1_004_006_004, "字段名称不能为空"),
+    TASK_LIST_FIELD_OPTIONS_MIN(1_004_006_005, "单选字段至少两个选项");
 
     private final Integer code;
     private final String msg;

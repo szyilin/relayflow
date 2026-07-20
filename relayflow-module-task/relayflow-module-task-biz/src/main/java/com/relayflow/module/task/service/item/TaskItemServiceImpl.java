@@ -27,6 +27,8 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
+import com.relayflow.module.task.service.listfield.TaskListFieldService;
+import com.relayflow.module.task.service.listfield.TaskListFieldServiceImpl;
 import com.relayflow.module.task.service.listitem.TaskListItemService;
 import com.relayflow.module.task.service.minegroup.TaskMineGroupService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
@@ -61,6 +63,7 @@ public class TaskItemServiceImpl implements TaskItemService {
     private final TaskAssigneeService taskAssigneeService;
     private final TaskMineGroupService taskMineGroupService;
     private final TaskListItemService taskListItemService;
+    private final TaskListFieldService taskListFieldService;
 
     @Override
     public PageResult<TaskItemRespVO> pageMyTasks(TaskItemPageReqVO request) {
@@ -470,7 +473,14 @@ public class TaskItemServiceImpl implements TaskItemService {
                 taskAssigneeService.replaceAssignees(row, userId, tenantId, nextIds, true, true);
                 taskDueNotifyService.pushIfDueSoon(row);
             }
-            default -> throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+            default -> {
+                if (TaskListFieldServiceImpl.isCustomFieldKey(fieldKey)) {
+                    taskListFieldService.applyGroupMove(
+                            request.getListId(), request.getId(), fieldKey, rawValue, userId);
+                } else {
+                    throw new ServiceException(ErrorCodeConstants.TASK_GROUP_MOVE_INVALID);
+                }
+            }
         }
     }
 

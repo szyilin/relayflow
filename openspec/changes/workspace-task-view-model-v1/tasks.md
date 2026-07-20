@@ -57,8 +57,8 @@
 ## 10. P8 —（可选）清单自定义字段作分组源
 
 - [x] 10.1 关闭 design Open Question #3（存储模型）后立项 → **D12 EAV**；子 change：`workspace-task-custom-field-{web,api,integrate}`
-- [x] 10.2 单选字段 CRUD + `groupBy` 指向自定义字段 — **`-web` 已完成**（contract + Mock UI，`USE_LOCAL_CUSTOM_FIELD`）；待 `workspace-task-custom-field-api` / `-integrate`
-- [ ] 10.3 三切片交付并更新对接看板（web=ui_ready；api/integrate 待开）
+- [x] 10.2 单选字段 CRUD + `groupBy` 指向自定义字段 — **web/api/integrate 已交付**
+- [x] 10.3 三切片交付并更新对接看板
 
 ## 11. 文档与收尾
 
