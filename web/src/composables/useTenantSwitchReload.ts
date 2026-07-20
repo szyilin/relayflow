@@ -3,6 +3,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCalendarStore } from '../stores/calendar'
 import { useContactsStore } from '../stores/contacts'
+import { useDocsStore } from '../stores/docs'
 import { useImStore } from '../stores/im'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
@@ -18,9 +19,10 @@ export function useTenantSwitchReload() {
   const im = useImStore()
   const contacts = useContactsStore()
   const profile = useProfileStore()
-  const tasks = useTasksStore()
-  const calendar = useCalendarStore()
-  const preference = useUserPreferenceStore()
+    const tasks = useTasksStore()
+    const calendar = useCalendarStore()
+    const docs = useDocsStore()
+    const preference = useUserPreferenceStore()
 
   watch(() => [auth.tenantId, auth.userId] as const, async ([nextTenant, nextUser], prev) => {
     const [prevTenant, prevUser] = prev ?? [null, null]
@@ -36,6 +38,7 @@ export function useTenantSwitchReload() {
     contacts.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()
+    docs.resetLocal()
     preference.resetForTenantSwitch()
 
     try {
@@ -91,6 +94,14 @@ export function useTenantSwitchReload() {
         await calendar.fetchShares()
       } catch {
         // 页面 onMounted / watch 会再拉
+      }
+    }
+
+    if (route.path.startsWith('/app/docs')) {
+      try {
+        await docs.ensureHydrated()
+      } catch {
+        // 页面 onMounted 会再拉
       }
     }
   })
