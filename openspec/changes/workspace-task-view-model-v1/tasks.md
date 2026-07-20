@@ -4,7 +4,7 @@
 - [x] 1.2 审阅并确认 `design.md` 决策 D0–D11（三套分组语义）与剩余 Open Questions
 - [x] 1.3 `openspec validate workspace-task-view-model-v1 --strict` 通过
 - [x] 1.4 更新 `docs/dev/api-integration-board.md` 子切片顺序与能力摘要（planned）
-- [ ] 1.5 （可选）收尾/archive `workspace-task-list-board-v1` §6.3
+- [x] 1.5 （可选）收尾/archive `workspace-task-list-board-v1` §6.3（2026-07-20 已 archive；`--skip-specs`，主 specs 仍待 §11.2）
 
 ## 2. P0 — 快速访问预设视图（子 change：quick-views）
 
@@ -56,7 +56,7 @@
 
 ## 10. P8 —（可选）清单自定义字段作分组源
 
-- [ ] 10.1 关闭 design Open Question #3（存储模型）后立项
+- [x] 10.1 关闭 design Open Question #3（存储模型）后立项 → **D12 EAV**；子 change：`workspace-task-custom-field-{web,api,integrate}`
 - [ ] 10.2 单选字段 CRUD + `groupBy` 指向自定义字段
 - [ ] 10.3 三切片交付并更新对接看板
 
