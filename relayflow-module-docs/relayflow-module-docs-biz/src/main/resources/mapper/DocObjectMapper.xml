@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.docs.dal.mapper.DocObjectMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.relayflow.module.docs.dal.dataobject.DocObjectDO">
+        <result column="id" property="id" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="creator" property="creator" />
+        <result column="create_time" property="createTime" />
+        <result column="updater" property="updater" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+        <result column="type" property="type" />
+        <result column="title" property="title" />
+        <result column="body" property="body" typeHandler="com.relayflow.framework.mybatis.typehandler.JsonbTypeHandler" />
+        <result column="body_format" property="bodyFormat" />
+        <result column="content_version" property="contentVersion" />
+        <result column="owner_user_id" property="ownerUserId" />
+        <result column="last_opened_at" property="lastOpenedAt" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        creator,
+        create_time,
+        updater,
+        update_time,
+        deleted,
+        type, title, body, body_format, content_version, owner_user_id, last_opened_at
+    </sql>
+
+</mapper>

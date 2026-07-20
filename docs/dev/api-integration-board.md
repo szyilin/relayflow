@@ -67,7 +67,7 @@
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
 | **workspace-task-board** | **archived** | **done** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
 | **workspace-task-view-model-v1** | **planned** | **planned** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 | [proposal](../../openspec/changes/workspace-task-view-model-v1/proposal.md) | 母 change；对齐飞书「快捷视图 ≠ 清单」；计划 B 个人组 |
-| **workspace-docs-library** | **planned** | **planned** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [proposal](../../openspec/changes/workspace-docs-library-v1/proposal.md) | 母 change；TipTap JSON 真源；V1 仅 MD 导出；无 `doc_embed`；云盘/知识库另开 |
+| **workspace-docs-library** | **ready** | **done** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | integrate 完成；store 无 Mock；E2E `/app/docs` |
 | **workspace-task-quick-views** | **archived** | **done** | `scope=ALL\|ASSIGNED_BY_ME` · `assignerId` · `/app/tasks` 快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | integrate 完成；store 无本地临时 |
 | **workspace-task-view-config** | **archived** | **done** | `GET/PUT …/view-config/*` · `/app/tasks` 工具栏 | [contract](../../openspec/lanes/workspace-task-view-config/contract.md) | integrate 完成；store 无本地暂存 |
 | **workspace-task-group-by-field** | **archived** | **done** | `PUT …/group-move` · `/app/tasks` 按字段分区/看板列 | [contract](../../openspec/lanes/workspace-task-group-by-field/contract.md) | integrate 完成；store 无本地拖拽暂存；`board-move` 过渡兼容 |
@@ -86,8 +86,8 @@
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-docs-library` | **已立项**（母 change）；实现顺序：`docs-schema` → `-web` → `-api` → `-integrate` |
-| `workspace-docs-drive-v1` | 云盘（文档库交付后再开详细母 change） |
+| `workspace-docs-library` | **done**（integrate 完成；store 无 Mock） |
+| `workspace-docs-drive-v1` | **建议下一母 change**（云盘；待写详细 design/tasks） |
 | `workspace-docs-wiki-v1` | 知识库（更后） |
 
 ### SUPERSEDED（不再按旧写真源扩写）

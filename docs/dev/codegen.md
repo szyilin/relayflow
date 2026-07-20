@@ -75,7 +75,7 @@ relayflow-module-system-biz/
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `--module` / `-m` | 是 | `system` / `infra` / `im` / `task` / `calendar`（见 `codegen.yml`） |
+| `--module` / `-m` | 是 | `system` / `infra` / `im` / `task` / `calendar` / `docs`（见 `codegen.yml`） |
 | `--tables` / `-t` | 是 | 逗号分隔表名，**仅生成这些表** |
 | `--output` / `-o` | 否 | 输出目录；默认 `.relayflow/codegen-out/<timestamp>/` |
 | `--migrate` | 否 | 生成前对本地库执行 Flyway |
