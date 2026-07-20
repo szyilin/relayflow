@@ -1,8 +1,44 @@
+import { createRequire } from 'node:module'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueRouter from 'vue-router/vite'
 import vueLayouts from 'vite-plugin-vue-layouts'
 import ui from '@nuxt/ui/vite'
+
+const require = createRequire(import.meta.url)
+
+/**
+ * TipTap / Nuxt UI: ProseMirror uses `instanceof` across modules.
+ * Multiple physical copies → Enter fails with:
+ * "Can not convert <> to a Fragment (looks like multiple versions of prosemirror-model were loaded)"
+ * @see https://ui.nuxt.com/docs/components/editor
+ */
+const prosemirrorSingletons = [
+  'prosemirror-model',
+  'prosemirror-state',
+  'prosemirror-view',
+  'prosemirror-transform',
+  'prosemirror-keymap',
+  'prosemirror-commands',
+  'prosemirror-schema-list',
+  'prosemirror-history',
+  'prosemirror-dropcursor',
+  'prosemirror-gapcursor'
+] as const
+
+function packageRoot(name: string): string {
+  let dir = dirname(require.resolve(name))
+  while (dir !== '/' && !existsSync(join(dir, 'package.json'))) {
+    dir = dirname(dir)
+  }
+  return dir
+}
+
+const prosemirrorAlias = Object.fromEntries(
+  prosemirrorSingletons.map(name => [name, packageRoot(name)])
+)
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -27,6 +63,13 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    alias: prosemirrorAlias,
+    dedupe: [...prosemirrorSingletons]
+  },
+  optimizeDeps: {
+    include: [...prosemirrorSingletons]
+  },
   server: {
     proxy: {
       '/admin-api': {

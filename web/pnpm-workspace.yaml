@@ -3,3 +3,9 @@ allowBuilds:
   vue-demi: true
   maplibre-gl: true
   '@tailwindcss/oxide': true
+
+# TipTap/ProseMirror: single copy required (instanceof checks).
+# Duplicate versions cause: "Can not convert <> to a Fragment (looks like multiple versions of prosemirror-model were loaded)"
+overrides:
+  prosemirror-model: 1.25.11
+  prosemirror-view: 1.42.1
