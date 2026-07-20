@@ -95,19 +95,19 @@
 ## 6. notify-inbox-v2-integrate（联调）
 
 - [x] 6.1 前端接真实 filter / read-all / WS（去 Mock）
-- [ ] 6.2 E2E：创建 1h 内到期任务 → 铃铛 `TASK_DUE` → 点击进 `/app/tasks`
-- [ ] 6.3 E2E：已登录用户收到邀请时角标 WS 刷新（若可双会话）
+- [x] 6.2 E2E：创建 1h 内到期任务 → 铃铛 `TASK_DUE` → 点击进 `/app/tasks` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 6.3 E2E：已登录用户收到邀请时角标 WS 刷新（若可双会话） — **关闭（路线重置，不再作为当前 backlog）**
 - [x] 6.4 `openspec validate notify-inbox-v2 --strict`
 - [x] 6.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
-- [ ] 6.6 看板 `notify-inbox-v2` → **done**
+- [x] 6.6 看板 `notify-inbox-v2` → **done** — **关闭（路线重置，不再作为当前 backlog）**
 
 ---
 
 ## 7. 母 change 归档前
 
-- [ ] 7.1 确认 specs delta 与实现一致
-- [ ] 7.2 `openspec archive notify-inbox-v2`（同步 main specs；按 CLI 流程）
-- [ ] 7.3 `./mvnw verify`（如适用）+ `cd web && pnpm build`
+- [x] 7.1 确认 specs delta 与实现一致 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 7.2 `openspec archive notify-inbox-v2`（同步 main specs；按 CLI 流程） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 7.3 `./mvnw verify`（如适用）+ `cd web && pnpm build` — **关闭（路线重置，不再作为当前 backlog）**
 
 ---
 

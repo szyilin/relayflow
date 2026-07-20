@@ -12,5 +12,5 @@
 
 ## 3. 门禁
 
-- [ ] 3.1 本地试跑 `docker compose -f deploy/compose.yml up -d`（可选，有 Docker 时）
+- [x] 3.1 本地试跑 `docker compose -f deploy/compose.yml up -d`（可选，有 Docker 时） — **关闭（路线重置，不再作为当前 backlog）**
 - [x] 3.2 `openspec validate scaffold-deploy-compose --strict`

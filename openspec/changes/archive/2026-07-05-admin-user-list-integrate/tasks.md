@@ -17,9 +17,9 @@
 
 ## 联调
 
-- [ ] 3.1 `spring-boot:run` + `pnpm dev`：登录 → 用户列表显示库内数据
-- [ ] 3.2 错误密码 / 后端未启动时不再 Mock 假登录
+- [x] 3.1 `spring-boot:run` + `pnpm dev`：登录 → 用户列表显示库内数据 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.2 错误密码 / 后端未启动时不再 Mock 假登录 — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 门禁
 
-- [ ] 3.3 更新看板 admin-shell → done；admin-user-list → done
+- [x] 3.3 更新看板 admin-shell → done；admin-user-list → done — **关闭（路线重置，不再作为当前 backlog）**

@@ -66,9 +66,9 @@
 |------|----------|----------|-------------|------|------|
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
 | **workspace-task-board** | **archived** | **done** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
-| **workspace-task-view-model-v1** | **planned** | **planned** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 | [proposal](../../openspec/changes/workspace-task-view-model-v1/proposal.md) | 母 change；对齐飞书「快捷视图 ≠ 清单」；计划 B 个人组 |
+| **workspace-task-view-model-v1** | **archived** | **done** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 · 自定义字段 | [archive](../../openspec/changes/archive/2026-07-20-workspace-task-view-model-v1/proposal.md) | 母 change；P0–P8 已交付；specs 已同步 `openspec/specs/task` |
 | **workspace-docs-library** | **ready** | **done** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | integrate 完成；store 无 Mock；E2E `/app/docs` |
-| **workspace-docs-drive** | **ready** | **done** | `/app-api/docs/drive/*` · `/app/docs` 云盘 | [contract](../../openspec/lanes/workspace-docs-drive/contract.md) | 母 change；integrate + **跨容器 move** 完成；store 无 Mock；下一步母收尾 archive |
+| **workspace-docs-drive** | **archived** | **done** | `/app-api/docs/drive/*` · `/app/docs` 云盘 | [contract](../../openspec/lanes/workspace-docs-drive/contract.md) | 母 change 已归档；integrate + 跨容器 move；store 无 Mock；知识库暂缓 |
 | **workspace-task-quick-views** | **archived** | **done** | `scope=ALL\|ASSIGNED_BY_ME` · `assignerId` · `/app/tasks` 快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | integrate 完成；store 无本地临时 |
 | **workspace-task-view-config** | **archived** | **done** | `GET/PUT …/view-config/*` · `/app/tasks` 工具栏 | [contract](../../openspec/lanes/workspace-task-view-config/contract.md) | integrate 完成；store 无本地暂存 |
 | **workspace-task-group-by-field** | **archived** | **done** | `PUT …/group-move` · `/app/tasks` 按字段分区/看板列 | [contract](../../openspec/lanes/workspace-task-group-by-field/contract.md) | integrate 完成；store 无本地拖拽暂存；`board-move` 过渡兼容 |
@@ -83,13 +83,13 @@
 
 **下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list` ✅ → `list-groups` ✅ → **`custom-field` ✅（P8）**。
 
-### 建议下一切片（尚未立项或可并行）
+### 建议下一切片
+
+> **2026-07-20 路线重置**：旧建议切片（知识库 / 共享文件夹 / BPM / 短信等）**全部关闭，不再作为 backlog**。下一切片以新立 OpenSpec change 为准。
 
 | 切片 | 说明 |
 |------|------|
-| `workspace-docs-library` | **done**（integrate 完成；store 无 Mock） |
-| `workspace-docs-drive-v1` | **核心 done**（schema/web/api/integrate + move）；待母 change §6 archive |
-| `workspace-docs-wiki-v1` | 知识库（更后） |
+| （空） | 等待新路线规划立项 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 

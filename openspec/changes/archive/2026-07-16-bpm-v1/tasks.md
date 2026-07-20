@@ -21,12 +21,12 @@
 **目标**：Maven 模块、Flowable、扩展表、内置 BPMN。  
 **范围**：Java + Flyway + BOM；无 `web/`。
 
-- [ ] 1.1 根 `pom.xml` + `relayflow-module-bpm`（api + biz）+ `relayflow-server` 依赖
-- [ ] 1.2 BOM 增加 Flowable 版本与 `flowable-spring-boot-starter-process`
-- [ ] 1.3 Flyway `bpm_process_instance_ext` + codegen `bpm_process_instance_ext`
-- [ ] 1.4 `resources/processes/general_approval.bpmn20.xml` + 启动部署
-- [ ] 1.5 Flowable 配置（`database-schema-update`、async executor 关闭或最小化）
-- [ ] 1.6 `./mvnw -pl relayflow-server -am compile`；启动无报错
+- [x] 1.1 根 `pom.xml` + `relayflow-module-bpm`（api + biz）+ `relayflow-server` 依赖 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.2 BOM 增加 Flowable 版本与 `flowable-spring-boot-starter-process` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.3 Flyway `bpm_process_instance_ext` + codegen `bpm_process_instance_ext` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.4 `resources/processes/general_approval.bpmn20.xml` + 启动部署 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.5 Flowable 配置（`database-schema-update`、async executor 关闭或最小化） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.6 `./mvnw -pl relayflow-server -am compile`；启动无报错 — **关闭（路线重置，不再作为当前 backlog）**
 
 **验证**：compile + 本地启动日志见流程部署成功。
 
@@ -38,12 +38,12 @@
 **可与 §1 并行**（Mock 不依赖引擎）。
 
 - [x] 2.1 起草 `openspec/lanes/bpm-approval/contract.md`
-- [ ] 2.2 `pages/app/approvals/index.vue`：待我审批 / 我发起 Tab
-- [ ] 2.3 `stores/approvals.ts` + `api/app/bpm.ts`（Mock）
-- [ ] 2.4 新建 `UModal` 提交；`UDrawer` 详情 + 通过/驳回
-- [ ] 2.5 `useWorkspaceNav` 增加「审批」rail 项
-- [ ] 2.6 `cd web && pnpm build`
-- [ ] 2.7 浏览器：`/app/approvals` Mock 流程可走通
+- [x] 2.2 `pages/app/approvals/index.vue`：待我审批 / 我发起 Tab — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.3 `stores/approvals.ts` + `api/app/bpm.ts`（Mock） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.4 新建 `UModal` 提交；`UDrawer` 详情 + 通过/驳回 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.5 `useWorkspaceNav` 增加「审批」rail 项 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.6 `cd web && pnpm build` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.7 浏览器：`/app/approvals` Mock 流程可走通 — **关闭（路线重置，不再作为当前 backlog）**
 
 **验证**：`pnpm build` + 浏览器路径。
 
@@ -55,12 +55,12 @@
 
 **依赖**：§1 schema；§2 contract
 
-- [ ] 3.1 `BpmApprovalService`：submit / todo page / mine page / get / approve / reject
-- [ ] 3.2 `AppBpmController` under `/app-api/bpm`
-- [ ] 3.3 默认审批人解析（`system-api` 查 super_admin 或文档策略）
-- [ ] 3.4 新待办：`ImBotApi.send(approval-bot, SINGLE)` + `dedupeKey` + deep link（`im-api` only；best-effort）
-- [ ] 3.5 单测：提交、通过、驳回、无权；curl 示例写入 contract
-- [ ] 3.6 `./mvnw -pl relayflow-module-bpm-biz -am test` 或 server compile
+- [x] 3.1 `BpmApprovalService`：submit / todo page / mine page / get / approve / reject — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.2 `AppBpmController` under `/app-api/bpm` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.3 默认审批人解析（`system-api` 查 super_admin 或文档策略） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.4 新待办：`ImBotApi.send(approval-bot, SINGLE)` + `dedupeKey` + deep link（`im-api` only；best-effort） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.5 单测：提交、通过、驳回、无权；curl 示例写入 contract — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 3.6 `./mvnw -pl relayflow-module-bpm-biz -am test` 或 server compile — **关闭（路线重置，不再作为当前 backlog）**
 
 **完成后**：看板 api → `ready`。
 
@@ -68,20 +68,20 @@
 
 ## 4. bpm-approval-integrate（联调）
 
-- [ ] 4.1 前端去 Mock，接真实 API
-- [ ] 4.2 E2E：A 提交 → B 待办 → 通过 → A 状态已批准
-- [ ] 4.3 （可选）与 messages 联调：B 的 `approval-bot` bot_dm 出现待办提醒 + deep link 进审批
-- [ ] 4.4 `openspec validate bpm-v1 --strict`
-- [ ] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
-- [ ] 4.6 看板 `bpm-approval` → **done**
+- [x] 4.1 前端去 Mock，接真实 API — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 4.2 E2E：A 提交 → B 待办 → 通过 → A 状态已批准 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 4.3 （可选）与 messages 联调：B 的 `approval-bot` bot_dm 出现待办提醒 + deep link 进审批 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 4.4 `openspec validate bpm-v1 --strict` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 4.6 看板 `bpm-approval` → **done** — **关闭（路线重置，不再作为当前 backlog）**
 
 ---
 
 ## 5. 母 change 归档前
 
-- [ ] 5.1 README / `openspec/config.yaml` bpm 已启用表述一致
-- [ ] 5.2 `openspec archive bpm-v1`
-- [ ] 5.3 `./mvnw verify`（如适用）
+- [x] 5.1 README / `openspec/config.yaml` bpm 已启用表述一致 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 5.2 `openspec archive bpm-v1` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 5.3 `./mvnw verify`（如适用） — **关闭（路线重置，不再作为当前 backlog）**
 
 ---
 

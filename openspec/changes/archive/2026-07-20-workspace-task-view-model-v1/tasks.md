@@ -62,6 +62,6 @@
 
 ## 11. 文档与收尾
 
-- [ ] 11.1 更新 `docs/dev/workspace-ui-patterns.md`：三类左栏、三套分组、快速访问种子、多清单详情
-- [x] 11.2 各子 change archive 后同步 `openspec/specs/task/spec.md`（P8 custom-field 三切片已 archive + sync；其余子切片此前已 archive）
-- [ ] 11.3 P0–P8 完成后 `openspec archive workspace-task-view-model-v1`（待 §11.1）
+- [x] 11.1 更新 `docs/dev/workspace-ui-patterns.md`：三类左栏、三套分组、快速访问种子、多清单详情
+- [x] 11.2 各子 change archive 后同步 `openspec/specs/task/spec.md`（P8 custom-field 三切片已 archive + sync；其余子切片此前已 archive；本母 change 收尾时再合并 view-model delta）
+- [x] 11.3 P0–P8 完成后 `openspec archive workspace-task-view-model-v1`（待 §11.1）

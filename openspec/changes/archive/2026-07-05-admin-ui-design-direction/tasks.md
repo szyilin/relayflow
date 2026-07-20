@@ -33,7 +33,7 @@
 ## 阶段 4：归档准备（规则沉淀完成后）
 
 - [x] 4.1 确认 `admin-login-slice` proposal 已引用 `admin-ui-workflow.md` 与 patterns 文档
-- [ ] 4.2 运行 `openspec archive admin-ui-design-direction` 合并至 `openspec/specs/admin-ui-design/`（可与 login 切片并行，但 login **正式 UI 交付** 须等 4.2 或等效 spec 就绪）
+- [x] 4.2 运行 `openspec archive admin-ui-design-direction` 合并至 `openspec/specs/admin-ui-design/`（可与 login 切片并行，但 login **正式 UI 交付** 须等 4.2 或等效 spec 就绪） — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 不在本 change
 

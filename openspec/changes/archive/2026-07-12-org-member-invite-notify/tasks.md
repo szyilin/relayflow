@@ -65,7 +65,7 @@
 
 - [x] 4.1 store 去 Mock，接真实 pending + notify API
 - [x] 4.2 端到端：管理端邀请 → 注册页横幅 → 注册 → 铃铛有历史通知（见 contract 浏览器路径）
-- [ ] 4.3 （可选）`domain=notify` WS 未读刷新
+- [x] 4.3 （可选）`domain=notify` WS 未读刷新 — **关闭（路线重置，不再作为当前 backlog）**
 - [x] 4.4 `openspec validate org-member-invite-notify --strict`
 - [x] 4.5 `./mvnw -pl relayflow-server -am compile` + `cd web && pnpm build`
 - [x] 4.6 看板 `org-member-invite-notify` → **done**

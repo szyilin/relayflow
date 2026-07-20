@@ -12,8 +12,8 @@
 
 ## 2. Phase 2 实现（勿在 V1 脚手架阶段提前做）
 
-- [ ] 2.1 BOM 增加 Spring Cloud、Nacos（Phase 2 change 时）
-- [ ] 2.2 `relayflow-spring-boot-starter-rpc`
-- [ ] 2.3 `relayflow-gateway` + 三 `*-server` 空壳
-- [ ] 2.4 Compose：Nacos + Gateway + 多服务
-- [ ] 2.5 分库迁移与 Feign 切换
+- [x] 2.1 BOM 增加 Spring Cloud、Nacos（Phase 2 change 时） — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.2 `relayflow-spring-boot-starter-rpc` — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.3 `relayflow-gateway` + 三 `*-server` 空壳 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.4 Compose：Nacos + Gateway + 多服务 — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.5 分库迁移与 Feign 切换 — **关闭（路线重置，不再作为当前 backlog）**

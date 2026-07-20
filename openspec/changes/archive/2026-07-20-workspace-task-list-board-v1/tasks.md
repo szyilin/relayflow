@@ -87,7 +87,7 @@
 
 - [x] 6.1 去临时数据；联调拖拽落库、刷新保序、权限
 - [x] 6.2 构建验证；看板归档；母 change 勾选完成
-- [ ] 6.3 （可选）`openspec archive` 或 sync specs 至 `openspec/specs/task`
+- [x] 6.3 （可选）`openspec archive` 或 sync specs 至 `openspec/specs/task` — **关闭（路线重置，不再作为当前 backlog）**
 
 **联调说明**：`USE_LOCAL_BOARD_MOVE` 已删除；`moveBoardTask` 乐观更新 + `PUT /board-move`，失败回滚。浏览器：`/app/tasks?listId=…` → 看板拖拽 → 刷新保序。
 
