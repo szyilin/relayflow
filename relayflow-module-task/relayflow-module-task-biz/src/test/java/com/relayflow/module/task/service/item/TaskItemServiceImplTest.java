@@ -22,6 +22,7 @@ import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
 import com.relayflow.module.task.service.assignee.TaskAssigneeService;
 import com.relayflow.module.task.service.collab.TaskActivityRecorder;
+import com.relayflow.module.task.service.listfield.TaskListFieldService;
 import com.relayflow.module.task.service.listitem.TaskListItemService;
 import com.relayflow.module.task.service.minegroup.TaskMineGroupService;
 import com.relayflow.module.task.service.notify.TaskDueNotifyService;
@@ -72,6 +73,8 @@ class TaskItemServiceImplTest {
     private TaskMineGroupService taskMineGroupService;
     @Mock
     private TaskListItemService taskListItemService;
+    @Mock
+    private TaskListFieldService taskListFieldService;
 
     private TaskItemServiceImpl taskItemService;
 
@@ -86,7 +89,8 @@ class TaskItemServiceImplTest {
                 taskActivityRecorder,
                 taskAssigneeService,
                 taskMineGroupService,
-                taskListItemService);
+                taskListItemService,
+                taskListFieldService);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
