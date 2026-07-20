@@ -83,7 +83,7 @@
 
 ## 5. 母 change 收尾
 
-- [ ] 5.1 归档本母 change（或子 change 全部 archive 后同步 `openspec/specs/docs`）— **待用户 commit 后手动 archive**
+- [x] 5.1 归档本母 change（或子 change 全部 archive 后同步 `openspec/specs/docs`）— **2026-07-20 归档**
 - [x] 5.2 AGENTS.md / api-integration-board「下一优先」更新：建议 `workspace-docs-drive-v1`（**届时再写详细 design/tasks**）
 
 ---

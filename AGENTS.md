@@ -94,7 +94,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：`workspace-docs-drive-v1`（云盘，文档库 integrate 已完成；届时再写详细 design/tasks）；可选 `workspace-task-view-model-v1` 或 `bpm-v1`（deferred）。`/app/docs` 我的文档库 **done**。
+**下一优先**：`workspace-docs-drive-v1`（云盘母 change **已立项**；先 `docs-drive-schema-v1` / `-web`）；知识库更后。`/app/docs` 我的文档库 **done**。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

@@ -11,7 +11,7 @@ PostgreSQL + Flyway + MyBatis-Plus 的表结构、迁移与公共字段规范。
 | `im_` | im | `im_message` |
 | `task_` | task | `task_item` |
 | `cal_` | calendar | `cal_event` |
-| `doc_` | docs | `doc_object`、`doc_library_node` |
+| `doc_` | docs | `doc_object`、`doc_library_node`、`doc_drive_folder`、`doc_drive_item` |
 | `bpm_` | bpm（V1.1） | `bpm_process` |
 
 租户元数据表（`sys_tenant`、`sys_tenant_user`）不带业务表通用的 `tenant_id` 约束，详见 `tenant-ready-foundation` design。
