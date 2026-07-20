@@ -18,6 +18,7 @@
         <result column="content_version" property="contentVersion" />
         <result column="owner_user_id" property="ownerUserId" />
         <result column="last_opened_at" property="lastOpenedAt" />
+        <result column="storage_file_id" property="storageFileId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -29,7 +30,7 @@
         updater,
         update_time,
         deleted,
-        type, title, body, body_format, content_version, owner_user_id, last_opened_at
+        type, title, body, body_format, content_version, owner_user_id, last_opened_at, storage_file_id
     </sql>
 
 </mapper>

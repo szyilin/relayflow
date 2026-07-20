@@ -46,4 +46,7 @@ public class DocObjectDO extends TenantBaseDO {
 
     @TableField("last_opened_at")
     private OffsetDateTime lastOpenedAt;
+
+    @TableField("storage_file_id")
+    private Long storageFileId;
 }

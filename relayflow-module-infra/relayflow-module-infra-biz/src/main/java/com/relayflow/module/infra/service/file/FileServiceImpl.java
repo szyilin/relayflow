@@ -6,6 +6,7 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.oss.core.model.StorageObjectMeta;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
@@ -24,6 +25,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -101,6 +104,16 @@ public class FileServiceImpl implements FileService {
         file.setMimeType(session.getMimeType());
         file.setSize(objectMeta.getSize());
         file.setAccessLevel(session.getAccessLevel());
+        Long userId = session.getCreator() != null
+                ? session.getCreator()
+                : SecurityFrameworkUtils.getLoginUserId();
+        OffsetDateTime now = OffsetDateTime.now();
+        if (userId != null) {
+            file.setCreator(userId);
+            file.setUpdater(userId);
+        }
+        file.setCreateTime(now);
+        file.setUpdateTime(now);
         fileMapper.insert(file);
         return file;
     }

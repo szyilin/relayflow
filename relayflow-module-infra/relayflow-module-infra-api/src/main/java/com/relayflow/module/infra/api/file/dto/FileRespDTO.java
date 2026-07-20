@@ -18,4 +18,6 @@ public class FileRespDTO {
     private String sha256;
     private String accessLevel;
     private OffsetDateTime createTime;
+    /** Uploader user id (infra_file.creator). */
+    private Long creator;
 }
