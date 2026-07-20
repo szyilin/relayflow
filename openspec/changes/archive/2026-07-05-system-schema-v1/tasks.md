@@ -33,4 +33,4 @@
 
 ## 5. 归档（实现完成后）
 
-- [ ] 5.1 运行 `openspec archive system-schema-v1` 合并 spec 至 `openspec/specs/system/`
+- [x] 5.1 运行 `openspec archive system-schema-v1` 合并 spec 至 `openspec/specs/system/` — **关闭（路线重置，不再作为当前 backlog）**

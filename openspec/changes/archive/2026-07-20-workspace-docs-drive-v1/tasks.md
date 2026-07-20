@@ -71,8 +71,8 @@
 
 ## 6. 母 change 收尾
 
-- [ ] 6.1 archive（用户 commit 后）+ 同步 `openspec/specs/docs`
-- [ ] 6.2 下一优先指向 `workspace-docs-wiki-v1`
+- [x] 6.1 archive（用户 commit 后）+ 同步 `openspec/specs/docs`
+- [x] 6.2 下一优先：知识库 `workspace-docs-wiki-v1` **暂缓**；`AGENTS.md` 已改为待定
 
 ---
 

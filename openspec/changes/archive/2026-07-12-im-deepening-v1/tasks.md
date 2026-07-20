@@ -52,7 +52,7 @@
 
 - [x] 5.1 全部子 change archived
 - [x] 5.2 `./mvnw verify`（如适用）+ `cd web && pnpm build`
-- [ ] 5.3 `openspec archive im-deepening-v1`（spec 已手动合并至 `openspec/specs/im/spec.md`）
+- [x] 5.3 `openspec archive im-deepening-v1`（spec 已手动合并至 `openspec/specs/im/spec.md`） — **关闭（路线重置，不再作为当前 backlog）**
 
 ---
 

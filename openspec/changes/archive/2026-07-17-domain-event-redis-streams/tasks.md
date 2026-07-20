@@ -6,24 +6,24 @@ Wave A（事务/TraceId）与 Wave C（分层边界）保留。本 change 暂不
 
 ## 1. Framework messaging
 
-- [ ] 1.1 Add DomainEvent envelope + DomainEventPublisher API in starter-redis
-- [ ] 1.2 Implement Redis Streams publisher (after-commit) and listener container
-- [ ] 1.3 Idempotency via Redis key on eventId
+- [x] 1.1 Add DomainEvent envelope + DomainEventPublisher API in starter-redis — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.2 Implement Redis Streams publisher (after-commit) and listener container — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 1.3 Idempotency via Redis key on eventId — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 2. System events + remove Lazy ImBotApi
 
-- [ ] 2.1 Add payload DTOs and event type constants in system-api
-- [ ] 2.2 Replace ImBotApi calls with DomainEventPublisher in UserServiceImpl, AuthRegisterServiceImpl, MemberInviteServiceImpl, MemberInviteAcceptCardHandler
-- [ ] 2.3 Remove @Lazy ImBotApi fields
+- [x] 2.1 Add payload DTOs and event type constants in system-api — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.2 Replace ImBotApi calls with DomainEventPublisher in UserServiceImpl, AuthRegisterServiceImpl, MemberInviteServiceImpl, MemberInviteAcceptCardHandler — **关闭（路线重置，不再作为当前 backlog）**
+- [x] 2.3 Remove @Lazy ImBotApi fields — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 3. IM listeners
 
-- [ ] 3.1 Add listeners for `system.tenant_user.activated` and `system.member.invited`
+- [x] 3.1 Add listeners for `system.tenant_user.activated` and `system.member.invited` — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 4. BotRuntime cycle
 
-- [ ] 4.1 Extract BotReplyService; BotRuntimeImpl depends on it instead of @Lazy ImMessageService
+- [x] 4.1 Extract BotReplyService; BotRuntimeImpl depends on it instead of @Lazy ImMessageService — **关闭（路线重置，不再作为当前 backlog）**
 
 ## 5. Verify
 
-- [ ] 5.1 `./mvnw -pl relayflow-server -am compile`
+- [x] 5.1 `./mvnw -pl relayflow-server -am compile` — **关闭（路线重置，不再作为当前 backlog）**

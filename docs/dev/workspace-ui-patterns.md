@@ -112,15 +112,16 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `#panel`：个人入口「我负责的」「我创建的」「已完成」「我关注的」「动态」+ **「清单」分组**（我参与的清单、新建） |
-| Main | 中栏：个人入口以列表/动态为主；**选中清单**后提供「列表 \| 看板」；根任务列表（勾选、截止、子任务进度）；**右侧详情面板** |
-| 看板 | 仅清单上下文：三列 `TODO` / `IN_PROGRESS` / `DONE`；拖拽改状态与列内序；点卡片开详情。个人入口不实现完整看板（隐藏 Tab 或引导打开清单） |
-| 清单 | 可选归属（`list_id` 可空）；成员 OWNER / EDITOR / VIEWER；创建任务在清单上下文默认带 `listId` |
-| 详情 | 标题、负责人（可指派）、开始/截止、提醒、描述、关注人、子任务、评论、活动（复用既有面板） |
-| 深链 | `?taskId=` 打开详情；`?listId=` 进入清单上下文；`?view=following\|activity` 切换个人导航 |
-| 数据 | `stores/tasks` → `api/app/task`；详情与协作均无 localStorage 真源；清单/看板 integrate 后无 Mock |
-| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md)、[`workspace-task-list`](../../openspec/lanes/workspace-task-list/contract.md)、[`workspace-task-board`](../../openspec/lanes/workspace-task-board/contract.md) |
-| 非目标（近端） | 自定义看板列、自定义字段、仪表盘、甘特 |
+| Shell / 左栏 | **三类**：① 快速访问（查询预设，非清单）：「我负责的」「我创建的」「我分配的」「已完成」「我关注的」「全部任务」「动态」；② **「清单」分组**（我参与的清单、新建）；③ 各上下文工具栏读/写 ViewConfig |
+| 快速访问种子 | `MINE`=负责人含我；`CREATED`=我创建；`ASSIGNED_BY_ME`=分配人是我且我非负责人；`COMPLETED`=已完成；`FOLLOWING`=我关注；`ALL`=合同可见并集（非租户全量） |
+| Main | 列表 \| 看板由 ViewConfig `displayMode` 驱动；同一上下文下 `groupBy`/筛选/排序在两种展示间共享；根任务 + **右侧详情面板** |
+| 三套分组 | ① 字段 `groupBy`（系统字段 + 清单自定义单选）；空值进「无分组」；拖拽写字段。②「我负责的」`PERSONAL_CUSTOM` 个人组（私有，删组回默认组）。③ 清单无字段分组时用清单内组（默认组 + 自定义组） |
+| 清单 | 多清单归属（`task_list_item`）；成员 OWNER / EDITOR / VIEWER；创建任务在清单上下文默认加入该清单 |
+| 详情 | 标题、**多负责人**、分配人、开始/截止、提醒、描述、关注人、子任务、评论、活动、**多清单加入/移出**、清单自定义字段取值 |
+| 深链 | `?taskId=` 打开详情；`?listId=` 进入清单；`?view=` 切换快速访问上下文 |
+| 数据 | `stores/tasks` → `api/app/task`；无 localStorage / Mock 真源 |
+| 契约 | [`workspace-tasks`](../../openspec/lanes/workspace-tasks/contract.md)、[`workspace-task-detail`](../../openspec/lanes/workspace-task-detail/contract.md)、[`workspace-task-collab`](../../openspec/lanes/workspace-task-collab/contract.md)、[`workspace-task-list`](../../openspec/lanes/workspace-task-list/contract.md)、[`workspace-task-quick-views`](../../openspec/lanes/workspace-task-quick-views/contract.md)、[`workspace-task-view-config`](../../openspec/lanes/workspace-task-view-config/contract.md)、[`workspace-task-group-by-field`](../../openspec/lanes/workspace-task-group-by-field/contract.md)、[`workspace-task-multi-assignee`](../../openspec/lanes/workspace-task-multi-assignee/contract.md)、[`workspace-task-assigner`](../../openspec/lanes/workspace-task-assigner/contract.md)、[`workspace-task-mine-groups`](../../openspec/lanes/workspace-task-mine-groups/contract.md)、[`workspace-task-multi-list`](../../openspec/lanes/workspace-task-multi-list/contract.md)、[`workspace-task-list-groups`](../../openspec/lanes/workspace-task-list-groups/contract.md)、[`workspace-task-custom-field`](../../openspec/lanes/workspace-task-custom-field/contract.md) |
+| 非目标（近端） | 仪表盘、甘特、跨清单共享自定义字段 schema |
 
 ## 日历页 `/app/calendar`
 
