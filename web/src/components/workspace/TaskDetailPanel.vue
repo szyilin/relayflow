@@ -150,12 +150,16 @@ function customFieldValue(fieldId: string): string {
   return customFieldsStore.getValue(props.listId, props.task.id, fieldId) ?? EMPTY_GROUP_KEY
 }
 
-function setCustomFieldValue(fieldId: string, optionIdOrEmpty: string) {
+async function setCustomFieldValue(fieldId: string, optionIdOrEmpty: string) {
   if (!props.listId || !props.task || !props.canEditCustomFields) {
     return
   }
   const optionId = optionIdOrEmpty === EMPTY_GROUP_KEY ? null : optionIdOrEmpty
-  customFieldsStore.setValue(props.listId, props.task.id, fieldId, optionId)
+  try {
+    await customFieldsStore.setValue(props.listId, props.task.id, fieldId, optionId)
+  } catch {
+    toast.add({ title: '更新字段失败', color: 'error' })
+  }
 }
 
 const candidateMembers = computed(() => {

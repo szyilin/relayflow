@@ -40,10 +40,10 @@ function startCreate() {
   newOptionsText.value = '高\n中\n低'
 }
 
-function submitCreate() {
+async function submitCreate() {
   try {
     const labels = newOptionsText.value.split(/\n|,/).map(s => s.trim()).filter(Boolean)
-    store.createField(newName.value, labels)
+    await store.createField(newName.value, labels)
     creating.value = false
     toast.add({ title: '字段已创建', color: 'success' })
   } catch (e) {
@@ -61,24 +61,24 @@ function openEdit(field: ListCustomField) {
   optionDraft.value = ''
 }
 
-function submitRename() {
+async function submitRename() {
   if (!editingFieldId.value) {
     return
   }
   try {
-    store.renameField(editingFieldId.value, renameDraft.value)
+    await store.renameField(editingFieldId.value, renameDraft.value)
     toast.add({ title: '已重命名', color: 'success' })
   } catch {
     toast.add({ title: '重命名失败', color: 'error' })
   }
 }
 
-function submitAddOption() {
+async function submitAddOption() {
   if (!editingFieldId.value) {
     return
   }
   try {
-    store.addOption(editingFieldId.value, optionDraft.value)
+    await store.addOption(editingFieldId.value, optionDraft.value)
     optionDraft.value = ''
     toast.add({ title: '选项已添加', color: 'success' })
   } catch {
@@ -86,23 +86,23 @@ function submitAddOption() {
   }
 }
 
-function handleRenameOption(optionId: string, label: string) {
+async function handleRenameOption(optionId: string, label: string) {
   if (!editingFieldId.value) {
     return
   }
   try {
-    store.renameOption(editingFieldId.value, optionId, label)
+    await store.renameOption(editingFieldId.value, optionId, label)
   } catch {
     toast.add({ title: '重命名选项失败', color: 'error' })
   }
 }
 
-function handleDeleteOption(optionId: string) {
+async function handleDeleteOption(optionId: string) {
   if (!editingFieldId.value) {
     return
   }
   try {
-    store.deleteOption(editingFieldId.value, optionId)
+    await store.deleteOption(editingFieldId.value, optionId)
   } catch (e) {
     const msg = e instanceof Error ? e.message : ''
     toast.add({
@@ -112,9 +112,9 @@ function handleDeleteOption(optionId: string) {
   }
 }
 
-function handleDeleteField(fieldId: string) {
+async function handleDeleteField(fieldId: string) {
   try {
-    store.deleteField(fieldId)
+    await store.deleteField(fieldId)
     if (editingFieldId.value === fieldId) {
       editingFieldId.value = null
     }
@@ -130,7 +130,7 @@ function handleDeleteField(fieldId: string) {
     <template #body>
       <div class="space-y-4">
         <p class="text-xs text-[var(--ws-text-muted)]">
-          仅当前清单；可作看板/列表分组源。会话内 Mock，联调后落库。
+          仅当前清单；可作看板/列表分组源。
         </p>
 
         <div v-if="!creating && !editingField" class="space-y-2">

@@ -139,14 +139,21 @@ export async function boardMoveTask(payload: {
   return put<boolean>('/app-api/task/item/board-move', payload)
 }
 
-/** Field group-by drag: persist status / dueTime / assigneeId bucket. */
+/** Field group-by drag: persist status / dueTime / assigneeId / custom:{fieldId} bucket. */
 export async function groupMoveTask(payload: {
   id: string
-  fieldKey: 'status' | 'dueTime' | 'assigneeId'
+  fieldKey: string
   value: string | null
+  listId?: string | null
   beforeId?: string | null
 }): Promise<boolean> {
-  return put<boolean>('/app-api/task/item/group-move', payload)
+  return put<boolean>('/app-api/task/item/group-move', {
+    id: payload.id,
+    fieldKey: payload.fieldKey,
+    value: payload.value,
+    listId: payload.listId ?? undefined,
+    beforeId: payload.beforeId ?? undefined
+  })
 }
 
 export async function updateTask(payload: TaskDetailUpdatePayload): Promise<boolean> {
