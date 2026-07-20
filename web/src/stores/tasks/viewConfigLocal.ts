@@ -14,9 +14,12 @@ export type TaskViewDisplayMode = 'LIST' | 'BOARD'
 
 export type TaskViewSortKey = 'createTime' | 'dueTime' | 'title' | 'status' | 'updateTime'
 
+/** System fields or list custom single-select (`custom:{fieldId}`). */
+export type TaskViewFieldKey = 'status' | 'dueTime' | 'assigneeId' | `custom:${string}`
+
 export type TaskViewGroupBy =
   | null
-  | { mode: 'FIELD', fieldKey: 'status' | 'dueTime' | 'assigneeId' }
+  | { mode: 'FIELD', fieldKey: TaskViewFieldKey }
   | { mode: 'PERSONAL_CUSTOM' }
   | { mode: 'LIST_GROUP' }
 

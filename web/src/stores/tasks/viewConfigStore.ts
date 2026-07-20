@@ -175,6 +175,7 @@ export type {
   TaskViewContextType,
   TaskViewContextKey,
   TaskViewGroupBy,
+  TaskViewFieldKey,
   TaskViewSort,
   TaskViewSortKey,
   TaskViewDisplayMode

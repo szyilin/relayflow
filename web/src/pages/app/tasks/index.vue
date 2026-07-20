@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { searchMembers, type MemberSearchItem } from '../../../api/app/member-search'
 import type { TaskListRole } from '../../../api/app/taskList'
 import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
+import TaskCustomFieldsModal from '../../../components/workspace/TaskCustomFieldsModal.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
@@ -16,6 +17,10 @@ import { resolveAssigneeIds } from '../../../stores/tasks/assigneeLocal'
 import { useMineGroupsStore } from '../../../stores/tasks/mineGroupsStore'
 import { useListGroupsStore } from '../../../stores/tasks/listGroupsStore'
 import {
+  isCustomFieldKey,
+  useCustomFieldsStore
+} from '../../../stores/tasks/customFieldsStore'
+import {
   navViewToContextType
 } from '../../../stores/tasks/viewConfigLocal'
 import { useTaskViewConfigStore } from '../../../stores/tasks/viewConfigStore'
@@ -26,6 +31,7 @@ const tasksStore = useTasksStore()
 const viewConfigStore = useTaskViewConfigStore()
 const mineGroupsStore = useMineGroupsStore()
 const listGroupsStore = useListGroupsStore()
+const customFieldsStore = useCustomFieldsStore()
 const preference = useUserPreferenceStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
@@ -34,6 +40,7 @@ const createMineGroupOpen = ref(false)
 const createMineGroupName = ref('')
 const createListGroupOpen = ref(false)
 const createListGroupName = ref('')
+const customFieldsOpen = ref(false)
 const membersOpen = ref(false)
 const toast = useToast()
 
@@ -128,6 +135,18 @@ const isListGroupActive = computed(() => {
   return groupBy === null || groupBy.mode === 'LIST_GROUP'
 })
 
+const isCustomFieldGroupActive = computed(() => {
+  if (!inListContext.value) {
+    return false
+  }
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  return groupBy?.mode === 'FIELD' && isCustomFieldKey(groupBy.fieldKey)
+})
+
+const customFieldGroupItems = computed(() =>
+  inListContext.value ? customFieldsStore.groupByMenuItems() : []
+)
+
 const displayBuckets = computed(() => {
   const groupBy = viewConfigStore.activeConfig.groupBy
   if (groupBy?.mode === 'PERSONAL_CUSTOM' && canUsePersonalCustomGroup.value) {
@@ -135,6 +154,9 @@ const displayBuckets = computed(() => {
   }
   if (isListGroupActive.value) {
     return listGroupsStore.partition(displayItems.value)
+  }
+  if (isCustomFieldGroupActive.value && groupBy?.mode === 'FIELD') {
+    return customFieldsStore.partition(displayItems.value, groupBy.fieldKey)
   }
   return partitionByGroupBy(displayItems.value, groupBy)
 })
@@ -176,6 +198,9 @@ const canDragGrouped = computed(() => {
   }
   if (groupBy.mode !== 'FIELD') {
     return false
+  }
+  if (isCustomFieldKey(groupBy.fieldKey)) {
+    return inListContext.value && tasksStore.listCanMutateTasks
   }
   if (inListContext.value) {
     return tasksStore.listCanMutateTasks
@@ -347,6 +372,17 @@ async function handleGroupMove(payload: {
   if (groupBy.mode !== 'FIELD') {
     return
   }
+  if (isCustomFieldKey(groupBy.fieldKey)) {
+    if (!tasksStore.listCanMutateTasks) {
+      return
+    }
+    try {
+      customFieldsStore.moveTask(payload.taskId, groupBy.fieldKey, payload.bucketKey)
+    } catch {
+      toast.add({ title: '移动失败', color: 'error' })
+    }
+    return
+  }
   try {
     await tasksStore.moveGroupedField({
       taskId: payload.taskId,
@@ -487,6 +523,7 @@ watch(
   () => {
     void syncViewConfigContext()
     listGroupsStore.setActiveList(tasksStore.activeListId)
+    customFieldsStore.setActiveList(tasksStore.activeListId)
   },
   { immediate: true }
 )
@@ -956,6 +993,15 @@ meta:
           成员
         </UButton>
         <UButton
+          v-if="inListContext"
+          color="neutral"
+          variant="soft"
+          icon="i-lucide-tags"
+          @click="customFieldsOpen = true"
+        >
+          字段
+        </UButton>
+        <UButton
           v-if="inListContext && tasksStore.listCanEditMeta"
           color="neutral"
           variant="ghost"
@@ -979,6 +1025,7 @@ meta:
         :show-board-mode="true"
         :can-use-personal-custom-group="canUsePersonalCustomGroup"
         :can-use-list-group="inListContext"
+        :custom-field-group-items="customFieldGroupItems"
       />
 
       <div
@@ -1014,6 +1061,15 @@ meta:
         </UButton>
         <span class="text-xs text-[var(--ws-text-muted)]">
           清单内分组；清单成员可见
+        </span>
+      </div>
+
+      <div
+        v-else-if="isCustomFieldGroupActive"
+        class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-2"
+      >
+        <span class="text-xs text-[var(--ws-text-muted)]">
+          按自定义字段分组；空值在「无分组」（会话 Mock）
         </span>
       </div>
 
@@ -1213,10 +1269,17 @@ meta:
           :task="tasksStore.selectedDetail"
           :subtasks="tasksStore.selectedSubtasks"
           :loading="tasksStore.detailLoading"
+          :list-id="tasksStore.activeListId"
+          :can-edit-custom-fields="tasksStore.listCanMutateTasks"
           @close="detailOpen = false"
         />
       </template>
     </USlideover>
+
+    <TaskCustomFieldsModal
+      v-model:open="customFieldsOpen"
+      :can-edit="tasksStore.listCanMutateTasks"
+    />
 
     <UModal v-model:open="createOpen" title="新建任务">
       <template #body>

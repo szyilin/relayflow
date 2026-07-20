@@ -75,17 +75,18 @@
 | **workspace-task-mine-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-multi-list** | **archived** | **done** | `PUT …/list-memberships` · 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-list-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/list-group/*` · 清单内分组 | [contract](../../openspec/lanes/workspace-task-list-groups/contract.md) | integrate 完成；store 无本地 Mock |
+| **workspace-task-custom-field** | **planned** | **ui_ready** | 清单单选自定义字段 · `groupBy=custom:{id}` · EAV | [contract](../../openspec/lanes/workspace-task-custom-field/contract.md) | P8；`-web` Mock（`USE_LOCAL_CUSTOM_FIELD`）；待 `-api` / `-integrate` |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。
 
-**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list` ✅ → `list-groups` ✅ →（可选）`custom-field`。
+**下一母 change 建议顺序**：`quick-views` ✅ → `view-config` ✅ → `group-by-field` ✅ → `multi-assignee` ✅ → `assigner` ✅ → `mine-groups` ✅ → `multi-list` ✅ → `list-groups` ✅ → **`custom-field`（P8 · web 已 ui_ready）**。
 
 ### 建议下一切片（尚未立项或可并行）
 
 | 切片 | 说明 |
 |------|------|
 | `/app/docs` | 云文档占位页产品化（V2） |
-| 自定义看板列 / 自定义字段 | 清单看板 B1 之后置 |
+| `workspace-task-custom-field-api` | P8 后端：Flyway EAV + REST（接上表 ui_ready） |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 
