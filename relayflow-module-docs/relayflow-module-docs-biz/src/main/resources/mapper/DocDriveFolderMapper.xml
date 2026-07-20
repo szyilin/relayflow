@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.relayflow.module.docs.dal.mapper.DocObjectMapper">
+<mapper namespace="com.relayflow.module.docs.dal.mapper.DocDriveFolderMapper">
 
     <!-- 通用查询映射结果 -->
-    <resultMap id="BaseResultMap" type="com.relayflow.module.docs.dal.dataobject.DocObjectDO">
+    <resultMap id="BaseResultMap" type="com.relayflow.module.docs.dal.dataobject.DocDriveFolderDO">
         <result column="id" property="id" />
         <result column="tenant_id" property="tenantId" />
         <result column="creator" property="creator" />
@@ -11,14 +11,10 @@
         <result column="updater" property="updater" />
         <result column="update_time" property="updateTime" />
         <result column="deleted" property="deleted" />
-        <result column="type" property="type" />
-        <result column="title" property="title" />
-        <result column="body" property="body" typeHandler="com.relayflow.framework.mybatis.typehandler.JsonbTypeHandler" />
-        <result column="body_format" property="bodyFormat" />
-        <result column="content_version" property="contentVersion" />
         <result column="owner_user_id" property="ownerUserId" />
-        <result column="last_opened_at" property="lastOpenedAt" />
-        <result column="storage_file_id" property="storageFileId" />
+        <result column="parent_id" property="parentId" />
+        <result column="name" property="name" />
+        <result column="sort_order" property="sortOrder" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -30,7 +26,7 @@
         updater,
         update_time,
         deleted,
-        type, title, body, body_format, content_version, owner_user_id, last_opened_at, storage_file_id
+        owner_user_id, parent_id, name, sort_order
     </sql>
 
 </mapper>

@@ -19,49 +19,53 @@
 
 ## 1. [平台] docs-drive-schema-v1
 
-- [ ] 1.1 Flyway：`doc_drive_folder`、`doc_drive_item`；`doc_object` 支持 `FILE` + `storage_file_id`（约束/索引见 design）
-- [ ] 1.2 codegen 合入 DO/Mapper；`./mvnw -pl relayflow-server -am compile`
+- [x] 1.1 Flyway：`doc_drive_folder`、`doc_drive_item`；`doc_object` 支持 `FILE` + `storage_file_id`（约束/索引见 design）
+- [x] 1.2 codegen 合入 DO/Mapper；`./mvnw -pl relayflow-server -am compile`
 
-**验证**：migrate + compile。
+**验证**：migrate + compile。→ 见子 change `docs-drive-schema-v1`（`V0.1.0.35`）。
 
 ---
 
 ## 2. workspace-docs-drive-web
 
-- [ ] 2.1 起草 `openspec/lanes/workspace-docs-drive/contract.md`
-- [ ] 2.2 `/app/docs` 启用云盘面板：面包屑、文件夹列表、新建文件夹、上传入口（临时 store）
-- [ ] 2.3 FILE 下载按钮形状对齐既有 infra download
-- [ ] 2.4 `pnpm build` + `pnpm typecheck`；浏览器可演示（假数据）
+- [x] 2.1 起草 `openspec/lanes/workspace-docs-drive/contract.md`
+- [x] 2.2 `/app/docs` 启用云盘面板：面包屑、文件夹列表、新建文件夹、上传入口（临时 store）
+- [x] 2.3 FILE 下载按钮形状对齐既有 infra download
+- [x] 2.4 `pnpm build` + `pnpm typecheck`；浏览器可演示（假数据）
 
-**完成后**：看板 web → `ui_ready`。
+**完成后**：看板 web → `ui_ready`。→ 见子 change `workspace-docs-drive-web`。
 
 ---
 
 ## 3. workspace-docs-drive-api
 
-- [ ] 3.1 文件夹 CRUD + 列表 items（仅所有者；非空删拒绝）
-- [ ] 3.2 `POST /drive/files` 绑定 `FileApi` + 创建 FILE object + drive_item
-- [ ] 3.3 item 重命名/移动/删除（软删策略按 design）
-- [ ] 3.4 Security + curl/smoke；compile
+- [x] 3.1 文件夹 CRUD + 列表 items（仅所有者；非空删拒绝）
+- [x] 3.2 `POST /drive/files` 绑定 `FileApi` + 创建 FILE object + drive_item
+- [x] 3.3 item 重命名/移动/删除（软删策略按 design）
+- [x] 3.4 Security + curl/smoke；compile
 
-**完成后**：看板 api → `ready`。
+**完成后**：看板 api → `ready`。→ 见子 change `workspace-docs-drive-api`。
 
 ---
 
 ## 4. workspace-docs-drive-integrate
 
-- [ ] 4.1 store 去临时数据；上传走真实 infra + docs 登记
-- [ ] 4.2 E2E：建文件夹 → 上传 → 刷新仍在 → 下载 → 删除
-- [ ] 4.3 validate + build/typecheck；看板 drive 核心 → **done**（若移动未做则看板注明 move pending）
+- [x] 4.1 store 去临时数据；上传走真实 infra + docs 登记
+- [x] 4.2 E2E：建文件夹 → 上传 → 刷新仍在 → 下载 → 删除
+- [x] 4.3 validate + build/typecheck；看板 drive 核心 → **done**（若移动未做则看板注明 move pending）
+
+**完成后**：见子 change `workspace-docs-drive-integrate`（本会话含 §5）。
 
 ---
 
 ## 5. 跨容器移动（可拆 `-web`/`-api`/`-integrate` 或单 change 三段）
 
-- [ ] 5.1 contract 增量：`POST /placements/move`
-- [ ] 5.2 UI：从文档库「移动到云盘」/ 从云盘「移回文档库」（仅 RICH_DOC→Library；FILE→Library 拒绝）
-- [ ] 5.3 API 实现 + 联调：移后仅一处可见；`objectId` 不变
-- [ ] 5.4 看板移动能力勾完
+- [x] 5.1 contract 增量：`POST /placements/move`
+- [x] 5.2 UI：从文档库「移动到云盘」/ 从云盘「移回文档库」（仅 RICH_DOC→Library；FILE→Library 拒绝）
+- [x] 5.3 API 实现 + 联调：移后仅一处可见；`objectId` 不变
+- [x] 5.4 看板移动能力勾完
+
+**完成后**：与 integrate 同切片交付。
 
 ---
 

@@ -15,6 +15,7 @@ import {
   type TipTapDocJson
 } from '../api/app/docs'
 import { ApiError } from '../api/request'
+import { useDocsDriveStore } from './docsDrive'
 
 /** Business error codes from relayflow-module-docs ErrorCodeConstants */
 const DOC_VERSION_CONFLICT = 1_006_001_003
@@ -63,7 +64,7 @@ function patchTreeTitle(nodes: DocsLibraryNode[], objectId: string, title: strin
 }
 
 export const useDocsStore = defineStore('docs', () => {
-  const panel = ref<'library' | 'recent'>('library')
+  const panel = ref<'library' | 'recent' | 'drive'>('library')
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -153,10 +154,21 @@ export const useDocsStore = defineStore('docs', () => {
 
   async function saveTitle(objectId: string, title: string) {
     const node = findNodeByObjectId(objectId)
-    if (!node) {
-      throw new Error('文档不存在')
+    if (node) {
+      await renameNode(node.nodeId, title)
+      return
     }
-    await renameNode(node.nodeId, title)
+    const drive = useDocsDriveStore()
+    const item = drive.listing.items.find(i => i.objectId === objectId)
+    if (item) {
+      const next = title.trim() || '未命名文档'
+      await drive.renameItem(item.itemId, next)
+      if (activeDocument.value?.objectId === objectId) {
+        activeDocument.value = { ...activeDocument.value, title: next }
+      }
+      return
+    }
+    throw new Error('文档不存在')
   }
 
   async function saveBody(objectId: string, body: TipTapDocJson, contentVersion: number) {

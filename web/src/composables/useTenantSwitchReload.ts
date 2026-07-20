@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth'
 import { useCalendarStore } from '../stores/calendar'
 import { useContactsStore } from '../stores/contacts'
 import { useDocsStore } from '../stores/docs'
+import { useDocsDriveStore } from '../stores/docsDrive'
 import { useImStore } from '../stores/im'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
@@ -19,10 +20,11 @@ export function useTenantSwitchReload() {
   const im = useImStore()
   const contacts = useContactsStore()
   const profile = useProfileStore()
-    const tasks = useTasksStore()
-    const calendar = useCalendarStore()
-    const docs = useDocsStore()
-    const preference = useUserPreferenceStore()
+  const tasks = useTasksStore()
+  const calendar = useCalendarStore()
+  const docs = useDocsStore()
+  const docsDrive = useDocsDriveStore()
+  const preference = useUserPreferenceStore()
 
   watch(() => [auth.tenantId, auth.userId] as const, async ([nextTenant, nextUser], prev) => {
     const [prevTenant, prevUser] = prev ?? [null, null]
@@ -39,6 +41,7 @@ export function useTenantSwitchReload() {
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()
     docs.resetLocal()
+    docsDrive.resetLocal()
     preference.resetForTenantSwitch()
 
     try {

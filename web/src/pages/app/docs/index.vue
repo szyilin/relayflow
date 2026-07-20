@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import DocsTreeNodes from '../../../components/workspace/DocsTreeNodes.vue'
+import DocsDriveBrowser from '../../../components/workspace/DocsDriveBrowser.vue'
 import type { DocsLibraryNode, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
 import { useDocsStore } from '../../../stores/docs'
+import { useDocsDriveStore } from '../../../stores/docsDrive'
+import { listDriveFolders } from '../../../api/app/docs-drive'
 
 const DocsRichEditor = defineAsyncComponent(() =>
   import('../../../components/workspace/DocsRichEditor.vue')
@@ -15,6 +18,7 @@ const DocsRichEditor = defineAsyncComponent(() =>
 const route = useRoute()
 const router = useRouter()
 const docs = useDocsStore()
+const docsDrive = useDocsDriveStore()
 const toast = useToast()
 
 const renameOpen = ref(false)
@@ -25,6 +29,13 @@ const moveOpen = ref(false)
 const moveNodeId = ref<string | null>(null)
 const moveParentId = ref<string | null>(null)
 
+const moveToDriveOpen = ref(false)
+const moveToDriveObjectId = ref<string | null>(null)
+const moveToDriveFolderId = ref<string | null>(null)
+const driveFolderTargets = ref<{ folderId: string | null, label: string }[]>([
+  { folderId: null, label: '我的文件夹（根）' }
+])
+
 const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
 const saveHint = ref('')
@@ -34,7 +45,7 @@ const panelItems = [
   { key: 'recent' as const, label: '最近', enabled: true },
   { key: 'shared' as const, label: '与我共享', enabled: false },
   { key: 'starred' as const, label: '星标', enabled: false },
-  { key: 'drive' as const, label: '云盘', enabled: false },
+  { key: 'drive' as const, label: '云盘', enabled: true },
   { key: 'wiki' as const, label: '知识库', enabled: false }
 ]
 
@@ -137,9 +148,27 @@ async function selectPanel(key: typeof panelItems[number]['key']) {
     toast.add({ title: '即将推出', description: item?.label, color: 'neutral' })
     return
   }
+  if (key === 'drive') {
+    docs.panel = 'drive'
+    docs.clearActive()
+    try {
+      await docsDrive.loadListing(docsDrive.currentFolderId)
+    } catch (e) {
+      toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
+    }
+    return
+  }
   docs.panel = key === 'recent' ? 'recent' : 'library'
   if (key === 'library' || key === 'recent') {
     docs.clearActive()
+  }
+}
+
+async function onOpenDriveRichDoc(objectId: string) {
+  try {
+    await docs.openDocument(objectId)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '打开失败', color: 'error' })
   }
 }
 
@@ -231,12 +260,47 @@ async function onExportMd() {
   }
 }
 
+async function openMoveToDrive(node: DocsLibraryNode) {
+  moveToDriveObjectId.value = node.objectId
+  moveToDriveFolderId.value = null
+  try {
+    const root = await listDriveFolders(null)
+    driveFolderTargets.value = [
+      { folderId: null, label: '我的文件夹（根）' },
+      ...root.folders.map(f => ({ folderId: f.folderId, label: f.name }))
+    ]
+  } catch {
+    driveFolderTargets.value = [{ folderId: null, label: '我的文件夹（根）' }]
+  }
+  moveToDriveOpen.value = true
+}
+
+async function confirmMoveToDrive() {
+  if (!moveToDriveObjectId.value) {
+    return
+  }
+  try {
+    await docsDrive.moveToDrive(moveToDriveObjectId.value, moveToDriveFolderId.value)
+    await docs.loadTree()
+    await docs.loadRecent()
+    if (docs.activeObjectId === moveToDriveObjectId.value) {
+      docs.clearActive()
+    }
+    moveToDriveOpen.value = false
+    docs.panel = 'drive'
+    toast.add({ title: '已移动到云盘', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '移动失败', color: 'error' })
+  }
+}
+
 function nodeActions(node: DocsLibraryNode) {
   return [
     [
       { label: '新建子文档', icon: 'i-lucide-file-plus', onSelect: () => void onCreate(node.nodeId) },
       { label: '重命名', icon: 'i-lucide-pencil', onSelect: () => openRename(node) },
-      { label: '移动到…', icon: 'i-lucide-folder-input', onSelect: () => openMove(node) }
+      { label: '移动到…', icon: 'i-lucide-folder-input', onSelect: () => openMove(node) },
+      { label: '移动到云盘', icon: 'i-lucide-hard-drive', onSelect: () => void openMoveToDrive(node) }
     ],
     [
       { label: '删除', icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: () => void onDelete(node) }
@@ -271,7 +335,7 @@ meta:
           :key="item.key"
           type="button"
           class="workspace-list-item w-full px-3 py-2 text-left"
-          :data-active="item.enabled && ((item.key === 'library' && docs.panel === 'library') || (item.key === 'recent' && docs.panel === 'recent'))"
+          :data-active="item.enabled && ((item.key === 'library' && docs.panel === 'library') || (item.key === 'recent' && docs.panel === 'recent') || (item.key === 'drive' && docs.panel === 'drive'))"
           :class="{ 'opacity-50': !item.enabled }"
           @click="selectPanel(item.key)"
         >
@@ -302,7 +366,7 @@ meta:
       </div>
 
       <div
-        v-else
+        v-else-if="docs.panel === 'recent'"
         class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
       >
         <p
@@ -322,22 +386,42 @@ meta:
           {{ item.title }}
         </button>
       </div>
+
+      <div
+        v-else-if="docs.panel === 'drive'"
+        class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
+      >
+        <p class="px-2 py-3 text-xs text-[var(--ws-text-muted)]">
+          我的文件夹 · 在右侧浏览与上传
+        </p>
+      </div>
     </template>
 
+    <DocsDriveBrowser
+      v-if="docs.panel === 'drive' && !docs.activeDocument"
+      @open-rich-doc="onOpenDriveRichDoc"
+    />
+
     <div
-      v-if="!docs.activeDocument"
+      v-else-if="!docs.activeDocument"
       class="flex h-full items-center justify-center p-8"
     >
       <UEmpty
         icon="i-lucide-file-text"
         title="选择或新建文档"
-        description="我的文档库支持页面树与富文本编辑；云盘 / 知识库将在后续版本接入"
+        description="我的文档库支持页面树与富文本编辑；云盘可浏览「我的文件夹」并上传文件"
       >
         <template #actions>
           <UButton
             color="primary"
             label="新建文档"
             @click="onCreate(null)"
+          />
+          <UButton
+            color="neutral"
+            variant="soft"
+            label="打开云盘"
+            @click="selectPanel('drive')"
           />
         </template>
       </UEmpty>
@@ -431,6 +515,34 @@ meta:
           color="primary"
           label="移动"
           @click="confirmMove"
+        />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="moveToDriveOpen" title="移动到云盘">
+    <template #body>
+      <UFormField label="目标文件夹">
+        <USelect
+          v-model="moveToDriveFolderId"
+          :items="driveFolderTargets.map(t => ({ label: t.label, value: t.folderId }))"
+          value-key="value"
+          class="w-full"
+        />
+      </UFormField>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="取消"
+          @click="moveToDriveOpen = false"
+        />
+        <UButton
+          color="primary"
+          label="移动"
+          @click="confirmMoveToDrive"
         />
       </div>
     </template>

@@ -8,6 +8,7 @@ import com.relayflow.framework.oss.core.ObjectStorageProviderType;
 import com.relayflow.framework.oss.core.model.PresignedUpload;
 import com.relayflow.framework.oss.core.model.StorageObjectMeta;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.infra.controller.admin.file.vo.FileUploadConfirmReqVO;
@@ -76,6 +77,14 @@ public class FileUploadSessionServiceImpl implements FileUploadSessionService {
         session.setSize(request.getSize());
         session.setAccessLevel(normalizeAccessLevel(request.getAccessLevel()));
         session.setExpiresAt(OffsetDateTime.ofInstant(presignedUpload.getExpiresAt(), ZoneOffset.UTC));
+        Long userId = SecurityFrameworkUtils.getLoginUserId();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        if (userId != null) {
+            session.setCreator(userId);
+            session.setUpdater(userId);
+        }
+        session.setCreateTime(now);
+        session.setUpdateTime(now);
         sessionMapper.insert(session);
 
         FileUploadSessionRespVO response = new FileUploadSessionRespVO();
