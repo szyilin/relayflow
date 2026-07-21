@@ -54,6 +54,44 @@ export default defineConfig({
           primary: 'teal',
           neutral: 'zinc'
         },
+        // Nuxt UI 表单控件默认 inline-flex / 内容宽度；卡片/弹窗内需撑满才自然。
+        // 紧凑场景用 class="w-auto" / max-w-* / flex-1 覆盖即可。
+        formField: {
+          slots: {
+            root: 'w-full',
+            container: 'w-full'
+          }
+        },
+        input: {
+          slots: {
+            root: 'w-full'
+          }
+        },
+        inputNumber: {
+          slots: {
+            root: 'w-full'
+          }
+        },
+        textarea: {
+          slots: {
+            root: 'w-full'
+          }
+        },
+        select: {
+          slots: {
+            base: 'w-full'
+          }
+        },
+        selectMenu: {
+          slots: {
+            base: 'w-full'
+          }
+        },
+        inputMenu: {
+          slots: {
+            base: 'w-full'
+          }
+        },
         dashboardPanel: {
           slots: {
             root: 'relative flex flex-col min-w-0 h-full min-h-0 overflow-hidden lg:not-last:border-e lg:not-last:border-default shrink-0',

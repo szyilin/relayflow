@@ -68,7 +68,7 @@ web/src/
 |----|------|
 | 宽度 | `max-w-2xl mx-auto` |
 | 分组 | 多个 `UCard`（基本信息、归属部门等） |
-| 字段 | `UFormField` + `UInput` / `USelectMenu` |
+| 字段 | `UFormField` + `UInput` / `USelectMenu`；**卡片/弹窗内控件默认撑满**（`vite.config.ts` 已全局 `w-full`），勿再出现「卡片很宽、输入框很短」；紧凑筛选用 `max-w-*` / `w-auto` |
 | 操作 | 底部「保存」primary + 「取消」ghost `to` 回列表 |
 | 反馈 | `useToast()` 成功/失败 |
 

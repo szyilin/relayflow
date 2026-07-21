@@ -22,6 +22,22 @@ const form = reactive({
   password: import.meta.env.DEV ? '123456' : ''
 })
 
+const pageTitle = computed(() => {
+  if (tenantSelection.value) {
+    return '选择企业'
+  }
+  return isAddAccount.value ? '登录更多账号' : '登录'
+})
+
+const pageSubline = computed(() => {
+  if (tenantSelection.value) {
+    return '你的账号关联了多个企业，请选择本次要进入的工作台'
+  }
+  return isAddAccount.value
+    ? '使用另一账号登录，将添加到本机账号列表'
+    : '使用手机号进入 RelayFlow 工作台'
+})
+
 async function completeLogin(mobile: string, password: string, selectedTenantId?: string) {
   const result = await authStore.login(mobile, password, selectedTenantId)
   if (result.ok) {
@@ -93,89 +109,77 @@ meta:
 </route>
 
 <template>
-  <div class="w-full max-w-md space-y-6">
-    <div class="space-y-2 text-center">
-      <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg">
-        <UIcon name="i-lucide-workflow" class="size-7" />
-      </div>
-      <h1 class="text-2xl font-semibold">
-        {{ isAddAccount ? '登录更多账号' : 'RelayFlow 工作台' }}
-      </h1>
-      <p class="text-sm text-muted">
-        {{ isAddAccount
-          ? '使用另一个账号登录，将添加到左下角账号列表，方便随时切换'
-          : '员工协作入口 —— 消息、任务、文档一处搞定' }}
-      </p>
+  <div class="w-full max-w-[22rem]">
+    <div class="workspace-auth-mobile-brand">
+      <span class="workspace-auth-mobile-icon">
+        <UIcon name="i-lucide-workflow" class="size-4" />
+      </span>
+      <span class="workspace-auth-mobile-name">RelayFlow</span>
     </div>
 
-    <UCard v-if="tenantSelection" class="ring-1 ring-default">
-      <div class="space-y-4">
-        <div class="space-y-1">
-          <h2 class="text-lg font-semibold">
-            选择要进入的企业
-          </h2>
-          <p class="text-sm text-muted">
-            你的账号关联了多个企业，请选择本次要进入的工作台
-          </p>
-        </div>
+    <header class="workspace-auth-heading">
+      <h2>{{ pageTitle }}</h2>
+      <p>{{ pageSubline }}</p>
+    </header>
 
-        <div class="space-y-2">
-          <UButton
-            v-for="tenant in tenantSelection"
-            :key="tenant.tenantId"
-            block
-            color="neutral"
-            variant="soft"
-            class="justify-start"
-            :loading="loading"
-            @click="onSelectTenant(tenant)"
-          >
-            <UIcon name="i-lucide-building-2" class="size-4" />
-            <span class="truncate">{{ tenant.tenantName }}</span>
-            <UBadge v-if="tenant.owner" color="primary" variant="subtle" class="ml-auto">
-              我创建的
-            </UBadge>
-          </UButton>
-        </div>
-
-        <UButton block color="neutral" variant="ghost" :disabled="loading" @click="cancelTenantSelection">
-          返回重新登录
+    <div v-if="tenantSelection" class="space-y-4">
+      <div class="workspace-auth-tenant-list">
+        <UButton
+          v-for="tenant in tenantSelection"
+          :key="tenant.tenantId"
+          block
+          color="neutral"
+          variant="soft"
+          size="lg"
+          class="justify-start"
+          :loading="loading"
+          @click="onSelectTenant(tenant)"
+        >
+          <UIcon name="i-lucide-building-2" class="size-4 shrink-0" />
+          <span class="truncate">{{ tenant.tenantName }}</span>
+          <UBadge v-if="tenant.owner" color="primary" variant="subtle" class="ml-auto">
+            我创建的
+          </UBadge>
         </UButton>
       </div>
-    </UCard>
 
-    <UCard v-else class="ring-1 ring-default">
-      <form class="space-y-4" @submit.prevent="onSubmit">
-        <UFormField label="手机号">
-          <UInput
-            v-model="form.mobile"
-            placeholder="11 位手机号，可分段输入"
-            icon="i-lucide-smartphone"
-            inputmode="tel"
-            autocomplete="tel"
-          />
-        </UFormField>
-        <UFormField label="密码">
-          <UInput
-            v-model="form.password"
-            type="password"
-            placeholder="••••••••"
-            icon="i-lucide-lock"
-            autocomplete="current-password"
-          />
-        </UFormField>
-        <UButton type="submit" block :loading="loading">
-          进入工作台
-        </UButton>
-      </form>
-    </UCard>
+      <UButton block color="neutral" variant="ghost" :disabled="loading" @click="cancelTenantSelection">
+        返回重新登录
+      </UButton>
+    </div>
 
-    <p v-if="!tenantSelection" class="text-center text-xs text-muted">
-      使用手机号登录；管理员与普通员工同一入口，权限由系统分配
-    </p>
-    <p v-if="!tenantSelection" class="text-center text-sm text-muted">
-      <RouterLink :to="registerTo" class="text-primary hover:underline">
-        没有账号？注册
+    <form v-else class="workspace-auth-form" @submit.prevent="onSubmit">
+      <UFormField label="手机号">
+        <UInput
+          v-model="form.mobile"
+          size="lg"
+          placeholder="11 位手机号"
+          icon="i-lucide-smartphone"
+          inputmode="tel"
+          autocomplete="tel"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="密码">
+        <UInput
+          v-model="form.password"
+          size="lg"
+          type="password"
+          placeholder="请输入密码"
+          icon="i-lucide-lock"
+          autocomplete="current-password"
+          class="w-full"
+        />
+      </UFormField>
+      <UButton type="submit" block size="lg" class="mt-1" :loading="loading">
+        进入工作台
+      </UButton>
+    </form>
+
+    <p v-if="!tenantSelection" class="workspace-auth-footer">
+      没有账号？
+      <RouterLink :to="registerTo">
+        注册
       </RouterLink>
     </p>
   </div>
