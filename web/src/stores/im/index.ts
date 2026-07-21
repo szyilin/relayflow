@@ -41,6 +41,8 @@ export type { GroupMemberCandidate, MessageViewItem, PendingDirectChat } from '.
 export const useImStore = defineStore('im', () => {
   const conversations = ref<ConversationItem[]>([])
   const messages = ref<MessageViewItem[]>([])
+  /** In-memory cache keyed by conversationId — avoids skeleton flash on revisit. */
+  const messagesByConversation = ref<Record<string, MessageViewItem[]>>({})
   const groupMembers = ref<GroupMemberItem[]>([])
   const activeConversationId = ref<string>()
   const keyword = ref('')
@@ -51,6 +53,12 @@ export const useImStore = defineStore('im', () => {
   const lastError = ref<string | null>(null)
   const pendingDirectChat = ref<PendingDirectChat | null>(null)
   const peerReadSeq = ref(0)
+  /** Unread count captured when entering a conversation (before local clear). */
+  const enterUnreadCount = ref(0)
+  /** First unread seq for jump-to-unread FAB; null when none. */
+  const firstUnreadSeq = ref<number | null>(null)
+  /** Highest read seq already reported for the active conversation. */
+  const reportedReadSeq = ref(0)
 
   const activeConversation = computed(() => {
     if (activeConversationId.value) {
@@ -93,12 +101,16 @@ export const useImStore = defineStore('im', () => {
   function resetForTenantSwitch() {
     conversations.value = []
     messages.value = []
+    messagesByConversation.value = {}
     groupMembers.value = []
     activeConversationId.value = undefined
     pendingDirectChat.value = null
     keyword.value = ''
     lastError.value = null
     peerReadSeq.value = 0
+    enterUnreadCount.value = 0
+    firstUnreadSeq.value = null
+    reportedReadSeq.value = 0
   }
 
   function clearLocalUnread(conversationId: string) {
@@ -108,8 +120,39 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
-  function latestMessageSeq(): number {
-    return messages.value.reduce((max, item) => Math.max(max, item.seq ?? 0), 0)
+  function latestMessageSeq(list: MessageViewItem[] = messages.value): number {
+    return list.reduce((max, item) => Math.max(max, item.seq ?? 0), 0)
+  }
+
+  function putMessageCache(conversationId: string, list: MessageViewItem[]) {
+    messagesByConversation.value = {
+      ...messagesByConversation.value,
+      [conversationId]: list
+    }
+  }
+
+  function replaceActiveMessages(updater: (prev: MessageViewItem[]) => MessageViewItem[]) {
+    const conversationId = activeConversationId.value
+    const next = updater(messages.value)
+    messages.value = next
+    if (conversationId && !conversationId.startsWith('pending-')) {
+      putMessageCache(conversationId, next)
+    }
+  }
+
+  function syncActiveMessages(conversationId: string, list: MessageViewItem[]) {
+    if (activeConversationId.value === conversationId) {
+      messages.value = list
+    }
+    putMessageCache(conversationId, list)
+  }
+
+  function computeFirstUnreadSeq(list: MessageViewItem[], unreadCount: number): number | null {
+    if (unreadCount <= 0 || list.length === 0) {
+      return null
+    }
+    const idx = Math.max(0, list.length - unreadCount)
+    return list[idx]?.seq ?? null
   }
 
   async function reportConversationRead(conversationId: string, readSeq: number) {
@@ -117,11 +160,40 @@ export const useImStore = defineStore('im', () => {
       clearLocalUnread(conversationId)
       return
     }
+    if (conversationId === activeConversationId.value && readSeq <= reportedReadSeq.value) {
+      clearLocalUnread(conversationId)
+      return
+    }
     clearLocalUnread(conversationId)
+    if (conversationId === activeConversationId.value) {
+      reportedReadSeq.value = Math.max(reportedReadSeq.value, readSeq)
+    }
     try {
       await markConversationRead(conversationId, readSeq)
     } catch {
       // 已读上报失败不阻断 UI；下次拉列表会校正
+    }
+  }
+
+  /** Report read up to a visible seq (debounce caller). */
+  async function reportReadUpTo(readSeq: number) {
+    const conversationId = activeConversationId.value
+    if (!conversationId || readSeq <= 0) {
+      return
+    }
+    await reportConversationRead(conversationId, readSeq)
+  }
+
+  /** On leaving a conversation: treat remaining as read (user scrolled away / switched). */
+  async function flushConversationRead(conversationId?: string) {
+    const id = conversationId ?? activeConversationId.value
+    if (!id) {
+      return
+    }
+    const cached = messagesByConversation.value[id] ?? (id === activeConversationId.value ? messages.value : [])
+    const maxSeq = latestMessageSeq(cached)
+    if (maxSeq > 0) {
+      await reportConversationRead(id, maxSeq)
     }
   }
 
@@ -186,19 +258,38 @@ export const useImStore = defineStore('im', () => {
   }
 
   async function selectConversation(conversationId: string) {
+    if (activeConversationId.value && activeConversationId.value !== conversationId) {
+      await flushConversationRead(activeConversationId.value)
+    }
+
     pendingDirectChat.value = null
     activeConversationId.value = conversationId
     const conversation = conversations.value.find(item => item.id === conversationId)
+    enterUnreadCount.value = conversation?.unreadCount ?? 0
+    reportedReadSeq.value = 0
+
+    const cached = messagesByConversation.value[conversationId]
+    if (cached?.length) {
+      messages.value = cached
+      firstUnreadSeq.value = computeFirstUnreadSeq(cached, enterUnreadCount.value)
+      loadingMessages.value = false
+    } else {
+      messages.value = []
+      firstUnreadSeq.value = null
+    }
+
+    const loadMessages = fetchMessages(conversationId, 0, { silent: Boolean(cached?.length) })
     if (conversation?.type === 'group') {
-      await Promise.all([
-        fetchMessages(conversationId),
-        fetchGroupMembers(conversationId)
-      ])
+      await Promise.all([loadMessages, fetchGroupMembers(conversationId)])
     } else {
       groupMembers.value = []
-      await fetchMessages(conversationId)
+      await loadMessages
     }
-    await reportConversationRead(conversationId, latestMessageSeq())
+
+    firstUnreadSeq.value = computeFirstUnreadSeq(messages.value, enterUnreadCount.value)
+    // Clear list badge locally; server watermark updates as user views / leaves.
+    clearLocalUnread(conversationId)
+
     if (conversation?.type === 'direct') {
       await fetchReadStatus(conversationId)
     } else {
@@ -206,22 +297,32 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
-  async function fetchMessages(conversationId: string, afterSeq = 0) {
-    loadingMessages.value = true
+  async function fetchMessages(
+    conversationId: string,
+    afterSeq = 0,
+    options?: { silent?: boolean }
+  ) {
+    const silent = options?.silent ?? false
+    if (!silent) {
+      loadingMessages.value = true
+    }
     lastError.value = null
     try {
       const list = await getMessageList(conversationId, afterSeq)
       const normalized = list.map(item => ({ ...item, localStatus: 'sent' as const }))
       if (afterSeq === 0) {
-        messages.value = normalized
-      } else {
-        messages.value = [...messages.value, ...normalized]
+        syncActiveMessages(conversationId, normalized)
+      } else if (activeConversationId.value === conversationId) {
+        const merged = [...messages.value, ...normalized]
+        syncActiveMessages(conversationId, merged)
       }
     } catch (error) {
       lastError.value = error instanceof ApiError ? error.message : '加载消息失败'
       throw error
     } finally {
-      loadingMessages.value = false
+      if (!silent) {
+        loadingMessages.value = false
+      }
     }
   }
 
@@ -252,11 +353,9 @@ export const useImStore = defineStore('im', () => {
       return
     }
 
-    messages.value = [...messages.value, message]
-
-    if (activeConversationId.value === conversationId) {
-      void reportConversationRead(conversationId, message.seq)
-    }
+    const next = [...messages.value, message]
+    syncActiveMessages(conversationId, next)
+    // Read watermark: page reports when near bottom; do not auto-mark here.
   }
 
   function handleMessageUpdated(raw: MessageItem) {
@@ -272,8 +371,9 @@ export const useImStore = defineStore('im', () => {
     }
     const index = messages.value.findIndex(item => item.id === message.id)
     if (index >= 0) {
-      messages.value = messages.value.map(item =>
+      const next = messages.value.map(item =>
         item.id === message.id ? { ...message, localStatus: item.localStatus ?? 'sent' } : item)
+      syncActiveMessages(conversationId, next)
     }
   }
 
@@ -365,18 +465,17 @@ export const useImStore = defineStore('im', () => {
     const existing = conversations.value.find(item =>
       item.type === 'direct' && item.peerUserId === peerUserId)
     if (existing) {
-      pendingDirectChat.value = null
-      activeConversationId.value = existing.id
-      clearLocalUnread(existing.id)
-      void fetchMessages(existing.id).then(async () => {
-        await reportConversationRead(existing.id, latestMessageSeq())
-        await fetchReadStatus(existing.id)
-      })
+      void selectConversation(existing.id)
       return
     }
 
+    if (activeConversationId.value) {
+      void flushConversationRead(activeConversationId.value)
+    }
     activeConversationId.value = undefined
     messages.value = []
+    enterUnreadCount.value = 0
+    firstUnreadSeq.value = null
     pendingDirectChat.value = {
       peerUserId,
       title: meta?.title ?? meta?.avatarText ?? '会话',
@@ -423,7 +522,7 @@ export const useImStore = defineStore('im', () => {
       createTime: new Date().toISOString(),
       localStatus: 'sending'
     }
-    messages.value = [...messages.value, optimistic]
+    replaceActiveMessages(prev => [...prev, optimistic])
     if (!isPending) {
       conversation.lastMsgPreview = preview
       conversation.lastMsgAt = optimistic.createTime
@@ -444,7 +543,7 @@ export const useImStore = defineStore('im', () => {
         await fetchConversations()
       }
 
-      messages.value = messages.value.map(item =>
+      replaceActiveMessages(prev => prev.map(item =>
         item.clientMsgId === clientMsgId
           ? {
               ...item,
@@ -454,7 +553,11 @@ export const useImStore = defineStore('im', () => {
               createTime: result.createTime,
               localStatus: 'sent'
             }
-          : item)
+          : item))
+      if (activeConversationId.value) {
+        putMessageCache(activeConversationId.value, messages.value)
+      }
+      void reportConversationRead(result.conversationId, result.seq)
 
       const updatedConversation = conversations.value.find(item => item.id === result.conversationId)
       if (updatedConversation) {
@@ -462,8 +565,8 @@ export const useImStore = defineStore('im', () => {
         updatedConversation.lastMsgAt = result.createTime
       }
     } catch (error) {
-      messages.value = messages.value.map(item =>
-        item.clientMsgId === clientMsgId ? { ...item, localStatus: 'failed' } : item)
+      replaceActiveMessages(prev => prev.map(item =>
+        item.clientMsgId === clientMsgId ? { ...item, localStatus: 'failed' } : item))
       lastError.value = error instanceof ApiError ? error.message : '发送失败'
       throw error
     } finally {
@@ -507,7 +610,7 @@ export const useImStore = defineStore('im', () => {
       createTime: new Date().toISOString(),
       localStatus: 'sending'
     }
-    messages.value = [...messages.value, optimistic]
+    replaceActiveMessages(prev => [...prev, optimistic])
     const previewText = messagePreviewFromContent(messageType, content)
     if (!isPending) {
       conversation.lastMsgPreview = previewText
@@ -543,7 +646,7 @@ export const useImStore = defineStore('im', () => {
       }
 
       const downloadUrl = `/app-api/infra/file/download?fileId=${fileId}`
-      messages.value = messages.value.map(item =>
+      replaceActiveMessages(prev => prev.map(item =>
         item.clientMsgId === clientMsgId
           ? {
               ...item,
@@ -561,7 +664,11 @@ export const useImStore = defineStore('im', () => {
               createTime: result.createTime,
               localStatus: 'sent'
             }
-          : item)
+          : item))
+      if (activeConversationId.value) {
+        putMessageCache(activeConversationId.value, messages.value)
+      }
+      void reportConversationRead(result.conversationId, result.seq)
 
       const updatedConversation = conversations.value.find(item => item.id === result.conversationId)
       if (updatedConversation) {
@@ -570,8 +677,8 @@ export const useImStore = defineStore('im', () => {
       }
     } catch (error) {
       URL.revokeObjectURL(previewUrl)
-      messages.value = messages.value.map(item =>
-        item.clientMsgId === clientMsgId ? { ...item, localStatus: 'failed' } : item)
+      replaceActiveMessages(prev => prev.map(item =>
+        item.clientMsgId === clientMsgId ? { ...item, localStatus: 'failed' } : item))
       lastError.value = error instanceof ApiError ? error.message : '发送附件失败'
       throw error
     } finally {
@@ -595,6 +702,8 @@ export const useImStore = defineStore('im', () => {
     totalUnreadCount,
     pendingDirectChat,
     peerReadSeq,
+    enterUnreadCount,
+    firstUnreadSeq,
     currentUserId,
     fetchConversations,
     selectConversation,
@@ -613,6 +722,8 @@ export const useImStore = defineStore('im', () => {
     handleReadUpdated,
     fetchReadStatus,
     isMessageReadByPeer,
+    reportReadUpTo,
+    flushConversationRead,
     sendText,
     sendFileMessage,
     resetForTenantSwitch,

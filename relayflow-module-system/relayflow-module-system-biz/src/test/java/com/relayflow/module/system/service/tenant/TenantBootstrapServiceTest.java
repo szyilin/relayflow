@@ -159,6 +159,7 @@ class TenantBootstrapServiceTest {
 
         return new PermissionServiceImpl(
                 org.mockito.Mockito.mock(com.relayflow.module.system.dal.mapper.SysUserMapper.class),
+                org.mockito.Mockito.mock(com.relayflow.module.system.dal.mapper.SysTenantUserMapper.class),
                 userRoleMapper,
                 roleMapper,
                 rolePermissionMapper,

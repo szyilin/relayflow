@@ -19,6 +19,33 @@ const dockStore = useAccountDockStore()
 const toast = useToast()
 
 const switchingKey = ref<string | null>(null)
+const avatarBrokenKeys = ref<Set<string>>(new Set())
+
+function markAvatarBroken(key: string) {
+  if (avatarBrokenKeys.value.has(key)) {
+    return
+  }
+  avatarBrokenKeys.value = new Set([...avatarBrokenKeys.value, key])
+}
+
+function entryAvatarUrl(entry: AccountDockEntry) {
+  if (avatarBrokenKeys.value.has(entry.key)) {
+    return undefined
+  }
+  return resolveAvatarUrl(entry.avatar)
+}
+
+function tenantDockAvatar(tenantId: string) {
+  if (authStore.userId == null) {
+    return undefined
+  }
+  const key = `${authStore.userId}:${tenantId}`
+  if (avatarBrokenKeys.value.has(key)) {
+    return undefined
+  }
+  const entry = dockStore.entries.find(item => item.key === key)
+  return resolveAvatarUrl(entry?.avatar)
+}
 
 const currentKey = computed(() => {
   if (authStore.userId == null || authStore.tenantId == null) {
@@ -109,9 +136,10 @@ async function switchTenant(tenantId: string, tenantName: string) {
       return
     }
     toast.add({
-      title: '已切换企业',
-      description: tenantName,
-      color: 'success'
+      title: `已切换至 ${tenantName}`,
+      icon: 'i-lucide-check',
+      color: 'success',
+      close: false
     })
     emit('close')
   } finally {
@@ -135,9 +163,10 @@ async function switchEntry(entry: AccountDockEntry) {
       return
     }
     toast.add({
-      title: '已切换',
-      description: resolveEntryMeta(entry).tenantName,
-      color: 'success'
+      title: `已切换至 ${resolveEntryMeta(entry).tenantName}`,
+      icon: 'i-lucide-check',
+      color: 'success',
+      close: false
     })
     emit('close')
     if (route.path.startsWith('/app/messages')) {
@@ -206,7 +235,14 @@ onMounted(() => {
               class="workspace-more-tile"
               :style="entryTileStyle(tenant)"
             >
-              <span class="text-xs font-semibold">
+              <img
+                v-if="tenantDockAvatar(tenant.tenantId)"
+                :src="tenantDockAvatar(tenant.tenantId)"
+                :alt="tenant.tenantName"
+                class="h-full w-full rounded-[inherit] object-cover"
+                @error="markAvatarBroken(`${authStore.userId}:${tenant.tenantId}`)"
+              >
+              <span v-else class="text-xs font-semibold">
                 {{ avatarTextFromName(tenant.tenantName) }}
               </span>
             </span>
@@ -240,10 +276,11 @@ onMounted(() => {
               :style="entryTileStyle(entry)"
             >
               <img
-                v-if="resolveAvatarUrl(entry.avatar)"
-                :src="resolveAvatarUrl(entry.avatar)"
+                v-if="entryAvatarUrl(entry)"
+                :src="entryAvatarUrl(entry)"
                 :alt="resolveEntryMeta(entry).nickname"
                 class="h-full w-full rounded-[inherit] object-cover"
+                @error="markAvatarBroken(entry.key)"
               >
               <span v-else class="text-xs font-semibold">
                 {{ avatarTextFromName(resolveEntryMeta(entry).tenantName) }}

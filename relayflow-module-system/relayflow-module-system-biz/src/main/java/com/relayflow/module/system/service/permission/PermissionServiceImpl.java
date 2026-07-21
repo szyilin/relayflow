@@ -11,11 +11,13 @@ import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.system.dal.dataobject.SysPermissionDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
 import com.relayflow.module.system.dal.dataobject.SysRolePermissionDO;
+import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
 import com.relayflow.module.system.dal.mapper.SysPermissionMapper;
 import com.relayflow.module.system.dal.mapper.SysRoleMapper;
 import com.relayflow.module.system.dal.mapper.SysRolePermissionMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 public class PermissionServiceImpl implements PermissionService {
 
     private final SysUserMapper userMapper;
+    private final SysTenantUserMapper tenantUserMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysRoleMapper roleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
@@ -101,11 +104,15 @@ public class PermissionServiceImpl implements PermissionService {
             throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
         }
 
+        SysTenantUserDO member = tenantUserMapper.selectOne(Wrappers.<SysTenantUserDO>lambdaQuery()
+                .eq(SysTenantUserDO::getTenantId, tenantId)
+                .eq(SysTenantUserDO::getUserId, userId));
+
         AuthPermissionInfoRespVO response = new AuthPermissionInfoRespVO();
         response.setUserId(userId);
         response.setUsername(user.getUsername());
-        response.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
-        response.setAvatar(user.getAvatar());
+        response.setNickname(resolveMemberNickname(member, user));
+        response.setAvatar(member != null ? member.getAvatar() : null);
         response.setRoles(getRoleList(userId, tenantId).stream().map(role -> {
             AuthPermissionInfoRespVO.RoleSimpleVO vo = new AuthPermissionInfoRespVO.RoleSimpleVO();
             vo.setId(role.getId());
@@ -117,6 +124,16 @@ public class PermissionServiceImpl implements PermissionService {
         response.setPermissions(new ArrayList<>(permissionCodes));
         response.setAdmin(!permissionCodes.isEmpty());
         return response;
+    }
+
+    private String resolveMemberNickname(SysTenantUserDO member, SysUserDO user) {
+        if (member != null && StringUtils.hasText(member.getNickname())) {
+            return member.getNickname().trim();
+        }
+        if (StringUtils.hasText(user.getNickname())) {
+            return user.getNickname().trim();
+        }
+        return user.getUsername();
     }
 
 
