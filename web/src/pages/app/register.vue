@@ -92,77 +92,76 @@ meta:
 </route>
 
 <template>
-  <div class="w-full max-w-md space-y-6">
-    <div class="space-y-2 text-center">
-      <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg">
-        <UIcon name="i-lucide-building-2" class="size-7" />
-      </div>
-      <h1 class="text-2xl font-semibold">
-        注册 RelayFlow
-      </h1>
-      <p class="text-sm text-muted">
-        创建账号与企业，开始协作
-      </p>
+  <div class="w-full max-w-[22rem]">
+    <div class="workspace-auth-mobile-brand">
+      <span class="workspace-auth-mobile-icon">
+        <UIcon name="i-lucide-workflow" class="size-4" />
+      </span>
+      <span class="workspace-auth-mobile-name">RelayFlow</span>
     </div>
 
-    <UAlert
-      color="neutral"
-      variant="subtle"
-      icon="i-lucide-info"
-      title="关于企业邀请"
-      description="若你曾被邀请加入某企业，完成注册后将自动激活相应组织。"
-      class="text-left"
-    />
+    <header class="workspace-auth-heading">
+      <h2>注册</h2>
+      <p>创建账号与企业，开始协作</p>
+    </header>
 
-    <UCard class="ring-1 ring-default">
-      <form class="space-y-4" @submit.prevent="onSubmit">
-        <UFormField label="手机号">
-          <UInput
-            v-model="form.mobile"
-            placeholder="11 位手机号，可分段输入"
-            icon="i-lucide-smartphone"
-            inputmode="tel"
-          />
-        </UFormField>
-        <UFormField label="昵称">
-          <UInput
-            v-model="form.nickname"
-            placeholder="在组织内的展示名称"
-            icon="i-lucide-user"
-          />
-        </UFormField>
-        <UFormField label="企业名称">
-          <UInput
-            v-model="form.tenantName"
-            placeholder="你创建的企业或团队名称"
-            icon="i-lucide-building-2"
-          />
-        </UFormField>
-        <UFormField label="密码">
-          <UInput
-            v-model="form.password"
-            type="password"
-            placeholder="至少 6 位"
-            icon="i-lucide-lock"
-          />
-        </UFormField>
-        <UFormField label="确认密码">
-          <UInput
-            v-model="form.confirmPassword"
-            type="password"
-            placeholder="再次输入密码"
-            icon="i-lucide-lock-keyhole"
-          />
-        </UFormField>
-        <UButton type="submit" block :loading="loading">
-          注册并进入工作台
-        </UButton>
-      </form>
-    </UCard>
+    <form class="workspace-auth-form" @submit.prevent="onSubmit">
+      <UFormField label="手机号">
+        <UInput
+          v-model="form.mobile"
+          size="lg"
+          placeholder="11 位手机号"
+          icon="i-lucide-smartphone"
+          inputmode="tel"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="昵称">
+        <UInput
+          v-model="form.nickname"
+          size="lg"
+          placeholder="组织内展示名称"
+          icon="i-lucide-user"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="企业名称">
+        <UInput
+          v-model="form.tenantName"
+          size="lg"
+          placeholder="企业或团队名称"
+          icon="i-lucide-building-2"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="密码">
+        <UInput
+          v-model="form.password"
+          size="lg"
+          type="password"
+          placeholder="至少 6 位"
+          icon="i-lucide-lock"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="确认密码">
+        <UInput
+          v-model="form.confirmPassword"
+          size="lg"
+          type="password"
+          placeholder="再次输入密码"
+          icon="i-lucide-lock-keyhole"
+          class="w-full"
+        />
+      </UFormField>
+      <UButton type="submit" block size="lg" class="mt-1" :loading="loading">
+        注册并进入工作台
+      </UButton>
+    </form>
 
-    <p class="text-center text-sm text-muted">
+    <p class="workspace-auth-footer">
       已有账号？
-      <RouterLink :to="loginTo" class="text-primary hover:underline">
+      <RouterLink :to="loginTo">
         返回登录
       </RouterLink>
     </p>

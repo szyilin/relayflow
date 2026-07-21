@@ -23,7 +23,7 @@ RelayFlow 管理端 UI 已定调（B · Clean Enterprise）。**新增或修改 
 - 复用 `components/admin/`：`AdminNavbar`、`AdminUserMenu`、`AdminPageHeader`
 - Sidebar 导航单源：`composables/useAdminNav.ts`
 - 列表页：`AdminPageHeader` + 筛选 + `UTable` + `UPagination`
-- 表单页：分组 `UCard` + `UFormField`，`max-w-2xl` 居中
+- 表单页：分组 `UCard` + `UFormField`，`max-w-2xl` 居中；卡片内控件默认撑满（全局主题），紧凑筛选用 `max-w-*`
 - 主操作用 `UButton color="primary"`；反馈用 `useToast()`
 - 图标 Lucide（`i-lucide-*`）；语义色用 Nuxt UI class，**禁止**页面级 hex
 - 接 API 时 **只改 store / `api/admin/`**，保留 template 与壳层

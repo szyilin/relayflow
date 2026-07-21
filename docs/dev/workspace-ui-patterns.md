@@ -80,12 +80,14 @@ web/src/
 | 深链 | `/app/contacts?memberId=`、`/app/messages?conversationId=`、`/app/tasks?taskId=`；目标页读 query 激活上下文 |
 | 契约 | [`openspec/lanes/workspace-search/contract.md`](../../openspec/lanes/workspace-search/contract.md) |
 
-## 认证页 `/app/login`
+## 认证页 `/app/login` · `/app/register`
 
 | 项 | 规范 |
 |----|------|
-| Layout | `meta.layout: workspace-auth` |
-| 表单 | 居中 `UCard`；提交走 `useAuthStore().login()` |
+| Layout | `meta.layout: workspace-auth`（居中表单；背景见 `workspace.css` `.workspace-auth-*`） |
+| 视觉 | 居中 `UCard` 承载表单；**卡片内控件须撑满**（全局主题已默认 `w-full`，见 `web/vite.config.ts`） |
+| 登录 | 手机号 + 密码；提交走 `useAuthStore().login()`；多企业时同页选租户 |
+| 注册 | 手机号 / 昵称 / 企业名 / 密码；**不展示**「关于企业邀请」说明块 |
 | 跳转 | 成功 → `/app/messages`（产品唯一登录页 `/app/login`） |
 
 ## 消息页 `/app/messages`

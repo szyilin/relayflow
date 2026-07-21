@@ -166,11 +166,258 @@
   border-bottom-right-radius: 0.25rem;
 }
 
-.workspace-auth-bg {
+/* 认证页：分栏品牌 + 表单，简约大气 */
+.workspace-auth {
+  display: grid;
+  min-height: 100svh;
+  background: var(--ws-canvas-bg);
+}
+
+@media (min-width: 1024px) {
+  .workspace-auth {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  }
+}
+
+.workspace-auth-brand {
+  position: relative;
+  display: none;
+  overflow: hidden;
+  color: #f4f7f8;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in oklab, var(--ui-primary) 18%, transparent), transparent),
-    radial-gradient(circle at 100% 100%, color-mix(in oklab, var(--ui-primary) 8%, transparent), transparent 40%),
-    var(--ws-canvas-bg);
+    radial-gradient(ellipse 90% 70% at 10% 90%, color-mix(in oklab, var(--ui-primary) 42%, transparent), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 95% 8%, color-mix(in oklab, var(--ui-primary) 22%, transparent), transparent 52%),
+    linear-gradient(155deg, #10161c 0%, #172028 48%, #121a20 100%);
+}
+
+@media (min-width: 1024px) {
+  .workspace-auth-brand {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.workspace-auth-brand-glow {
+  position: absolute;
+  inset: auto -12% -28% auto;
+  width: min(28rem, 70%);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--ui-primary) 28%, transparent);
+  filter: blur(72px);
+  opacity: 0.55;
+  animation: workspace-auth-glow 12s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.workspace-auth-brand-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(color-mix(in oklab, #ffffff 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, #ffffff 6%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 75% 70% at 40% 50%, #000 20%, transparent 75%);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.workspace-auth-brand-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.75rem 3rem;
+  animation: workspace-auth-rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.workspace-auth-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.workspace-auth-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  background: color-mix(in oklab, var(--ui-primary) 88%, #0b1216);
+  color: #fff;
+  box-shadow: 0 0 0 1px color-mix(in oklab, #ffffff 12%, transparent);
+}
+
+.workspace-auth-brand-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.workspace-auth-brand-hero {
+  max-width: 22rem;
+  animation: workspace-auth-rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+
+.workspace-auth-brand-title {
+  margin: 0;
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.workspace-auth-brand-sub {
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: color-mix(in oklab, #f4f7f8 68%, transparent);
+}
+
+.workspace-auth-brand-foot {
+  margin: 0;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: color-mix(in oklab, #f4f7f8 42%, transparent);
+}
+
+.workspace-auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in oklab, var(--ui-primary) 8%, transparent), transparent 60%),
+    var(--ws-panel-bg);
+}
+
+.dark .workspace-auth-panel {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in oklab, var(--ui-primary) 10%, transparent), transparent 60%),
+    var(--ws-panel-bg);
+}
+
+.workspace-auth-panel > * {
+  animation: workspace-auth-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+.workspace-auth-mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 1024px) {
+  .workspace-auth-mobile-brand {
+    display: none;
+  }
+}
+
+.workspace-auth-mobile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  background: var(--ui-primary);
+  color: #fff;
+}
+
+.workspace-auth-mobile-name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ws-text);
+}
+
+.workspace-auth-heading {
+  margin-bottom: 2rem;
+}
+
+.workspace-auth-heading h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ws-text);
+}
+
+.workspace-auth-heading p {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ws-text-muted);
+}
+
+.workspace-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.workspace-auth-form :deep([data-slot='root']) {
+  width: 100%;
+}
+
+.workspace-auth-footer {
+  margin-top: 1.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--ws-text-muted);
+}
+
+.workspace-auth-footer a {
+  color: var(--ui-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.workspace-auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.workspace-auth-tenant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@keyframes workspace-auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes workspace-auth-glow {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+
+  to {
+    transform: translate(-8%, -6%) scale(1.08);
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-auth-brand-glow,
+  .workspace-auth-brand-inner,
+  .workspace-auth-brand-hero,
+  .workspace-auth-panel > * {
+    animation: none;
+  }
 }
 
 body.workspace-resizing {
