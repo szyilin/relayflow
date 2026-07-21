@@ -5,6 +5,13 @@ import { useAdminColorMode } from './composables/useAdminColorMode'
 const colorMode = useAdminColorMode()
 const themeColor = computed(() => colorMode.value === 'dark' ? '#141417' : '#ffffff')
 
+/** Top-center soft notice: auto-dismiss, no close / progress. */
+const toaster = {
+  position: 'top-center' as const,
+  duration: 2200,
+  progress: false
+}
+
 watchEffect(() => {
   let meta = document.querySelector('meta[name="theme-color"]')
   if (!meta) {
@@ -17,7 +24,7 @@ watchEffect(() => {
 </script>
 
 <template>
-  <UApp>
+  <UApp :toaster="toaster">
     <RouterView />
   </UApp>
 </template>

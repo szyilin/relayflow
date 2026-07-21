@@ -50,9 +50,10 @@ async function selectTenant(targetTenantId: string) {
       return
     }
     toast.add({
-      title: '已切换企业',
-      description: authStore.activeTenantName,
-      color: 'success'
+      title: `已切换至 ${authStore.activeTenantName}`,
+      icon: 'i-lucide-check',
+      color: 'success',
+      close: false
     })
   } finally {
     switching.value = false
