@@ -150,10 +150,15 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     }
 
     private void createActiveMembership(Long tenantId, Long userId) {
+        SysUserDO user = userMapper.selectById(userId);
         SysTenantUserDO tenantUser = new SysTenantUserDO();
         tenantUser.setTenantId(tenantId);
         tenantUser.setUserId(userId);
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
+        if (user != null) {
+            tenantUser.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        }
+        tenantUser.setSignature("");
         tenantUserMapper.insert(tenantUser);
         imBotApi.ensureUserEnablementsOnActive(tenantId, userId);
     }

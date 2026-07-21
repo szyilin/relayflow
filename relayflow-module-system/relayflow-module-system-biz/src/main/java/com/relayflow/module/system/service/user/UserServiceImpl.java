@@ -101,10 +101,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private AppUserProfileRespVO getMyProfile(Long userId, Long tenantId) {
-        requireActiveTenantUser(userId, tenantId);
+        SysTenantUserDO member = requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
         SysTenantDO tenant = tenantService.getTenant(tenantId);
-        return buildProfileResponse(user, tenant, userId, tenantId);
+        return buildProfileResponse(user, member, tenant, userId, tenantId);
     }
 
     @Override
@@ -112,10 +112,10 @@ public class UserServiceImpl implements UserService {
         Long viewerId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         requireActiveTenantUser(viewerId, tenantId);
-        requireActiveTenantUser(userId, tenantId);
+        SysTenantUserDO member = requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
         SysTenantDO tenant = tenantService.getTenant(tenantId);
-        return buildProfileResponse(user, tenant, userId, tenantId);
+        return buildProfileResponse(user, member, tenant, userId, tenantId);
     }
 
     @Override
@@ -127,7 +127,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private AppUserProfileRespVO updateMyProfile(Long userId, Long tenantId, AppUserProfileUpdateReqVO request) {
-        requireActiveTenantUser(userId, tenantId);
+        SysTenantUserDO member = requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
 
         if (request.getNickname() != null) {
@@ -135,37 +135,47 @@ public class UserServiceImpl implements UserService {
             if (!StringUtils.hasText(nickname)) {
                 throw new ServiceException(ErrorCodeConstants.USER_NICKNAME_REQUIRED);
             }
-            user.setNickname(nickname);
+            member.setNickname(nickname);
         }
         if (request.getAvatar() != null) {
-            user.setAvatar(trimToNull(request.getAvatar()));
+            member.setAvatar(trimToNull(request.getAvatar()));
         }
         if (request.getSignature() != null) {
-            user.setSignature(request.getSignature().trim());
+            member.setSignature(request.getSignature().trim());
         }
         if (request.getCoverFileId() != null) {
-            user.setCoverFileId(trimToNull(request.getCoverFileId()));
+            member.setCoverFileId(trimToNull(request.getCoverFileId()));
         }
-        userMapper.updateById(user);
+        tenantUserMapper.updateById(member);
 
         SysTenantDO tenant = tenantService.getTenant(tenantId);
-        return buildProfileResponse(user, tenant, userId, tenantId);
+        return buildProfileResponse(user, member, tenant, userId, tenantId);
     }
 
     private AppUserProfileRespVO buildProfileResponse(
-            SysUserDO user, SysTenantDO tenant, Long userId, Long tenantId) {
+            SysUserDO user, SysTenantUserDO member, SysTenantDO tenant, Long userId, Long tenantId) {
         AppUserProfileRespVO response = new AppUserProfileRespVO();
         response.setUserId(userId);
         response.setUsername(user.getUsername());
-        response.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
-        response.setAvatar(user.getAvatar());
-        response.setSignature(user.getSignature() != null ? user.getSignature() : "");
-        response.setCoverFileId(user.getCoverFileId());
+        response.setNickname(resolveMemberNickname(member, user));
+        response.setAvatar(member.getAvatar());
+        response.setSignature(member.getSignature() != null ? member.getSignature() : "");
+        response.setCoverFileId(member.getCoverFileId());
         response.setTenantId(tenantId);
         response.setTenantName(tenant.getName());
         response.setTenantVerified(false);
         response.setAdmin(!permissionService.getPermissionCodes(userId, tenantId).isEmpty());
         return response;
+    }
+
+    private String resolveMemberNickname(SysTenantUserDO member, SysUserDO user) {
+        if (member != null && StringUtils.hasText(member.getNickname())) {
+            return member.getNickname().trim();
+        }
+        if (StringUtils.hasText(user.getNickname())) {
+            return user.getNickname().trim();
+        }
+        return user.getUsername();
     }
 
     @Override
@@ -186,6 +196,8 @@ public class UserServiceImpl implements UserService {
         tenantUser.setTenantId(tenantId);
         tenantUser.setUserId(user.getId());
         tenantUser.setStatus(TenantUserStatus.ACTIVE);
+        tenantUser.setNickname(user.getNickname());
+        tenantUser.setSignature("");
         tenantUserMapper.insert(tenantUser);
         imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
 
@@ -229,6 +241,11 @@ public class UserServiceImpl implements UserService {
         tenantUser.setTenantId(tenantId);
         tenantUser.setUserId(user.getId());
         tenantUser.setStatus(TenantUserStatus.NOT_JOINED);
+        String memberNickname = request.getNickname() != null
+                ? request.getNickname().trim()
+                : (StringUtils.hasText(user.getNickname()) ? user.getNickname() : mobile);
+        tenantUser.setNickname(memberNickname);
+        tenantUser.setSignature("");
         tenantUserMapper.insert(tenantUser);
 
         assignDept(tenantId, user.getId(), request.getDeptId(), true);
@@ -251,11 +268,11 @@ public class UserServiceImpl implements UserService {
     public UserBasicDTO getUserBasic(Long id) {
         Long tenantId = resolveTenantId();
         SysUserDO user = requireUser(id);
-        requireTenantUser(id, tenantId);
+        SysTenantUserDO member = requireTenantUser(id, tenantId);
         UserBasicDTO dto = new UserBasicDTO();
         dto.setId(user.getId());
         dto.setUsername(user.getUsername());
-        dto.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        dto.setNickname(resolveMemberNickname(member, user));
         return dto;
     }
 
@@ -263,11 +280,15 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void updateUser(UserUpdateReqVO request) {
         Long tenantId = resolveTenantId();
-        requireTenantUser(request.getId(), tenantId);
+        SysTenantUserDO member = requireTenantUser(request.getId(), tenantId);
         SysUserDO user = requireUser(request.getId());
 
         if (request.getNickname() != null) {
-            user.setNickname(request.getNickname().trim());
+            String nickname = request.getNickname().trim();
+            member.setNickname(nickname);
+            tenantUserMapper.updateById(member);
+            // Keep global nickname as fallback for memberships without member nickname.
+            user.setNickname(nickname);
         }
         if (request.getMobile() != null) {
             user.setMobile(normalizeMobile(request.getMobile()));
@@ -409,17 +430,23 @@ public class UserServiceImpl implements UserService {
 
         SysDeptDO dept = requireDept(deptId, tenantId);
         String deptName = dept.getName();
+        Map<Long, SysTenantUserDO> membersByUserId = tenantUserMapper.selectList(Wrappers.<SysTenantUserDO>lambdaQuery()
+                        .eq(SysTenantUserDO::getTenantId, tenantId)
+                        .in(SysTenantUserDO::getUserId, deptUserIds))
+                .stream()
+                .collect(Collectors.toMap(SysTenantUserDO::getUserId, member -> member, (a, b) -> a));
 
         return users.stream()
-                .map(user -> toContactItem(user, deptId, deptName))
+                .map(user -> toContactItem(user, membersByUserId.get(user.getId()), deptId, deptName))
                 .toList();
     }
 
-    private AppContactItemRespVO toContactItem(SysUserDO user, Long deptId, String deptName) {
+    private AppContactItemRespVO toContactItem(
+            SysUserDO user, SysTenantUserDO member, Long deptId, String deptName) {
         AppContactItemRespVO item = new AppContactItemRespVO();
         item.setId(user.getId());
         item.setUsername(user.getUsername());
-        item.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
+        item.setNickname(resolveMemberNickname(member, user));
         item.setDeptId(deptId);
         item.setDeptName(deptName);
         item.setAvatarText(resolveAvatarText(item.getNickname(), item.getUsername()));

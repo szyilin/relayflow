@@ -113,7 +113,7 @@ export const useAccountDockStore = defineStore('accountDock', () => {
     })
   }
 
-  async function syncAllTenantsForCurrentAccount() {
+    async function syncAllTenantsForCurrentAccount() {
     const auth = useAuthStore()
     if (!auth.isAuthenticated || auth.userId == null || !auth.token) {
       return
@@ -136,12 +136,13 @@ export const useAccountDockStore = defineStore('accountDock', () => {
       }
       const key = buildKey(auth.userId, tenant.tenantId)
       const existing = entries.value.find(item => item.key === key)
+      // Do not copy current-tenant avatar/nickname onto other enterprises.
       upsertEntry({
         key,
         userId: auth.userId,
         username: auth.user?.username ?? existing?.username ?? '',
-        nickname: auth.user?.nickname ?? existing?.nickname ?? '',
-        avatar: auth.user?.avatar ?? existing?.avatar,
+        nickname: existing?.nickname ?? '',
+        avatar: existing?.avatar,
         tenantId: tenant.tenantId,
         tenantName: tenant.tenantName,
         token: auth.token,
@@ -158,15 +159,15 @@ export const useAccountDockStore = defineStore('accountDock', () => {
 
     const key = buildKey(auth.userId, auth.tenantId)
     entries.value = entries.value.map((entry) => {
-      if (entry.userId !== auth.userId) {
+      if (entry.key !== key) {
         return entry
       }
       return {
         ...entry,
-        nickname: entry.key === key ? nickname : entry.nickname,
-        avatar: avatar ?? entry.avatar,
-        token: entry.key === key ? auth.token! : entry.token,
-        tenantName: entry.key === key ? auth.activeTenantName : entry.tenantName
+        nickname,
+        avatar: avatar !== undefined ? avatar : entry.avatar,
+        token: auth.token!,
+        tenantName: auth.activeTenantName
       }
     })
     persistEntries(entries.value)

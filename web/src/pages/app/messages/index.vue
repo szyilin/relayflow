@@ -29,6 +29,105 @@ const addGroupBotOpen = ref(false)
 const groupMembersOpen = ref(false)
 const removingBotCode = ref<string | null>(null)
 const pendingMentions = ref<import('../../../api/app/im').GroupMemberItem[]>([])
+const isNearBottom = ref(true)
+const unreadFabDismissed = ref(false)
+let readReportTimer: ReturnType<typeof setTimeout> | null = null
+
+const NEAR_BOTTOM_PX = 80
+
+function isListNearBottom(el: HTMLElement) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX
+}
+
+async function scrollToBottom(force = false) {
+  await nextTick()
+  const el = messageListRef.value
+  if (!el) {
+    return
+  }
+  if (!force && !isNearBottom.value) {
+    return
+  }
+  el.scrollTop = el.scrollHeight
+  isNearBottom.value = true
+}
+
+async function scrollToUnread() {
+  await nextTick()
+  const seq = im.firstUnreadSeq
+  if (seq == null) {
+    await scrollToBottom(true)
+    return
+  }
+  const el = messageListRef.value
+  const target = el?.querySelector(`[data-msg-seq="${seq}"]`) as HTMLElement | null
+  if (target) {
+    target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    unreadFabDismissed.value = true
+    return
+  }
+  await scrollToBottom(true)
+  unreadFabDismissed.value = true
+}
+
+function scheduleReadReport(readSeq: number) {
+  if (readReportTimer) {
+    clearTimeout(readReportTimer)
+  }
+  readReportTimer = setTimeout(() => {
+    void im.reportReadUpTo(readSeq)
+  }, 300)
+}
+
+function reportVisibleRead() {
+  const el = messageListRef.value
+  if (!el || !im.activeConversationId) {
+    return
+  }
+  const nodes = el.querySelectorAll<HTMLElement>('[data-msg-seq]')
+  let maxVisible = 0
+  const viewTop = el.scrollTop
+  const viewBottom = viewTop + el.clientHeight
+  nodes.forEach((node) => {
+    const seq = Number(node.dataset.msgSeq)
+    if (!Number.isFinite(seq) || seq <= 0) {
+      return
+    }
+    const top = node.offsetTop
+    const bottom = top + node.offsetHeight
+    if (bottom > viewTop && top < viewBottom) {
+      maxVisible = Math.max(maxVisible, seq)
+    }
+  })
+  if (isNearBottom.value) {
+    const last = im.messages.at(-1)?.seq ?? 0
+    maxVisible = Math.max(maxVisible, last)
+  }
+  if (maxVisible > 0) {
+    scheduleReadReport(maxVisible)
+  }
+}
+
+function onMessageListScroll() {
+  const el = messageListRef.value
+  if (!el) {
+    return
+  }
+  isNearBottom.value = isListNearBottom(el)
+  reportVisibleRead()
+}
+
+const showUnreadFab = computed(() =>
+  Boolean(im.firstUnreadSeq)
+  && im.enterUnreadCount > 0
+  && !unreadFabDismissed.value
+  && !im.loadingMessages)
+
+const showBackToLatestFab = computed(() =>
+  Boolean(im.activeConversationId)
+  && im.messages.length > 0
+  && !isNearBottom.value
+  && !im.loadingMessages)
 
 const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
@@ -124,6 +223,10 @@ watch(() => route.query.conversationId, async (raw) => {
 })
 
 onUnmounted(() => {
+  if (readReportTimer) {
+    clearTimeout(readReportTimer)
+  }
+  void im.flushConversationRead()
   presence.stopPolling()
 })
 
@@ -131,13 +234,25 @@ watch([directPeerUserId, groupMemberIds, isGroupActive], () => {
   syncPresenceWatch()
 }, { deep: true })
 
-watch(() => im.messages.length, async () => {
-  await nextTick()
-  const el = messageListRef.value
-  if (el) {
-    el.scrollTop = el.scrollHeight
+watch(
+  () => [im.activeConversationId, im.messages.length, im.loadingMessages] as const,
+  async ([conversationId, length, loading], prev) => {
+    if (!conversationId || loading || length === 0) {
+      return
+    }
+    const switched = !prev || prev[0] !== conversationId
+    if (switched) {
+      unreadFabDismissed.value = false
+      isNearBottom.value = true
+      await scrollToBottom(true)
+      reportVisibleRead()
+      return
+    }
+    if (isNearBottom.value) {
+      await scrollToBottom(true)
+    }
   }
-})
+)
 
 async function handleSelect(conversationId: string) {
   await selectConversationWithRoute(conversationId)
@@ -152,7 +267,9 @@ async function handleSend() {
   draft.value = ''
   pendingMentions.value = []
   try {
+    isNearBottom.value = true
     await im.sendText(text, mentions)
+    await scrollToBottom(true)
   } catch {
     draft.value = text
     pendingMentions.value = mentions
@@ -256,7 +373,9 @@ async function handleFileSelected(event: Event) {
     return
   }
   try {
+    isNearBottom.value = true
     await im.sendFileMessage(file)
+    await scrollToBottom(true)
   } catch {
     // error surfaced via store.lastError
   }
@@ -400,13 +519,31 @@ meta:
         </UButton>
       </header>
 
-      <div ref="messageListRef" class="flex-1 overflow-y-auto px-5 py-4">
-        <div v-if="im.loadingMessages" class="space-y-3">
-          <USkeleton v-for="i in 5" :key="i" class="h-10 w-2/3" />
-        </div>
+      <div class="relative min-h-0 flex-1">
+        <div
+          ref="messageListRef"
+          class="h-full overflow-y-auto px-5 py-4"
+          @scroll.passive="onMessageListScroll"
+        >
+          <div
+            v-if="im.loadingMessages && !im.messages.length"
+            class="space-y-3"
+          >
+            <USkeleton
+              v-for="i in 5"
+              :key="i"
+              class="h-10 w-2/3"
+            />
+          </div>
 
-        <template v-else-if="messageTimeline.length">
-          <template v-for="item in messageTimeline" :key="item.message.id">
+          <template v-else-if="messageTimeline.length">
+            <div
+              v-if="im.loadingMessages"
+              class="mb-2 flex justify-center"
+            >
+              <span class="text-xs text-[var(--ws-text-muted)]">同步中…</span>
+            </div>
+            <template v-for="item in messageTimeline" :key="item.message.id">
             <div
               v-if="item.showTimeHeader"
               class="flex justify-center py-3"
@@ -418,6 +555,7 @@ meta:
 
             <div
               v-if="im.isSystemMessage(item.message)"
+              :data-msg-seq="item.message.seq"
               class="flex justify-center py-1"
             >
               <p class="rounded-full bg-[var(--ws-input-bar-bg)] px-3 py-1 text-xs text-[var(--ws-text-muted)]">
@@ -427,6 +565,7 @@ meta:
 
             <div
               v-else-if="cardBlock(item.message)"
+              :data-msg-seq="item.message.seq"
               class="ws-msg-row group flex"
               :class="[
                 messageRowJustify(item.message.senderId),
@@ -465,6 +604,7 @@ meta:
 
             <div
               v-else
+              :data-msg-seq="item.message.seq"
               class="ws-msg-row group flex"
               :class="[
                 messageRowJustify(item.message.senderId),
@@ -551,6 +691,35 @@ meta:
           description="发送第一条消息开始对话"
           class="py-12"
         />
+        </div>
+
+        <div
+          v-if="showUnreadFab || showBackToLatestFab"
+          class="pointer-events-none absolute right-4 bottom-4 z-10 flex flex-col items-end gap-2"
+        >
+          <UButton
+            v-if="showUnreadFab"
+            class="pointer-events-auto shadow-md"
+            color="primary"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-arrow-up"
+            @click="scrollToUnread"
+          >
+            查看未读 · {{ im.enterUnreadCount }}
+          </UButton>
+          <UButton
+            v-if="showBackToLatestFab"
+            class="pointer-events-auto shadow-md"
+            color="neutral"
+            variant="solid"
+            size="sm"
+            icon="i-lucide-arrow-down"
+            @click="scrollToBottom(true)"
+          >
+            回到最新
+          </UButton>
+        </div>
       </div>
 
       <footer class="border-t border-[var(--ws-border-subtle)] p-4">
