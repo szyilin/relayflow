@@ -25,7 +25,7 @@
 
 | contextType | 前端 `?view=` | 默认 filters 种子（V1） | 列表底数据（-web） |
 |-------------|---------------|-------------------------|-------------------|
-| `MINE` | （缺省） | `assigneeId CONTAINS __ME__` + `status IN [TODO,IN_PROGRESS]` | `scope=ALL`，客户端按 filters 收窄 |
+| `MINE` | （缺省） | `assigneeId CONTAINS __ME__` + `status IN [TODO]` | `scope=ALL`，客户端按 filters 收窄 |
 | `FOLLOWING` | `following` | `[]`（关注关系由 `/following/page`） | following page |
 | `ALL` | `all` | `[]`；可见并集（**禁止**全租户） | `scope=ALL` |
 | `CREATED` | `created` | `creatorId EQ __ME__` | `scope=ALL` + filters |

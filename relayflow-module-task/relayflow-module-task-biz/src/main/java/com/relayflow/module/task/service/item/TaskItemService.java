@@ -25,7 +25,7 @@ public interface TaskItemService {
     List<TaskItemDO> searchMyTasks(Long userId, String keyword, int limit);
 
     /**
-     * Open (TODO / IN_PROGRESS) tasks assigned to the user with dueTime in {@code [from, to)}.
+     * Open (TODO) tasks assigned to the user with dueTime in {@code [from, to)}.
      */
     List<TaskItemRespVO> listDueRange(OffsetDateTime from, OffsetDateTime to, int limit);
 

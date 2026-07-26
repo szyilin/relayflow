@@ -260,13 +260,13 @@ class TaskItemServiceImplTest {
         TaskItemGroupMoveReqVO request = new TaskItemGroupMoveReqVO();
         request.setId(TASK_ID);
         request.setFieldKey("status");
-        request.setValue("IN_PROGRESS");
+        request.setValue("DONE");
 
         taskItemService.groupMove(request);
 
         ArgumentCaptor<TaskItemDO> captor = ArgumentCaptor.forClass(TaskItemDO.class);
         verify(taskItemMapper).updateById(captor.capture());
-        assertEquals(TaskItemStatus.IN_PROGRESS, captor.getValue().getStatus());
+        assertEquals(TaskItemStatus.DONE, captor.getValue().getStatus());
         assertEquals(1000, captor.getValue().getBoardRank());
         verify(taskDueNotifyService).pushIfDueSoon(captor.getValue());
     }

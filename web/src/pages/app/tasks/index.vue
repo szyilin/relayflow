@@ -1198,7 +1198,7 @@ meta:
                       {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
                     </span>
                     <span v-if="viewConfigStore.isFieldVisible('status')">
-                      {{ task.status === 'TODO' ? '未开始' : task.status === 'IN_PROGRESS' ? '进行中' : '已完成' }}
+                      {{ task.status === 'DONE' ? '已完成' : '未完成' }}
                     </span>
                     <span v-if="viewConfigStore.isFieldVisible('assignee') && assigneeFieldLabel(task)">
                       负责人 {{ assigneeFieldLabel(task) }}

@@ -99,11 +99,11 @@ class TaskDueNotifyServiceTest {
     }
 
     @Test
-    void shouldRemind_returnsTrueForInProgressInsideWindow() {
+    void shouldRemind_returnsTrueForTodoInsideWindow() {
         when(taskProperties.getDueRemindWindow()).thenReturn(Duration.ofHours(24));
         when(taskItemAssigneeMapper.selectList(any())).thenReturn(List.of(assigneeRow(USER_ID)));
         TaskItemDO task = todoTask(OffsetDateTime.now().plusHours(1));
-        task.setStatus(TaskItemStatus.IN_PROGRESS);
+        task.setStatus(TaskItemStatus.TODO);
         assertTrue(taskDueNotifyService.shouldRemind(task));
     }
 

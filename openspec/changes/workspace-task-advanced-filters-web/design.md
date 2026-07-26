@@ -22,7 +22,7 @@ ViewConfig 已持久化 `filters`，但前端只实现 `status IN`，快捷访�
 ### D1 — FilterClause 形状
 
 ```json
-{ "field": "status", "op": "IN", "values": ["TODO", "IN_PROGRESS"] }
+{ "field": "status", "op": "IN", "values": ["TODO"] }
 { "field": "creatorId", "op": "EQ", "values": ["__ME__"] }
 { "field": "dueTime", "op": "BEFORE", "values": ["2026-07-26"] }
 ```
@@ -41,7 +41,7 @@ ViewConfig 已持久化 `filters`，但前端只实现 `status IN`，快捷访�
 
 | contextType | 默认 filters 种子 |
 |-------------|-------------------|
-| `MINE` | `assigneeId CONTAINS __ME__` + `status IN [TODO, IN_PROGRESS]` |
+| `MINE` | `assigneeId CONTAINS __ME__` + `status IN [TODO]` |
 | `FOLLOWING` | `[]`（关注关系由 following API 保证） |
 | `ALL` | `[]` |
 | `CREATED` | `creatorId EQ __ME__` |

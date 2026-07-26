@@ -195,7 +195,7 @@ public class TaskItemServiceImpl implements TaskItemService {
                 Wrappers.<TaskItemDO>lambdaQuery()
                         .apply("EXISTS (SELECT 1 FROM task_item_assignee a "
                                 + "WHERE a.task_id = task_item.id AND a.user_id = {0} AND a.deleted = 0)", userId)
-                        .in(TaskItemDO::getStatus, TaskItemStatus.TODO, TaskItemStatus.IN_PROGRESS)
+                        .eq(TaskItemDO::getStatus, TaskItemStatus.TODO)
                         .isNotNull(TaskItemDO::getDueTime)
                         .ge(TaskItemDO::getDueTime, from)
                         .lt(TaskItemDO::getDueTime, to)

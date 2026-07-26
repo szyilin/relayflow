@@ -8,7 +8,7 @@
 
 ## 背景
 
-`/app/tasks` P0：任务清单容器、成员、任务可选 `listId` 归属；左栏「清单」导航与深链 `?listId=`。看板三列见后续 `workspace-task-board`。
+`/app/tasks` P0：任务清单容器、成员、任务可选 `listId` 归属；左栏「清单」导航与深链 `?listId=`。看板二列见后续 `workspace-task-board`。
 
 ## 鉴权
 

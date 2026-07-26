@@ -16,7 +16,7 @@ public class TaskItemGroupMoveReqVO {
 
     /**
      * Target bucket value. Null or {@code __empty__} clears dueTime / assigneeId / custom field.
-     * For status: TODO | IN_PROGRESS | DONE (required, cannot clear).
+     * For status: TODO | DONE (required, cannot clear).
      * For dueTime: YYYY-MM-DD.
      * For assigneeId: user id string.
      * For custom:{fieldId}: option value_key.

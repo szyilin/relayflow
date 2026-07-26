@@ -6,7 +6,7 @@ The system SHALL expose workspace task navigation contexts that are **query pres
 
 Default seeds (V1) expressed as FilterClause rows:
 
-- `MINE`: `assigneeId CONTAINS` current user AND `status IN (TODO, IN_PROGRESS)`
+- `MINE`: `assigneeId CONTAINS` current user AND `status IN (TODO)`
 - `FOLLOWING`: no filter seed (membership via following API)
 - `CREATED`: `creatorId EQ` current user
 - `ASSIGNED_BY_ME`: `assignerId EQ` current user AND `assigneeId NOT_CONTAINS` current user

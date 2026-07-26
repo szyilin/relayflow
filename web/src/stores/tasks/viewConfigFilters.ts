@@ -83,7 +83,7 @@ export function seedFiltersForContext(contextType: TaskViewContextType): TaskVie
     case 'MINE':
       return [
         { field: 'assigneeId', op: 'CONTAINS', values: [FILTER_ME] },
-        { field: 'status', op: 'IN', values: ['TODO', 'IN_PROGRESS'] }
+        { field: 'status', op: 'IN', values: ['TODO'] }
       ]
     case 'CREATED':
       return [

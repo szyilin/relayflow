@@ -13,7 +13,7 @@ export interface TaskGroupBucket {
   items: TaskItem[]
 }
 
-const STATUS_ORDER: TaskItemStatus[] = ['TODO', 'IN_PROGRESS', 'DONE']
+const STATUS_ORDER: TaskItemStatus[] = ['TODO', 'DONE']
 
 export function partitionByGroupBy(
   items: TaskItem[],

@@ -1,13 +1,12 @@
 /**
- * Board column constants for /app/tasks list-context kanban.
+ * Board column constants for /app/tasks list-context kanban (binary status).
  */
-export const BOARD_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'] as const
+export const BOARD_STATUSES = ['TODO', 'DONE'] as const
 
 export type BoardStatus = (typeof BOARD_STATUSES)[number]
 
 export const BOARD_COLUMN_LABELS: Record<BoardStatus, string> = {
-  TODO: '待办',
-  IN_PROGRESS: '进行中',
+  TODO: '未完成',
   DONE: '已完成'
 }
 

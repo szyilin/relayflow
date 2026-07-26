@@ -9,7 +9,7 @@
 
 ## 背景
 
-清单上下文「列表 | 看板」：三列 = `TODO` / `IN_PROGRESS` / `DONE`；拖拽改状态与列内序（`boardRank`）。个人入口不提供完整看板。
+清单上下文「列表 | 看板」：两列 = `TODO`（未完成）/ `DONE`（已完成）；拖拽改状态与列内序（`boardRank`）。个人入口不提供完整看板。
 
 ## 鉴权
 
@@ -19,23 +19,22 @@
 | 看板读 | 清单成员 |
 | 拖拽 / 改状态 | `OWNER` / `EDITOR`（与清单任务写一致）；`VIEWER` 拒绝 |
 
-## 状态三态
+## 状态二态
 
-| status | 看板列 |
-|--------|--------|
-| `TODO` | 待办 |
-| `IN_PROGRESS` | 进行中 |
+| status | 看板列 / 文案 |
+|--------|----------------|
+| `TODO` | 未完成 |
 | `DONE` | 已完成 |
 
 - 勾选完成 / `toggle-done` done=true → `DONE`
-- 取消完成 → `TODO`（不恢复 `IN_PROGRESS`）
-- due-range / due Bot：`IN_PROGRESS` 视为未完成（与 `TODO` 同等）
+- 取消完成 → `TODO`
+- due-range / due Bot：仅 `TODO` 视为未完成
 
 ## TaskItem 增量
 
 ```json
 {
-  "status": "IN_PROGRESS",
+  "status": "TODO",
   "boardRank": 1000
 }
 ```
@@ -55,7 +54,7 @@
 ```json
 {
   "id": "1001",
-  "status": "IN_PROGRESS",
+  "status": "DONE",
   "boardRank": 2000
 }
 ```
@@ -63,7 +62,7 @@
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `id` | 是 | 根任务 id |
-| `status` | 是 | `TODO` \| `IN_PROGRESS` \| `DONE` |
+| `status` | 是 | `TODO` \| `DONE` |
 | `boardRank` | 否 | 目标列内序；缺省由服务端插到列尾 |
 
 **Response `data`**：`true`
@@ -83,7 +82,7 @@ done=true → `DONE`；done=false → `TODO`。
 | 项 | 约定 |
 |----|------|
 | 看板 Tab | **仅清单上下文**显示；个人「我负责的」等不显示看板 Tab |
-| 列 | 待办 / 进行中 / 已完成 |
+| 列 | 未完成 / 已完成 |
 | 拖拽 | HTML5 DnD：跨列改 status；列内改 `boardRank`；落库 `PUT /board-move` |
 | 点卡片 | 打开既有详情 slideover |
 | VIEWER | 可看不可拖 |
@@ -92,13 +91,13 @@ done=true → `DONE`；done=false → `TODO`。
 
 ```bash
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"id":"1001","status":"IN_PROGRESS","boardRank":1000}' \
+  -d '{"id":"1001","status":"DONE","boardRank":1000}' \
   "$BASE/app-api/task/item/board-move"
 ```
 
 ## 浏览器验证（`-web`）
 
-1. `/app/tasks?listId=…` → 切「看板」见三列  
-2. 拖卡片到「进行中」→ 列变化（本地暂存或 API）  
+1. `/app/tasks?listId=…` → 切「看板」见两列  
+2. 拖卡片到「已完成」→ 列变化  
 3. 点卡片开详情；个人入口无看板 Tab  
 4. `pnpm build` + `pnpm typecheck`

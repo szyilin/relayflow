@@ -389,7 +389,6 @@ export const useTasksStore = defineStore('tasks', () => {
   const boardColumns = computed(() => {
     const map: Record<BoardStatus, TaskItem[]> = {
       TODO: [],
-      IN_PROGRESS: [],
       DONE: []
     }
     for (const item of listItems.value) {

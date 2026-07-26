@@ -20,7 +20,7 @@ ViewConfig.`groupBy.mode=FIELD` 驱动列表分区与看板列。空值 →「�
 
 | fieldKey | 桶 key | 标签 |
 |----------|--------|------|
-| `status` | `TODO` / `IN_PROGRESS` / `DONE` | 未开始 / 进行中 / 已完成 |
+| `status` | `TODO` / `DONE` | 未完成 / 已完成 |
 | `dueTime` | `YYYY-MM-DD` 或 `__empty__` | 日期或「无分组」 |
 | `assigneeId` | userId 或 `__empty__` | 用户 id（后续可昵称）或「无分组」 |
 
@@ -41,7 +41,7 @@ ViewConfig.`groupBy.mode=FIELD` 驱动列表分区与看板列。空值 →「�
 {
   "id": "1001",
   "fieldKey": "status",
-  "value": "IN_PROGRESS",
+  "value": "DONE",
   "beforeId": null
 }
 ```
@@ -50,7 +50,7 @@ ViewConfig.`groupBy.mode=FIELD` 驱动列表分区与看板列。空值 →「�
 |------|------|------|
 | `id` | 是 | 根任务 id |
 | `fieldKey` | 是 | `status` \| `dueTime` \| `assigneeId` |
-| `value` | 条件 | status 必填合法态；dueTime=`YYYY-MM-DD`；assigneeId=用户 id 字符串；`null`/`__empty__` 清空 due/assignee |
+| `value` | 条件 | status 必填 `TODO`/`DONE`；dueTime=`YYYY-MM-DD`；assigneeId=用户 id 字符串；`null`/`__empty__` 清空 due/assignee |
 | `beforeId` | 否 | 仅 status：插到该卡之前；缺省列尾 |
 
 **Response `data`**：`true`
@@ -73,7 +73,7 @@ ViewConfig.`groupBy.mode=FIELD` 驱动列表分区与看板列。空值 →「�
 
 ```bash
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"id":"1001","fieldKey":"status","value":"IN_PROGRESS"}' \
+  -d '{"id":"1001","fieldKey":"status","value":"DONE"}' \
   "$BASE/app-api/task/item/group-move"
 ```
 

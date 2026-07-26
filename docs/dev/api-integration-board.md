@@ -65,7 +65,7 @@
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
-| **workspace-task-board** | **archived** | **done** | status 三态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
+| **workspace-task-board** | **archived** | **done** | status 二态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
 | **workspace-task-view-model-v1** | **archived** | **done** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 · 自定义字段 | [archive](../../openspec/changes/archive/2026-07-20-workspace-task-view-model-v1/proposal.md) | 母 change；P0–P8 已交付；specs 已同步 `openspec/specs/task` |
 | **workspace-docs-library** | **ready** | **done** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | integrate 完成；store 无 Mock；E2E `/app/docs` |
 | **workspace-docs-drive** | **archived** | **done** | `/app-api/docs/drive/*` · `/app/docs` 云盘 | [contract](../../openspec/lanes/workspace-docs-drive/contract.md) | 母 change 已归档；integrate + 跨容器 move；store 无 Mock；知识库暂缓 |

@@ -64,7 +64,7 @@
 AND 组合。每条：
 
 ```json
-{ "field": "status", "op": "IN", "values": ["TODO", "IN_PROGRESS"] }
+{ "field": "status", "op": "IN", "values": ["TODO"] }
 { "field": "creatorId", "op": "EQ", "values": ["__ME__"] }
 ```
 

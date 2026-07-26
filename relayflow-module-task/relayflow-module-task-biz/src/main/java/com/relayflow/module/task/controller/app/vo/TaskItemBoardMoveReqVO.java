@@ -10,7 +10,7 @@ public class TaskItemBoardMoveReqVO {
     @NotNull
     private Long id;
 
-    /** TODO | IN_PROGRESS | DONE */
+    /** TODO | DONE */
     @NotBlank
     private String status;
 

@@ -105,8 +105,7 @@ const personOptions = computed(() => {
 })
 
 const statusOptions: { value: TaskItemStatus, label: string }[] = [
-  { value: 'TODO', label: '未开始' },
-  { value: 'IN_PROGRESS', label: '进行中' },
+  { value: 'TODO', label: '未完成' },
   { value: 'DONE', label: '已完成' }
 ]
 

@@ -300,7 +300,7 @@ For non-`LIST` contexts, view config MUST be private to `(tenant_id, user_id, co
 
 When `groupBy` mode is field-based, the system SHALL partition root tasks in that context by the field's value. Tasks with empty/missing values MUST appear under「无分组」(or an equivalent stable empty key in the contract). Dragging between partitions MUST persist an update to that field per target bucket. Clearing into「无分组」MUST clear the field when null is allowed; completion/status MUST follow explicit mapping rules (MUST NOT invent invalid status values).
 
-V1 field-group delivery MUST support system fields first (at least completion/status and assignees; due-time bucketing MAY follow). Fixed boards that hard-code only `TODO` / `IN_PROGRESS` / `DONE` columns MUST NOT remain the long-term board model once field grouping is integrated — status enum values MAY remain on `task_item`.
+V1 field-group delivery MUST support system fields first (at least completion/status and assignees; due-time bucketing MAY follow). When grouping by status, board columns MUST map to binary `TODO` (incomplete) and `DONE` (complete).
 
 #### Scenario: Board columns from status groupBy
 

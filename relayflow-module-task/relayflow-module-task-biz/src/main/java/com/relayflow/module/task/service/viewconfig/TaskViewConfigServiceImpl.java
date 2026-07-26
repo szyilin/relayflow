@@ -213,7 +213,7 @@ public class TaskViewConfigServiceImpl implements TaskViewConfigService {
         List<Map<String, Object>> filters = new ArrayList<>();
         if (TaskViewContextType.MINE.equals(type)) {
             filters.add(filterClause("assigneeId", "CONTAINS", List.of("__ME__")));
-            filters.add(filterClause("status", "IN", List.of("TODO", "IN_PROGRESS")));
+            filters.add(filterClause("status", "IN", List.of("TODO")));
         } else if (TaskViewContextType.CREATED.equals(type)) {
             filters.add(filterClause("creatorId", "EQ", List.of("__ME__")));
         } else if (TaskViewContextType.ASSIGNED_BY_ME.equals(type)) {

@@ -1,6 +1,6 @@
 import { del, get, post, put } from '../request'
 
-export type TaskItemStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
+export type TaskItemStatus = 'TODO' | 'DONE'
 
 export interface TaskItem {
   id: string
