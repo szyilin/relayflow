@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -189,7 +190,7 @@ public class TaskViewConfigServiceImpl implements TaskViewConfigService {
     static TaskViewConfigVO defaultConfig(String type) {
         TaskViewConfigVO vo = new TaskViewConfigVO();
         vo.setDisplayMode("LIST");
-        vo.setFilters(List.of());
+        vo.setFilters(defaultFilterSeed(type));
         vo.setVisibleFieldKeys(List.of("dueTime", "assignee", "status"));
         if (TaskViewContextType.LIST.equals(type)) {
             Map<String, Object> groupBy = new LinkedHashMap<>();
@@ -205,6 +206,31 @@ public class TaskViewConfigServiceImpl implements TaskViewConfigService {
             vo.setSort(sort);
         }
         return vo;
+    }
+
+    /** Visible editable seeds for quick-access contexts; `__ME__` = current user at apply time. */
+    static List<Map<String, Object>> defaultFilterSeed(String type) {
+        List<Map<String, Object>> filters = new ArrayList<>();
+        if (TaskViewContextType.MINE.equals(type)) {
+            filters.add(filterClause("assigneeId", "CONTAINS", List.of("__ME__")));
+            filters.add(filterClause("status", "IN", List.of("TODO", "IN_PROGRESS")));
+        } else if (TaskViewContextType.CREATED.equals(type)) {
+            filters.add(filterClause("creatorId", "EQ", List.of("__ME__")));
+        } else if (TaskViewContextType.ASSIGNED_BY_ME.equals(type)) {
+            filters.add(filterClause("assignerId", "EQ", List.of("__ME__")));
+            filters.add(filterClause("assigneeId", "NOT_CONTAINS", List.of("__ME__")));
+        } else if (TaskViewContextType.COMPLETED.equals(type)) {
+            filters.add(filterClause("status", "IN", List.of("DONE")));
+        }
+        return filters;
+    }
+
+    private static Map<String, Object> filterClause(String field, String op, List<String> values) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("field", field);
+        row.put("op", op);
+        row.put("values", values);
+        return row;
     }
 
     private TaskViewConfigVO parseConfig(String json, String type) {

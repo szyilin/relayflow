@@ -3,6 +3,8 @@ import type {
   TaskViewConfig,
   TaskViewContextType
 } from '../../stores/tasks/viewConfigLocal'
+import { defaultViewConfig } from '../../stores/tasks/viewConfigLocal'
+import { normalizeFilters } from '../../stores/tasks/viewConfigFilters'
 
 export async function getTaskViewConfig(params: {
   contextType: TaskViewContextType
@@ -14,7 +16,7 @@ export async function getTaskViewConfig(params: {
       contextId: params.contextType === 'LIST' ? params.contextId : undefined
     }
   })
-  return normalizeViewConfig(data)
+  return normalizeViewConfig(data, params.contextType)
 }
 
 export async function saveTaskViewConfig(body: {
@@ -29,23 +31,22 @@ export async function saveTaskViewConfig(body: {
   })
 }
 
-function normalizeViewConfig(raw: TaskViewConfig | null | undefined): TaskViewConfig {
+function normalizeViewConfig(
+  raw: TaskViewConfig | null | undefined,
+  contextType: TaskViewContextType
+): TaskViewConfig {
+  const fallback = defaultViewConfig(contextType)
   if (!raw) {
-    return {
-      displayMode: 'LIST',
-      groupBy: null,
-      sort: { key: 'createTime', order: 'DESC' },
-      filters: [],
-      visibleFieldKeys: ['dueTime', 'assignee', 'status']
-    }
+    return fallback
   }
   return {
     displayMode: raw.displayMode === 'BOARD' ? 'BOARD' : 'LIST',
     groupBy: raw.groupBy ?? null,
-    sort: raw.sort ?? { key: 'createTime', order: 'DESC' },
-    filters: Array.isArray(raw.filters) ? raw.filters : [],
+    sort: raw.sort ?? fallback.sort,
+    // Respect explicit empty list (user cleared); only fall back when missing
+    filters: Array.isArray(raw.filters) ? normalizeFilters(raw.filters) : fallback.filters,
     visibleFieldKeys: raw.visibleFieldKeys?.length
       ? raw.visibleFieldKeys
-      : ['dueTime', 'assignee', 'status']
+      : fallback.visibleFieldKeys
   }
 }

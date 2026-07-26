@@ -71,6 +71,8 @@ class TaskViewConfigServiceImplTest {
 
         assertEquals("LIST", vo.getDisplayMode());
         assertNull(vo.getGroupBy());
+        assertEquals(2, vo.getFilters().size());
+        assertEquals("assigneeId", vo.getFilters().get(0).get("field"));
         verify(taskViewConfigMapper).selectOne(any(Wrapper.class));
     }
 

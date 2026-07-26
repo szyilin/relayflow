@@ -1,16 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { TaskItemStatus } from '../../api/app/task'
+import { useAuthStore } from '../../stores/auth'
+import { useContactsStore } from '../../stores/contacts'
 import {
   useTaskViewConfigStore,
   type TaskViewGroupBy,
   type TaskViewSort,
   type TaskViewSortKey,
   type TaskViewDisplayMode,
-  type TaskViewFieldKey
+  type TaskViewFieldKey,
+  type TaskViewFilterClause,
+  type TaskViewFilterField,
+  type TaskViewFilterOp
 } from '../../stores/tasks/viewConfigStore'
 import { isCustomFieldKey } from '../../stores/tasks/customFieldsLocal'
+import {
+  FILTER_FIELDS,
+  FILTER_ME,
+  defaultOpForField,
+  opNeedsValue,
+  opsForField
+} from '../../stores/tasks/viewConfigFilters'
 
 const props = defineProps<{
   canUsePersonalCustomGroup?: boolean
@@ -21,6 +33,20 @@ const props = defineProps<{
 }>()
 
 const viewConfig = useTaskViewConfigStore()
+const auth = useAuthStore()
+const contacts = useContactsStore()
+
+onMounted(async () => {
+  try {
+    await contacts.fetchDepts()
+    const rootId = contacts.rootDeptId()
+    if (rootId) {
+      await contacts.fetchMembers({ deptId: rootId })
+    }
+  } catch {
+    // member picker optional
+  }
+})
 
 const sortLabel = computed(() => {
   const sort = viewConfig.activeConfig.sort
@@ -61,12 +87,33 @@ const groupLabel = computed(() => {
   return names[g.fieldKey as keyof typeof names] ?? g.fieldKey
 })
 
-const filterCount = computed(() => viewConfig.activeConfig.filters.length)
+const filters = computed(() => viewConfig.activeConfig.filters)
+const filterCount = computed(() => filters.value.length)
 
-const statusFilterValues = computed(() => {
-  const clause = viewConfig.activeConfig.filters.find(f => f.field === 'status')
-  return new Set(clause?.values ?? [])
+const personOptions = computed(() => {
+  const opts: { value: string, label: string }[] = [
+    { value: FILTER_ME, label: '我' }
+  ]
+  const selfId = auth.userId ? String(auth.userId) : ''
+  for (const m of contacts.members) {
+    if (selfId && m.id === selfId) {
+      continue
+    }
+    opts.push({ value: m.id, label: m.nickname || m.username || m.id })
+  }
+  return opts
 })
+
+const statusOptions: { value: TaskItemStatus, label: string }[] = [
+  { value: 'TODO', label: '未开始' },
+  { value: 'IN_PROGRESS', label: '进行中' },
+  { value: 'DONE', label: '已完成' }
+]
+
+const fieldSelectItems = FILTER_FIELDS.map(f => ({
+  label: f.label,
+  value: f.field
+}))
 
 const sortItems = computed<DropdownMenuItem[][]>(() => {
   const keys: { key: TaskViewSortKey | 'MANUAL', label: string }[] = [
@@ -182,23 +229,96 @@ function setDisplayMode(mode: TaskViewDisplayMode) {
   viewConfig.patchActiveConfig({ displayMode: mode })
 }
 
-function setStatusFilter(status: TaskItemStatus, enabled: boolean) {
-  const current = new Set(statusFilterValues.value)
+function commitFilters(next: TaskViewFilterClause[]) {
+  viewConfig.patchActiveConfig({ filters: next })
+}
+
+function updateClause(index: number, patch: Partial<TaskViewFilterClause>) {
+  const next = filters.value.map((c, i) => (i === index ? { ...c, ...patch } : c))
+  commitFilters(next)
+}
+
+function setClauseField(index: number, field: TaskViewFilterField) {
+  updateClause(index, {
+    field,
+    op: defaultOpForField(field),
+    values: field === 'status' ? [] : field === 'title' ? [''] : []
+  })
+}
+
+function setClauseOp(index: number, op: TaskViewFilterOp) {
+  const clause = filters.value[index]
+  if (!clause) {
+    return
+  }
+  updateClause(index, {
+    op,
+    values: opNeedsValue(op) ? clause.values : []
+  })
+}
+
+function setPersonValue(index: number, value: string | undefined) {
+  updateClause(index, { values: value ? [value] : [] })
+}
+
+function setTextValue(index: number, value: string) {
+  updateClause(index, { values: [value] })
+}
+
+function setDateValue(index: number, value: string) {
+  updateClause(index, { values: value ? [value] : [] })
+}
+
+function toggleStatusValue(index: number, status: TaskItemStatus, enabled: boolean) {
+  const clause = filters.value[index]
+  if (!clause) {
+    return
+  }
+  const set = new Set(clause.values)
   if (enabled) {
-    current.add(status)
+    set.add(status)
   } else {
-    current.delete(status)
+    set.delete(status)
   }
-  const values = Array.from(current) as TaskItemStatus[]
-  const filters = viewConfig.activeConfig.filters.filter(f => f.field !== 'status')
-  if (values.length) {
-    filters.push({ field: 'status', op: 'IN', values })
-  }
-  viewConfig.patchActiveConfig({ filters })
+  updateClause(index, { values: Array.from(set) })
+}
+
+function setStatusEq(index: number, status: string | undefined) {
+  updateClause(index, { values: status ? [status] : [] })
+}
+
+function addFilter() {
+  commitFilters([
+    ...filters.value,
+    { field: 'status', op: 'IN', values: [] }
+  ])
+}
+
+function removeFilter(index: number) {
+  commitFilters(filters.value.filter((_, i) => i !== index))
 }
 
 function clearFilters() {
-  viewConfig.patchActiveConfig({ filters: [] })
+  commitFilters([])
+}
+
+function isPersonField(field: TaskViewFilterField) {
+  return field === 'assigneeId' || field === 'creatorId' || field === 'assignerId'
+}
+
+function isTimeField(field: TaskViewFilterField) {
+  return field === 'dueTime' || field === 'createTime'
+}
+
+function personLabel(value: string | undefined) {
+  if (!value) {
+    return '选择成员'
+  }
+  if (value === FILTER_ME) {
+    return '我'
+  }
+  const hit = personOptions.value.find(o => o.value === value)
+  return hit?.label ?? value
 }
 </script>
 
@@ -230,7 +350,7 @@ function clearFilters() {
       </button>
     </div>
 
-    <UPopover>
+    <UPopover :ui="{ content: 'p-0' }">
       <UButton
         color="neutral"
         variant="ghost"
@@ -240,31 +360,138 @@ function clearFilters() {
         :class="filterCount ? 'text-primary' : ''"
       />
       <template #content>
-        <div class="w-56 space-y-2 p-3">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-medium text-[var(--ws-text-muted)]">状态</span>
+        <div class="w-[min(36rem,calc(100vw-2rem))] space-y-3 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-medium text-[var(--ws-text-muted)]">筛选条件</span>
             <UButton
               color="neutral"
               variant="link"
               size="xs"
               label="清空"
+              :disabled="!filterCount"
               @click="clearFilters"
             />
           </div>
-          <label
-            v-for="s in (['TODO', 'IN_PROGRESS', 'DONE'] as TaskItemStatus[])"
-            :key="s"
-            class="flex cursor-pointer items-center gap-2 text-sm"
+
+          <div
+            v-if="!filters.length"
+            class="rounded-md border border-dashed border-[var(--ws-border-subtle)] px-3 py-4 text-center text-xs text-[var(--ws-text-muted)]"
           >
-            <UCheckbox
-              :model-value="statusFilterValues.has(s)"
-              @update:model-value="(v: boolean | 'indeterminate') => setStatusFilter(s, v === true)"
+            暂无筛选条件，可添加或点工具栏「重置」恢复入口默认
+          </div>
+
+          <div
+            v-for="(clause, index) in filters"
+            :key="index"
+            class="flex flex-wrap items-start gap-2"
+          >
+            <span class="mt-1.5 w-6 shrink-0 text-xs text-[var(--ws-text-muted)]">
+              {{ index === 0 ? '当' : '且' }}
+            </span>
+
+            <USelect
+              :model-value="clause.field"
+              :items="fieldSelectItems"
+              value-key="value"
+              label-key="label"
+              size="xs"
+              class="w-28"
+              @update:model-value="(v: string) => setClauseField(index, v as TaskViewFilterField)"
             />
-            <span>{{ s === 'TODO' ? '未开始' : s === 'IN_PROGRESS' ? '进行中' : '已完成' }}</span>
-          </label>
-          <p class="text-[11px] text-[var(--ws-text-muted)]">
-            叠在当前入口默认条件之上
-          </p>
+
+            <USelect
+              :model-value="clause.op"
+              :items="opsForField(clause.field).map(o => ({ label: o.label, value: o.op }))"
+              value-key="value"
+              label-key="label"
+              size="xs"
+              class="w-28"
+              @update:model-value="(v: string) => setClauseOp(index, v as TaskViewFilterOp)"
+            />
+
+            <div
+              v-if="opNeedsValue(clause.op)"
+              class="min-w-0 flex-1"
+            >
+              <div
+                v-if="clause.field === 'status' && clause.op === 'IN'"
+                class="flex flex-wrap gap-2"
+              >
+                <label
+                  v-for="s in statusOptions"
+                  :key="s.value"
+                  class="flex cursor-pointer items-center gap-1.5 text-xs"
+                >
+                  <UCheckbox
+                    :model-value="clause.values.includes(s.value)"
+                    @update:model-value="(v: boolean | 'indeterminate') => toggleStatusValue(index, s.value, v === true)"
+                  />
+                  <span>{{ s.label }}</span>
+                </label>
+              </div>
+
+              <USelect
+                v-else-if="clause.field === 'status'"
+                :model-value="(clause.values[0] as TaskItemStatus | undefined)"
+                :items="statusOptions.map(s => ({ label: s.label, value: s.value }))"
+                value-key="value"
+                label-key="label"
+                size="xs"
+                class="w-full min-w-28"
+                placeholder="状态"
+                @update:model-value="(v: string) => setStatusEq(index, v)"
+              />
+
+              <USelectMenu
+                v-else-if="isPersonField(clause.field)"
+                :model-value="clause.values[0]"
+                :items="personOptions"
+                value-key="value"
+                label-key="label"
+                size="xs"
+                class="w-full min-w-36"
+                :placeholder="personLabel(clause.values[0])"
+                searchable
+                @update:model-value="(v: string | undefined) => setPersonValue(index, v)"
+              />
+
+              <UInput
+                v-else-if="isTimeField(clause.field)"
+                type="date"
+                size="xs"
+                class="w-full min-w-36"
+                :model-value="(clause.values[0] || '').slice(0, 10)"
+                @update:model-value="(v: string | number) => setDateValue(index, String(v || ''))"
+              />
+
+              <UInput
+                v-else
+                size="xs"
+                class="w-full min-w-36"
+                placeholder="输入内容"
+                :model-value="clause.values[0] || ''"
+                @update:model-value="(v: string | number) => setTextValue(index, String(v ?? ''))"
+              />
+            </div>
+
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-x"
+              class="shrink-0"
+              @click="removeFilter(index)"
+            />
+          </div>
+
+          <UButton
+            color="neutral"
+            variant="soft"
+            size="xs"
+            icon="i-lucide-plus"
+            label="添加"
+            @click="addFilter"
+          />
         </div>
       </template>
     </UPopover>

@@ -5,6 +5,7 @@ import {
   getTaskViewConfig,
   saveTaskViewConfig
 } from '../../api/app/taskViewConfig'
+import { useAuthStore } from '../auth'
 import {
   type TaskViewConfig,
   type TaskViewContextKey,
@@ -13,6 +14,7 @@ import {
   defaultViewConfig,
   resolveViewConfig
 } from './viewConfigLocal'
+import { applyFilterClauses, normalizeFilters } from './viewConfigFilters'
 
 export const useTaskViewConfigStore = defineStore('taskViewConfig', () => {
   const map = ref<Record<string, TaskViewConfig>>({})
@@ -45,7 +47,13 @@ export const useTaskViewConfigStore = defineStore('taskViewConfig', () => {
         contextType: activeContext.value.contextType,
         contextId: activeContext.value.contextId
       })
-      map.value = { ...map.value, [key]: config }
+      map.value = {
+        ...map.value,
+        [key]: {
+          ...config,
+          filters: normalizeFilters(config.filters)
+        }
+      }
     } catch {
       if (!map.value[key]) {
         map.value = {
@@ -109,13 +117,8 @@ export const useTaskViewConfigStore = defineStore('taskViewConfig', () => {
 
   function applyClientTransforms(items: TaskItem[]): TaskItem[] {
     const cfg = activeConfig.value
-    let next = [...items]
-
-    const statusFilter = cfg.filters.find(f => f.field === 'status' && f.op === 'IN')
-    if (statusFilter?.values?.length) {
-      const allowed = new Set(statusFilter.values)
-      next = next.filter(item => allowed.has(item.status))
-    }
+    const auth = useAuthStore()
+    let next = applyFilterClauses(items, cfg.filters, auth.userId)
 
     if (cfg.sort !== 'MANUAL') {
       const { key, order } = cfg.sort
@@ -178,5 +181,8 @@ export type {
   TaskViewFieldKey,
   TaskViewSort,
   TaskViewSortKey,
-  TaskViewDisplayMode
+  TaskViewDisplayMode,
+  TaskViewFilterClause,
+  TaskViewFilterField,
+  TaskViewFilterOp
 } from './viewConfigLocal'

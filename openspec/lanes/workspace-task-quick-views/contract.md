@@ -21,17 +21,21 @@
 
 ## 上下文与默认种子
 
-| contextType | 前端 `?view=` | 默认筛选种子 |
-|-------------|---------------|--------------|
-| `MINE` | （缺省） | 负责人集合包含当前用户；常用再叠未完成（`TODO`/`IN_PROGRESS`） |
-| `FOLLOWING` | `following` | 当前用户已关注（既有 `/following/page`） |
-| `ALL` | `all` | 可见并集：我负责 ∪ 我创建 ∪ 我关注 ∪ 我为清单成员的任务（**禁止**全租户） |
-| `CREATED` | `created` | `creatorId` = 当前用户（既有 `scope=CREATOR`） |
-| `ASSIGNED_BY_ME` | `assigned_by_me` | `assignerId` = 当前用户 **且** 当前用户 **不在** 负责人集合 |
-| `COMPLETED` | `done` | 完成态 = `DONE`（可见范围同 ALL 或至少 ASSIGNEE∪CREATOR；实现选并集并文档化） |
-| `LIST` | `listId=` | 清单成员任务（既有） |
+快捷入口 = 导航上下文 + **写入 ViewConfig.filters 的默认可编辑种子**（筛选面板可见）。无保存配置时 `GET view-config` 返回种子；用户改 filters 后按保存值查询，进入口不覆盖。
+
+| contextType | 前端 `?view=` | 默认 filters 种子（V1） | 列表底数据（-web） |
+|-------------|---------------|-------------------------|-------------------|
+| `MINE` | （缺省） | `assigneeId CONTAINS __ME__` + `status IN [TODO,IN_PROGRESS]` | `scope=ALL`，客户端按 filters 收窄 |
+| `FOLLOWING` | `following` | `[]`（关注关系由 `/following/page`） | following page |
+| `ALL` | `all` | `[]`；可见并集（**禁止**全租户） | `scope=ALL` |
+| `CREATED` | `created` | `creatorId EQ __ME__` | `scope=ALL` + filters |
+| `ASSIGNED_BY_ME` | `assigned_by_me` | `assignerId EQ __ME__` + `assigneeId NOT_CONTAINS __ME__` | `scope=ALL` + filters |
+| `COMPLETED` | `done` | `status IN [DONE]` | `scope=ALL` + filters |
+| `LIST` | `listId=` | `[]` | 清单 page |
 
 动态 `activity` 仍走活动流 API，不属 page 种子。
+
+> 历史：种子曾仅靠 `scope=CREATOR` / `status=DONE` 等隐式表达；现改为显式 filters。服务端按 clause 过滤另开 `-api`。
 
 ## REST 扩展（草案 · `-api`）
 

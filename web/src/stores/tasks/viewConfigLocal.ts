@@ -1,5 +1,5 @@
-import type { TaskItemStatus } from '../../api/app/task'
 import type { TasksNavView } from './helpers'
+import { seedFiltersForContext } from './viewConfigFilters'
 
 export type TaskViewContextType =
   | 'MINE'
@@ -27,10 +27,32 @@ export type TaskViewSort =
   | 'MANUAL'
   | { key: TaskViewSortKey, order: 'ASC' | 'DESC' }
 
+export type TaskViewFilterField =
+  | 'status'
+  | 'assigneeId'
+  | 'creatorId'
+  | 'assignerId'
+  | 'dueTime'
+  | 'createTime'
+  | 'title'
+
+export type TaskViewFilterOp =
+  | 'IN'
+  | 'EQ'
+  | 'NE'
+  | 'CONTAINS'
+  | 'NOT_CONTAINS'
+  | 'BEFORE'
+  | 'AFTER'
+  | 'ON_OR_BEFORE'
+  | 'ON_OR_AFTER'
+  | 'IS_EMPTY'
+  | 'IS_NOT_EMPTY'
+
 export interface TaskViewFilterClause {
-  field: 'status'
-  op: 'IN'
-  values: TaskItemStatus[]
+  field: TaskViewFilterField
+  op: TaskViewFilterOp
+  values: string[]
 }
 
 export interface TaskViewConfig {
@@ -51,21 +73,13 @@ export const DEFAULT_VISIBLE_FIELDS = ['dueTime', 'assignee', 'status'] as const
 const LEGACY_STORAGE_PREFIX = 'relayflow-task-view-config-v1'
 
 export function defaultViewConfig(contextType: TaskViewContextType): TaskViewConfig {
-  if (contextType === 'COMPLETED') {
-    return {
-      displayMode: 'LIST',
-      groupBy: null,
-      sort: { key: 'createTime', order: 'DESC' },
-      filters: [],
-      visibleFieldKeys: [...DEFAULT_VISIBLE_FIELDS]
-    }
-  }
+  const filters = seedFiltersForContext(contextType)
   if (contextType === 'LIST') {
     return {
       displayMode: 'LIST',
       groupBy: { mode: 'FIELD', fieldKey: 'status' },
       sort: 'MANUAL',
-      filters: [],
+      filters,
       visibleFieldKeys: [...DEFAULT_VISIBLE_FIELDS]
     }
   }
@@ -73,7 +87,7 @@ export function defaultViewConfig(contextType: TaskViewContextType): TaskViewCon
     displayMode: 'LIST',
     groupBy: null,
     sort: { key: 'createTime', order: 'DESC' },
-    filters: [],
+    filters,
     visibleFieldKeys: [...DEFAULT_VISIBLE_FIELDS]
   }
 }
@@ -132,7 +146,7 @@ export function resolveViewConfig(
     return {
       ...defaultViewConfig(ctx.contextType),
       ...stored,
-      filters: stored.filters ?? [],
+      filters: stored.filters ?? seedFiltersForContext(ctx.contextType),
       visibleFieldKeys: stored.visibleFieldKeys?.length
         ? stored.visibleFieldKeys
         : [...DEFAULT_VISIBLE_FIELDS]

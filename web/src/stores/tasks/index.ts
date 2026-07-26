@@ -184,50 +184,14 @@ export const useTasksStore = defineStore('tasks', () => {
       pageNo.value = options.pageNo
     }
     try {
-      const view = navView.value
-      if (view === 'done') {
-        const data = await getTaskPage({
-          pageNo: pageNo.value,
-          pageSize: pageSize.value,
-          status: 'DONE',
-          scope: 'ALL'
-        })
-        items.value = data.list
-        total.value = data.total
-      } else if (view === 'created') {
-        const data = await getTaskPage({
-          pageNo: pageNo.value,
-          pageSize: pageSize.value,
-          scope: 'CREATOR'
-        })
-        items.value = data.list
-        total.value = data.total
-      } else if (view === 'all') {
-        const data = await getTaskPage({
-          pageNo: pageNo.value,
-          pageSize: pageSize.value,
-          scope: 'ALL'
-        })
-        items.value = data.list
-        total.value = data.total
-      } else if (view === 'assigned_by_me') {
-        const data = await getTaskPage({
-          pageNo: pageNo.value,
-          pageSize: pageSize.value,
-          scope: 'ASSIGNED_BY_ME'
-        })
-        items.value = data.list
-        total.value = data.total
-      } else {
-        const data = await getTaskPage({
-          pageNo: pageNo.value,
-          pageSize: pageSize.value,
-          status: 'TODO',
-          scope: 'ASSIGNEE'
-        })
-        items.value = data.list
-        total.value = data.total
-      }
+      // Quick-access seeds live in ViewConfig.filters; load visible union then filter client-side.
+      const data = await getTaskPage({
+        pageNo: pageNo.value,
+        pageSize: pageSize.value,
+        scope: 'ALL'
+      })
+      items.value = data.list
+      total.value = data.total
       void refreshOverdueBadge()
     } finally {
       loading.value = false

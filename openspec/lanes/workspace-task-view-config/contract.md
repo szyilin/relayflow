@@ -61,13 +61,23 @@
 
 ### filters
 
-AND 组合；V1 至少支持：
+AND 组合。每条：
 
 ```json
 { "field": "status", "op": "IN", "values": ["TODO", "IN_PROGRESS"] }
+{ "field": "creatorId", "op": "EQ", "values": ["__ME__"] }
 ```
 
-叠在 context 默认种子之上。
+| field | ops（V1） |
+|-------|-----------|
+| `status` | `IN`, `EQ` |
+| `assigneeId` / `creatorId` / `assignerId` | `CONTAINS`, `NOT_CONTAINS`, `EQ`, `NE`, `IS_EMPTY`, `IS_NOT_EMPTY` |
+| `dueTime` / `createTime` | `BEFORE`, `AFTER`, `ON_OR_BEFORE`, `ON_OR_AFTER`, `IS_EMPTY`, `IS_NOT_EMPTY` |
+| `title` | `CONTAINS`, `NOT_CONTAINS`, `EQ` |
+
+- 人员「当前用户」用哨兵 `__ME__`（客户端应用时替换为登录用户 id）
+- **快捷入口默认种子直接写入本数组**（见 quick-views contract），筛选 UI 可见可编辑；用户改后持久化，不再每次进入口覆盖
+- 「重置」恢复该 contextType 的默认种子；用户「清空」为 `[]`
 
 ## REST（草案 · `-api`）
 
