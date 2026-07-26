@@ -41,7 +41,7 @@ const libraryParentTargets = computed(() => {
 
 onMounted(async () => {
   try {
-    await drive.loadListing(null)
+    await drive.loadListing(drive.currentFolderId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
   }

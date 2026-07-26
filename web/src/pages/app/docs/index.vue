@@ -36,6 +36,8 @@ const driveFolderTargets = ref<{ folderId: string | null, label: string }[]>([
 const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
 const saveHint = ref('')
+/** Where the open document was launched from (for back / path bar). */
+const docOpenSource = ref<'library' | 'recent' | 'drive' | null>(null)
 
 const docMoreItems = computed(() => [
   [
@@ -49,14 +51,48 @@ const docMoreItems = computed(() => [
   ]
 ])
 
-const panelItems = [
-  { key: 'library' as const, label: '我的文档库', enabled: true },
-  { key: 'recent' as const, label: '最近', enabled: true },
-  { key: 'shared' as const, label: '与我共享', enabled: false },
-  { key: 'starred' as const, label: '星标', enabled: false },
-  { key: 'drive' as const, label: '云盘', enabled: true },
-  { key: 'wiki' as const, label: '知识库', enabled: false }
+type PanelKey = 'library' | 'recent' | 'shared' | 'starred' | 'drive' | 'wiki'
+
+const panelNav: Array<
+  | { type: 'section', label: string }
+  | { type: 'item', key: PanelKey, label: string, icon: string, enabled: boolean }
+> = [
+  { type: 'section', label: '快捷访问' },
+  { type: 'item', key: 'recent', label: '最近', icon: 'i-lucide-clock', enabled: true },
+  { type: 'item', key: 'shared', label: '与我共享', icon: 'i-lucide-users', enabled: false },
+  { type: 'item', key: 'starred', label: '星标', icon: 'i-lucide-star', enabled: false },
+  { type: 'section', label: '空间' },
+  { type: 'item', key: 'library', label: '我的文档库', icon: 'i-lucide-book-open', enabled: true },
+  { type: 'item', key: 'drive', label: '云盘', icon: 'i-lucide-hard-drive', enabled: true },
+  { type: 'item', key: 'wiki', label: '知识库', icon: 'i-lucide-library', enabled: false }
 ]
+
+const showDrivePathBar = computed(() =>
+  !!docs.activeDocument && (docOpenSource.value === 'drive' || docs.panel === 'drive')
+)
+
+const driveDocCrumbs = computed(() => {
+  if (!showDrivePathBar.value) {
+    return []
+  }
+  return docsDrive.breadcrumbs
+})
+
+function isPanelActive(key: PanelKey): boolean {
+  if (!key) {
+    return false
+  }
+  if (key === 'library') {
+    return docs.panel === 'library'
+  }
+  if (key === 'recent') {
+    return docs.panel === 'recent'
+  }
+  if (key === 'drive') {
+    return docs.panel === 'drive'
+  }
+  return false
+}
 
 const flatMoveTargets = computed(() => {
   const out: { nodeId: string | null, label: string }[] = [{ nodeId: null, label: '根目录' }]
@@ -151,15 +187,19 @@ async function onTitleBlur() {
   }
 }
 
-async function selectPanel(key: typeof panelItems[number]['key']) {
-  const item = panelItems.find(p => p.key === key)
-  if (!item?.enabled) {
-    toast.add({ title: '即将推出', description: item?.label, color: 'neutral' })
+async function selectPanel(key: PanelKey) {
+  const item = panelNav.find(p => p.type === 'item' && p.key === key)
+  if (!item || item.type !== 'item') {
+    return
+  }
+  if (!item.enabled) {
+    toast.add({ title: '即将推出', description: item.label, color: 'neutral' })
     return
   }
   if (key === 'drive') {
     docs.panel = 'drive'
     docs.clearActive()
+    docOpenSource.value = null
     try {
       await docsDrive.loadListing(docsDrive.currentFolderId)
     } catch (e) {
@@ -170,11 +210,17 @@ async function selectPanel(key: typeof panelItems[number]['key']) {
   docs.panel = key === 'recent' ? 'recent' : 'library'
   if (key === 'library' || key === 'recent') {
     docs.clearActive()
+    docOpenSource.value = null
+  }
+  if (key === 'recent') {
+    void docs.loadRecent().catch(() => {})
   }
 }
 
 async function onOpenDriveRichDoc(objectId: string) {
   try {
+    docOpenSource.value = 'drive'
+    docs.panel = 'drive'
     await docs.openDocument(objectId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '打开失败', color: 'error' })
@@ -185,6 +231,7 @@ async function onCreate(parentId: string | null = null) {
   try {
     await docs.createPage(parentId)
     docs.panel = 'library'
+    docOpenSource.value = 'library'
     toast.add({ title: '已新建文档', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '新建失败', color: 'error' })
@@ -193,9 +240,36 @@ async function onCreate(parentId: string | null = null) {
 
 async function onOpen(objectId: string) {
   try {
+    docOpenSource.value = docs.panel === 'recent' ? 'recent' : 'library'
     await docs.openDocument(objectId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '打开失败', color: 'error' })
+  }
+}
+
+function backFromDocument() {
+  const source = docOpenSource.value ?? docs.panel
+  docs.clearActive()
+  if (source === 'drive') {
+    docs.panel = 'drive'
+    void docsDrive.loadListing(docsDrive.currentFolderId).catch((e) => {
+      toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
+    })
+  } else if (source === 'recent') {
+    docs.panel = 'recent'
+  } else {
+    docs.panel = 'library'
+  }
+}
+
+async function onDriveCrumbClick(folderId: string | null) {
+  docs.clearActive()
+  docs.panel = 'drive'
+  docOpenSource.value = null
+  try {
+    await docsDrive.enterFolder(folderId)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '打开文件夹失败', color: 'error' })
   }
 }
 
@@ -338,22 +412,38 @@ meta:
           @click="onCreate(null)"
         />
       </div>
-      <div class="space-y-1 p-2 text-sm">
-        <button
-          v-for="item in panelItems"
-          :key="item.key"
-          type="button"
-          class="workspace-list-item w-full px-3 py-2 text-left"
-          :data-active="item.enabled && ((item.key === 'library' && docs.panel === 'library') || (item.key === 'recent' && docs.panel === 'recent') || (item.key === 'drive' && docs.panel === 'drive'))"
-          :class="{ 'opacity-50': !item.enabled }"
-          @click="selectPanel(item.key)"
+      <div class="space-y-3 p-2 text-sm">
+        <template
+          v-for="(entry, idx) in panelNav"
+          :key="entry.type === 'section' ? `s-${entry.label}-${idx}` : entry.key"
         >
-          {{ item.label }}
-          <span
-            v-if="!item.enabled"
-            class="ml-1 text-xs text-[var(--ws-text-muted)]"
-          >即将推出</span>
-        </button>
+          <div
+            v-if="entry.type === 'section'"
+            class="px-3 pt-1 text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)]"
+            :class="idx === 0 ? '' : 'mt-1 border-t border-[var(--ws-border-subtle)] pt-3'"
+          >
+            {{ entry.label }}
+          </div>
+          <button
+            v-else
+            type="button"
+            class="workspace-list-item flex w-full items-center gap-2.5 px-3 py-2 text-left"
+            :data-active="entry.enabled && isPanelActive(entry.key) ? 'true' : undefined"
+            :class="{ 'opacity-50': !entry.enabled }"
+            @click="selectPanel(entry.key)"
+          >
+            <UIcon
+              :name="entry.icon"
+              class="size-4 shrink-0"
+              :class="entry.enabled && isPanelActive(entry.key) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+            />
+            <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
+            <span
+              v-if="!entry.enabled"
+              class="shrink-0 text-[10px] text-[var(--ws-text-muted)]"
+            >即将推出</span>
+          </button>
+        </template>
       </div>
 
       <div
@@ -378,22 +468,9 @@ meta:
         v-else-if="docs.panel === 'recent'"
         class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
       >
-        <p
-          v-if="!docs.recentItems.length"
-          class="px-2 py-3 text-xs text-[var(--ws-text-muted)]"
-        >
-          打开过的文档会显示在这里。
+        <p class="px-2 py-3 text-xs text-[var(--ws-text-muted)]">
+          最近打开的文档 · 在右侧查看
         </p>
-        <button
-          v-for="item in docs.recentItems"
-          :key="item.objectId"
-          type="button"
-          class="workspace-list-item mb-0.5 w-full truncate px-3 py-2 text-left text-sm"
-          :data-active="docs.activeObjectId === item.objectId"
-          @click="onOpen(item.objectId)"
-        >
-          {{ item.title }}
-        </button>
       </div>
 
       <div
@@ -410,6 +487,48 @@ meta:
       v-if="docs.panel === 'drive' && !docs.activeDocument"
       @open-rich-doc="onOpenDriveRichDoc"
     />
+
+    <div
+      v-else-if="docs.panel === 'recent' && !docs.activeDocument"
+      class="flex h-full min-h-0 flex-col"
+    >
+      <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3">
+        <UIcon
+          name="i-lucide-clock"
+          class="size-4 shrink-0 text-[var(--ws-text-muted)]"
+        />
+        <h2 class="text-base font-semibold">
+          最近
+        </h2>
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto p-3">
+        <p
+          v-if="!docs.recentItems.length"
+          class="px-2 py-8 text-center text-sm text-[var(--ws-text-muted)]"
+        >
+          打开过的文档会显示在这里。
+        </p>
+        <button
+          v-for="item in docs.recentItems"
+          :key="item.objectId"
+          type="button"
+          class="workspace-list-item mb-0.5 flex w-full items-center gap-3 px-3 py-2.5 text-left"
+          @click="onOpen(item.objectId)"
+        >
+          <UIcon
+            name="i-lucide-file-text"
+            class="size-4 shrink-0 text-[var(--ws-text-muted)]"
+          />
+          <span class="min-w-0 flex-1 truncate text-sm font-medium">
+            {{ item.title || '未命名文档' }}
+          </span>
+          <UIcon
+            name="i-lucide-chevron-right"
+            class="size-4 shrink-0 text-[var(--ws-text-muted)] opacity-50"
+          />
+        </button>
+      </div>
+    </div>
 
     <div
       v-else-if="!docs.activeDocument"
@@ -440,7 +559,51 @@ meta:
       v-else
       class="flex h-full min-h-0 flex-col"
     >
+      <div
+        v-if="showDrivePathBar"
+        class="flex items-center gap-1 border-b border-[var(--ws-border-subtle)] px-3 py-1.5"
+      >
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-arrow-left"
+          aria-label="返回云盘"
+          @click="backFromDocument"
+        />
+        <nav class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs">
+          <template
+            v-for="(crumb, index) in driveDocCrumbs"
+            :key="`${crumb.folderId ?? 'root'}-${index}`"
+          >
+            <span
+              v-if="index > 0"
+              class="shrink-0 text-[var(--ws-text-muted)]"
+            >/</span>
+            <button
+              type="button"
+              class="max-w-36 shrink-0 truncate rounded px-1 py-0.5 text-[var(--ws-text-muted)] hover:bg-[var(--ws-rail-hover)] hover:text-[var(--ws-text)]"
+              @click="onDriveCrumbClick(crumb.folderId)"
+            >
+              {{ crumb.name }}
+            </button>
+          </template>
+          <span class="shrink-0 text-[var(--ws-text-muted)]">/</span>
+          <span class="min-w-0 truncate font-medium text-[var(--ws-text)]">
+            {{ draftTitle || '未命名文档' }}
+          </span>
+        </nav>
+      </div>
       <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-2">
+        <UButton
+          v-if="!showDrivePathBar"
+          size="sm"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-arrow-left"
+          aria-label="返回"
+          @click="backFromDocument"
+        />
         <UInput
           v-model="draftTitle"
           class="min-w-0 flex-1"

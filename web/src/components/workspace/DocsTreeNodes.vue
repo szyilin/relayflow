@@ -49,11 +49,15 @@ function toggle(nodeId: string) {
         />
         <button
           type="button"
-          class="workspace-list-item min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm"
+          class="workspace-list-item flex min-w-0 flex-1 items-center gap-2 truncate px-2 py-1.5 text-left text-sm"
           :data-active="activeObjectId === node.objectId"
           @click="emit('open', node.objectId)"
         >
-          {{ node.title }}
+          <UIcon
+            name="i-lucide-file-text"
+            class="size-3.5 shrink-0 text-[var(--ws-text-muted)]"
+          />
+          <span class="min-w-0 truncate">{{ node.title }}</span>
         </button>
         <UDropdownMenu :items="actionsFor(node) as never">
           <UButton
@@ -67,7 +71,7 @@ function toggle(nodeId: string) {
       </div>
       <div
         v-if="node.children.length && expanded.has(node.nodeId)"
-        class="ml-3 border-l border-[var(--ws-border-subtle)] pl-1"
+        class="ml-4 border-l border-[var(--ws-border-subtle)] pl-2"
       >
         <DocsTreeNodes
           :nodes="node.children"
