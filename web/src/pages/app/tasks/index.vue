@@ -9,6 +9,8 @@ import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
+import { useAuthStore } from '../../../stores/auth'
+import { useContactsStore } from '../../../stores/contacts'
 import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
 import {
   partitionByGroupBy
@@ -33,6 +35,8 @@ const mineGroupsStore = useMineGroupsStore()
 const listGroupsStore = useListGroupsStore()
 const customFieldsStore = useCustomFieldsStore()
 const preference = useUserPreferenceStore()
+const auth = useAuthStore()
+const contacts = useContactsStore()
 const tab = ref<'list' | 'board'>('list')
 const createOpen = ref(false)
 const createListOpen = ref(false)
@@ -158,8 +162,37 @@ const displayBuckets = computed(() => {
   if (isCustomFieldGroupActive.value && groupBy?.mode === 'FIELD') {
     return customFieldsStore.partition(displayItems.value, groupBy.fieldKey)
   }
-  return partitionByGroupBy(displayItems.value, groupBy)
+  return partitionByGroupBy(displayItems.value, groupBy, {
+    assigneeLabel: assigneeBucketLabel
+  })
 })
+
+function assigneeBucketLabel(userId: string): string {
+  if (String(auth.userId) === userId) {
+    return auth.user?.nickname || auth.user?.username || '我'
+  }
+  const member = contacts.members.find(m => m.id === userId)
+  return member?.nickname || userId
+}
+
+async function ensureContactsForAssigneeGroup() {
+  const groupBy = viewConfigStore.activeConfig.groupBy
+  if (groupBy?.mode !== 'FIELD' || groupBy.fieldKey !== 'assigneeId') {
+    return
+  }
+  if (contacts.members.length) {
+    return
+  }
+  try {
+    await contacts.fetchDepts()
+    const rootId = contacts.rootDeptId()
+    if (rootId) {
+      await contacts.fetchMembers({ deptId: rootId })
+    }
+  } catch {
+    // Labels fall back to userId; grouping keys remain correct.
+  }
+}
 
 const showGroupHeaders = computed(() =>
   viewConfigStore.activeConfig.groupBy !== null || isListGroupActive.value
@@ -512,6 +545,7 @@ onMounted(async () => {
     void tasksStore.refreshOverdueBadge()
   }
   await syncViewConfigContext()
+  void ensureContactsForAssigneeGroup()
   if (tab.value === 'board' && inListContext.value) {
     void tasksStore.fetchListBoard().catch(() => {})
   }
@@ -531,6 +565,13 @@ watch(
     }
   },
   { immediate: true }
+)
+
+watch(
+  () => viewConfigStore.activeConfig.groupBy,
+  () => {
+    void ensureContactsForAssigneeGroup()
+  }
 )
 
 watch(isPersonalCustomActive, (active) => {
@@ -618,7 +659,10 @@ function assigneeFieldLabel(task: { assigneeId?: string | null, assigneeIds?: st
   if (!ids.length) {
     return ''
   }
-  return ids.length > 1 ? `${ids.length} 人` : ids[0]!
+  if (ids.length > 1) {
+    return `${ids.length} 人`
+  }
+  return assigneeBucketLabel(ids[0]!)
 }
 
 function overdueBadgeLabel(count: number, capped: boolean): string {

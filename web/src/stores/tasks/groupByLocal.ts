@@ -1,4 +1,5 @@
 import type { TaskItem, TaskItemStatus } from '../../api/app/task'
+import { resolveAssigneeIds } from './assigneeLocal'
 import type { TaskViewGroupBy } from './viewConfigLocal'
 import { BOARD_COLUMN_LABELS, isBoardStatus } from './boardLocal'
 
@@ -13,11 +14,17 @@ export interface TaskGroupBucket {
   items: TaskItem[]
 }
 
+export interface PartitionGroupOptions {
+  /** Resolve assignee column title (nickname). Falls back to userId. */
+  assigneeLabel?: (userId: string) => string
+}
+
 const STATUS_ORDER: TaskItemStatus[] = ['TODO', 'DONE']
 
 export function partitionByGroupBy(
   items: TaskItem[],
-  groupBy: TaskViewGroupBy
+  groupBy: TaskViewGroupBy,
+  options?: PartitionGroupOptions
 ): TaskGroupBucket[] {
   if (!groupBy) {
     return [{ key: ALL_GROUP_KEY, label: ALL_GROUP_LABEL, items: [...items] }]
@@ -52,10 +59,19 @@ export function partitionByGroupBy(
   const map = new Map<string, TaskItem[]>()
 
   for (const item of items) {
-    const key = bucketKeyForItem(item, fieldKey)
-    const list = map.get(key) ?? []
-    list.push(item)
-    map.set(key, list)
+    if (fieldKey === 'assigneeId') {
+      // Multi-assignee: fan-out into each assignee's column (same task ref).
+      const ids = resolveAssigneeIds(item)
+      if (!ids.length) {
+        pushToBucket(map, EMPTY_GROUP_KEY, item)
+      } else {
+        for (const id of ids) {
+          pushToBucket(map, id, item)
+        }
+      }
+      continue
+    }
+    pushToBucket(map, bucketKeyForItem(item, fieldKey), item)
   }
 
   if (fieldKey === 'status') {
@@ -92,14 +108,22 @@ export function partitionByGroupBy(
     if (b === EMPTY_GROUP_KEY) {
       return -1
     }
-    return a.localeCompare(b)
+    const labelA = labelForBucket(fieldKey, a, options)
+    const labelB = labelForBucket(fieldKey, b, options)
+    return labelA.localeCompare(labelB, 'zh-CN') || a.localeCompare(b)
   })
 
   return keys.map(key => ({
     key,
-    label: key === EMPTY_GROUP_KEY ? EMPTY_GROUP_LABEL : labelForBucket(fieldKey, key),
+    label: key === EMPTY_GROUP_KEY ? EMPTY_GROUP_LABEL : labelForBucket(fieldKey, key, options),
     items: map.get(key) ?? []
   }))
+}
+
+function pushToBucket(map: Map<string, TaskItem[]>, key: string, item: TaskItem) {
+  const list = map.get(key) ?? []
+  list.push(item)
+  map.set(key, list)
 }
 
 function bucketKeyForItem(
@@ -113,7 +137,9 @@ function bucketKeyForItem(
     return item.status || EMPTY_GROUP_KEY
   }
   if (fieldKey === 'assigneeId') {
-    return item.assigneeId ? String(item.assigneeId) : EMPTY_GROUP_KEY
+    // Prefer resolveAssigneeIds + fan-out in partitionByGroupBy; single-key fallback for tests.
+    const ids = resolveAssigneeIds(item)
+    return ids[0] ?? EMPTY_GROUP_KEY
   }
   // dueTime
   if (!item.dueTime) {
@@ -129,12 +155,16 @@ function bucketKeyForItem(
   return `${y}-${m}-${day}`
 }
 
-function labelForBucket(fieldKey: string, key: string): string {
+function labelForBucket(
+  fieldKey: string,
+  key: string,
+  options?: PartitionGroupOptions
+): string {
   if (fieldKey === 'dueTime') {
     return key
   }
   if (fieldKey === 'assigneeId') {
-    return `负责人 ${key}`
+    return options?.assigneeLabel?.(key)?.trim() || key
   }
   return key
 }
