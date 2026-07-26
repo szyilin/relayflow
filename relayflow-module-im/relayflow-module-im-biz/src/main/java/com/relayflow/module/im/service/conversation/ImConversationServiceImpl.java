@@ -108,6 +108,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setMentionedMe(isMentionedMe(membership));
             item.setPeerUserId(peerUserId);
             items.add(item);
         }
@@ -128,6 +129,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setMentionedMe(isMentionedMe(membership));
             item.setMemberCount(memberCountByConversationId.getOrDefault(conversation.getId(), 0));
             items.add(item);
         }
@@ -150,6 +152,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+            item.setMentionedMe(isMentionedMe(membership));
             item.setBotId(bot.getId());
             item.setBotCode(bot.getCode());
             items.add(item);
@@ -284,6 +287,7 @@ public class ImConversationServiceImpl implements ImConversationService {
 
         member.setReadSeq(newReadSeq);
         member.setUnreadCount(unreadCount != null ? unreadCount.intValue() : 0);
+        member.setMentionUnread(0);
         conversationMemberMapper.updateById(member);
 
         if (newReadSeq > currentReadSeq) {
@@ -465,6 +469,12 @@ public class ImConversationServiceImpl implements ImConversationService {
         }
         return containsIgnoreCase(item.getTitle(), keyword)
                 || containsIgnoreCase(item.getLastMsgPreview(), keyword);
+    }
+
+    private boolean isMentionedMe(ImConversationMemberDO membership) {
+        return membership != null
+                && membership.getMentionUnread() != null
+                && membership.getMentionUnread() > 0;
     }
 
     private boolean containsIgnoreCase(String value, String keyword) {

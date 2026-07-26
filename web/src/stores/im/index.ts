@@ -12,6 +12,7 @@ import {
   markConversationRead,
   removeGroupBot as removeGroupBotRequest,
   sendMessage,
+  type ContentBlock,
   type ConversationItem,
   type GroupBotCatalogItem,
   type GroupMemberItem,
@@ -117,7 +118,20 @@ export const useImStore = defineStore('im', () => {
     const item = conversations.value.find(conv => conv.id === conversationId)
     if (item) {
       item.unreadCount = 0
+      item.mentionedMe = false
     }
+  }
+
+  function messageMentionsCurrentUser(message: MessageItem): boolean {
+    const me = currentUserId()
+    if (!me) {
+      return false
+    }
+    return (message.content?.blocks ?? []).some(block =>
+      block.type === 'mention'
+      && block.subjectType === 'user'
+      && block.subjectId != null
+      && String(block.subjectId) === me)
   }
 
   function latestMessageSeq(list: MessageViewItem[] = messages.value): number {
@@ -337,6 +351,9 @@ export const useImStore = defineStore('im', () => {
       conversation.lastMsgAt = message.createTime
       if (activeConversationId.value !== conversationId) {
         conversation.unreadCount += 1
+        if (messageMentionsCurrentUser(message)) {
+          conversation.mentionedMe = true
+        }
       }
     } else {
       void fetchConversations()
@@ -492,21 +509,40 @@ export const useImStore = defineStore('im', () => {
 
     const isPending = conversation.id.startsWith('pending-')
     const clientMsgId = crypto.randomUUID()
-    const mentionBlocks = mentions
-      .filter(member => member.subjectType === 'bot' && member.botCode)
-      .map(member => ({
-        type: 'mention' as const,
-        subjectType: 'bot' as const,
-        subjectId: member.botId,
-        botCode: member.botCode,
-        text: `@${member.nickname}`
-      }))
+    const mentionBlocks: ContentBlock[] = []
+    for (const member of mentions) {
+      if (member.subjectType === 'bot' && member.botCode) {
+        mentionBlocks.push({
+          type: 'mention',
+          subjectType: 'bot',
+          subjectId: member.botId,
+          botCode: member.botCode,
+          text: `@${member.nickname}`
+        })
+        continue
+      }
+      if (member.subjectType === 'user' && member.userId) {
+        mentionBlocks.push({
+          type: 'mention',
+          subjectType: 'user',
+          subjectId: member.userId,
+          text: `@${member.nickname}`
+        })
+      }
+    }
+    let bodyText = trimmed
+    for (const member of mentions) {
+      const token = `@${member.nickname}`
+      bodyText = bodyText.split(token).join(' ')
+    }
+    bodyText = bodyText.replace(/\s+/g, ' ').trim()
+    const textBlock: ContentBlock = {
+      type: 'text',
+      text: bodyText || (mentionBlocks.length > 0 ? ' ' : (trimmed || ' '))
+    }
     const content: MessageContent = {
       version: 1,
-      blocks: [
-        ...mentionBlocks,
-        ...(trimmed ? [{ type: 'text' as const, text: trimmed }] : [{ type: 'text' as const, text: ' ' }])
-      ]
+      blocks: [...mentionBlocks, textBlock]
     }
     const preview = textFromContent(content)
 

@@ -16,6 +16,7 @@
         <result column="role" property="role" />
         <result column="read_seq" property="readSeq" />
         <result column="unread_count" property="unreadCount" />
+        <result column="mention_unread" property="mentionUnread" />
         <result column="join_time" property="joinTime" />
         <result column="mute_until" property="muteUntil" />
         <result column="pinned" property="pinned" />
@@ -31,7 +32,7 @@
         updater,
         update_time,
         deleted,
-        conversation_id, subject_id, role, read_seq, unread_count, join_time, mute_until, pinned, subject_type
+        conversation_id, subject_id, role, read_seq, unread_count, mention_unread, join_time, mute_until, pinned, subject_type
     </sql>
 
 </mapper>

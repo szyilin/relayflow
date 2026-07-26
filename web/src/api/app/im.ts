@@ -100,6 +100,8 @@ export interface ConversationItem {
   lastMsgPreview?: string
   lastMsgAt?: string
   unreadCount: number
+  /** True when current user has unread @mentions in this conversation. */
+  mentionedMe?: boolean
   peerUserId?: string
   memberCount?: number
   /** Present when type=bot_dm. */

@@ -40,6 +40,10 @@ public class ImConversationMemberDO extends TenantBaseDO {
     @TableField("unread_count")
     private Integer unreadCount;
 
+    /** 1 when this member has unread user @mention(s). */
+    @TableField("mention_unread")
+    private Integer mentionUnread;
+
     @TableField("join_time")
     private OffsetDateTime joinTime;
 

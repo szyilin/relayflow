@@ -30,6 +30,7 @@ public class ImContentHelper {
     public static final String BLOCK_TYPE_CARD = "card";
     public static final String BLOCK_TYPE_MENTION = "mention";
     public static final String MENTION_SUBJECT_BOT = "bot";
+    public static final String MENTION_SUBJECT_USER = "user";
 
     private static final String APP_FILE_DOWNLOAD_PREFIX = "/app-api/infra/file/download?fileId=";
 
@@ -230,6 +231,28 @@ public class ImContentHelper {
             mentions.add(block);
         }
         return mentions;
+    }
+
+    /**
+     * User ids mentioned via structured {@code mention} blocks ({@code subjectType=user}).
+     */
+    public Set<Long> extractUserMentionSubjectIds(MessageContentVO content) {
+        if (content == null || CollectionUtils.isEmpty(content.getBlocks())) {
+            return Set.of();
+        }
+        Set<Long> ids = new HashSet<>();
+        for (ContentBlockVO block : content.getBlocks()) {
+            if (!BLOCK_TYPE_MENTION.equals(block.getType())) {
+                continue;
+            }
+            if (!MENTION_SUBJECT_USER.equals(block.getSubjectType())) {
+                continue;
+            }
+            if (block.getSubjectId() != null) {
+                ids.add(block.getSubjectId());
+            }
+        }
+        return ids;
     }
 
     public String firstAvatarChar(String displayName) {

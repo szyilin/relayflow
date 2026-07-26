@@ -5,10 +5,11 @@ import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
+import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
 import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
-import type { MessageItem } from '../../../api/app/im'
+import type { GroupMemberItem, MessageItem } from '../../../api/app/im'
 import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
@@ -23,12 +24,17 @@ const toast = useToast()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const draftInputRef = ref<HTMLInputElement | null>(null)
 const createGroupOpen = ref(false)
 const inviteMembersOpen = ref(false)
 const addGroupBotOpen = ref(false)
 const groupMembersOpen = ref(false)
 const removingBotCode = ref<string | null>(null)
-const pendingMentions = ref<import('../../../api/app/im').GroupMemberItem[]>([])
+const pendingMentions = ref<GroupMemberItem[]>([])
+const mentionPickerOpen = ref(false)
+const mentionQuery = ref('')
+const mentionActiveIndex = ref(0)
+const mentionTriggerStart = ref<number | null>(null)
 const isNearBottom = ref(true)
 const unreadFabDismissed = ref(false)
 let readReportTimer: ReturnType<typeof setTimeout> | null = null
@@ -133,14 +139,144 @@ const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
 const isBotDmActive = computed(() => active.value?.type === 'bot_dm')
 const isGroupOwner = computed(() => im.isCurrentUserGroupOwner())
-const groupBotMembers = computed(() =>
-  im.groupMembers.filter(member => member.subjectType === 'bot' && member.botCode))
+const mentionableMembers = computed(() => {
+  const me = im.currentUserId()
+  return im.groupMembers.filter((member) => {
+    if (member.subjectType === 'bot') {
+      return Boolean(member.botCode)
+    }
+    return Boolean(member.userId) && member.userId !== me
+  })
+})
+const filteredMentionMembers = computed(() => {
+  const q = mentionQuery.value.trim().toLowerCase()
+  if (!q) {
+    return mentionableMembers.value
+  }
+  return mentionableMembers.value.filter((member) => {
+    const nick = member.nickname.toLowerCase()
+    const code = (member.botCode ?? '').toLowerCase()
+    return nick.includes(q) || code.includes(q)
+  })
+})
 const groupMemberIds = computed(() =>
   im.groupMembers
     .filter(member => member.subjectType === 'user' && member.userId)
     .map(member => member.userId!))
 const directPeerUserId = computed(() =>
   active.value?.type === 'direct' ? active.value.peerUserId : undefined)
+
+function memberMentionKey(member: GroupMemberItem) {
+  if (member.subjectType === 'bot') {
+    return `bot:${member.botId ?? member.botCode}`
+  }
+  return `user:${member.userId}`
+}
+
+function closeMentionPicker() {
+  mentionPickerOpen.value = false
+  mentionQuery.value = ''
+  mentionTriggerStart.value = null
+  mentionActiveIndex.value = 0
+}
+
+function detectMentionTrigger(text: string, cursor: number) {
+  const before = text.slice(0, cursor)
+  const match = before.match(/(?:^|[\s])@([^\s@]*)$/)
+  if (!match) {
+    return null
+  }
+  const query = match[1] ?? ''
+  const start = before.length - query.length - 1
+  return { start, query }
+}
+
+function syncMentionPickerFromDraft() {
+  if (!isGroupActive.value) {
+    closeMentionPicker()
+    return
+  }
+  const input = draftInputRef.value
+  const cursor = input?.selectionStart ?? draft.value.length
+  const trigger = detectMentionTrigger(draft.value, cursor)
+  if (!trigger) {
+    if (mentionTriggerStart.value != null) {
+      closeMentionPicker()
+    }
+    return
+  }
+  mentionPickerOpen.value = true
+  mentionTriggerStart.value = trigger.start
+  mentionQuery.value = trigger.query
+  mentionActiveIndex.value = 0
+}
+
+async function openMentionPickerFromButton() {
+  if (!isGroupActive.value || im.sending || !active.value) {
+    return
+  }
+  if (im.groupMembers.length === 0 && !im.loadingGroupMembers) {
+    await im.fetchGroupMembers(active.value.id)
+  }
+  const input = draftInputRef.value
+  const cursor = input?.selectionStart ?? draft.value.length
+  const before = draft.value.slice(0, cursor)
+  const after = draft.value.slice(cursor)
+  const needsSpace = before.length > 0 && !/\s$/.test(before)
+  const insert = `${needsSpace ? ' ' : ''}@`
+  draft.value = `${before}${insert}${after}`
+  mentionPickerOpen.value = true
+  mentionTriggerStart.value = before.length + (needsSpace ? 1 : 0)
+  mentionQuery.value = ''
+  mentionActiveIndex.value = 0
+  void nextTick(() => {
+    const el = draftInputRef.value
+    if (!el) {
+      return
+    }
+    const pos = mentionTriggerStart.value! + 1
+    el.focus()
+    el.setSelectionRange(pos, pos)
+  })
+}
+
+function selectMention(member: GroupMemberItem) {
+  const key = memberMentionKey(member)
+  if (!pendingMentions.value.some(item => memberMentionKey(item) === key)) {
+    pendingMentions.value = [...pendingMentions.value, member]
+  }
+
+  const start = mentionTriggerStart.value
+  const input = draftInputRef.value
+  const cursor = input?.selectionStart ?? draft.value.length
+  if (start != null && start >= 0) {
+    const before = draft.value.slice(0, start)
+    const after = draft.value.slice(cursor)
+    const token = `@${member.nickname} `
+    draft.value = `${before}${token}${after}`
+    void nextTick(() => {
+      const el = draftInputRef.value
+      if (!el) {
+        return
+      }
+      const pos = before.length + token.length
+      el.focus()
+      el.setSelectionRange(pos, pos)
+    })
+  }
+  closeMentionPicker()
+}
+
+function removePendingMention(member: GroupMemberItem) {
+  const key = memberMentionKey(member)
+  pendingMentions.value = pendingMentions.value.filter(item => memberMentionKey(item) !== key)
+  const token = `@${member.nickname}`
+  draft.value = draft.value
+    .split(token)
+    .join('')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^\s+/, '')
+}
 
 function memberRowKey(member: { subjectType: string, userId?: string, botId?: string, botCode?: string }) {
   if (member.subjectType === 'bot') {
@@ -266,6 +402,7 @@ async function handleSend() {
   const mentions = [...pendingMentions.value]
   draft.value = ''
   pendingMentions.value = []
+  closeMentionPicker()
   try {
     isNearBottom.value = true
     await im.sendText(text, mentions)
@@ -274,18 +411,6 @@ async function handleSend() {
     draft.value = text
     pendingMentions.value = mentions
   }
-}
-
-function toggleBotMention(bot: import('../../../api/app/im').GroupMemberItem) {
-  if (!bot.botCode) {
-    return
-  }
-  const exists = pendingMentions.value.some(item => item.botCode === bot.botCode)
-  if (exists) {
-    pendingMentions.value = pendingMentions.value.filter(item => item.botCode !== bot.botCode)
-    return
-  }
-  pendingMentions.value = [...pendingMentions.value, bot]
 }
 
 function messageBlocks(msg: { content: import('../../../api/app/im').MessageContent }) {
@@ -301,11 +426,64 @@ function onCardUpdated(message: MessageItem) {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (mentionPickerOpen.value && isGroupActive.value) {
+    const list = filteredMentionMembers.value
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      if (list.length === 0) {
+        return
+      }
+      mentionActiveIndex.value = (mentionActiveIndex.value + 1) % list.length
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      if (list.length === 0) {
+        return
+      }
+      mentionActiveIndex.value = (mentionActiveIndex.value - 1 + list.length) % list.length
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMentionPicker()
+      return
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      const selected = list[mentionActiveIndex.value]
+      if (selected) {
+        selectMention(selected)
+      }
+      return
+    }
+    if (event.key === 'Tab' && list.length > 0) {
+      event.preventDefault()
+      const selected = list[mentionActiveIndex.value]
+      if (selected) {
+        selectMention(selected)
+      }
+      return
+    }
+  }
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     void handleSend()
   }
 }
+
+function handleDraftInput() {
+  syncMentionPickerFromDraft()
+}
+
+function handleDraftClick() {
+  syncMentionPickerFromDraft()
+}
+
+watch(() => im.activeConversationId, () => {
+  pendingMentions.value = []
+  closeMentionPicker()
+})
 
 function isOwnMessage(senderId: string) {
   return senderId === im.currentUserId()
@@ -463,6 +641,10 @@ meta:
             <p class="truncate text-sm text-[var(--ws-text-muted)]">
               <span v-if="thread.type === 'group'" class="mr-1 text-xs">[群]</span>
               <span v-else-if="thread.type === 'bot_dm'" class="mr-1 text-xs">[助手]</span>
+              <span
+                v-if="thread.mentionedMe && thread.unreadCount > 0"
+                class="mr-1 text-xs font-medium text-error"
+              >[有人@我]</span>
               {{ thread.lastMsgPreview || '暂无消息' }}
             </p>
           </div>
@@ -730,24 +912,47 @@ meta:
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
           @change="handleFileSelected"
         >
-        <div class="workspace-input-bar flex flex-col gap-2 px-3 py-2.5">
+        <div class="workspace-input-bar relative flex flex-col gap-2 px-3 py-2.5">
+          <ImMentionPicker
+            v-if="isGroupActive"
+            :open="mentionPickerOpen"
+            :members="mentionableMembers"
+            :query="mentionQuery"
+            :active-index="mentionActiveIndex"
+            @update:open="val => val ? (mentionPickerOpen = true) : closeMentionPicker()"
+            @update:active-index="mentionActiveIndex = $event"
+            @select="selectMention"
+          />
           <div
-            v-if="isGroupActive && (groupBotMembers.length || pendingMentions.length)"
+            v-if="isGroupActive && pendingMentions.length"
             class="flex flex-wrap items-center gap-1.5"
           >
             <UButton
-              v-for="bot in groupBotMembers"
-              :key="bot.botCode"
+              v-for="member in pendingMentions"
+              :key="memberMentionKey(member)"
               size="xs"
-              :color="pendingMentions.some(m => m.botCode === bot.botCode) ? 'primary' : 'neutral'"
-              :variant="pendingMentions.some(m => m.botCode === bot.botCode) ? 'soft' : 'ghost'"
+              color="primary"
+              variant="soft"
               icon="i-lucide-at-sign"
-              @click="toggleBotMention(bot)"
+              trailing-icon="i-lucide-x"
+              @click="removePendingMention(member)"
             >
-              {{ bot.nickname }}
+              {{ member.nickname }}
             </UButton>
           </div>
           <div class="flex items-center gap-2">
+            <UButton
+              v-if="isGroupActive"
+              icon="i-lucide-at-sign"
+              color="neutral"
+              variant="ghost"
+              square
+              size="sm"
+              :disabled="im.sending || mentionableMembers.length === 0"
+              aria-label="提及成员"
+              title="提及成员"
+              @click="openMentionPickerFromButton"
+            />
             <UButton
               icon="i-lucide-paperclip"
               color="neutral"
@@ -759,11 +964,15 @@ meta:
               @click="openFilePicker"
             />
             <input
+              ref="draftInputRef"
               v-model="draft"
               class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
-              :placeholder="isGroupActive && groupBotMembers.length ? '发送消息，可点上方 @机器人' : '发送消息，Enter 发送'"
+              :placeholder="isGroupActive ? '发送消息，输入 @ 提及成员' : '发送消息，Enter 发送'"
               :disabled="im.sending"
               @keydown="handleKeydown"
+              @input="handleDraftInput"
+              @click="handleDraftClick"
+              @keyup="handleDraftInput"
             >
             <UButton
               icon="i-lucide-send"

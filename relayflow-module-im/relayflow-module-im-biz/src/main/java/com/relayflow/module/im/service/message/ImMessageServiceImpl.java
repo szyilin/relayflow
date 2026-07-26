@@ -256,7 +256,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         conversation.setUpdater(userId);
         conversationMapper.updateById(conversation);
 
-        incrementUnreadForOthers(tenantId, conversationId, userId);
+        incrementUnreadForOthers(tenantId, conversationId, userId, request.getContent());
 
         SendMessageRespVO response = toSendResponse(message);
         dispatchRealtime(message, request.getContent(), userId, tenantId, realtimeContext, false);
@@ -333,7 +333,9 @@ public class ImMessageServiceImpl implements ImMessageService {
         return latest == null ? 1L : latest.getSeq() + 1;
     }
 
-    private void incrementUnreadForOthers(Long tenantId, Long conversationId, Long senderId) {
+    private void incrementUnreadForOthers(Long tenantId, Long conversationId, Long senderId,
+                                          MessageContentVO content) {
+        Set<Long> mentionedUserIds = contentHelper.extractUserMentionSubjectIds(content);
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
@@ -345,6 +347,9 @@ public class ImMessageServiceImpl implements ImMessageService {
             }
             int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
             member.setUnreadCount(unread + 1);
+            if (member.getSubjectId() != null && mentionedUserIds.contains(member.getSubjectId())) {
+                member.setMentionUnread(1);
+            }
             conversationMemberMapper.updateById(member);
         }
     }

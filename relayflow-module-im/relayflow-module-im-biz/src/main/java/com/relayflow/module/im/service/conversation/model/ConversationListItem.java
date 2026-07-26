@@ -17,6 +17,8 @@ public class ConversationListItem {
     private String lastMsgPreview;
     private OffsetDateTime lastMsgAt;
     private Integer unreadCount;
+    /** True when this member has unread user @mentions. */
+    private Boolean mentionedMe;
     private Long peerUserId;
     private Integer memberCount;
     private Long botId;

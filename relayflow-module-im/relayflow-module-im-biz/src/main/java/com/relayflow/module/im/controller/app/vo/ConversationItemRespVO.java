@@ -14,6 +14,8 @@ public class ConversationItemRespVO {
     private String lastMsgPreview;
     private OffsetDateTime lastMsgAt;
     private Integer unreadCount;
+    /** True when the current user has unread @mentions in this conversation. */
+    private Boolean mentionedMe;
     private Long peerUserId;
     private Integer memberCount;
     /** Present when {@code type=bot_dm}. */
