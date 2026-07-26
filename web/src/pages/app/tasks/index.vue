@@ -7,6 +7,7 @@ import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
 import TaskCustomFieldsModal from '../../../components/workspace/TaskCustomFieldsModal.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
+import WsDateTimeInput from '../../../components/workspace/WsDateTimeInput.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { useAuthStore } from '../../../stores/auth'
@@ -75,6 +76,68 @@ const inviteForm = reactive({
 })
 const inviteHits = ref<MemberSearchItem[]>([])
 const inviteSearching = ref(false)
+
+const PANEL_COLLAPSE_KEY = 'relayflow:tasks:panel-collapse'
+const quickAccessExpanded = ref(true)
+const listsExpanded = ref(true)
+const archivedExpanded = ref(false)
+const archiveConfirmOpen = ref(false)
+
+function loadPanelCollapse() {
+  try {
+    const raw = localStorage.getItem(PANEL_COLLAPSE_KEY)
+    if (!raw) {
+      return
+    }
+    const parsed = JSON.parse(raw) as {
+      quickAccess?: boolean
+      lists?: boolean
+      archived?: boolean
+    }
+    if (typeof parsed.quickAccess === 'boolean') {
+      quickAccessExpanded.value = parsed.quickAccess
+    }
+    if (typeof parsed.lists === 'boolean') {
+      listsExpanded.value = parsed.lists
+    }
+    if (typeof parsed.archived === 'boolean') {
+      archivedExpanded.value = parsed.archived
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function persistPanelCollapse() {
+  try {
+    localStorage.setItem(PANEL_COLLAPSE_KEY, JSON.stringify({
+      quickAccess: quickAccessExpanded.value,
+      lists: listsExpanded.value,
+      archived: archivedExpanded.value
+    }))
+  } catch {
+    // ignore
+  }
+}
+
+function toggleQuickAccess() {
+  quickAccessExpanded.value = !quickAccessExpanded.value
+  persistPanelCollapse()
+}
+
+function toggleLists() {
+  listsExpanded.value = !listsExpanded.value
+  persistPanelCollapse()
+}
+
+function toggleArchived() {
+  archivedExpanded.value = !archivedExpanded.value
+  persistPanelCollapse()
+}
+
+loadPanelCollapse()
+
+const activeListArchived = computed(() => tasksStore.activeList?.archived === true)
 
 /** Views that load into tasksStore.items via fetchMyTasks */
 const itemPageViews: TasksNavView[] = ['mine', 'all', 'created', 'assigned_by_me', 'done']
@@ -322,6 +385,12 @@ async function switchView(view: TasksNavView) {
   } else {
     q.view = view
   }
+  if (view === 'all' || view === 'created' || view === 'assigned_by_me' || view === 'done') {
+    if (!quickAccessExpanded.value) {
+      quickAccessExpanded.value = true
+      persistPanelCollapse()
+    }
+  }
   await router.replace({ query: q })
   if (tasksStore.navView !== view || tasksStore.activeListId) {
     await tasksStore.setNavView(view)
@@ -333,6 +402,16 @@ async function openList(listId: string) {
   const q = { ...route.query }
   delete q.view
   q.listId = listId
+  const isArchived = tasksStore.archivedLists.some(l => l.id === listId)
+  if (isArchived) {
+    if (!archivedExpanded.value) {
+      archivedExpanded.value = true
+      persistPanelCollapse()
+    }
+  } else if (!listsExpanded.value) {
+    listsExpanded.value = true
+    persistPanelCollapse()
+  }
   await router.replace({ query: q })
   try {
     await tasksStore.selectList(listId)
@@ -527,7 +606,7 @@ async function closeDetail() {
 
 onMounted(async () => {
   void preference.fetchFromServer()
-  await tasksStore.fetchMyLists()
+  await Promise.all([tasksStore.fetchMyLists(), tasksStore.fetchArchivedLists()])
   const listId = parseListId(route.query.listId)
   if (listId) {
     await applyListIdFromRoute()
@@ -756,16 +835,47 @@ async function handleCreateList() {
 }
 
 async function handleArchiveList() {
+  archiveConfirmOpen.value = true
+}
+
+async function confirmArchiveList() {
   const id = tasksStore.activeListId
   if (!id) {
     return
   }
   try {
     await tasksStore.archiveList(id)
-    toast.add({ title: '清单已归档', color: 'success' })
+    archiveConfirmOpen.value = false
+    if (!archivedExpanded.value) {
+      archivedExpanded.value = true
+      persistPanelCollapse()
+    }
+    toast.add({
+      title: '清单已归档',
+      description: '可在侧栏「已归档」中查看并恢复',
+      color: 'success'
+    })
     await switchView('mine')
   } catch {
     toast.add({ title: '归档失败', color: 'error' })
+  }
+}
+
+async function handleUnarchiveList(listId?: string) {
+  const id = listId || tasksStore.activeListId
+  if (!id) {
+    return
+  }
+  try {
+    await tasksStore.unarchiveList(id)
+    if (!listsExpanded.value) {
+      listsExpanded.value = true
+      persistPanelCollapse()
+    }
+    toast.add({ title: '清单已恢复', color: 'success' })
+    await openList(id)
+  } catch {
+    toast.add({ title: '恢复失败', color: 'error' })
   }
 }
 
@@ -844,15 +954,28 @@ async function handleDelete(id: string) {
 
 function navItemClass(view: TasksNavView) {
   const active = !inListContext.value && tasksStore.navView === view
-  return active
-    ? 'workspace-list-item w-full px-3 py-2 text-left text-sm font-medium'
-    : 'workspace-list-item w-full px-3 py-2 text-left text-sm text-[var(--ws-text-muted)]'
+  return [
+    'workspace-list-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm',
+    active ? 'font-medium text-[var(--ws-text)]' : 'text-[var(--ws-text)]'
+  ].join(' ')
 }
 
 function listNavClass(listId: string) {
-  return tasksStore.activeListId === listId
-    ? 'workspace-list-item w-full px-3 py-2 text-left text-sm font-medium'
-    : 'workspace-list-item w-full px-3 py-2 text-left text-sm text-[var(--ws-text-muted)]'
+  const active = tasksStore.activeListId === listId
+  return [
+    'workspace-list-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm',
+    active ? 'font-medium text-[var(--ws-text)]' : 'text-[var(--ws-text)]'
+  ].join(' ')
+}
+
+const navIcons: Record<TasksNavView, string> = {
+  mine: 'i-lucide-user',
+  following: 'i-lucide-eye',
+  activity: 'i-lucide-activity',
+  all: 'i-lucide-layout-list',
+  created: 'i-lucide-pen-line',
+  assigned_by_me: 'i-lucide-user-round-cog',
+  done: 'i-lucide-circle-check'
 }
 
 function roleLabel(role: TaskListRole) {
@@ -919,110 +1042,236 @@ meta:
   <WorkspaceShell>
     <template #panel>
       <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3">
-        <h2 class="font-semibold">
+        <h2 class="text-base font-semibold tracking-tight text-[var(--ws-text)]">
           任务
         </h2>
       </div>
-      <div class="space-y-1 p-2">
-        <button
-          type="button"
-          :class="navItemClass('mine')"
-          :data-active="!inListContext && tasksStore.navView === 'mine' ? 'true' : undefined"
-          @click="switchView('mine')"
-        >
-          <span class="flex items-center justify-between gap-2">
-            <span>我负责的</span>
+      <div class="space-y-4 p-2">
+        <!-- Primary shortcuts -->
+        <div class="space-y-0.5">
+          <button
+            type="button"
+            :class="navItemClass('mine')"
+            :data-active="!inListContext && tasksStore.navView === 'mine' ? 'true' : undefined"
+            @click="switchView('mine')"
+          >
+            <UIcon
+              :name="navIcons.mine"
+              class="size-4 shrink-0"
+              :class="!inListContext && tasksStore.navView === 'mine' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+            />
+            <span class="min-w-0 flex-1 truncate">我负责的</span>
             <span
               v-if="tasksStore.overdueBadgeCount > 0"
               class="rounded-md bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400"
             >
               {{ overdueBadgeLabel(tasksStore.overdueBadgeCount, tasksStore.overdueBadgeCapped) }}
             </span>
-          </span>
-        </button>
-        <button
-          type="button"
-          :class="navItemClass('following')"
-          :data-active="!inListContext && tasksStore.navView === 'following' ? 'true' : undefined"
-          @click="switchView('following')"
-        >
-          我关注的
-        </button>
-        <button
-          type="button"
-          :class="navItemClass('activity')"
-          :data-active="!inListContext && tasksStore.navView === 'activity' ? 'true' : undefined"
-          @click="switchView('activity')"
-        >
-          动态
-        </button>
-
-        <div class="mt-3 border-t border-[var(--ws-border-subtle)] pt-3">
-          <div class="mb-1 px-3 text-xs font-medium text-[var(--ws-text-muted)]">
-            快速访问
-          </div>
-          <button
-            type="button"
-            :class="navItemClass('all')"
-            :data-active="!inListContext && tasksStore.navView === 'all' ? 'true' : undefined"
-            @click="switchView('all')"
-          >
-            全部任务
           </button>
           <button
             type="button"
-            :class="navItemClass('created')"
-            :data-active="!inListContext && tasksStore.navView === 'created' ? 'true' : undefined"
-            @click="switchView('created')"
+            :class="navItemClass('following')"
+            :data-active="!inListContext && tasksStore.navView === 'following' ? 'true' : undefined"
+            @click="switchView('following')"
           >
-            我创建的
+            <UIcon
+              :name="navIcons.following"
+              class="size-4 shrink-0"
+              :class="!inListContext && tasksStore.navView === 'following' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+            />
+            <span class="min-w-0 flex-1 truncate">我关注的</span>
           </button>
           <button
             type="button"
-            :class="navItemClass('assigned_by_me')"
-            :data-active="!inListContext && tasksStore.navView === 'assigned_by_me' ? 'true' : undefined"
-            @click="switchView('assigned_by_me')"
+            :class="navItemClass('activity')"
+            :data-active="!inListContext && tasksStore.navView === 'activity' ? 'true' : undefined"
+            @click="switchView('activity')"
           >
-            我分配的
-          </button>
-          <button
-            type="button"
-            :class="navItemClass('done')"
-            :data-active="!inListContext && tasksStore.navView === 'done' ? 'true' : undefined"
-            @click="switchView('done')"
-          >
-            已完成
+            <UIcon
+              :name="navIcons.activity"
+              class="size-4 shrink-0"
+              :class="!inListContext && tasksStore.navView === 'activity' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+            />
+            <span class="min-w-0 flex-1 truncate">动态</span>
           </button>
         </div>
 
-        <div class="mt-3 border-t border-[var(--ws-border-subtle)] pt-3">
-          <div class="mb-1 flex items-center justify-between px-3">
-            <span class="text-xs font-medium text-[var(--ws-text-muted)]">任务清单</span>
+        <!-- Quick access (collapsible) -->
+        <div class="space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-3">
+          <button
+            type="button"
+            class="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 text-left text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)] hover:bg-[var(--ws-rail-hover)]"
+            :aria-expanded="quickAccessExpanded"
+            @click="toggleQuickAccess"
+          >
+            <UIcon
+              :name="quickAccessExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+              class="size-3.5 shrink-0 opacity-80"
+            />
+            <span class="select-none">快速访问</span>
+          </button>
+          <template v-if="quickAccessExpanded">
+            <button
+              type="button"
+              :class="navItemClass('all')"
+              :data-active="!inListContext && tasksStore.navView === 'all' ? 'true' : undefined"
+              @click="switchView('all')"
+            >
+              <UIcon
+                :name="navIcons.all"
+                class="size-4 shrink-0"
+                :class="!inListContext && tasksStore.navView === 'all' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 flex-1 truncate">全部任务</span>
+            </button>
+            <button
+              type="button"
+              :class="navItemClass('created')"
+              :data-active="!inListContext && tasksStore.navView === 'created' ? 'true' : undefined"
+              @click="switchView('created')"
+            >
+              <UIcon
+                :name="navIcons.created"
+                class="size-4 shrink-0"
+                :class="!inListContext && tasksStore.navView === 'created' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 flex-1 truncate">我创建的</span>
+            </button>
+            <button
+              type="button"
+              :class="navItemClass('assigned_by_me')"
+              :data-active="!inListContext && tasksStore.navView === 'assigned_by_me' ? 'true' : undefined"
+              @click="switchView('assigned_by_me')"
+            >
+              <UIcon
+                :name="navIcons.assigned_by_me"
+                class="size-4 shrink-0"
+                :class="!inListContext && tasksStore.navView === 'assigned_by_me' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 flex-1 truncate">我分配的</span>
+            </button>
+            <button
+              type="button"
+              :class="navItemClass('done')"
+              :data-active="!inListContext && tasksStore.navView === 'done' ? 'true' : undefined"
+              @click="switchView('done')"
+            >
+              <UIcon
+                :name="navIcons.done"
+                class="size-4 shrink-0"
+                :class="!inListContext && tasksStore.navView === 'done' ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 flex-1 truncate">已完成</span>
+            </button>
+          </template>
+        </div>
+
+        <!-- Task lists (collapsible) -->
+        <div class="space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-3">
+          <div class="mb-1 flex items-center gap-0.5">
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-3 py-1.5 text-left text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)] hover:bg-[var(--ws-rail-hover)]"
+              :aria-expanded="listsExpanded"
+              @click="toggleLists"
+            >
+              <UIcon
+                :name="listsExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                class="size-3.5 shrink-0 opacity-80"
+              />
+              <span class="min-w-0 flex-1 truncate select-none">任务清单</span>
+            </button>
             <UButton
               color="neutral"
               variant="ghost"
               icon="i-lucide-plus"
               size="xs"
+              class="mr-1 shrink-0"
               aria-label="新建清单"
-              @click="createListOpen = true"
+              @click.stop="createListOpen = true"
             />
           </div>
+          <template v-if="listsExpanded">
+            <button
+              v-for="list in tasksStore.myLists"
+              :key="list.id"
+              type="button"
+              :class="listNavClass(list.id)"
+              :data-active="tasksStore.activeListId === list.id ? 'true' : undefined"
+              @click="openList(list.id)"
+            >
+              <UIcon
+                name="i-lucide-clipboard-list"
+                class="size-4 shrink-0"
+                :class="tasksStore.activeListId === list.id ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 flex-1 truncate">{{ list.name }}</span>
+            </button>
+            <p
+              v-if="!tasksStore.myLists.length"
+              class="px-3 py-2 pl-9 text-xs text-[var(--ws-text-muted)]"
+            >
+              暂无清单，点击 + 创建
+            </p>
+          </template>
+        </div>
+
+        <!-- Archived lists (collapsible) -->
+        <div class="space-y-0.5 border-t border-[var(--ws-border-subtle)] pt-3">
           <button
-            v-for="list in tasksStore.myLists"
-            :key="list.id"
             type="button"
-            :class="listNavClass(list.id)"
-            :data-active="tasksStore.activeListId === list.id ? 'true' : undefined"
-            @click="openList(list.id)"
+            class="mb-1 flex w-full items-center gap-1.5 rounded-md px-3 py-1.5 text-left text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)] hover:bg-[var(--ws-rail-hover)]"
+            :aria-expanded="archivedExpanded"
+            @click="toggleArchived"
           >
-            {{ list.name }}
+            <UIcon
+              :name="archivedExpanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+              class="size-3.5 shrink-0 opacity-80"
+            />
+            <span class="min-w-0 flex-1 truncate select-none">
+              已归档
+              <span v-if="tasksStore.archivedLists.length">
+                （{{ tasksStore.archivedLists.length }}）
+              </span>
+            </span>
           </button>
-          <p
-            v-if="!tasksStore.myLists.length"
-            class="px-3 py-2 text-xs text-[var(--ws-text-muted)]"
-          >
-            暂无清单，点击 + 创建
-          </p>
+          <template v-if="archivedExpanded">
+            <div
+              v-for="list in tasksStore.archivedLists"
+              :key="list.id"
+              class="flex items-center gap-1"
+            >
+              <button
+                type="button"
+                :class="listNavClass(list.id)"
+                class="min-w-0 flex-1"
+                :data-active="tasksStore.activeListId === list.id ? 'true' : undefined"
+                @click="openList(list.id)"
+              >
+                <UIcon
+                  name="i-lucide-archive"
+                  class="size-4 shrink-0"
+                  :class="tasksStore.activeListId === list.id ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+                />
+                <span class="min-w-0 flex-1 truncate">{{ list.name }}</span>
+              </button>
+              <UButton
+                v-if="list.myRole === 'OWNER'"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                class="mr-1 shrink-0"
+                label="恢复"
+                @click.stop="handleUnarchiveList(list.id)"
+              />
+            </div>
+            <p
+              v-if="!tasksStore.archivedLists.length"
+              class="px-3 py-2 pl-9 text-xs text-[var(--ws-text-muted)]"
+            >
+              暂无已归档清单
+            </p>
+          </template>
         </div>
       </div>
     </template>
@@ -1032,6 +1281,12 @@ meta:
         <h1 class="min-w-0 flex-1 truncate text-lg font-semibold">
           {{ viewTitle }}
         </h1>
+        <UBadge
+          v-if="activeListArchived"
+          color="neutral"
+          variant="subtle"
+          label="已归档"
+        />
         <UButton
           v-if="inListContext"
           color="neutral"
@@ -1051,13 +1306,22 @@ meta:
           字段
         </UButton>
         <UButton
-          v-if="inListContext && tasksStore.listCanEditMeta"
+          v-if="inListContext && tasksStore.listCanEditMeta && !activeListArchived"
           color="neutral"
           variant="ghost"
           icon="i-lucide-archive"
           @click="handleArchiveList"
         >
           归档
+        </UButton>
+        <UButton
+          v-if="inListContext && tasksStore.listCanEditMeta && activeListArchived"
+          color="primary"
+          variant="soft"
+          icon="i-lucide-archive-restore"
+          @click="handleUnarchiveList()"
+        >
+          恢复
         </UButton>
         <UButton
           v-if="showCreateButton"
@@ -1068,6 +1332,22 @@ meta:
           新建
         </UButton>
       </header>
+
+      <div
+        v-if="activeListArchived"
+        class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-2 text-xs text-[var(--ws-text-muted)]"
+      >
+        <UIcon name="i-lucide-archive" class="size-3.5 shrink-0" />
+        <span class="min-w-0 flex-1">此清单已归档，任务仍保留；恢复后可继续编辑。</span>
+        <UButton
+          v-if="tasksStore.listCanEditMeta"
+          color="primary"
+          variant="soft"
+          size="xs"
+          label="恢复清单"
+          @click="handleUnarchiveList()"
+        />
+      </div>
 
       <TaskViewToolbar
         v-if="showViewToolbar"
@@ -1339,7 +1619,7 @@ meta:
             <UInput v-model="createForm.title" placeholder="任务标题" autofocus />
           </UFormField>
           <UFormField label="截止时间">
-            <UInput v-model="createForm.dueTime" type="datetime-local" />
+            <WsDateTimeInput v-model="createForm.dueTime" type="datetime-local" />
           </UFormField>
           <div class="flex justify-end gap-2">
             <UButton color="neutral" variant="soft" @click="createOpen = false">
@@ -1371,6 +1651,28 @@ meta:
             </UButton>
           </div>
         </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="archiveConfirmOpen" title="归档清单">
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-sm text-[var(--ws-text)]">
+            归档后清单会从日常侧栏隐藏，可在「已归档」中查看并恢复。不会删除清单内的任务。
+          </p>
+          <div class="flex justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="archiveConfirmOpen = false">
+              取消
+            </UButton>
+            <UButton
+              color="primary"
+              :loading="tasksStore.saving"
+              @click="confirmArchiveList"
+            >
+              确认归档
+            </UButton>
+          </div>
+        </div>
       </template>
     </UModal>
 

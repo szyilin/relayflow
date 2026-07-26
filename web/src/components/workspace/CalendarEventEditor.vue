@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useContactsStore } from '../../stores/contacts'
 import { useUserPreferenceStore } from '../../stores/userPreference'
+import WsDateTimeInput from './WsDateTimeInput.vue'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -366,14 +367,14 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
 
         <div class="grid gap-3 sm:grid-cols-2">
           <UFormField :label="form.allDay ? '开始日期' : '开始'">
-            <UInput
+            <WsDateTimeInput
               v-model="form.startLocal"
               :type="form.allDay ? 'date' : 'datetime-local'"
               :disabled="!isOrganizer"
             />
           </UFormField>
           <UFormField :label="form.allDay ? '结束日期' : '结束'">
-            <UInput
+            <WsDateTimeInput
               v-model="form.endLocal"
               :type="form.allDay ? 'date' : 'datetime-local'"
               :disabled="!isOrganizer"
@@ -453,9 +454,9 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
             />
           </UFormField>
           <UFormField v-else label="全天提醒时刻">
-            <UInput
+            <WsDateTimeInput
               :model-value="form.allDayRemindTime ?? ''"
-              placeholder="08:00"
+              type="time"
               :disabled="!isOrganizer"
               @update:model-value="(v: string) => { form.allDayRemindTime = v || '08:00' }"
             />

@@ -191,6 +191,11 @@ function createAccount() {
   void router.push({ path: '/app/register', query: { addAccount: '1' } })
 }
 
+function loginWithOtherMethod() {
+  emit('close')
+  void router.push({ path: LOGIN_PATH, query: { addAccount: '1' } })
+}
+
 onMounted(() => {
   if (authStore.isAuthenticated) {
     void authStore.fetchMyTenants().catch(() => {})
@@ -315,6 +320,14 @@ onMounted(() => {
       >
         <UIcon name="i-lucide-user-round-plus" class="size-4 shrink-0" />
         <span>创建新账号</span>
+      </button>
+      <button
+        type="button"
+        class="workspace-more-action"
+        @click="loginWithOtherMethod"
+      >
+        <UIcon name="i-lucide-log-in" class="size-4 shrink-0" />
+        <span>使用其他方式登录</span>
       </button>
     </div>
   </div>

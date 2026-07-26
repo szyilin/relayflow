@@ -77,6 +77,7 @@
 | **workspace-task-mine-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-multi-list** | **archived** | **done** | `PUT …/list-memberships` · 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-list-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/list-group/*` · 清单内分组 | [contract](../../openspec/lanes/workspace-task-list-groups/contract.md) | integrate 完成；store 无本地 Mock |
+| **workspace-task-list-archive-restore** | **done** | **done** | `GET …/list/archived` · `POST …/list/unarchive` · `/app/tasks` 已归档 | [contract](../../openspec/lanes/workspace-task-list/contract.md) | 归档可发现 + 恢复；[change](../../openspec/changes/workspace-task-list-archive-restore/proposal.md) |
 | **workspace-task-custom-field** | **archived** | **done** | 清单单选自定义字段 · `groupBy=custom:{id}` · EAV | [contract](../../openspec/lanes/workspace-task-custom-field/contract.md) | P8；integrate 完成；store 无本地 Mock |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。

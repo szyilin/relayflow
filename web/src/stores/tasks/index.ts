@@ -32,10 +32,12 @@ import {
 import {
   archiveTaskList as apiArchiveTaskList,
   createTaskList as apiCreateTaskList,
+  getArchivedTaskLists,
   getMyTaskLists,
   getTaskListMembers,
   inviteTaskListMember as apiInviteTaskListMember,
   removeTaskListMember as apiRemoveTaskListMember,
+  unarchiveTaskList as apiUnarchiveTaskList,
   type TaskList,
   type TaskListMember,
   type TaskListRole
@@ -103,6 +105,7 @@ export const useTasksStore = defineStore('tasks', () => {
   /** Active task list context; null = personal nav views. */
   const activeListId = ref<string | null>(null)
   const myLists = ref<TaskList[]>([])
+  const archivedLists = ref<TaskList[]>([])
   const listMembers = ref<TaskListMember[]>([])
   const listItems = ref<TaskItem[]>([])
   const listTotal = ref(0)
@@ -111,13 +114,21 @@ export const useTasksStore = defineStore('tasks', () => {
   const todoItems = computed(() => items.value.filter(item => item.status === 'TODO'))
   const doneItems = computed(() => items.value.filter(item => item.status === 'DONE'))
 
-  const activeList = computed(() =>
-    activeListId.value ? myLists.value.find(l => l.id === activeListId.value) ?? null : null)
+  const activeList = computed(() => {
+    if (!activeListId.value) {
+      return null
+    }
+    return myLists.value.find(l => l.id === activeListId.value)
+      ?? archivedLists.value.find(l => l.id === activeListId.value)
+      ?? null
+  })
 
   const activeListRole = computed(() => activeList.value?.myRole ?? null)
 
   const listCanEditMeta = computed(() => canEditListMeta(activeListRole.value))
-  const listCanMutateTasks = computed(() => canMutateListTasks(activeListRole.value))
+  const listCanMutateTasks = computed(() =>
+    canMutateListTasks(activeListRole.value) && !(activeList.value?.archived === true)
+  )
 
   function currentUserId(): string {
     const auth = useAuthStore()
@@ -149,6 +160,7 @@ export const useTasksStore = defineStore('tasks', () => {
     dueRangeLoading.value = false
     activeListId.value = null
     myLists.value = []
+    archivedLists.value = []
     listMembers.value = []
     listItems.value = []
     listTotal.value = 0
@@ -344,6 +356,10 @@ export const useTasksStore = defineStore('tasks', () => {
     myLists.value = await getMyTaskLists()
   }
 
+  async function fetchArchivedLists() {
+    archivedLists.value = await getArchivedTaskLists()
+  }
+
   async function fetchListMembers(listId: string) {
     listMembers.value = await getTaskListMembers(listId)
   }
@@ -526,8 +542,10 @@ export const useTasksStore = defineStore('tasks', () => {
   async function selectList(listId: string) {
     activeListId.value = listId
     listPageNo.value = 1
-    await fetchMyLists()
-    if (!myLists.value.some(l => l.id === listId)) {
+    await Promise.all([fetchMyLists(), fetchArchivedLists()])
+    const known = myLists.value.some(l => l.id === listId)
+      || archivedLists.value.some(l => l.id === listId)
+    if (!known) {
       activeListId.value = null
       throw new Error('TASK_LIST_FORBIDDEN')
     }
@@ -556,12 +574,27 @@ export const useTasksStore = defineStore('tasks', () => {
     saving.value = true
     try {
       await apiArchiveTaskList(listId)
-      await fetchMyLists()
+      await Promise.all([fetchMyLists(), fetchArchivedLists()])
       if (activeListId.value === listId) {
         activeListId.value = null
         listItems.value = []
         listMembers.value = []
       }
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function unarchiveList(listId: string) {
+    const role = archivedLists.value.find(l => l.id === listId)?.myRole
+      ?? activeList.value?.myRole
+    if (!canEditListMeta(role)) {
+      throw new Error('TASK_LIST_FORBIDDEN')
+    }
+    saving.value = true
+    try {
+      await apiUnarchiveTaskList(listId)
+      await Promise.all([fetchMyLists(), fetchArchivedLists()])
     } finally {
       saving.value = false
     }
@@ -928,6 +961,7 @@ export const useTasksStore = defineStore('tasks', () => {
     doneItems,
     activeListId,
     myLists,
+    archivedLists,
     listMembers,
     listItems,
     listTotal,
@@ -957,9 +991,11 @@ export const useTasksStore = defineStore('tasks', () => {
     setAssignees,
     setListMemberships,
     fetchMyLists,
+    fetchArchivedLists,
     selectList,
     createList,
     archiveList,
+    unarchiveList,
     fetchListMembers,
     inviteListMember,
     removeListMember,

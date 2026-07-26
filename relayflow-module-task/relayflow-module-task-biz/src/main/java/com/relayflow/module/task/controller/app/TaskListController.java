@@ -37,6 +37,11 @@ public class TaskListController {
         return CommonResult.success(taskListService.listMine());
     }
 
+    @GetMapping("/archived")
+    public CommonResult<List<TaskListRespVO>> archived() {
+        return CommonResult.success(taskListService.listArchived());
+    }
+
     @GetMapping("/get")
     public CommonResult<TaskListRespVO> get(@RequestParam @NotNull Long id) {
         return CommonResult.success(taskListService.get(id));
@@ -56,6 +61,12 @@ public class TaskListController {
     @PostMapping("/archive")
     public CommonResult<Boolean> archive(@Valid @RequestBody TaskListIdReqVO request) {
         taskListService.archive(request);
+        return CommonResult.success(true);
+    }
+
+    @PostMapping("/unarchive")
+    public CommonResult<Boolean> unarchive(@Valid @RequestBody TaskListIdReqVO request) {
+        taskListService.unarchive(request);
         return CommonResult.success(true);
     }
 

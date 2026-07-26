@@ -72,10 +72,12 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/list/mine` | 我参与的未归档清单（含 `myRole`） |
+| `GET` | `/list/archived` | 我参与的**已归档**清单（含 `myRole`） |
 | `POST` | `/list/create` | Body `{ "name", "description?" }`；同事务写 OWNER；`data` = list id |
 | `PUT` | `/list/update` | Body `{ "id", "name?", "description?" }`；仅 OWNER |
-| `POST` | `/list/archive` | Body `{ "id" }`；仅 OWNER；不删任务 |
-| `GET` | `/list/get` | Query `id`；非成员 → `TASK_LIST_FORBIDDEN` 或 `TASK_LIST_NOT_FOUND`（contract：**FORBIDDEN**） |
+| `POST` | `/list/archive` | Body `{ "id" }`；仅 OWNER；软隐藏；**不删任务** |
+| `POST` | `/list/unarchive` | Body `{ "id" }`；仅 OWNER；恢复为未归档；幂等 |
+| `GET` | `/list/get` | Query `id`；非成员 → `TASK_LIST_FORBIDDEN` 或 `TASK_LIST_NOT_FOUND`（contract：**FORBIDDEN**）；已归档成员仍可读 |
 
 ### 成员
 
@@ -111,10 +113,12 @@
 
 | 项 | 约定 |
 |----|------|
-| 左栏 | 个人入口下方「清单」分组：我的清单 + 新建 |
-| 深链 | `?listId=` 进入清单上下文；可与 `?taskId=` 同用 |
+| 左栏 | 个人入口下方「清单」分组：我的清单 + 新建；其下「已归档」折叠区（可恢复） |
+| 深链 | `?listId=` 进入清单上下文；可与 `?taskId=` 同用；已归档清单成员仍可深链打开 |
 | 切回个人 | 清除 `listId` query；恢复 `view` 语义 |
 | 清单中栏 | 根任务列表；新建默认带当前 `listId`；成员管理（OWNER 可邀） |
+| 归档 | OWNER；确认文案须说明可从「已归档」恢复、不删任务 |
+| 恢复 | OWNER；`unarchive` 后清单重回「任务清单」与 `/list/mine` |
 | 看板 Tab | 本切片可保留占位文案；完整看板见 board 切片 |
 | `-web` 临时 | ~~store 内本地清单~~ **已移除（integrate）** |
 | 真源 | 仅走 `/app-api/task/list/*` 与 item `listId`；无 localStorage 覆盖 |
@@ -139,6 +143,20 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"listId":"5001","userId":"2","role":"EDITOR"}' \
   "$BASE/app-api/task/list/member/invite"
+
+# 归档（软隐藏）
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"id":"5001"}' \
+  "$BASE/app-api/task/list/archive"
+
+# 已归档列表
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$BASE/app-api/task/list/archived"
+
+# 恢复
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"id":"5001"}' \
+  "$BASE/app-api/task/list/unarchive"
 ```
 
 ## 浏览器验证（`-web`）
@@ -148,3 +166,4 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 3. 新建清单 → 左栏出现；中栏可新建任务（进当前清单）
 4. OWNER 打开成员 → 邀请通讯录成员（本地临时）
 5. `?listId=` 深链进入对应清单；个人入口行为不变；详情 slideover 仍可打开（清单临时任务用本地详情）
+6. OWNER 归档 → 确认（可恢复说明）→ 清单进入「已归档」→ 恢复 → 重回「任务清单」

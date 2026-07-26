@@ -15,6 +15,9 @@ public interface TaskListService {
 
     List<TaskListRespVO> listMine();
 
+    /** Lists the current user is a member of and that are archived. */
+    List<TaskListRespVO> listArchived();
+
     TaskListRespVO get(Long id);
 
     Long create(TaskListCreateReqVO request);
@@ -22,6 +25,9 @@ public interface TaskListService {
     void update(TaskListUpdateReqVO request);
 
     void archive(TaskListIdReqVO request);
+
+    /** OWNER only; idempotent if already active. */
+    void unarchive(TaskListIdReqVO request);
 
     List<TaskListMemberRespVO> listMembers(Long listId);
 

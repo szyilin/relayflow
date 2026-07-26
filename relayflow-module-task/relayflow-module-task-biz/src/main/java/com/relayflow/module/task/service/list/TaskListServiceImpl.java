@@ -43,6 +43,15 @@ public class TaskListServiceImpl implements TaskListService {
 
     @Override
     public List<TaskListRespVO> listMine() {
+        return listMembershipLists(false);
+    }
+
+    @Override
+    public List<TaskListRespVO> listArchived() {
+        return listMembershipLists(true);
+    }
+
+    private List<TaskListRespVO> listMembershipLists(boolean archivedOnly) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         List<TaskListMemberDO> memberships = taskListMemberMapper.selectList(
                 Wrappers.<TaskListMemberDO>lambdaQuery()
@@ -53,7 +62,11 @@ public class TaskListServiceImpl implements TaskListService {
         List<TaskListRespVO> result = new ArrayList<>();
         for (TaskListMemberDO membership : memberships) {
             TaskListDO list = taskListMapper.selectById(membership.getListId());
-            if (list == null || isArchived(list)) {
+            if (list == null) {
+                continue;
+            }
+            boolean archived = isArchived(list);
+            if (archivedOnly != archived) {
                 continue;
             }
             result.add(toResp(list, membership.getRole()));
@@ -131,6 +144,20 @@ public class TaskListServiceImpl implements TaskListService {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         TaskListDO list = taskListAccessService.requireOwner(request.getId(), userId);
         list.setArchived(1);
+        list.setUpdater(userId);
+        list.setUpdateTime(OffsetDateTime.now());
+        taskListMapper.updateById(list);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unarchive(TaskListIdReqVO request) {
+        Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        TaskListDO list = taskListAccessService.requireOwner(request.getId(), userId);
+        if (!isArchived(list)) {
+            return;
+        }
+        list.setArchived(0);
         list.setUpdater(userId);
         list.setUpdateTime(OffsetDateTime.now());
         taskListMapper.updateById(list);

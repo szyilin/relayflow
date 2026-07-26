@@ -47,6 +47,11 @@ export async function getMyTaskLists(): Promise<TaskList[]> {
   return (data ?? []).map(normalizeList)
 }
 
+export async function getArchivedTaskLists(): Promise<TaskList[]> {
+  const data = await get<Array<TaskList & { id?: string | number }>>('/app-api/task/list/archived')
+  return (data ?? []).map(normalizeList)
+}
+
 export async function getTaskList(id: string): Promise<TaskList> {
   const data = await get<TaskList & { id?: string | number }>('/app-api/task/list/get', { params: { id } })
   return normalizeList(data)
@@ -70,6 +75,10 @@ export async function updateTaskList(payload: {
 
 export async function archiveTaskList(id: string): Promise<boolean> {
   return post<boolean>('/app-api/task/list/archive', { id })
+}
+
+export async function unarchiveTaskList(id: string): Promise<boolean> {
+  return post<boolean>('/app-api/task/list/unarchive', { id })
 }
 
 export async function getTaskListMembers(listId: string): Promise<TaskListMember[]> {

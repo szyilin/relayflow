@@ -153,7 +153,10 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     return partitionByCustomField(items, field, itemId => getValue(listId, itemId, field.id))
   }
 
-  async function createField(name: string, optionLabels: string[]): Promise<ListCustomField> {
+  async function createField(
+    name: string,
+    options: Array<string | { label: string, color?: string | null }>
+  ): Promise<ListCustomField> {
     const listId = activeListId.value
     if (!listId) {
       throw new Error('TASK_LIST_FIELD_FORBIDDEN')
@@ -162,15 +165,37 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     if (!trimmed) {
       throw new Error('TASK_LIST_FIELD_NAME_EMPTY')
     }
-    const labels = optionLabels.map(l => l.trim()).filter(Boolean)
-    if (labels.length < 2) {
+    const drafts = options
+      .map((o) => {
+        if (typeof o === 'string') {
+          return { label: o.trim(), color: undefined as string | undefined }
+        }
+        return { label: o.label.trim(), color: o.color?.trim() || undefined }
+      })
+      .filter(o => o.label)
+    if (drafts.length < 2) {
       throw new Error('TASK_LIST_FIELD_OPTIONS_MIN')
     }
-    const field = await createListFieldApi({
+    let field = await createListFieldApi({
       listId,
       name: trimmed,
-      options: labels.map(label => ({ label }))
+      options: drafts.map(({ label }) => ({ label }))
     })
+    // Create API has no color; patch after create when provided.
+    const withColor = drafts.filter(d => d.color)
+    if (withColor.length) {
+      const nextOptions = [...field.options]
+      for (let i = 0; i < Math.min(nextOptions.length, drafts.length); i++) {
+        const color = drafts[i]?.color
+        const opt = nextOptions[i]
+        if (!color || !opt) {
+          continue
+        }
+        await updateListFieldOption({ id: opt.id, color })
+        nextOptions[i] = { ...opt, color }
+      }
+      field = { ...field, options: nextOptions }
+    }
     const cache = ensureCache(listId)
     byListId.value = {
       ...byListId.value,
@@ -280,6 +305,31 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     }
   }
 
+  async function setOptionColor(fieldId: string, optionId: string, color: string) {
+    const listId = activeListId.value
+    if (!listId) {
+      throw new Error('TASK_LIST_FIELD_FORBIDDEN')
+    }
+    await updateListFieldOption({ id: optionId, color })
+    const cache = ensureCache(listId)
+    byListId.value = {
+      ...byListId.value,
+      [listId]: {
+        ...cache,
+        fields: cache.fields.map(f =>
+          f.id !== fieldId
+            ? f
+            : {
+                ...f,
+                options: f.options.map(o =>
+                  o.id === optionId ? { ...o, color } : o
+                )
+              }
+        )
+      }
+    }
+  }
+
   async function deleteOption(fieldId: string, optionId: string) {
     const listId = activeListId.value
     if (!listId) {
@@ -375,6 +425,7 @@ export const useCustomFieldsStore = defineStore('customFields', () => {
     deleteField,
     addOption,
     renameOption,
+    setOptionColor,
     deleteOption,
     moveTask,
     groupByMenuItems,

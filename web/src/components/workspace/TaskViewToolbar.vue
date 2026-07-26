@@ -23,6 +23,7 @@ import {
   opNeedsValue,
   opsForField
 } from '../../stores/tasks/viewConfigFilters'
+import WsDateTimeInput from './WsDateTimeInput.vue'
 
 const props = defineProps<{
   canUsePersonalCustomGroup?: boolean
@@ -454,13 +455,13 @@ function personLabel(value: string | undefined) {
                 @update:model-value="(v: string | undefined) => setPersonValue(index, v)"
               />
 
-              <UInput
+              <WsDateTimeInput
                 v-else-if="isTimeField(clause.field)"
                 type="date"
                 size="xs"
                 class="w-full min-w-36"
                 :model-value="(clause.values[0] || '').slice(0, 10)"
-                @update:model-value="(v: string | number) => setDateValue(index, String(v || ''))"
+                @update:model-value="(v: string) => setDateValue(index, String(v || ''))"
               />
 
               <UInput

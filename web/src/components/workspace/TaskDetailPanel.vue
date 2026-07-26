@@ -9,6 +9,7 @@ import { resolveAssigneeIds } from '../../stores/tasks/assigneeLocal'
 import { resolveListIds } from '../../stores/tasks/listMembershipLocal'
 import { useCustomFieldsStore } from '../../stores/tasks/customFieldsStore'
 import { EMPTY_GROUP_KEY } from '../../stores/tasks/groupByLocal'
+import WsDateTimeInput from './WsDateTimeInput.vue'
 
 const props = defineProps<{
   task: TaskItem | null
@@ -584,7 +585,7 @@ async function handleAddComment() {
           <UIcon name="i-lucide-calendar-clock" class="mt-2 size-4 shrink-0 text-[var(--ws-text-muted)]" />
           <div class="min-w-0 flex-1 space-y-2">
             <UFormField label="开始">
-              <UInput
+              <WsDateTimeInput
                 v-model="form.startLocal"
                 type="datetime-local"
                 class="w-full"
@@ -592,7 +593,7 @@ async function handleAddComment() {
               />
             </UFormField>
             <UFormField label="截止">
-              <UInput
+              <WsDateTimeInput
                 v-model="form.dueLocal"
                 type="datetime-local"
                 class="w-full"
