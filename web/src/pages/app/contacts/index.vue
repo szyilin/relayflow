@@ -3,13 +3,26 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import WorkspaceBusinessCard from '../../../components/workspace/WorkspaceBusinessCard.vue'
+import ContactsCategoryNav from '../../../components/workspace/contacts/ContactsCategoryNav.vue'
+import ContactsOrgDirectory from '../../../components/workspace/contacts/ContactsOrgDirectory.vue'
+import ContactsExternalList from '../../../components/workspace/contacts/ContactsExternalList.vue'
+import ContactsRequestsList from '../../../components/workspace/contacts/ContactsRequestsList.vue'
+import ContactsStarredList from '../../../components/workspace/contacts/ContactsStarredList.vue'
+import ContactsGroupsList, {
+  type ContactsGroupRow
+} from '../../../components/workspace/contacts/ContactsGroupsList.vue'
 import { searchMembers } from '../../../api/app/member-search'
+import type { ContactItem } from '../../../api/app/contacts'
 import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
 import { useAuthStore } from '../../../stores/auth'
-import { useContactsStore, type ContactDeptTreeNode } from '../../../stores/contacts'
+import {
+  useContactsStore,
+  type ContactsCategory,
+  type ExternalContactItem,
+  type StarredContactItem
+} from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
-import type { ContactItem } from '../../../api/app/contacts'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,33 +38,41 @@ const {
   content: profileContent,
   show: showProfilePopover,
   close: closeProfilePopover
-} = useClickAnchoredPopover<ContactItem>()
+} = useClickAnchoredPopover<{
+  id: string
+  nickname: string
+  username: string
+  orgLabel: string
+  avatarText: string
+}>()
 
-const selectedDeptNode = ref<ContactDeptTreeNode | undefined>()
-const searchInput = ref('')
 const activeContactId = ref<string>()
+const loadingGroups = ref(false)
 
-function selectDefaultDept() {
-  const rootId = contacts.rootDeptId()
-  if (!rootId) {
-    return undefined
-  }
-  const node = contacts.findTreeNode(contacts.tree, rootId)
-  if (node) {
-    selectedDeptNode.value = node
-  }
-  return rootId
-}
+const tenantLabel = computed(() => auth.activeTenantName)
 
-function onDeptSelect(_event: unknown, item: ContactDeptTreeNode) {
-  if (item.id === contacts.selectedDeptId) {
-    return
+const groupRows = computed<ContactsGroupRow[]>(() => {
+  const fromIm = im.conversations
+    .filter(item => item.type === 'group')
+    .map(item => ({
+      id: item.id,
+      title: item.title,
+      avatarText: item.avatarText || item.title.slice(0, 1) || '群',
+      memberCount: item.memberCount
+    }))
+  if (fromIm.length > 0) {
+    return fromIm
   }
-  selectedDeptNode.value = item
-  activeContactId.value = undefined
-  closeProfilePopover()
-  void loadMembers({ deptId: item.id, keyword: '' })
-}
+  return [
+    {
+      id: 'placeholder-group-1',
+      title: '产品协作群',
+      avatarText: '产',
+      subtitle: '示例群组（临时）',
+      isPlaceholder: true
+    }
+  ]
+})
 
 async function loadMembers(options?: { deptId?: string, keyword?: string }) {
   try {
@@ -66,16 +87,13 @@ async function loadMembers(options?: { deptId?: string, keyword?: string }) {
 }
 
 async function focusMemberFromQuery(memberId: string) {
+  contacts.setCategory('org')
   try {
     const results = await searchMembers(memberId, 1)
     const match = results.find(item => item.id === memberId) ?? results[0]
     if (!match?.deptId) {
       activeContactId.value = memberId
       return
-    }
-    const node = contacts.findTreeNode(contacts.tree, match.deptId)
-    if (node) {
-      selectedDeptNode.value = node
     }
     await loadMembers({ deptId: match.deptId, keyword: '' })
     activeContactId.value = memberId
@@ -95,9 +113,8 @@ async function initPage() {
     })
     return
   }
-  const rootId = selectDefaultDept()
+  const rootId = contacts.rootDeptId()
   if (rootId) {
-    searchInput.value = ''
     await loadMembers({ deptId: rootId, keyword: '' })
   }
   const memberId = typeof route.query.memberId === 'string' ? route.query.memberId : undefined
@@ -106,10 +123,45 @@ async function initPage() {
   }
 }
 
-function handleSearch() {
-  activeContactId.value = undefined
+async function onCategorySelect(next: ContactsCategory) {
+  if (contacts.category === next) {
+    return
+  }
   closeProfilePopover()
-  void loadMembers({ keyword: searchInput.value })
+  activeContactId.value = undefined
+  contacts.setCategory(next)
+
+  if (next === 'org' && !contacts.selectedDeptId) {
+    const rootId = contacts.rootDeptId()
+    if (rootId) {
+      await loadMembers({ deptId: rootId, keyword: '' })
+    }
+  }
+
+  if (next === 'groups') {
+    loadingGroups.value = true
+    try {
+      await im.fetchConversations()
+    } catch {
+      // 临时占位仍可用
+    } finally {
+      loadingGroups.value = false
+    }
+  }
+}
+
+async function enterDept(deptId: string) {
+  closeProfilePopover()
+  activeContactId.value = undefined
+  try {
+    await contacts.enterDept(deptId)
+  } catch {
+    toast.add({
+      title: '加载失败',
+      description: contacts.lastError ?? '无法进入该部门',
+      color: 'error'
+    })
+  }
 }
 
 function handleContactClick(person: ContactItem, event: MouseEvent) {
@@ -119,7 +171,35 @@ function handleContactClick(person: ContactItem, event: MouseEvent) {
     return
   }
   activeContactId.value = person.id
-  showProfilePopover(person, event)
+  showProfilePopover({
+    id: person.id,
+    nickname: person.nickname,
+    username: person.username,
+    orgLabel: person.deptName,
+    avatarText: person.avatarText
+  }, event)
+}
+
+function handleExternalClick(person: ExternalContactItem, event: MouseEvent) {
+  activeContactId.value = person.userId
+  showProfilePopover({
+    id: person.userId,
+    nickname: person.displayName,
+    username: person.displayName,
+    orgLabel: person.orgLabel,
+    avatarText: person.avatarText
+  }, event)
+}
+
+function handleStarredClick(person: StarredContactItem, event: MouseEvent) {
+  activeContactId.value = person.userId
+  showProfilePopover({
+    id: person.userId,
+    nickname: person.displayName,
+    username: person.username ?? person.displayName,
+    orgLabel: person.orgLabel,
+    avatarText: person.avatarText
+  }, event)
 }
 
 function handleProfileOpenChange(nextOpen: boolean) {
@@ -129,7 +209,11 @@ function handleProfileOpenChange(nextOpen: boolean) {
   }
 }
 
-function openMessage(contact: ContactItem) {
+function openMessage() {
+  if (!profileContact.value) {
+    return
+  }
+  const contact = profileContact.value
   closeProfilePopover()
   activeContactId.value = undefined
   im.openDirectChat(contact.id, {
@@ -139,10 +223,50 @@ function openMessage(contact: ContactItem) {
   void router.push('/app/messages')
 }
 
+function onAcceptRequest(requestId: string) {
+  contacts.acceptRequest(requestId)
+  toast.add({
+    title: '已同意',
+    description: '对方已加入外部联系人',
+    color: 'success'
+  })
+}
+
+function onUnstar(userId: string) {
+  contacts.unstarContact(userId)
+  toast.add({
+    title: '已取消星标',
+    color: 'neutral'
+  })
+}
+
+async function openGroup(group: ContactsGroupRow) {
+  if (group.isPlaceholder) {
+    toast.add({
+      title: '示例群组',
+      description: '创建真实群聊后将显示在此列表',
+      color: 'neutral'
+    })
+    return
+  }
+  try {
+    await im.selectConversation(group.id)
+    await router.push({ path: '/app/messages', query: { conversationId: group.id } })
+  } catch {
+    toast.add({
+      title: '打开失败',
+      description: '无法进入该群聊',
+      color: 'error'
+    })
+  }
+}
+
 const memberUserIds = computed(() => contacts.members.map(member => member.id))
 
 watch(memberUserIds, (userIds) => {
-  presence.startPolling(userIds)
+  if (contacts.category === 'org') {
+    presence.startPolling(userIds)
+  }
 }, { immediate: true, deep: true })
 
 onMounted(() => {
@@ -169,94 +293,53 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="border-b border-[var(--ws-border-subtle)] px-4 py-3 font-semibold">
-        组织内联系人
-      </div>
-
-      <div v-if="contacts.loadingDepts" class="space-y-2 p-3">
-        <USkeleton v-for="i in 4" :key="i" class="h-7 w-full" />
-      </div>
-
-      <UEmpty
-        v-else-if="contacts.tree.length === 0"
-        icon="i-lucide-building-2"
-        title="暂无部门"
-        description="组织架构将在管理员配置后显示"
-        class="py-8"
+      <ContactsCategoryNav
+        :category="contacts.category"
+        :pending-request-count="contacts.pendingRequestCount"
+        :tenant-label="tenantLabel"
+        @select="onCategorySelect"
       />
-
-      <div v-else class="flex-1 overflow-y-auto p-2">
-        <UTree
-          v-model="selectedDeptNode"
-          :items="contacts.tree"
-          :get-key="item => item.id"
-          @select="onDeptSelect"
-        />
-      </div>
     </template>
 
-    <div class="flex h-full flex-col">
-      <div class="flex flex-col gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-4 sm:flex-row sm:items-center">
-        <h2 class="font-semibold">
-          {{ selectedDeptNode?.label ?? '成员' }}
-        </h2>
-        <div class="flex flex-1 gap-2 sm:justify-end">
-          <UInput
-            v-model="searchInput"
-            placeholder="搜索昵称或用户名"
-            icon="i-lucide-search"
-            class="workspace-search sm:max-w-xs"
-            @keyup.enter="handleSearch"
-          />
-          <UButton
-            color="neutral"
-            variant="soft"
-            :loading="contacts.loadingMembers"
-            @click="handleSearch"
-          >
-            搜索
-          </UButton>
-        </div>
-      </div>
+    <div class="relative flex h-full min-h-0 flex-col">
+      <ContactsOrgDirectory
+        v-if="contacts.category === 'org'"
+        :breadcrumb="contacts.breadcrumb"
+        :child-depts="contacts.childDepts"
+        :members="contacts.members"
+        :loading="contacts.loadingMembers || contacts.loadingDepts"
+        :active-contact-id="activeContactId"
+        :is-online="presence.isOnline"
+        @enter-dept="enterDept"
+        @breadcrumb-click="enterDept"
+        @contact-click="handleContactClick"
+      />
 
-      <div class="min-h-0 flex-1 overflow-y-auto p-3">
-        <div v-if="contacts.loadingMembers" class="space-y-2">
-          <USkeleton v-for="i in 6" :key="i" class="h-14 w-full" />
-        </div>
+      <ContactsExternalList
+        v-else-if="contacts.category === 'external'"
+        :groups="contacts.externalGrouped"
+        @contact-click="handleExternalClick"
+      />
 
-        <div v-else-if="contacts.members.length" class="space-y-0.5">
-          <button
-            v-for="person in contacts.members"
-            :key="person.id"
-            type="button"
-            class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
-            :data-active="activeContactId === person.id"
-            @click="handleContactClick(person, $event)"
-          >
-            <UAvatar :text="person.avatarText" size="md" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">
-                {{ person.nickname }}
-              </p>
-              <p class="truncate text-sm text-[var(--ws-text-muted)]">
-                {{ person.deptName }} · @{{ person.username }}
-              </p>
-            </div>
-            <span
-              class="size-2 shrink-0 rounded-full"
-              :class="presence.isOnline(person.id) ? 'bg-success' : 'bg-[var(--ws-text-muted)]'"
-            />
-          </button>
-        </div>
+      <ContactsRequestsList
+        v-else-if="contacts.category === 'requests'"
+        :requests="contacts.contactRequests"
+        @accept="onAcceptRequest"
+      />
 
-        <UEmpty
-          v-else
-          icon="i-lucide-users"
-          title="暂无成员"
-          description="该部门下暂无同事，试试选择其他部门"
-          class="py-12"
-        />
-      </div>
+      <ContactsStarredList
+        v-else-if="contacts.category === 'starred'"
+        :starred="contacts.starredContacts"
+        @contact-click="handleStarredClick"
+        @unstar="onUnstar"
+      />
+
+      <ContactsGroupsList
+        v-else
+        :groups="groupRows"
+        :loading="loadingGroups"
+        @open="openGroup"
+      />
 
       <UPopover
         :open="profileOpen"
@@ -272,9 +355,9 @@ meta:
             :user-id="profileContact.id"
             :nickname="profileContact.nickname"
             :username="profileContact.username"
-            :org-label="profileContact.deptName"
+            :org-label="profileContact.orgLabel"
             :avatar-text="profileContact.avatarText"
-            @message="openMessage(profileContact)"
+            @message="openMessage"
           />
         </template>
       </UPopover>

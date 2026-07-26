@@ -35,7 +35,8 @@
 | infra-file | **archived** | **done** | 列表/上传/删除/下载 · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | Presigned 直传 + 302 下载；⑧ integrate 完成 |
 | im-direct-chat | **ready** | **done** | `GET/POST /app-api/im/*` · `/app/messages` | [contract](../../openspec/lanes/im-direct-chat/contract.md) | store 无 Mock；REST + WS `message.new` |
 | admin-user-by-dept | **ready** | **done** | `GET …/user/page?deptId=` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-by-dept/contract.md) | 左树右表；`deptId` 主部门过滤 + data_scope 交集 |
-| workspace-contacts | **ready** | **done** | `GET /app-api/system/dept/*` · `/app/contacts` | [contract](../../openspec/lanes/workspace-contacts/contract.md) | 左树右表 + 名片发消息 → IM `openDirectChat` |
+| workspace-contacts | **ready** | **done** | `GET /app-api/system/dept/*` · `/app/contacts` | [contract](../../openspec/lanes/workspace-contacts/contract.md) | 组织内部门/成员 API 已就绪；目录壳层见 enrich |
+| **workspace-contacts-enrich** | **planned** | **ui_ready** | `/app/contacts` 分类目录 · 外部/申请/星标草案 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-web` 完成：飞书式分类 + 组织内钻取；外部/申请/星标 store 临时；待 `-api` |
 | im-group-chat | **ready** | **done** | `POST/GET …/im/group/*` · `/app/messages` | [contract](../../openspec/lanes/im-group-chat/contract.md) | store 无 Mock；群聊 REST + WS |
 | im-message-file | **ready** | **done** | `POST …/message/send` (file/image) · `/app/messages` | [contract](../../openspec/lanes/im-message-file/contract.md) | private 上传 + JWT 预览/下载 |
 | im-read-receipt | **ready** | **done** | `GET …/conversation/read-status` · `/app/messages` | [contract](../../openspec/lanes/im-read-receipt/contract.md) | 单聊「已读」+ WS `read.updated` |
@@ -90,7 +91,8 @@
 
 | 切片 | 说明 |
 |------|------|
-| （空） | 等待新路线规划立项 |
+| **workspace-contacts-enrich-web** | 通讯录飞书式目录（`ui_ready`）；下一步 `-api` → `-integrate` |
+| （其他） | 以新立 OpenSpec change 为准 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 

@@ -1,0 +1,83 @@
+<script setup lang="ts">
+import type { ContactRequestItem } from '../../../stores/contacts'
+
+defineProps<{
+  requests: ContactRequestItem[]
+}>()
+
+const emit = defineEmits<{
+  accept: [requestId: string]
+}>()
+
+function statusLabel(status: ContactRequestItem['status']) {
+  if (status === 'accepted') {
+    return '已同意'
+  }
+  if (status === 'rejected') {
+    return '已拒绝'
+  }
+  return '待处理'
+}
+</script>
+
+<template>
+  <div class="flex h-full flex-col">
+    <div class="border-b border-[var(--ws-border-subtle)] px-5 py-4">
+      <h2 class="font-semibold">
+        新的联系人
+      </h2>
+      <p class="mt-1 text-sm text-[var(--ws-text-muted)]">
+        好友添加请求与处理状态
+      </p>
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto p-3">
+      <div
+        v-if="requests.length"
+        class="space-y-0.5"
+      >
+        <div
+          v-for="item in requests"
+          :key="item.id"
+          class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5"
+        >
+          <UAvatar
+            :text="item.avatarText"
+            size="md"
+          />
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">
+              {{ item.displayName }}
+            </p>
+            <p class="truncate text-sm text-[var(--ws-text-muted)]">
+              {{ item.subtitle }}
+            </p>
+          </div>
+          <UButton
+            v-if="item.status === 'pending'"
+            size="sm"
+            color="primary"
+            variant="soft"
+            @click="emit('accept', item.id)"
+          >
+            同意
+          </UButton>
+          <span
+            v-else
+            class="shrink-0 text-sm text-[var(--ws-text-muted)]"
+          >
+            {{ statusLabel(item.status) }}
+          </span>
+        </div>
+      </div>
+
+      <UEmpty
+        v-else
+        icon="i-lucide-user-plus"
+        title="暂无新的联系人"
+        description="收到添加请求时会显示在这里"
+        class="py-12"
+      />
+    </div>
+  </div>
+</template>

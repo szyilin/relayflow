@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useBusinessCardStore } from '../../stores/businessCard'
+import { useContactsStore } from '../../stores/contacts'
 import type { ContactRemark } from '../../api/app/contactRemark'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
 
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const businessCard = useBusinessCardStore()
+const contacts = useContactsStore()
 
 const signature = ref('')
 const coverFileId = ref<string | null>(null)
@@ -223,34 +225,86 @@ function onPlaceholder(label: string) {
 function onMessage() {
   emit('message')
 }
+
+const peerStarred = computed(() => isPeer.value && contacts.isStarred(props.userId))
+
+const peerMoreItems = computed(() => {
+  if (!isPeer.value) {
+    return []
+  }
+  const starred = peerStarred.value
+  return [
+    [
+      {
+        label: starred ? '取消星标联系人' : '设为星标联系人',
+        icon: starred ? 'i-lucide-star-off' : 'i-lucide-star',
+        onSelect: () => {
+          const nowStarred = contacts.toggleStar({
+            userId: props.userId,
+            displayName: remoteNickname.value || props.nickname || displayName.value,
+            orgLabel: displayOrgLabel.value || '',
+            avatarText: displayAvatarText.value,
+            username: displayUsername.value || undefined
+          })
+          toast.add({
+            title: nowStarred ? '已设为星标联系人' : '已取消星标',
+            color: nowStarred ? 'success' : 'neutral'
+          })
+        }
+      }
+    ]
+  ]
+})
 </script>
 
 <template>
-  <div class="workspace-business-card w-72 overflow-hidden">
-    <button
-      type="button"
-      class="workspace-business-card__cover group relative block w-full"
-      :class="{ 'cursor-pointer': isSelf, 'cursor-default': isPeer }"
-      :disabled="isPeer || businessCard.saving"
-      :aria-label="isSelf ? '更换封面' : undefined"
-      @click="pickCover"
-    >
-      <div
-        class="h-24 w-full bg-gradient-to-br from-sky-600 via-blue-700 to-indigo-800"
-        :style="coverUrl
-          ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-          : undefined"
-      />
-      <span
-        v-if="isSelf"
-        class="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100"
+  <div class="workspace-business-card relative w-72 overflow-hidden">
+    <div class="relative">
+      <button
+        type="button"
+        class="workspace-business-card__cover group relative block w-full"
+        :class="{ 'cursor-pointer': isSelf, 'cursor-default': isPeer }"
+        :disabled="isPeer || businessCard.saving"
+        :aria-label="isSelf ? '更换封面' : undefined"
+        @click="pickCover"
       >
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white">
-          <UIcon name="i-lucide-image-plus" class="size-3.5" />
-          更换封面
+        <div
+          class="h-24 w-full bg-gradient-to-br from-sky-600 via-blue-700 to-indigo-800"
+          :style="coverUrl
+            ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+            : undefined"
+        />
+        <span
+          v-if="isSelf"
+          class="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <span class="inline-flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white">
+            <UIcon name="i-lucide-image-plus" class="size-3.5" />
+            更换封面
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+      <div
+        v-if="isPeer"
+        class="absolute right-1.5 top-1.5 z-10"
+        @click.stop
+        @pointerdown.stop
+      >
+        <UDropdownMenu
+          :items="peerMoreItems"
+          :content="{ side: 'bottom', align: 'end', sideOffset: 4 }"
+        >
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-ellipsis"
+            aria-label="更多"
+            class="bg-black/35 text-white hover:bg-black/50 hover:text-white"
+          />
+        </UDropdownMenu>
+      </div>
+    </div>
     <input
       ref="coverInput"
       type="file"
