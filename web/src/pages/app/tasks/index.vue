@@ -1250,9 +1250,11 @@ meta:
           :deletable-bucket-keys="deletableBucketKeys"
           :selected-id="tasksStore.selectedId"
           :loading="tasksStore.loading"
+          :show-toggle="showTaskActions"
           @open="openTask"
           @move="handleGroupMove"
           @delete-bucket="handleDeleteBucket"
+          @toggle="({ taskId, done }) => handleToggle(taskId, done)"
         />
         <UEmpty
           v-else

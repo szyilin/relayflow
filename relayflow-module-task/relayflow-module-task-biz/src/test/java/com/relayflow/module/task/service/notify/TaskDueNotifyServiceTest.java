@@ -87,8 +87,6 @@ class TaskDueNotifyServiceTest {
         verify(imBotApi).send(captor.capture());
         ImBotSendCommand command = captor.getValue();
         assertEquals("task-bot", command.getBotCode());
-        assertTrue(command.getText().contains("整理周报"));
-        assertTrue(command.getText().contains("到期"));
         assertEquals("TASK_DUE:2001:100", command.getDedupeKey());
         assertEquals("/app/tasks?taskId=2001", command.getRoute());
         assertEquals("task", command.getEntityType());
@@ -96,6 +94,13 @@ class TaskDueNotifyServiceTest {
         assertEquals(ImBotSendTarget.SCOPE_SINGLE, command.getTarget().getScope());
         assertEquals(TENANT_ID, command.getTarget().getTenantId());
         assertEquals(USER_ID, command.getTarget().getUserId());
+        assertTrue(command.getCard() != null);
+        assertEquals("generic.v1", command.getCard().getTemplate());
+        assertEquals("任务即将到期", command.getCard().getHeader().getTitle());
+        assertEquals("整理周报", command.getCard().getHeader().getSubtitle());
+        assertEquals("view", command.getCard().getActions().get(0).getId());
+        assertEquals("open_url", command.getCard().getActions().get(0).getBehavior().getType());
+        assertEquals("/app/tasks?taskId=2001", command.getCard().getActions().get(0).getBehavior().getRoute());
     }
 
     @Test

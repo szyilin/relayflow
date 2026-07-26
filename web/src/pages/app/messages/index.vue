@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
@@ -9,7 +9,7 @@ import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
 import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
-import type { GroupMemberItem, MessageItem } from '../../../api/app/im'
+import type { ContentBlock, GroupMemberItem, MessageItem } from '../../../api/app/im'
 import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
@@ -19,6 +19,7 @@ const im = useImStore()
 const presence = usePresenceStore()
 const preference = useUserPreferenceStore()
 const route = useRoute()
+const router = useRouter()
 const { selectConversation: selectConversationWithRoute } = useMessageConversationRoute(im)
 const toast = useToast()
 const draft = ref('')
@@ -419,6 +420,32 @@ function messageBlocks(msg: { content: import('../../../api/app/im').MessageCont
 
 function cardBlock(msg: { type: string, content: import('../../../api/app/im').MessageContent }) {
   return msg.content.blocks?.find(block => block.type === 'card')
+}
+
+function deeplinkBlock(msg: { content: import('../../../api/app/im').MessageContent }): ContentBlock | undefined {
+  return msg.content.blocks?.find(block => block.type === 'deeplink' && !!block.route?.trim())
+}
+
+function deeplinkLabel(block: ContentBlock): string {
+  if (block.entityType === 'task') {
+    return '查看任务'
+  }
+  if (block.entityType === 'calendar' || block.entityType === 'event') {
+    return '查看日程'
+  }
+  return '查看详情'
+}
+
+async function openDeeplink(targetRoute?: string) {
+  const path = targetRoute?.trim()
+  if (!path) {
+    return
+  }
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    window.open(path, '_blank', 'noopener,noreferrer')
+    return
+  }
+  await router.push(path)
 }
 
 function onCardUpdated(message: MessageItem) {
@@ -845,6 +872,18 @@ meta:
                       <span v-else-if="block.type === 'text'">{{ block.text }}</span>
                     </template>
                   </p>
+                  <button
+                    v-if="deeplinkBlock(item.message)"
+                    type="button"
+                    class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
+                    :class="isOwnMessage(item.message.senderId)
+                      ? 'text-primary-foreground/90'
+                      : 'text-primary'"
+                    @click.stop="openDeeplink(deeplinkBlock(item.message)?.route)"
+                  >
+                    <UIcon name="i-lucide-arrow-up-right" class="size-3.5" />
+                    {{ deeplinkLabel(deeplinkBlock(item.message)!) }}
+                  </button>
                 </div>
                 <div
                   v-if="item.isGroupEnd || messageStatusSuffix(item.message)"

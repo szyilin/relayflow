@@ -10,12 +10,15 @@ const props = defineProps<{
   selectedId?: string | null
   loading?: boolean
   deletableBucketKeys?: string[]
+  /** 是否显示前置勾选（与列表视图一致，可完成/重新打开） */
+  showToggle?: boolean
 }>()
 
 const emit = defineEmits<{
   open: [taskId: string]
   move: [payload: { taskId: string, bucketKey: string, beforeId: string | null }]
   'delete-bucket': [bucketKey: string]
+  toggle: [payload: { taskId: string, done: boolean }]
 }>()
 
 function canDeleteBucket(key: string): boolean {
@@ -156,21 +159,34 @@ function onDropColumn(event: DragEvent, bucketKey: string) {
           @click="emit('open', task.id)"
           @keydown.enter.prevent="emit('open', task.id)"
         >
-          <p
-            class="text-sm font-medium"
-            :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
-          >
-            {{ task.title }}
-          </p>
-          <p class="mt-1 flex flex-wrap gap-x-2 text-xs text-[var(--ws-text-muted)]">
-            <span
-              v-if="formatDue(task.dueTime)"
-              :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
-            >
-              {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
-            </span>
-            <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
-          </p>
+          <div class="flex items-start gap-2">
+            <UCheckbox
+              v-if="showToggle"
+              class="mt-0.5 shrink-0"
+              :model-value="task.status === 'DONE'"
+              :aria-label="task.status === 'DONE' ? '重新打开' : '完成任务'"
+              @click.stop
+              @pointerdown.stop
+              @update:model-value="(value: boolean | 'indeterminate') => emit('toggle', { taskId: task.id, done: value === true })"
+            />
+            <div class="min-w-0 flex-1">
+              <p
+                class="text-sm font-medium"
+                :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
+              >
+                {{ task.title }}
+              </p>
+              <p class="mt-1 flex flex-wrap gap-x-2 text-xs text-[var(--ws-text-muted)]">
+                <span
+                  v-if="formatDue(task.dueTime)"
+                  :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
+                >
+                  {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
+                </span>
+                <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
+              </p>
+            </div>
+          </div>
         </div>
         <p
           v-if="!bucket.items.length"

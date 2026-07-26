@@ -7,10 +7,9 @@ import com.relayflow.module.task.dal.dataobject.TaskItemDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 /**
- * Best-effort assign notify via {@code task-bot}.
+ * Best-effort assign notify via {@code task-bot} interactive card ({@code open_url}).
  */
 @Service
 @RequiredArgsConstructor
@@ -31,10 +30,9 @@ public class TaskAssignNotifyService {
         target.setTenantId(task.getTenantId());
         target.setUserId(assigneeId);
 
-        String title = StringUtils.hasText(task.getTitle()) ? task.getTitle() : "未命名任务";
         ImBotSendCommand command = new ImBotSendCommand();
         command.setBotCode(TASK_BOT_CODE);
-        command.setText("你被指派负责任务「" + title + "」");
+        command.setCard(TaskBotCardFactory.assigned(task));
         command.setDedupeKey(DEDUPE_PREFIX + task.getId() + ":" + assigneeId);
         command.setRoute("/app/tasks?taskId=" + task.getId());
         command.setEntityType("task");

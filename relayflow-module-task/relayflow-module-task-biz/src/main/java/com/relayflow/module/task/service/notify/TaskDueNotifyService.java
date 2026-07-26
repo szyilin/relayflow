@@ -12,10 +12,8 @@ import com.relayflow.module.task.enums.TaskItemStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,8 +28,6 @@ public class TaskDueNotifyService {
 
     private static final String TASK_BOT_CODE = "task-bot";
     private static final String TASK_DUE_DEDUPE_PREFIX = "TASK_DUE:";
-    private static final DateTimeFormatter DUE_TIME_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final TaskProperties taskProperties;
     private final ImBotApi imBotApi;
@@ -95,7 +91,7 @@ public class TaskDueNotifyService {
 
         ImBotSendCommand command = new ImBotSendCommand();
         command.setBotCode(TASK_BOT_CODE);
-        command.setText(buildReminderText(task));
+        command.setCard(TaskBotCardFactory.dueSoon(task));
         command.setDedupeKey(TASK_DUE_DEDUPE_PREFIX + task.getId() + ":" + assigneeId);
         command.setRoute("/app/tasks?taskId=" + task.getId());
         command.setEntityType("task");
@@ -108,11 +104,5 @@ public class TaskDueNotifyService {
             log.warn("Task due bot message failed: taskId={}, assigneeId={}, botCode={}",
                     task.getId(), assigneeId, TASK_BOT_CODE, ex);
         }
-    }
-
-    private static String buildReminderText(TaskItemDO task) {
-        String title = StringUtils.hasText(task.getTitle()) ? task.getTitle() : "未命名任务";
-        String due = task.getDueTime().format(DUE_TIME_FORMAT);
-        return "「" + title + "」将在 " + due + " 到期";
     }
 }
