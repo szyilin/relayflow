@@ -9,18 +9,30 @@ defineProps<{
 
 const emit = defineEmits<{
   contactClick: [person: ExternalContactItem, event: MouseEvent]
+  addExternal: []
 }>()
 </script>
 
 <template>
   <div class="flex h-full flex-col">
-    <div class="border-b border-[var(--ws-border-subtle)] px-5 py-4">
-      <h2 class="font-semibold">
-        外部联系人
-      </h2>
-      <p class="mt-1 text-sm text-[var(--ws-text-muted)]">
-        按名称首字母排序
-      </p>
+    <div class="flex items-start justify-between gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-4">
+      <div class="min-w-0">
+        <h2 class="font-semibold">
+          外部联系人
+        </h2>
+        <p class="mt-1 text-sm text-[var(--ws-text-muted)]">
+          按名称首字母排序
+        </p>
+      </div>
+      <UButton
+        size="sm"
+        color="primary"
+        variant="soft"
+        icon="i-lucide-user-plus"
+        @click="emit('addExternal')"
+      >
+        添加
+      </UButton>
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto p-3">
@@ -72,9 +84,20 @@ const emit = defineEmits<{
         v-else
         icon="i-lucide-globe"
         title="暂无外部联系人"
-        description="同意好友申请后会出现在这里"
+        description="点击右上角「添加」，或通过好友申请同意后出现在这里"
         class="py-12"
-      />
+      >
+        <template #actions>
+          <UButton
+            color="primary"
+            variant="soft"
+            icon="i-lucide-user-plus"
+            @click="emit('addExternal')"
+          >
+            添加外部联系人
+          </UButton>
+        </template>
+      </UEmpty>
     </div>
   </div>
 </template>

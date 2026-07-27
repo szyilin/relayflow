@@ -3,9 +3,14 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCalendarStore } from '../stores/calendar'
 import { useContactsStore } from '../stores/contacts'
+import { useCreateHubStore } from '../stores/createHub'
+import { useContactAddStore } from '../stores/contactAdd'
+import { useMemberPickerStore } from '../stores/memberPicker'
 import { useDocsStore } from '../stores/docs'
 import { useDocsDriveStore } from '../stores/docsDrive'
 import { useImStore } from '../stores/im'
+import { useInviteSettingsStore } from '../stores/inviteSettings'
+import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
 import { useUserPreferenceStore } from '../stores/userPreference'
@@ -19,6 +24,11 @@ export function useTenantSwitchReload() {
   const route = useRoute()
   const im = useImStore()
   const contacts = useContactsStore()
+  const createHub = useCreateHubStore()
+  const contactAdd = useContactAddStore()
+  const memberPicker = useMemberPickerStore()
+  const inviteSettings = useInviteSettingsStore()
+  const orgInvite = useOrgInviteStore()
   const profile = useProfileStore()
   const tasks = useTasksStore()
   const calendar = useCalendarStore()
@@ -38,6 +48,11 @@ export function useTenantSwitchReload() {
     profile.resetForAccountSwitch()
     im.resetForTenantSwitch()
     contacts.resetForTenantSwitch()
+    createHub.resetForTenantSwitch()
+    contactAdd.resetForTenantSwitch()
+    memberPicker.resetForTenantSwitch()
+    inviteSettings.resetForTenantSwitch()
+    orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()
     docs.resetLocal()

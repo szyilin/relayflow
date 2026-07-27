@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
-import ImCreateGroupModal from '../../../components/workspace/ImCreateGroupModal.vue'
+import WorkspaceCreateGroupModal from '../../../components/workspace/WorkspaceCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
 import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
 import ImMessageCard from '../../../components/im/ImMessageCard.vue'
@@ -1111,7 +1111,7 @@ meta:
     </template>
   </UModal>
 
-  <ImCreateGroupModal v-model:open="createGroupOpen" />
+  <WorkspaceCreateGroupModal v-model:open="createGroupOpen" />
   <ImInviteMembersModal
     v-if="active && isGroupActive"
     v-model:open="inviteMembersOpen"

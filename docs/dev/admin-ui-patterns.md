@@ -27,7 +27,7 @@ web/src/
 |------|------|
 | Sidebar | `UDashboardGroup` + `UDashboardSidebar`（可折叠、可拖拽） |
 | 品牌 | workflow 图标 + RelayFlow |
-| 导航分组 | 概览 → 系统管理 → 基础设施；**仅 DEV** 底栏「设计预览」 |
+| 导航分组 | 概览 → 系统管理（用户 / 角色 / 部门 / **邀请设置**）→ 基础设施；**仅 DEV** 底栏「设计预览」 |
 | Active 项 | 左 2px primary + 浅 primary 背景 |
 | 用户区 | Sidebar footer `AdminUserMenu` |
 | 内容 | 各页 `UDashboardPanel` + `AdminNavbar` |
@@ -80,6 +80,18 @@ web/src/
 |----|------|
 | 无数据 | `UEmpty` + 主操作引导 |
 | 树形 | `UTree` + Mock 节点（接 API 后换数据） |
+
+## 设置表单 `/admin/system/invite-settings`
+
+**文件**：`pages/admin/system/invite-settings/index.vue`
+
+| 项 | 规范 |
+|----|------|
+| 宽度 | `max-w-2xl` 居中；分组 `UCard` |
+| 内容 | 邀请功能三态；全员模式下非管理员范围 / 有效期 / 审批 |
+| 权限 | 查看 `system:user:list`；保存 `system:user:create`（`-api` 可换独立码） |
+| 数据 | `stores/inviteSettings`；`-web` 会话内存，integrate 接 `invite-settings` API |
+| 契约 | [`org-invite`](../../openspec/lanes/org-invite/contract.md) |
 
 ## 表格占位 `/admin/infra/file`
 

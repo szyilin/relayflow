@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.system.dal.mapper.SysOrgInviteMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.relayflow.module.system.dal.dataobject.SysOrgInviteDO">
+        <result column="id" property="id" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="creator" property="creator" />
+        <result column="create_time" property="createTime" />
+        <result column="updater" property="updater" />
+        <result column="update_time" property="updateTime" />
+        <result column="deleted" property="deleted" />
+        <result column="channel" property="channel" />
+        <result column="token" property="token" />
+        <result column="invite_code" property="inviteCode" />
+        <result column="inviter_user_id" property="inviterUserId" />
+        <result column="target_mobile" property="targetMobile" />
+        <result column="target_user_id" property="targetUserId" />
+        <result column="target_dept_id" property="targetDeptId" />
+        <result column="target_role_ids" property="targetRoleIds" typeHandler="com.relayflow.framework.mybatis.typehandler.JsonbTypeHandler" />
+        <result column="status" property="status" />
+        <result column="expires_at" property="expiresAt" />
+        <result column="approved_by" property="approvedBy" />
+        <result column="approved_at" property="approvedAt" />
+        <result column="consumed_at" property="consumedAt" />
+        <result column="membership_user_id" property="membershipUserId" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id,
+        tenant_id,
+        creator,
+        create_time,
+        updater,
+        update_time,
+        deleted,
+        channel, token, invite_code, inviter_user_id, target_mobile, target_user_id, target_dept_id, target_role_ids, status, expires_at, approved_by, approved_at, consumed_at, membership_user_id
+    </sql>
+
+</mapper>

@@ -92,9 +92,14 @@
 
 > **2026-07-20 路线重置**：旧建议切片（知识库 / 共享文件夹 / BPM / 短信等）**全部关闭，不再作为 backlog**。下一切片以新立 OpenSpec change 为准。
 
-| 切片 | 说明 |
-|------|------|
-| （其他） | 以新立 OpenSpec change 为准 |
+| 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
+|------|----------|----------|-------------|------|------|
+| **workspace-plus-create-v1** | planned | — | 母 change：Create Hub + 组织邀请 redesign | [母](../../openspec/changes/workspace-plus-create-v1/proposal.md) | 规划真源；实现落子切片 |
+| **workspace-create-hub** | planned | **ui_ready** | Rail「+」· 建群/邀成员/加外部/建文档 | [contract](../../openspec/lanes/workspace-create-hub/contract.md) | `-web` 完成；capability / 邀请渠道 / 外部申请 API 后续 |
+| **org-invite-settings** | **archived** | **ui_ready** | `/admin/system/invite-settings` | [contract](../../openspec/lanes/org-invite/contract.md) | `-api` 完成（GET/PUT）；`-integrate` 待接 store |
+| **org-invite-channels** | **archived** | **ui_ready** | 「+」添加企业成员 · `/app/invite/join` | [contract](../../openspec/lanes/org-invite/contract.md) | `-api` 完成；`-integrate` 待接 orgInvite store |
+| **workspace-contact-add-external** | planned | **ui_ready** | 搜索/发起外部联系人 · 拒绝申请 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-web` 完成（contactAdd 草稿）；`-api` 待做 |
+| **workspace-member-picker** | planned | **ui_ready** | 共享选人器 · 我管理的群组（IM 聚合）· 邀请入群复用 | [create-hub](../../openspec/lanes/workspace-create-hub/contract.md) · [im-group](../../openspec/lanes/im-group-chat/contract.md) | `-web` 完成；`GET …/group/managed` 草案待 `-api` |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 

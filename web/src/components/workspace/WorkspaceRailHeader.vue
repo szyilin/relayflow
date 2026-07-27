@@ -1,17 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
 import WorkspaceProfileCard from './WorkspaceProfileCard.vue'
 import WorkspaceSearchModal from './WorkspaceSearchModal.vue'
 import WorkspaceSettingsPanel from './WorkspaceSettingsPanel.vue'
+import WorkspaceCreateGroupModal from './WorkspaceCreateGroupModal.vue'
+import WorkspaceOrgInviteModal from './WorkspaceOrgInviteModal.vue'
+import WorkspaceAddExternalContactModal from './WorkspaceAddExternalContactModal.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useCreateHubStore } from '../../stores/createHub'
+import { useDocsStore } from '../../stores/docs'
 import { useProfileStore } from '../../stores/profile'
 import { useUserPreferenceStore } from '../../stores/userPreference'
 import { useWorkspaceSearchShortcut } from '../../composables/useWorkspaceSearchShortcut'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const preferenceStore = useUserPreferenceStore()
+const createHub = useCreateHubStore()
+const {
+  createGroupOpen,
+  orgInviteOpen,
+  addExternalOpen
+} = storeToRefs(createHub)
+const docs = useDocsStore()
+const toast = useToast()
 
 const profileOpen = ref(false)
 const settingsOpen = ref(false)
@@ -41,6 +57,56 @@ const avatarUrl = computed(() =>
   resolveAvatarUrl(profileStore.profile?.avatar ?? authStore.user?.avatar))
 
 const avatarText = computed(() => avatarTextFromName(displayNickname.value))
+
+const createMenuItems = computed(() => {
+  const items: Array<{
+    label: string
+    icon: string
+    onSelect: () => void
+  }> = [
+    {
+      label: '创建群组',
+      icon: 'i-lucide-users',
+      onSelect: () => createHub.openCreateGroup()
+    }
+  ]
+  if (createHub.canInvite) {
+    items.push({
+      label: '添加企业成员',
+      icon: 'i-lucide-user-plus',
+      onSelect: () => createHub.openOrgInvite()
+    })
+  }
+  items.push(
+    {
+      label: '添加外部联系人',
+      icon: 'i-lucide-contact',
+      onSelect: () => createHub.openAddExternal()
+    },
+    {
+      label: '创建文档',
+      icon: 'i-lucide-file-plus',
+      onSelect: () => {
+        void createDocument()
+      }
+    }
+  )
+  return [items]
+})
+
+async function createDocument() {
+  try {
+    await router.push('/app/docs')
+    await docs.createPage(null)
+    toast.add({ title: '已创建文档', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: '创建文档失败',
+      description: error instanceof Error ? error.message : '请稍后重试',
+      color: 'error'
+    })
+  }
+}
 
 onMounted(() => {
   if (!authStore.isAuthenticated) {
@@ -104,6 +170,20 @@ onMounted(() => {
           </p>
         </UTooltip>
       </div>
+
+      <UDropdownMenu
+        :items="createMenuItems"
+        :content="{ side: 'bottom', align: 'end', sideOffset: 6 }"
+      >
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-plus"
+          size="sm"
+          square
+          aria-label="创建"
+        />
+      </UDropdownMenu>
     </div>
 
     <UInput
@@ -119,6 +199,9 @@ onMounted(() => {
 
     <WorkspaceSearchModal v-model:open="searchOpen" />
     <WorkspaceSettingsPanel v-model:open="settingsOpen" />
+    <WorkspaceCreateGroupModal v-model:open="createGroupOpen" />
+    <WorkspaceOrgInviteModal v-model:open="orgInviteOpen" />
+    <WorkspaceAddExternalContactModal v-model:open="addExternalOpen" />
   </div>
 </template>
 

@@ -80,6 +80,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/system/invite-settings/': RouteRecordInfo<
+      '/admin/system/invite-settings/',
+      '/admin/system/invite-settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/system/role/': RouteRecordInfo<
       '/admin/system/role/',
       '/admin/system/role',
@@ -139,6 +146,13 @@ declare module 'vue-router/auto-routes' {
     '/app/invite/accept': RouteRecordInfo<
       '/app/invite/accept',
       '/app/invite/accept',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/invite/join': RouteRecordInfo<
+      '/app/invite/join',
+      '/app/invite/join',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -247,6 +261,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/admin/system/invite-settings/index.vue': {
+      routes:
+        | '/admin/system/invite-settings/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/admin/system/role/index.vue': {
       routes:
         | '/admin/system/role/'
@@ -314,6 +336,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/invite/accept.vue': {
       routes:
         | '/app/invite/accept'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/invite/join.vue': {
+      routes:
+        | '/app/invite/join'
       views:
         | never
       pathParamNames:

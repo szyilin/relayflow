@@ -23,6 +23,7 @@ import {
   useContactsStore,
   type ContactsCategory
 } from '../../../stores/contacts'
+import { useCreateHubStore } from '../../../stores/createHub'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
 
@@ -31,6 +32,7 @@ const route = useRoute()
 const toast = useToast()
 const auth = useAuthStore()
 const contacts = useContactsStore()
+const createHub = useCreateHubStore()
 const im = useImStore()
 const presence = usePresenceStore()
 const {
@@ -251,6 +253,22 @@ async function onAcceptRequest(requestId: string) {
   }
 }
 
+async function onRejectRequest(requestId: string) {
+  try {
+    await contacts.rejectRequest(requestId)
+    toast.add({
+      title: '已拒绝',
+      color: 'neutral'
+    })
+  } catch {
+    toast.add({
+      title: '操作失败',
+      description: contacts.lastError ?? '无法拒绝该申请',
+      color: 'error'
+    })
+  }
+}
+
 async function onUnstar(userId: string) {
   try {
     await contacts.unstarContact(userId)
@@ -339,6 +357,7 @@ meta:
         :groups="contacts.externalGrouped"
         :loading="contacts.loadingEnrich"
         @contact-click="handleExternalClick"
+        @add-external="createHub.openAddExternal()"
       />
 
       <ContactsRequestsList
@@ -346,6 +365,7 @@ meta:
         :requests="contacts.contactRequests"
         :loading="contacts.loadingEnrich"
         @accept="onAcceptRequest"
+        @reject="onRejectRequest"
       />
 
       <ContactsStarredList

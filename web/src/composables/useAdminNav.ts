@@ -44,6 +44,12 @@ export function useAdminNav() {
     to: '/admin/system/dept',
     permission: 'system:dept:list',
     onSelect: closeSidebar
+  }, {
+    label: '邀请设置',
+    icon: 'i-lucide-user-plus',
+    to: '/admin/system/invite-settings',
+    permission: 'system:user:list',
+    onSelect: closeSidebar
   }]
 
   const infraLinksRaw: AdminNavItem[] = [{

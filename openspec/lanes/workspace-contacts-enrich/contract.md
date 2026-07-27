@@ -130,6 +130,43 @@ curl -s -X PUT "http://localhost:8080/app-api/system/contact/starred/<userId>" \
 
 验收样例 SQL 见 change `workspace-contacts-enrich-api` tasks / design（不写入 Flyway seed）。
 
+## 发起添加 / 拒绝（`workspace-contact-add-external-*`）
+
+> `-web`：前端 `contactAdd` store 草稿搜索 + outgoing；拒绝为 contacts 本地改状态。  
+> `-api`：实现下列端点后 integrate 去草稿。
+
+### GET /app-api/system/contact/search-account
+
+Query：`mobile` **或** `email`（二选一，确切匹配）。
+
+**Response `data`**：`ContactAccountSearchHit[]`
+
+```json
+[
+  {
+    "userId": "201",
+    "displayName": "样依琳",
+    "orgLabel": "合作方企业",
+    "avatarText": "样",
+    "alreadyAdded": false
+  }
+]
+```
+
+同一手机号/邮箱绑定多账号时全部返回。无匹配 → `[]`。
+
+### POST /app-api/system/contact/request
+
+```json
+{ "targetUserId": "201", "message": "可选附言" }
+```
+
+成功后目标用户的 `request/list` 出现 `pending`。已是外部联系人或已有 pending → 业务错误或幂等（`-api` 定稿）。
+
+### POST /app-api/system/contact/request/{id}/reject
+
+仅 `to_user_id` = 当前用户且 `pending` 可拒绝 → `status=rejected`，不写 external。
+
 ## 前端映射
 
 | UI | Store | 数据 |
@@ -137,11 +174,11 @@ curl -s -X PUT "http://localhost:8080/app-api/system/contact/starred/<userId>" \
 | 分类导航 | `stores/contacts.ts` `category` | 本地 |
 | 组织内 | 同上 + `deptPath` | 既有 dept/user API |
 | 外部 / 申请 / 星标 | 同上 | `GET/POST/PUT /app-api/system/contact/*`（integrate 后无 store seed） |
+| 添加外部 | `stores/contactAdd` + Hub/通讯录入口 | `-web` 草稿；`-api` search + create request |
 | 我的群组 | `stores/im` conversations | IM list（`type=group`） |
 
 ## V1 不在范围
 
-- 邮箱联系人、服务台
-- 添加外部联系人完整流程（仅申请列表同意；无 `POST …/request` 发起）
+- 邮箱联系人目录、服务台
 - 拼音库；无 `sortLetter` 时前端拉丁 A–Z、其余 `#`
-- 拒绝申请（`rejected`）写路径
+- 扫码加外部联系人实装（UI 可占位）

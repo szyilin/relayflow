@@ -8,6 +8,7 @@ defineProps<{
 
 const emit = defineEmits<{
   accept: [requestId: string]
+  reject: [requestId: string]
 }>()
 
 function statusLabel(status: ContactRequestItem['status']) {
@@ -61,15 +62,27 @@ function statusLabel(status: ContactRequestItem['status']) {
               {{ item.subtitle }}
             </p>
           </div>
-          <UButton
+          <div
             v-if="item.status === 'pending'"
-            size="sm"
-            color="primary"
-            variant="soft"
-            @click="emit('accept', item.id)"
+            class="flex shrink-0 items-center gap-1.5"
           >
-            同意
-          </UButton>
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="ghost"
+              @click="emit('reject', item.id)"
+            >
+              拒绝
+            </UButton>
+            <UButton
+              size="sm"
+              color="primary"
+              variant="soft"
+              @click="emit('accept', item.id)"
+            >
+              同意
+            </UButton>
+          </div>
           <span
             v-else
             class="shrink-0 text-sm text-[var(--ws-text-muted)]"

@@ -29,12 +29,27 @@ web/src/
 | 区域 | 实现 |
 |------|------|
 | 画布 | `workspace-shell` + `--ws-canvas-bg` + gap |
-| 左导航 | 固定宽卡片：品牌、**可点搜索**、图标+文字菜单；顶部 `WorkspaceRailHeader`（头像+昵称同轴） |
+| 左导航 | 固定宽卡片：品牌、**可点搜索**、图标+文字菜单；顶部 `WorkspaceRailHeader`（头像+昵称同轴 + 头像旁「+」Create Hub） |
 | 列表栏 | `#panel` slot；右缘可拖拽调宽 |
 | 主区 | 默认 slot；聊天/任务/文档内容 |
 | 右栏 | 可选 `#aside`（默认关闭；消息/通讯录不展示「活跃状态」） |
 | 主题 | **不**浮在壳层右上角；从资料名片 → **设置窗**切换 |
 | 设置窗 | `WorkspaceSettingsPanel`：宽 UModal；左栏分类 + 右栏「通用」 |
+
+## Create Hub（「+」创建）
+
+| 项 | 规范 |
+|----|------|
+| 触发 | `WorkspaceRailHeader` 头像行右侧「+」→ `UDropdownMenu` |
+| 菜单项 | 创建群组、添加企业成员、添加外部联系人、创建文档（本期仅此四项） |
+| 添加企业成员 | 仅 `canInvite` 时显示；`-web` 默认 `auth.isAdmin`（对齐邀请设置 `ADMIN_ONLY`） |
+| 创建群组 | `WorkspaceCreateGroupModal` + `WorkspaceMemberPicker`（组织内 / 外部 / 我管理的群组） |
+| 选人器 | `WorkspaceMemberPicker`：三源；`excludeUserIds` 隐藏已选/已在群；「我管理的群组」=`stores/memberPicker`（IM 会话+members 聚合，非 seed） |
+| 邀请入群 | `ImInviteMembersModal` **必须**内嵌同一 picker，并传入当前群 `excludeUserIds` |
+| 添加企业成员 UI | `WorkspaceOrgInviteModal` 四 Tab（QR/链接/码/手机号）；草稿 `stores/orgInvite`；加入页 `/app/invite/join` |
+| 添加外部联系人 | `WorkspaceAddExternalContactModal`；`-web` 精确手机/邮箱可临时结果 |
+| 创建文档 | 跳转 `/app/docs` + `docs.createPage()` |
+| 状态 | `stores/createHub.ts`（`canInvite` 读 `inviteSettings`）；契约 [`workspace-create-hub`](../../openspec/lanes/workspace-create-hub/contract.md) · [`org-invite`](../../openspec/lanes/org-invite/contract.md) · [`im-group-chat` managed](../../openspec/lanes/im-group-chat/contract.md) |
 
 ## 资料名片与个人入口
 
@@ -119,8 +134,9 @@ web/src/
 | Shell | 不开启 `show-aside`（无「活跃状态」右栏） |
 | Panel | 飞书式**分类导航**（图标）：组织内联系人、外部联系人、新的联系人、星标联系人、我的群组；**不做**邮箱联系人 |
 | 组织内 | 主区：部门面包屑 + 子部门行（「下级」）+ 直属成员；数据仍走 `dept/tree` · `list-by-dept`；页内不设搜索（统一走 Rail ⌘K） |
-| 外部 | 按显示名首字母分组（拉丁 A–Z，其余 `#`）；数据 `GET /app-api/system/contact/external/list`，契约见 [`workspace-contacts-enrich`](../../openspec/lanes/workspace-contacts-enrich/contract.md) |
-| 新的联系人 | 好友申请列表 + 待处理/已通过；「同意」走 `POST …/contact/request/{id}/accept` |
+| 外部 | 按显示名首字母分组；顶栏「添加」打开 `WorkspaceAddExternalContactModal`（与 Create Hub 共用）；数据 `GET …/external/list` |
+| 新的联系人 | 好友申请列表；「同意」走 accept API；「拒绝」`-web` 本地 `rejected`（`-api` 后接 reject） |
+| 添加外部流 | 确切手机号/邮箱搜索 → 添加 → `contactAdd` outgoing 草稿；契约见 enrich「发起添加」章 |
 | 星标 | 星标列表 + 取消星标（`GET/PUT …/contact/starred/*`）；**设为星标**入口在 peer 名片封面右上角「⋯」菜单 |
 | 我的群组 | IM 会话 `type=group`；点击进 `/app/messages`；无临时群占位 |
 | 点人 | `WorkspaceBusinessCard`（peer；点自己则 self）；消息 → 单聊 |

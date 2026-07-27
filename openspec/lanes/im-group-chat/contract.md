@@ -102,6 +102,43 @@
 | `admin` | 管理员（V1 可选） |
 | `member` | 普通成员 |
 
+### GET /app-api/im/group/managed（草案 · 选人器）
+
+> 起草：`workspace-member-picker-web`。当前 `-web` 由前端用会话列表 + `GET …/group/members` 聚合；本端点为后续 `-api` 优化。
+
+返回当前用户角色为 `owner` 或 `admin` 的群组列表，供建群/邀请成员选择器「我管理的群组」。
+
+**Response `data`**：
+
+```json
+[
+  {
+    "conversationId": "301",
+    "title": "产品讨论组",
+    "memberCount": 4,
+    "members": [
+      {
+        "userId": "100",
+        "nickname": "张三",
+        "avatarText": "张"
+      },
+      {
+        "userId": "102",
+        "nickname": "李晓明",
+        "avatarText": "李"
+      }
+    ]
+  }
+]
+```
+
+| 字段 | 说明 |
+|------|------|
+| `members` | 仅 `subjectType=user`；不含 bot、不含已退出 |
+| 空列表 | 合法（当前用户无可管理群） |
+
+**`-web` 临时**：`stores/memberPicker.loadManagedGroups`（并发拉取，失败单群跳过，上限 30）。
+
 ### GET /app-api/im/conversation/list（扩展）
 
 在单聊契约基础上，`type=group` 条目增加字段：
