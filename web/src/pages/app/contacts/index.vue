@@ -12,14 +12,16 @@ import ContactsGroupsList, {
   type ContactsGroupRow
 } from '../../../components/workspace/contacts/ContactsGroupsList.vue'
 import { searchMembers } from '../../../api/app/member-search'
-import type { ContactItem } from '../../../api/app/contacts'
+import type {
+  ContactItem,
+  ExternalContactItem,
+  StarredContactItem
+} from '../../../api/app/contacts'
 import { useClickAnchoredPopover } from '../../../composables/useClickAnchoredPopover'
 import { useAuthStore } from '../../../stores/auth'
 import {
   useContactsStore,
-  type ContactsCategory,
-  type ExternalContactItem,
-  type StarredContactItem
+  type ContactsCategory
 } from '../../../stores/contacts'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
@@ -51,8 +53,8 @@ const loadingGroups = ref(false)
 
 const tenantLabel = computed(() => auth.activeTenantName)
 
-const groupRows = computed<ContactsGroupRow[]>(() => {
-  const fromIm = im.conversations
+const groupRows = computed<ContactsGroupRow[]>(() =>
+  im.conversations
     .filter(item => item.type === 'group')
     .map(item => ({
       id: item.id,
@@ -60,19 +62,7 @@ const groupRows = computed<ContactsGroupRow[]>(() => {
       avatarText: item.avatarText || item.title.slice(0, 1) || '群',
       memberCount: item.memberCount
     }))
-  if (fromIm.length > 0) {
-    return fromIm
-  }
-  return [
-    {
-      id: 'placeholder-group-1',
-      title: '产品协作群',
-      avatarText: '产',
-      subtitle: '示例群组（临时）',
-      isPlaceholder: true
-    }
-  ]
-})
+)
 
 async function loadMembers(options?: { deptId?: string, keyword?: string }) {
   try {
@@ -117,6 +107,11 @@ async function initPage() {
   if (rootId) {
     await loadMembers({ deptId: rootId, keyword: '' })
   }
+  // Prefetch enrich lists for nav badge + peer card star state
+  void Promise.allSettled([
+    contacts.fetchRequests({ silent: true }),
+    contacts.fetchStarred({ silent: true })
+  ])
   const memberId = typeof route.query.memberId === 'string' ? route.query.memberId : undefined
   if (memberId) {
     await focusMemberFromQuery(memberId)
@@ -138,12 +133,28 @@ async function onCategorySelect(next: ContactsCategory) {
     }
   }
 
+  if (next === 'external' || next === 'requests' || next === 'starred') {
+    try {
+      await contacts.ensureCategoryData(next)
+    } catch {
+      toast.add({
+        title: '加载失败',
+        description: contacts.lastError ?? '无法加载该分类',
+        color: 'error'
+      })
+    }
+  }
+
   if (next === 'groups') {
     loadingGroups.value = true
     try {
       await im.fetchConversations()
     } catch {
-      // 临时占位仍可用
+      toast.add({
+        title: '加载失败',
+        description: '无法获取群会话列表',
+        color: 'error'
+      })
     } finally {
       loadingGroups.value = false
     }
@@ -223,32 +234,40 @@ function openMessage() {
   void router.push('/app/messages')
 }
 
-function onAcceptRequest(requestId: string) {
-  contacts.acceptRequest(requestId)
-  toast.add({
-    title: '已同意',
-    description: '对方已加入外部联系人',
-    color: 'success'
-  })
+async function onAcceptRequest(requestId: string) {
+  try {
+    await contacts.acceptRequest(requestId)
+    toast.add({
+      title: '已同意',
+      description: '对方已加入外部联系人',
+      color: 'success'
+    })
+  } catch {
+    toast.add({
+      title: '操作失败',
+      description: contacts.lastError ?? '无法同意该申请',
+      color: 'error'
+    })
+  }
 }
 
-function onUnstar(userId: string) {
-  contacts.unstarContact(userId)
-  toast.add({
-    title: '已取消星标',
-    color: 'neutral'
-  })
+async function onUnstar(userId: string) {
+  try {
+    await contacts.unstarContact(userId)
+    toast.add({
+      title: '已取消星标',
+      color: 'neutral'
+    })
+  } catch {
+    toast.add({
+      title: '操作失败',
+      description: contacts.lastError ?? '无法取消星标',
+      color: 'error'
+    })
+  }
 }
 
 async function openGroup(group: ContactsGroupRow) {
-  if (group.isPlaceholder) {
-    toast.add({
-      title: '示例群组',
-      description: '创建真实群聊后将显示在此列表',
-      color: 'neutral'
-    })
-    return
-  }
   try {
     await im.selectConversation(group.id)
     await router.push({ path: '/app/messages', query: { conversationId: group.id } })
@@ -318,18 +337,21 @@ meta:
       <ContactsExternalList
         v-else-if="contacts.category === 'external'"
         :groups="contacts.externalGrouped"
+        :loading="contacts.loadingEnrich"
         @contact-click="handleExternalClick"
       />
 
       <ContactsRequestsList
         v-else-if="contacts.category === 'requests'"
         :requests="contacts.contactRequests"
+        :loading="contacts.loadingEnrich"
         @accept="onAcceptRequest"
       />
 
       <ContactsStarredList
         v-else-if="contacts.category === 'starred'"
         :starred="contacts.starredContacts"
+        :loading="contacts.loadingEnrich"
         @contact-click="handleStarredClick"
         @unstar="onUnstar"
       />

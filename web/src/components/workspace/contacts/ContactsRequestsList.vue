@@ -3,6 +3,7 @@ import type { ContactRequestItem } from '../../../stores/contacts'
 
 defineProps<{
   requests: ContactRequestItem[]
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -33,7 +34,14 @@ function statusLabel(status: ContactRequestItem['status']) {
 
     <div class="min-h-0 flex-1 overflow-y-auto p-3">
       <div
-        v-if="requests.length"
+        v-if="loading"
+        class="space-y-2 p-3"
+      >
+        <USkeleton class="h-12 w-full" />
+        <USkeleton class="h-12 w-full" />
+      </div>
+      <div
+        v-else-if="requests.length"
         class="space-y-0.5"
       >
         <div

@@ -239,17 +239,27 @@ const peerMoreItems = computed(() => {
         label: starred ? '取消星标联系人' : '设为星标联系人',
         icon: starred ? 'i-lucide-star-off' : 'i-lucide-star',
         onSelect: () => {
-          const nowStarred = contacts.toggleStar({
-            userId: props.userId,
-            displayName: remoteNickname.value || props.nickname || displayName.value,
-            orgLabel: displayOrgLabel.value || '',
-            avatarText: displayAvatarText.value,
-            username: displayUsername.value || undefined
-          })
-          toast.add({
-            title: nowStarred ? '已设为星标联系人' : '已取消星标',
-            color: nowStarred ? 'success' : 'neutral'
-          })
+          void (async () => {
+            try {
+              const nowStarred = await contacts.toggleStar({
+                userId: props.userId,
+                displayName: remoteNickname.value || props.nickname || displayName.value,
+                orgLabel: displayOrgLabel.value || '',
+                avatarText: displayAvatarText.value,
+                username: displayUsername.value || undefined
+              })
+              toast.add({
+                title: nowStarred ? '已设为星标联系人' : '已取消星标',
+                color: nowStarred ? 'success' : 'neutral'
+              })
+            } catch {
+              toast.add({
+                title: '操作失败',
+                description: contacts.lastError ?? '无法更新星标',
+                color: 'error'
+              })
+            }
+          })()
         }
       }
     ]

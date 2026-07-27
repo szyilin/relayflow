@@ -1,8 +1,11 @@
 # workspace-contacts-directory Specification
 
 ## Purpose
-TBD - created by archiving change workspace-contacts-enrich-web. Update Purpose after archive.
+
+工作台通讯录目录覆盖飞书式分类导航，以及组织内部门钻取、外部联系人、加联系人申请、星标与我的群组。邮箱联系人与完整「发起加好友」产品流不在本能力范围。外部 / 申请 / 星标以 `/app-api/system/contact/*` 为唯一数据真源。
+
 ## Requirements
+
 ### Requirement: Contacts directory category navigation
 
 工作台 `/app/contacts` 左栏 MUST 提供飞书式分类导航（含图标），至少包含：组织内联系人、外部联系人、新的联系人、星标联系人、我的群组。本切片 MUST NOT 提供邮箱联系人入口。
@@ -11,6 +14,11 @@ TBD - created by archiving change workspace-contacts-enrich-web. Update Purpose 
 
 - **WHEN** 用户点击左栏某一分类
 - **THEN** 该分类高亮，主区切换为对应内容，且不展示部门树作为左栏主导航
+
+#### Scenario: Category navigation remains
+
+- **WHEN** 用户打开 `/app/contacts`
+- **THEN** 左栏仍为分类导航（组织内 / 外部 / 新的联系人 / 星标 / 我的群组），且无邮箱联系人入口
 
 ### Requirement: Organization contacts by department
 
@@ -28,37 +36,80 @@ TBD - created by archiving change workspace-contacts-enrich-web. Update Purpose 
 
 ### Requirement: External contacts alphabetical list
 
-「外部联系人」主区 MUST 以显示名排序并按首字母分组展示列表。`-web` 阶段可用 store 临时数据；拉丁字母归入 A–Z，非拉丁可归入 `#`。
+「外部联系人」主区 MUST 以显示名排序并按首字母分组展示列表。数据 MUST 来自 `GET /app-api/system/contact/external/list`（持久化外部联系人关系）；工作台客户端 MUST 以此为唯一数据真源，MUST NOT 使用 store seed / 常驻 Mock。拉丁字母归入 A–Z，非拉丁可归入 `#`。服务端 SHOULD 返回 `sortLetter`；客户端在缺失时可本地兜底。
 
-#### Scenario: View grouped external contacts
+#### Scenario: View grouped external contacts from API
 
-- **WHEN** 用户打开「外部联系人」且存在临时/真实外部联系人
-- **THEN** 主区按首字母分组列出联系人名称
+- **WHEN** 用户打开「外部联系人」且 API 返回外部联系人
+- **THEN** 主区按首字母分组列出联系人名称（显示名、可选 `orgLabel`）
+
+#### Scenario: Empty external list without mock
+
+- **WHEN** 用户打开「外部联系人」且 API 返回空数组
+- **THEN** 主区展示空状态，且页面不注入演示用假联系人
+
+#### Scenario: List external contacts via API
+
+- **WHEN** 有效组织成员请求 `GET /app-api/system/contact/external/list`
+- **THEN** 系统返回当前租户下、当前用户为 owner 的外部联系人数组；每项含 `id`、`userId`、`displayName`，以及可选 `orgLabel`、`avatarText`、`sortLetter`
 
 ### Requirement: New contact friend requests
 
-「新的联系人」主区 MUST 展示加好友/加联系人申请，并显示状态（至少含待处理与已通过）。`-web` 阶段可用 store 临时数据，并允许本地将待处理标记为已通过。
+「新的联系人」主区 MUST 展示加好友/加联系人申请，并显示状态（至少含待处理与已通过）。列表 MUST 来自 `GET /app-api/system/contact/request/list`。点击「同意」MUST 调用 `POST /app-api/system/contact/request/{id}/accept`：将该申请标为已通过，并为当前用户写入对应外部联系人关系（若不存在则创建）；成功后刷新申请与外部联系人；MUST NOT 仅改本地内存作为真源。
 
-#### Scenario: Accept pending request locally
+#### Scenario: List contact requests via API
 
-- **WHEN** 用户对一条待处理申请点击「同意」
-- **THEN** 该条目状态变为已通过（本切片可为本地状态）
+- **WHEN** 有效组织成员请求 `GET /app-api/system/contact/request/list`
+- **THEN** 系统返回指向当前用户的申请列表；每项含 `id`、`fromUserId`、`displayName`、`status`（至少 `pending` \| `accepted`），以及可选 `subtitle`、`avatarText`、`createTime`
+
+#### Scenario: Accept pending request via backend
+
+- **WHEN** 用户对一条待处理申请点击「同意」且 API 成功
+- **THEN** 该条目状态变为已通过，且外部联系人列表可出现该申请人（刷新后仍存在）
+
+#### Scenario: Accept pending request via API
+
+- **WHEN** 当前用户对一条 `pending` 且 `to_user_id` 为自己的申请调用 accept
+- **THEN** 该申请 `status` 变为 `accepted`，且外部联系人列表中出现该 `fromUserId`（已存在则保持一条）
+
+#### Scenario: Accept non-owned or non-pending request
+
+- **WHEN** 用户对不存在、非指向自己、或非 `pending` 的申请调用 accept
+- **THEN** 系统拒绝该操作（业务错误，不静默成功）
 
 ### Requirement: Starred contacts list
 
-「星标联系人」主区 MUST 展示已星标人员列表，并允许取消星标。`-web` 阶段可用 store 临时数据。
+「星标联系人」主区 MUST 展示已星标人员列表，并允许取消星标。列表与变更 MUST 走 `GET/PUT /app-api/system/contact/starred/*`（`PUT` body 含 `starred: true | false`）；MUST NOT 使用 store seed 作为真源。
 
-#### Scenario: Unstar a contact
+#### Scenario: List starred contacts via API
 
-- **WHEN** 用户在星标列表取消某联系人星标
-- **THEN** 该联系人从星标列表移除（本切片可为本地状态）
+- **WHEN** 有效组织成员请求 `GET /app-api/system/contact/starred/list`
+- **THEN** 系统返回当前租户下、当前用户星标的人员列表（含 `userId` 与显示字段）
+
+#### Scenario: Star and unstar a contact via API
+
+- **WHEN** 用户对某 `userId` 调用 `PUT` 且 `starred=true`
+- **THEN** 星标列表包含该用户；随后 `starred=false` 后该用户不再出现在星标列表
+
+#### Scenario: Unstar a contact via backend
+
+- **WHEN** 用户在星标列表取消某联系人星标且 API 成功
+- **THEN** 该联系人从星标列表移除；刷新页面后仍不出现
 
 ### Requirement: My groups from conversations
 
-「我的群组」主区 MUST 展示当前用户参与的群会话；优先使用 IM 会话列表中 `type=group` 的项，不足时可辅以 store 临时项。点击群组 MUST 进入消息页对应会话。
+「我的群组」主区 MUST 展示当前用户参与的群会话；MUST 使用 IM 会话列表中 `type=group` 的项作为真源，MUST NOT 使用 store 临时群项填充。点击群组 MUST 进入消息页对应会话。
 
 #### Scenario: Open group conversation
 
-- **WHEN** 用户在「我的群组」点击某一群
-- **THEN** 系统导航到 `/app/messages` 并选中该群会话（若为临时项且无真实会话 ID，则可仅展示占位或 toast）
+- **WHEN** 用户在「我的群组」点击某一真实群会话
+- **THEN** 系统导航到 `/app/messages` 并选中该群会话
 
+### Requirement: Contact enrich APIs tenant and member scope
+
+外部联系人、申请与星标的读写 MUST 限定在当前 JWT 租户与当前用户；MUST NOT 读写其他用户的关系数据。未登录或非有效组织成员 MUST NOT 访问这些 `/app-api/system/contact/*` 端点。
+
+#### Scenario: Reject unauthenticated contact list
+
+- **WHEN** 无有效 JWT 请求任一 contact enrich 列表端点
+- **THEN** 系统拒绝访问（与现有 `/app-api` 鉴权一致）

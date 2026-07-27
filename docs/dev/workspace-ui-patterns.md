@@ -58,7 +58,7 @@ web/src/
 | self | 封面可点替换；签名可编辑；**消息**可开自聊备忘；无语音/视频；无「给自己备注」 |
 | peer | 签名只读；备注与描述可编辑（查看者私有）；消息接通；语音/视频占位；封面右上角 **⋯** 菜单可「设为/取消星标联系人」 |
 | 入口 | Rail「我的个人名片」→ self；通讯录点成员 → peer（若点自己则 self）；**列表所有者芯片** → self/peer |
-| 数据 | `stores/businessCard` + `stores/profile` → app-api；契约见 [`workspace-business-card/contract.md`](../../openspec/lanes/workspace-business-card/contract.md)；星标临时态见 `stores/contacts` |
+| 数据 | `stores/businessCard` + `stores/profile` → app-api；契约见 [`workspace-business-card/contract.md`](../../openspec/lanes/workspace-business-card/contract.md)；星标走 `stores/contacts` → `/app-api/system/contact/starred/*` |
 
 ## 所有者芯片（列表通用）
 
@@ -119,10 +119,10 @@ web/src/
 | Shell | 不开启 `show-aside`（无「活跃状态」右栏） |
 | Panel | 飞书式**分类导航**（图标）：组织内联系人、外部联系人、新的联系人、星标联系人、我的群组；**不做**邮箱联系人 |
 | 组织内 | 主区：部门面包屑 + 子部门行（「下级」）+ 直属成员；数据仍走 `dept/tree` · `list-by-dept`；页内不设搜索（统一走 Rail ⌘K） |
-| 外部 | 按显示名首字母分组（拉丁 A–Z，其余 `#`）；`-web` 临时数据，契约见 [`workspace-contacts-enrich`](../../openspec/lanes/workspace-contacts-enrich/contract.md) |
-| 新的联系人 | 好友申请列表 + 待处理/已通过；可本地「同意」 |
-| 星标 | 星标列表 + 取消星标；**设为星标**入口在 peer 名片封面右上角「⋯」菜单 |
-| 我的群组 | 优先 IM `type=group` 会话；点击进 `/app/messages` |
+| 外部 | 按显示名首字母分组（拉丁 A–Z，其余 `#`）；数据 `GET /app-api/system/contact/external/list`，契约见 [`workspace-contacts-enrich`](../../openspec/lanes/workspace-contacts-enrich/contract.md) |
+| 新的联系人 | 好友申请列表 + 待处理/已通过；「同意」走 `POST …/contact/request/{id}/accept` |
+| 星标 | 星标列表 + 取消星标（`GET/PUT …/contact/starred/*`）；**设为星标**入口在 peer 名片封面右上角「⋯」菜单 |
+| 我的群组 | IM 会话 `type=group`；点击进 `/app/messages`；无临时群占位 |
 | 点人 | `WorkspaceBusinessCard`（peer；点自己则 self）；消息 → 单聊 |
 | 组件 | `components/workspace/contacts/*` |
 

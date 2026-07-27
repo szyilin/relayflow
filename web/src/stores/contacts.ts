@@ -1,10 +1,19 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  acceptContactRequest,
   getContactsByDept,
   getDeptTree,
+  listContactRequests,
+  listExternalContacts,
+  listStarredContacts,
+  updateContactStarred,
   type ContactItem,
-  type DeptTreeItem
+  type ContactRequestItem,
+  type ContactRequestStatus,
+  type DeptTreeItem,
+  type ExternalContactItem,
+  type StarredContactItem
 } from '../api/app/contacts'
 import { ApiError } from '../api/request'
 import { groupBySortLetter } from '../utils/contactSort'
@@ -16,40 +25,19 @@ export type ContactsCategory =
   | 'starred'
   | 'groups'
 
+export type {
+  ContactRequestItem,
+  ContactRequestStatus,
+  ExternalContactItem,
+  StarredContactItem
+}
+
 export interface ContactDeptTreeNode {
   id: string
   label: string
   dept: DeptTreeItem
   children?: ContactDeptTreeNode[]
   defaultExpanded?: boolean
-}
-
-export interface ExternalContactItem {
-  id: string
-  userId: string
-  displayName: string
-  orgLabel: string
-  avatarText: string
-}
-
-export type ContactRequestStatus = 'pending' | 'accepted' | 'rejected'
-
-export interface ContactRequestItem {
-  id: string
-  fromUserId: string
-  displayName: string
-  subtitle: string
-  avatarText: string
-  status: ContactRequestStatus
-}
-
-export interface StarredContactItem {
-  id: string
-  userId: string
-  displayName: string
-  orgLabel: string
-  avatarText: string
-  username?: string
 }
 
 const ROOT_PARENT_ID = '0'
@@ -71,57 +59,6 @@ function buildTree(items: DeptTreeItem[], parentId = ROOT_PARENT_ID): ContactDep
     })
 }
 
-function seedExternal(): ExternalContactItem[] {
-  return [
-    {
-      id: 'ext-1',
-      userId: '9001',
-      displayName: 'Audrey',
-      orgLabel: '用户 687476 的组织 · 未认证',
-      avatarText: 'A'
-    },
-    {
-      id: 'ext-2',
-      userId: '9002',
-      displayName: '陈可',
-      orgLabel: '外部协作方',
-      avatarText: '陈'
-    },
-    {
-      id: 'ext-3',
-      userId: '9003',
-      displayName: 'Blake',
-      orgLabel: 'Partner Co.',
-      avatarText: 'B'
-    }
-  ]
-}
-
-function seedRequests(): ContactRequestItem[] {
-  return [
-    {
-      id: 'req-1',
-      fromUserId: '9001',
-      displayName: 'Audrey',
-      subtitle: '想添加你为联系人',
-      avatarText: 'A',
-      status: 'pending'
-    },
-    {
-      id: 'req-2',
-      fromUserId: '9004',
-      displayName: '周明',
-      subtitle: '通过群聊添加',
-      avatarText: '周',
-      status: 'accepted'
-    }
-  ]
-}
-
-function seedStarred(): StarredContactItem[] {
-  return []
-}
-
 export const useContactsStore = defineStore('contacts', () => {
   const category = ref<ContactsCategory>('org')
   const depts = ref<DeptTreeItem[]>([])
@@ -131,12 +68,12 @@ export const useContactsStore = defineStore('contacts', () => {
   const keyword = ref('')
   const loadingDepts = ref(false)
   const loadingMembers = ref(false)
+  const loadingEnrich = ref(false)
   const lastError = ref<string | null>(null)
 
-  /** Temporary -web data; remove on integrate. */
-  const externalContacts = ref<ExternalContactItem[]>(seedExternal())
-  const contactRequests = ref<ContactRequestItem[]>(seedRequests())
-  const starredContacts = ref<StarredContactItem[]>(seedStarred())
+  const externalContacts = ref<ExternalContactItem[]>([])
+  const contactRequests = ref<ContactRequestItem[]>([])
+  const starredContacts = ref<StarredContactItem[]>([])
 
   const tree = computed(() => buildTree(depts.value))
 
@@ -261,29 +198,94 @@ export const useContactsStore = defineStore('contacts', () => {
     selectedContactId.value = contactId
   }
 
-  function acceptRequest(requestId: string) {
-    const item = contactRequests.value.find(r => r.id === requestId)
-    if (!item || item.status !== 'pending') {
-      return
+  async function fetchExternal(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      loadingEnrich.value = true
     }
-    item.status = 'accepted'
-    if (!externalContacts.value.some(c => c.userId === item.fromUserId)) {
-      externalContacts.value.push({
-        id: `ext-${item.fromUserId}`,
-        userId: item.fromUserId,
-        displayName: item.displayName,
-        orgLabel: '外部联系人',
-        avatarText: item.avatarText
-      })
+    lastError.value = null
+    try {
+      externalContacts.value = await listExternalContacts()
+    } catch (error) {
+      externalContacts.value = []
+      lastError.value = error instanceof ApiError ? error.message : '加载外部联系人失败'
+      throw error
+    } finally {
+      if (!options?.silent) {
+        loadingEnrich.value = false
+      }
     }
   }
 
-  function unstarContact(userId: string) {
-    starredContacts.value = starredContacts.value.filter(item => item.userId !== userId)
+  async function fetchRequests(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      loadingEnrich.value = true
+    }
+    lastError.value = null
+    try {
+      contactRequests.value = await listContactRequests()
+    } catch (error) {
+      contactRequests.value = []
+      lastError.value = error instanceof ApiError ? error.message : '加载联系人申请失败'
+      throw error
+    } finally {
+      if (!options?.silent) {
+        loadingEnrich.value = false
+      }
+    }
   }
 
-  function toggleStarFromMember(member: ContactItem) {
-    toggleStar({
+  async function fetchStarred(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      loadingEnrich.value = true
+    }
+    lastError.value = null
+    try {
+      starredContacts.value = await listStarredContacts()
+    } catch (error) {
+      starredContacts.value = []
+      lastError.value = error instanceof ApiError ? error.message : '加载星标联系人失败'
+      throw error
+    } finally {
+      if (!options?.silent) {
+        loadingEnrich.value = false
+      }
+    }
+  }
+
+  async function ensureCategoryData(next: ContactsCategory) {
+    if (next === 'external') {
+      await fetchExternal()
+    } else if (next === 'requests') {
+      await fetchRequests()
+    } else if (next === 'starred') {
+      await fetchStarred()
+    }
+  }
+
+  async function acceptRequest(requestId: string) {
+    lastError.value = null
+    try {
+      await acceptContactRequest(requestId)
+      await Promise.all([fetchRequests(), fetchExternal()])
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '同意申请失败'
+      throw error
+    }
+  }
+
+  async function unstarContact(userId: string) {
+    lastError.value = null
+    try {
+      await updateContactStarred(userId, false)
+      await fetchStarred()
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '取消星标失败'
+      throw error
+    }
+  }
+
+  async function toggleStarFromMember(member: ContactItem) {
+    return toggleStar({
       userId: member.id,
       displayName: member.nickname,
       orgLabel: member.deptName,
@@ -293,26 +295,23 @@ export const useContactsStore = defineStore('contacts', () => {
   }
 
   /** Returns true when the contact is starred after the toggle. */
-  function toggleStar(input: {
+  async function toggleStar(input: {
     userId: string
     displayName: string
     orgLabel?: string
     avatarText: string
     username?: string
-  }): boolean {
-    if (isStarred(input.userId)) {
-      unstarContact(input.userId)
-      return false
+  }): Promise<boolean> {
+    lastError.value = null
+    const nextStarred = !isStarred(input.userId)
+    try {
+      await updateContactStarred(input.userId, nextStarred)
+      await fetchStarred()
+      return isStarred(input.userId)
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '更新星标失败'
+      throw error
     }
-    starredContacts.value.push({
-      id: `star-${input.userId}`,
-      userId: input.userId,
-      displayName: input.displayName,
-      orgLabel: input.orgLabel || '',
-      avatarText: input.avatarText,
-      username: input.username
-    })
-    return true
   }
 
   function isStarred(userId: string) {
@@ -327,9 +326,10 @@ export const useContactsStore = defineStore('contacts', () => {
     selectedContactId.value = undefined
     keyword.value = ''
     lastError.value = null
-    externalContacts.value = seedExternal()
-    contactRequests.value = seedRequests()
-    starredContacts.value = seedStarred()
+    loadingEnrich.value = false
+    externalContacts.value = []
+    contactRequests.value = []
+    starredContacts.value = []
   }
 
   return {
@@ -345,6 +345,7 @@ export const useContactsStore = defineStore('contacts', () => {
     keyword,
     loadingDepts,
     loadingMembers,
+    loadingEnrich,
     lastError,
     externalContacts,
     externalGrouped,
@@ -359,6 +360,10 @@ export const useContactsStore = defineStore('contacts', () => {
     fetchMembers,
     enterDept,
     selectContact,
+    fetchExternal,
+    fetchRequests,
+    fetchStarred,
+    ensureCategoryData,
     acceptRequest,
     unstarContact,
     toggleStarFromMember,
