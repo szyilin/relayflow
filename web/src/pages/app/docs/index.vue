@@ -11,11 +11,16 @@ import DocsRecentList from '../../../components/workspace/DocsRecentList.vue'
 import DocsSharedList from '../../../components/workspace/DocsSharedList.vue'
 import DocsStarredList from '../../../components/workspace/DocsStarredList.vue'
 import DocsShareDialog from '../../../components/workspace/DocsShareDialog.vue'
+import AppTreeSelect from '../../../components/AppTreeSelect.vue'
 import type { DocsLibraryNode, DocsSharePermission, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
 import { useDocsStore, type DocsHomeTab, type DocsPanel } from '../../../stores/docs'
 import { useDocsDriveStore } from '../../../stores/docsDrive'
-import { listDriveFolders } from '../../../api/app/docs-drive'
+import {
+  libraryNodesToTreeSelectItems,
+  loadDriveFolderTreeSelectItems,
+  type AppTreeSelectItem
+} from '../../../utils/treeSelect'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,8 +39,8 @@ const moveParentId = ref<string | null>(null)
 const moveToDriveOpen = ref(false)
 const moveToDriveObjectId = ref<string | null>(null)
 const moveToDriveFolderId = ref<string | null>(null)
-const driveFolderTargets = ref<{ folderId: string | null, label: string }[]>([
-  { folderId: null, label: '我的文件夹（根）' }
+const driveFolderTreeItems = ref<AppTreeSelectItem[]>([
+  { id: '__drive_root__', label: '我的文件夹（根）', value: null, icon: 'i-lucide-hard-drive' }
 ])
 
 const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
@@ -48,7 +53,6 @@ const docOpenSource = ref<'library' | 'recent' | 'drive' | 'shared' | 'starred' 
 const navMode = ref<'root' | 'driveExplorer'>('root')
 const driveHover = ref(false)
 const driveBrowserRef = ref<{ triggerUpload: () => void } | null>(null)
-const driveFolderTreeRef = ref<{ refresh: () => Promise<void> } | null>(null)
 const pendingDriveUpload = ref(false)
 
 const shareOpen = ref(false)
@@ -174,20 +178,9 @@ function isPanelActive(key: PanelKey): boolean {
   return docs.panel === key
 }
 
-const flatMoveTargets = computed(() => {
-  const out: { nodeId: string | null, label: string }[] = [{ nodeId: null, label: '根目录' }]
-  function walk(nodes: DocsLibraryNode[], depth: number) {
-    for (const n of nodes) {
-      if (n.nodeId === moveNodeId.value) {
-        continue
-      }
-      out.push({ nodeId: n.nodeId, label: `${'—'.repeat(depth)} ${n.title}` })
-      walk(n.children, depth + 1)
-    }
-  }
-  walk(docs.treeRoots, 0)
-  return out
-})
+const libraryMoveTreeItems = computed(() =>
+  libraryNodesToTreeSelectItems(docs.treeRoots, { excludeNodeId: moveNodeId.value })
+)
 
 onMounted(async () => {
   await docs.ensureHydrated()
@@ -417,7 +410,7 @@ async function onDriveTreeCreateFolder() {
   }
   try {
     await docsDrive.createFolder(name.trim())
-    await driveFolderTreeRef.value?.refresh()
+    // Tree syncs from listing (no full refresh / flicker)
     toast.add({ title: '已新建文件夹', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '创建失败', color: 'error' })
@@ -631,13 +624,11 @@ async function openMoveToDrive(node: DocsLibraryNode) {
   moveToDriveObjectId.value = node.objectId
   moveToDriveFolderId.value = null
   try {
-    const root = await listDriveFolders(null)
-    driveFolderTargets.value = [
-      { folderId: null, label: '我的文件夹（根）' },
-      ...root.folders.map(f => ({ folderId: f.folderId, label: f.name }))
-    ]
+    driveFolderTreeItems.value = await loadDriveFolderTreeSelectItems()
   } catch {
-    driveFolderTargets.value = [{ folderId: null, label: '我的文件夹（根）' }]
+    driveFolderTreeItems.value = [
+      { id: '__drive_root__', label: '我的文件夹（根）', value: null, icon: 'i-lucide-hard-drive' }
+    ]
   }
   moveToDriveOpen.value = true
 }
@@ -765,7 +756,6 @@ meta:
         >
           <DocsDriveFolderTree
             v-if="navMode === 'driveExplorer'"
-            ref="driveFolderTreeRef"
             :selected-folder-id="docsDrive.currentFolderId"
             @back="leaveDriveExplorer"
             @select="onDriveTreeSelect"
@@ -1038,11 +1028,10 @@ meta:
   <UModal v-model:open="moveOpen" title="移动到">
     <template #body>
       <UFormField label="目标父页面">
-        <USelect
+        <AppTreeSelect
           v-model="moveParentId"
-          :items="flatMoveTargets.map(t => ({ label: t.label, value: t.nodeId }))"
-          value-key="value"
-          class="w-full"
+          :items="libraryMoveTreeItems"
+          placeholder="选择目标父页面"
         />
       </UFormField>
     </template>
@@ -1066,11 +1055,10 @@ meta:
   <UModal v-model:open="moveToDriveOpen" title="移动到云盘">
     <template #body>
       <UFormField label="目标文件夹">
-        <USelect
+        <AppTreeSelect
           v-model="moveToDriveFolderId"
-          :items="driveFolderTargets.map(t => ({ label: t.label, value: t.folderId }))"
-          value-key="value"
-          class="w-full"
+          :items="driveFolderTreeItems"
+          placeholder="选择目标文件夹"
         />
       </UFormField>
     </template>

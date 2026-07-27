@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { listDriveFolders, type DocsDriveFolder } from '../../api/app/docs-drive'
+import { useDocsDriveStore } from '../../stores/docsDrive'
 import DocsDriveFolderBranch from './DocsDriveFolderBranch.vue'
 import type { DriveFolderTreeNode } from './docsDriveFolderTreeTypes'
 
@@ -13,6 +14,8 @@ const emit = defineEmits<{
   createFolder: []
   back: []
 }>()
+
+const docsDrive = useDocsDriveStore()
 
 const rootChildren = ref<DriveFolderTreeNode[]>([])
 const expanded = ref<Set<string>>(new Set())
@@ -27,10 +30,144 @@ async function loadChildren(parentId: string | null): Promise<DriveFolderTreeNod
   return (resp.folders ?? []).map(toNode)
 }
 
+function findNode(
+  nodes: DriveFolderTreeNode[],
+  folderId: string
+): DriveFolderTreeNode | null {
+  for (const node of nodes) {
+    if (node.folderId === folderId) {
+      return node
+    }
+    const nested = findNode(node.children, folderId)
+    if (nested) {
+      return nested
+    }
+  }
+  return null
+}
+
+/** Merge server folder list into local nodes; keep expanded subtrees of surviving folders. */
+function mergePreserve(
+  previous: DriveFolderTreeNode[],
+  fresh: DocsDriveFolder[]
+): DriveFolderTreeNode[] {
+  const prevById = new Map(previous.map(n => [n.folderId, n]))
+  return fresh.map((folder) => {
+    const prev = prevById.get(folder.folderId)
+    if (!prev) {
+      return toNode(folder)
+    }
+    return {
+      ...folder,
+      children: prev.children,
+      loaded: prev.loaded
+    }
+  })
+}
+
+function setChildrenAt(parentId: string | null, folders: DocsDriveFolder[]) {
+  if (parentId == null) {
+    rootChildren.value = mergePreserve(rootChildren.value, folders)
+    return true
+  }
+  const parent = findNode(rootChildren.value, parentId)
+  if (!parent) {
+    return false
+  }
+  parent.children = mergePreserve(parent.children, folders)
+  parent.loaded = true
+  return true
+}
+
+/**
+ * Sync tree from the drive listing (create / rename / delete in main pane)
+ * without a full-tree reload — preserves expanded branches (no flash).
+ */
+function syncFromListing() {
+  const parentId = docsDrive.currentFolderId
+  const folders = docsDrive.listing.folders ?? []
+  const applied = setChildrenAt(parentId, folders)
+  if (!applied && parentId != null) {
+    // Parent not in tree yet — expand path, then apply once nodes exist.
+    void expandToSelected(parentId).then(() => {
+      setChildrenAt(parentId, folders)
+      if (folders.length) {
+        const next = new Set(expanded.value)
+        next.add(parentId)
+        expanded.value = next
+      }
+    })
+    return
+  }
+  // Creating under a folder: ensure parent is expanded so the new row is visible.
+  if (parentId != null && folders.length) {
+    const next = new Set(expanded.value)
+    if (!next.has(parentId)) {
+      next.add(parentId)
+      expanded.value = next
+    }
+  }
+}
+
+/** Expand ancestors along store breadcrumbs so the selected folder stays visible. */
+async function expandToSelected(folderId: string | null) {
+  if (folderId == null || !rootChildren.value.length) {
+    return
+  }
+
+  const pathIds = docsDrive.breadcrumbs
+    .map(c => c.folderId)
+    .filter((id): id is string => id != null)
+
+  const ancestors = pathIds.length && pathIds[pathIds.length - 1] === folderId
+    ? pathIds.slice(0, -1)
+    : pathIds.filter(id => id !== folderId)
+
+  const nextExpanded = new Set(expanded.value)
+  let level = rootChildren.value
+
+  for (const ancestorId of ancestors) {
+    const node = level.find(n => n.folderId === ancestorId)
+    if (!node) {
+      break
+    }
+    if (!node.loaded) {
+      node.children = await loadChildren(node.folderId)
+      node.loaded = true
+    }
+    nextExpanded.add(node.folderId)
+    level = node.children
+  }
+
+  expanded.value = nextExpanded
+}
+
 async function ensureRoot() {
   loading.value = true
   try {
+    const prevExpanded = new Set(expanded.value)
     rootChildren.value = await loadChildren(null)
+    const nextExpanded = new Set<string>()
+    async function restore(nodes: DriveFolderTreeNode[]) {
+      for (const node of nodes) {
+        if (!prevExpanded.has(node.folderId)) {
+          continue
+        }
+        if (!node.loaded) {
+          node.children = await loadChildren(node.folderId)
+          node.loaded = true
+        }
+        nextExpanded.add(node.folderId)
+        await restore(node.children)
+      }
+    }
+    await restore(rootChildren.value)
+    expanded.value = nextExpanded
+    await expandToSelected(props.selectedFolderId)
+    // Prefer listing for the open folder when available (already fetched by browser/store).
+    if (docsDrive.listing) {
+      syncFromListing()
+    }
   } finally {
     loading.value = false
   }
@@ -57,13 +194,19 @@ onMounted(() => {
 
 watch(
   () => props.selectedFolderId,
-  async (id) => {
-    if (id == null) {
+  (id) => {
+    void expandToSelected(id)
+  }
+)
+
+// Main-pane create / rename / delete updates listing → patch tree locally (no full remount).
+watch(
+  () => docsDrive.listingVersion,
+  (version) => {
+    if (version < 1) {
       return
     }
-    if (!rootChildren.value.some(n => n.folderId === id)) {
-      await ensureRoot()
-    }
+    syncFromListing()
   }
 )
 

@@ -98,6 +98,88 @@ export const useDeptStore = defineStore('dept', () => {
     return options
   }
 
+  /** Tree items for parent / dept pickers (excludes `excludeId` and its descendants). */
+  function parentTreeItems(excludeId?: DeptId) {
+    const blocked = new Set<string>()
+    if (excludeId != null) {
+      const seed = String(excludeId)
+      blocked.add(seed)
+      let grew = true
+      while (grew) {
+        grew = false
+        for (const item of list.value) {
+          if (blocked.has(item.id)) {
+            continue
+          }
+          if (blocked.has(item.parentId)) {
+            blocked.add(item.id)
+            grew = true
+          }
+        }
+      }
+    }
+
+    function convert(nodes: DeptTreeNode[]): Array<{
+      id: string
+      label: string
+      value: string | null
+      icon?: string
+      children?: ReturnType<typeof convert>
+      defaultExpanded?: boolean
+    }> {
+      return nodes
+        .filter(n => !blocked.has(n.id))
+        .map((n) => {
+          const children = n.children?.length ? convert(n.children) : undefined
+          return {
+            id: n.id,
+            label: n.label,
+            value: n.id,
+            icon: 'i-lucide-building-2',
+            ...(children?.length
+              ? { children, defaultExpanded: true }
+              : {})
+          }
+        })
+    }
+
+    return [
+      {
+        id: '__dept_root__',
+        label: '顶级部门',
+        value: ROOT_PARENT_ID,
+        icon: 'i-lucide-corner-left-up'
+      },
+      ...convert(tree.value)
+    ]
+  }
+
+  /** Flat-list-compatible dept tree for assigning a user's main department. */
+  function deptTreeItems() {
+    function convert(nodes: DeptTreeNode[]): Array<{
+      id: string
+      label: string
+      value: string | null
+      icon?: string
+      children?: ReturnType<typeof convert>
+      defaultExpanded?: boolean
+    }> {
+      return nodes.map((n) => {
+        const children = n.children?.length ? convert(n.children) : undefined
+        return {
+          id: n.id,
+          label: n.label,
+          value: n.id,
+          icon: 'i-lucide-building-2',
+          ...(children?.length
+            ? { children, defaultExpanded: true }
+            : {})
+        }
+      })
+    }
+    return convert(tree.value)
+  }
+
   function rootDeptId(): string | undefined {
     const roots = list.value
       .filter(item => item.parentId === ROOT_PARENT_ID)
@@ -130,6 +212,8 @@ export const useDeptStore = defineStore('dept', () => {
     update,
     remove,
     parentOptions,
+    parentTreeItems,
+    deptTreeItems,
     rootDeptId,
     findTreeNode
   }

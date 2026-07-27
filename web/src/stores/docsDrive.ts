@@ -32,6 +32,8 @@ export const useDocsDriveStore = defineStore('docsDrive', () => {
   ])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  /** Bumped after each successful/failed loadListing settle — tree syncs on this, not empty defaults. */
+  const listingVersion = ref(0)
 
   const breadcrumbs = computed(() => pathStack.value)
 
@@ -46,6 +48,7 @@ export const useDocsDriveStore = defineStore('docsDrive', () => {
       throw e
     } finally {
       loading.value = false
+      listingVersion.value += 1
     }
   }
 
@@ -162,11 +165,13 @@ export const useDocsDriveStore = defineStore('docsDrive', () => {
     pathStack.value = [{ folderId: null, name: '我的文件夹' }]
     loading.value = false
     error.value = null
+    listingVersion.value = 0
   }
 
   return {
     currentFolderId,
     listing,
+    listingVersion,
     breadcrumbs,
     loading,
     error,

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
+import AppTreeSelect from '../../../../components/AppTreeSelect.vue'
 import { usePermission } from '../../../../composables/usePermission'
 import {
   type DataScope,
@@ -10,6 +11,7 @@ import {
   type RolePageItem
 } from '../../../../api/admin/role'
 import { useRoleStore, type RoleListRecord } from '../../../../stores/role'
+import type { AppTreeSelectItem } from '../../../../utils/treeSelect'
 
 const toast = useToast()
 const roleStore = useRoleStore()
@@ -32,6 +34,73 @@ const form = reactive({
   remark: '',
   permissionIds: [] as number[],
   deptIdsText: ''
+})
+
+const parentRoleTreeItems = computed(() => {
+  const excludeId = form.id != null ? String(form.id) : null
+  const items = parentOptions.value.map(item => ({
+    id: String(item.id),
+    parentId: String(item.parentId ?? 0),
+    name: item.name
+  }))
+  const blocked = new Set<string>()
+  if (excludeId) {
+    blocked.add(excludeId)
+    let grew = true
+    while (grew) {
+      grew = false
+      for (const item of items) {
+        if (blocked.has(item.id)) {
+          continue
+        }
+        if (blocked.has(item.parentId)) {
+          blocked.add(item.id)
+          grew = true
+        }
+      }
+    }
+  }
+
+  function build(parentId: string): AppTreeSelectItem[] {
+    return items
+      .filter(item => item.parentId === parentId && !blocked.has(item.id))
+      .map((item) => {
+        const children = build(item.id)
+        return {
+          id: item.id,
+          label: item.name,
+          value: item.id,
+          icon: 'i-lucide-shield',
+          ...(children.length ? { children, defaultExpanded: true } : {})
+        }
+      })
+  }
+
+  const roots = build('0')
+  if (roots.length) {
+    return roots
+  }
+  const ids = new Set(items.map(i => i.id))
+  return items
+    .filter(item => !blocked.has(item.id) && !ids.has(item.parentId))
+    .map((item) => {
+      const children = build(item.id)
+      return {
+        id: item.id,
+        label: item.name,
+        value: item.id,
+        icon: 'i-lucide-shield' as const,
+        ...(children.length ? { children, defaultExpanded: true } : {})
+      }
+    })
+})
+
+const parentRoleIdModel = computed({
+  get: () => String(form.parentId),
+  set: (value: string | null | undefined) => {
+    const next = Number(value)
+    form.parentId = Number.isFinite(next) && next > 0 ? next : (parentOptions.value[0]?.id ?? 100)
+  }
 })
 
 const dataScopeOptions: { label: string, value: DataScope }[] = [{
@@ -380,10 +449,10 @@ meta:
         <template #body>
           <form class="space-y-4" @submit.prevent="onSubmit">
             <UFormField label="上级角色" required>
-              <USelectMenu
-                v-model="form.parentId"
-                :items="parentOptions.map(item => ({ label: item.name, value: item.id }))"
-                value-key="value"
+              <AppTreeSelect
+                v-model="parentRoleIdModel"
+                :items="parentRoleTreeItems"
+                placeholder="选择上级角色"
               />
             </UFormField>
 

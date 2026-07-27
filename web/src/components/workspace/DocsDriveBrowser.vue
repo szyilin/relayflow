@@ -6,9 +6,10 @@ import { downloadAuthenticatedFile } from '../../api/app/file'
 import { useDocsDriveStore } from '../../stores/docsDrive'
 import { useDocsStore } from '../../stores/docs'
 import { useAuthStore } from '../../stores/auth'
-import type { DocsLibraryNode } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import AppTreeSelect from '../AppTreeSelect.vue'
 import { resolveAvatarUrl } from '../../utils/avatar'
+import { libraryNodesToTreeSelectItems } from '../../utils/treeSelect'
 
 defineProps<{
   /** When true, hide top crumbs (middle tree already navigates) */
@@ -36,17 +37,9 @@ const moveToLibraryOpen = ref(false)
 const moveToLibraryObjectId = ref<string | null>(null)
 const moveToLibraryParentId = ref<string | null>(null)
 
-const libraryParentTargets = computed(() => {
-  const out: { parentId: string | null, label: string }[] = [{ parentId: null, label: '文档库根目录' }]
-  function walk(nodes: DocsLibraryNode[], depth: number) {
-    for (const n of nodes) {
-      out.push({ parentId: n.nodeId, label: `${'—'.repeat(depth)} ${n.title}` })
-      walk(n.children, depth + 1)
-    }
-  }
-  walk(docs.treeRoots, 0)
-  return out
-})
+const libraryParentTreeItems = computed(() =>
+  libraryNodesToTreeSelectItems(docs.treeRoots)
+)
 
 onMounted(async () => {
   try {
@@ -507,11 +500,10 @@ defineExpose({
     >
       <template #body>
         <UFormField label="目标父页面">
-          <USelect
+          <AppTreeSelect
             v-model="moveToLibraryParentId"
-            :items="libraryParentTargets.map(t => ({ label: t.label, value: t.parentId }))"
-            value-key="value"
-            class="w-full"
+            :items="libraryParentTreeItems"
+            placeholder="选择目标父页面"
           />
         </UFormField>
       </template>

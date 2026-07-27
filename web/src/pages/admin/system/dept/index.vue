@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import type { TreeItem } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
+import AppTreeSelect from '../../../../components/AppTreeSelect.vue'
 import { usePermission } from '../../../../composables/usePermission'
 import { useDeptStore, type DeptTreeNode } from '../../../../stores/dept'
 import type { DeptItem } from '../../../../api/admin/dept'
@@ -28,7 +29,7 @@ const canCreate = computed(() => hasPermission('system:dept:create'))
 const canUpdate = computed(() => hasPermission('system:dept:update'))
 const canDelete = computed(() => hasPermission('system:dept:delete'))
 
-const parentSelectItems = computed(() => deptStore.parentOptions(editingDept.value?.id))
+const parentTreeItems = computed(() => deptStore.parentTreeItems(editingDept.value?.id))
 
 const modalTitle = computed(() => (editingDept.value ? '编辑部门' : '新建部门'))
 
@@ -235,11 +236,10 @@ meta:
         <template #body>
           <div class="space-y-4">
             <UFormField label="上级部门">
-              <USelectMenu
+              <AppTreeSelect
                 v-model="form.parentId"
-                :items="parentSelectItems"
-                value-key="value"
-                class="w-full"
+                :items="parentTreeItems"
+                placeholder="选择上级部门"
               />
             </UFormField>
 

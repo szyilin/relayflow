@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
+import AppTreeSelect from '../../../../components/AppTreeSelect.vue'
 import { useDeptStore } from '../../../../stores/dept'
 import { useRoleStore } from '../../../../stores/role'
 import { useUserStore } from '../../../../stores/user'
@@ -27,12 +28,7 @@ const form = reactive({
   roleIds: [] as string[]
 })
 
-const deptOptions = computed(() =>
-  deptStore.list.map(item => ({
-    label: item.name,
-    value: item.id
-  }))
-)
+const deptTreeItems = computed(() => deptStore.deptTreeItems())
 
 function toggleRole(roleId: string, checked: boolean) {
   if (checked) {
@@ -187,15 +183,11 @@ meta:
 
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
               <UFormField label="主部门" required class="md:col-span-1">
-                <USelectMenu
+                <AppTreeSelect
                   v-model="form.deptId"
-                  :items="deptOptions"
-                  value-key="value"
-                  label-key="label"
+                  :items="deptTreeItems"
                   placeholder="选择部门"
-                  :loading="optionsLoading"
-                  searchable
-                  size="lg"
+                  :disabled="optionsLoading"
                 />
               </UFormField>
 
