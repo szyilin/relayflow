@@ -10,11 +10,14 @@ export function avatarTextFromName(name?: string | null): string {
   return trimmed.slice(0, 1)
 }
 
-export function resolveAvatarUrl(avatar?: string | null): string | undefined {
-  if (!avatar?.trim()) {
+export function resolveAvatarUrl(avatar?: string | number | null): string | undefined {
+  if (avatar == null) {
     return undefined
   }
-  const value = avatar.trim()
+  const value = String(avatar).trim()
+  if (!value) {
+    return undefined
+  }
   if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
     return value.startsWith('/') ? `${API_BASE}${value}` : value
   }

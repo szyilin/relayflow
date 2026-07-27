@@ -1,14 +1,17 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  addRoleMembers,
   createRole,
   deleteRole,
   getPermissionList,
   getRole,
+  getRoleMembers,
   getRolePage,
+  removeRoleMember,
   updateRole,
-  type DataScope,
   type PermissionNode,
+  type RoleAdminSimple,
   type RoleDetail,
   type RolePageItem,
   type RoleSavePayload,
@@ -21,22 +24,12 @@ export interface RoleListRecord {
   id: string
   parentId: string
   name: string
-  code: string
   roleType: RoleType
-  roleTypeLabel: string
-  dataScope: DataScope
-  dataScopeLabel: string
+  isSystem: boolean
+  permissionSummary: string
+  admins: RoleAdminSimple[]
   status: string
   createTime: string
-  isSystem: boolean
-}
-
-const DATA_SCOPE_LABELS: Record<DataScope, string> = {
-  ALL: '全部数据',
-  DEPT: '本部门',
-  DEPT_AND_CHILD: '本部门及下级',
-  SELF: '仅本人',
-  CUSTOM: '自定义'
 }
 
 function normalizeRole(item: RolePageItem): RoleListRecord {
@@ -44,16 +37,14 @@ function normalizeRole(item: RolePageItem): RoleListRecord {
     id: String(item.id),
     parentId: String(item.parentId ?? 0),
     name: item.name,
-    code: item.code ?? '—',
     roleType: item.roleType,
-    roleTypeLabel: item.roleType === 'SYSTEM' ? '系统内置' : '自定义',
-    dataScope: item.dataScope,
-    dataScopeLabel: DATA_SCOPE_LABELS[item.dataScope] ?? item.dataScope,
+    isSystem: item.roleType === 'SYSTEM',
+    permissionSummary: item.permissionSummary?.trim() || '—',
+    admins: item.admins ?? [],
     status: typeof item.status === 'number'
       ? (item.status === 0 ? '启用' : '停用')
       : '启用',
-    createTime: item.createTime?.slice(0, 10) ?? '—',
-    isSystem: item.roleType === 'SYSTEM'
+    createTime: item.createTime?.slice(0, 10) ?? '—'
   }
 }
 
@@ -104,12 +95,12 @@ export const useRoleStore = defineStore('role', () => {
   async function fetchAllForOptions(): Promise<RolePageItem[]> {
     const collected: RolePageItem[] = []
     let pageNo = 1
-    let total = Infinity
+    let totalCount = Infinity
     const size = DEFAULT_LIST_PAGE_SIZE
-    while ((pageNo - 1) * size < total) {
+    while ((pageNo - 1) * size < totalCount) {
       const data = await getRolePage({ pageNo, pageSize: size })
       collected.push(...data.list)
-      total = data.total
+      totalCount = data.total
       if (data.list.length === 0) {
         break
       }
@@ -151,6 +142,18 @@ export const useRoleStore = defineStore('role', () => {
     await deleteRole(id)
   }
 
+  async function fetchMembers(roleId: number) {
+    return getRoleMembers(roleId)
+  }
+
+  async function addMembers(roleId: number, userIds: number[]) {
+    await addRoleMembers(roleId, userIds)
+  }
+
+  async function removeMember(roleId: number, userId: number) {
+    await removeRoleMember(roleId, userId)
+  }
+
   function setPage(next: number) {
     page.value = next
   }
@@ -171,6 +174,9 @@ export const useRoleStore = defineStore('role', () => {
     fetchPermissions,
     saveRole,
     removeRole,
+    fetchMembers,
+    addMembers,
+    removeMember,
     setPage
   }
 })

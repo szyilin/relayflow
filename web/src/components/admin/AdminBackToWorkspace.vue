@@ -15,9 +15,3 @@ defineProps<{
     <span v-if="!collapsed" class="truncate">返回工作台</span>
   </RouterLink>
 </template>
-
-<style scoped>
-.admin-back-workspace {
-  margin-bottom: 0.25rem;
-}
-</style>

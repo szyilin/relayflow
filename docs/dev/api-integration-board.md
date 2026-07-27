@@ -29,12 +29,12 @@
 | admin-user-list | **ready** | **done** | `GET …/user/page` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-list/contract.md) | store 无 Mock |
 | system-rbac-kernel | **ready** | **done** | `GET …/auth/get-permission-info` · nav 权限过滤 | [contract](../../openspec/lanes/system-rbac-kernel/contract.md) | store 无 Mock；sidebar 按 permission 过滤 |
 | admin-dept | **ready** | **done** | `GET/POST/PUT/DELETE …/dept/*` · `/admin/system/dept` | [contract](../../openspec/lanes/admin-dept/contract.md) | store 无 Mock；部门树 CRUD |
-| admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | store 无 Mock；角色 CRUD + 绑权限/数据范围 |
+| admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` + members · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | 管理员角色；功能权限 + 成员；无 data_scope（见 `admin-roles-simplify`） |
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
 | infra-storage-config | **archived** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
 | infra-file | **archived** | **done** | 列表/上传/删除/下载 · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | Presigned 直传 + 302 下载；⑧ integrate 完成 |
 | im-direct-chat | **ready** | **done** | `GET/POST /app-api/im/*` · `/app/messages` | [contract](../../openspec/lanes/im-direct-chat/contract.md) | store 无 Mock；REST + WS `message.new` |
-| admin-user-by-dept | **ready** | **done** | `GET …/user/page?deptId=` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-by-dept/contract.md) | 左树右表；`deptId` 主部门过滤 + data_scope 交集 |
+| admin-user-by-dept | **ready** | **done** | `GET …/user/page?deptId=` · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-by-dept/contract.md) | 左树右表；`deptId` 主部门过滤（无角色 data_scope） |
 | workspace-contacts | **ready** | **done** | `GET /app-api/system/dept/*` · `/app/contacts` | [contract](../../openspec/lanes/workspace-contacts/contract.md) | 组织内部门/成员 API 已就绪；目录壳层见 enrich |
 | **workspace-contacts-enrich** | **archived** | **done** | `/app-api/system/contact/*` · `/app/contacts` | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-web`/`-api`/`-integrate` 已归档；外部/申请/星标无 store Mock |
 | im-group-chat | **ready** | **done** | `POST/GET …/im/group/*` · `/app/messages` | [contract](../../openspec/lanes/im-group-chat/contract.md) | store 无 Mock；群聊 REST + WS |

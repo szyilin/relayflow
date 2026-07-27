@@ -12,7 +12,6 @@ import com.relayflow.module.system.dal.mapper.SysRolePermissionMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantMapper;
 import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
-import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.RoleType;
 import com.relayflow.module.system.service.dept.DeptService;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
@@ -132,7 +131,6 @@ class TenantBootstrapServiceTest {
         assertTrue(superAdminRole != null);
         assertTrue("super_admin".equals(superAdminRole.getCode()));
         assertTrue(RoleType.SYSTEM == superAdminRole.getRoleType());
-        assertTrue(DataScope.ALL == superAdminRole.getDataScope());
         assertTrue(!copiedPermissions.isEmpty());
         assertTrue(rolePermissions.size() == copiedPermissions.size());
 

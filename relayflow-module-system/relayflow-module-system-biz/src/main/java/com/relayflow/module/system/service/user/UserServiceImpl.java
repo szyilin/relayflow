@@ -43,10 +43,8 @@ import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.dept.DeptService;
-import com.relayflow.module.system.service.permission.DataScopeHelper;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.permission.PermissionService;
-import com.relayflow.module.system.service.permission.dto.DataScopeResult;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,7 +83,6 @@ public class UserServiceImpl implements UserService {
     private final DeptService deptService;
     private final PasswordEncoder passwordEncoder;
     private final TenantProperties tenantProperties;
-    private final DataScopeHelper dataScopeHelper;
     private final PermissionCacheEvictor permissionCacheEvictor;
     private final TenantService tenantService;
     private final PermissionService permissionService;
@@ -336,7 +333,7 @@ public class UserServiceImpl implements UserService {
 
         Map<Long, TenantUserStatus> statusByUserId = tenantUsers.stream()
                 .collect(Collectors.toMap(SysTenantUserDO::getUserId, SysTenantUserDO::getStatus, (a, b) -> a));
-        Set<Long> userIds = filterUserIdsByDataScope(statusByUserId.keySet(), tenantId);
+        Set<Long> userIds = new HashSet<>(statusByUserId.keySet());
         if (userIds.isEmpty()) {
             return PageResult.empty();
         }
@@ -460,37 +457,6 @@ public class UserServiceImpl implements UserService {
             return "?";
         }
         return source.substring(0, 1);
-    }
-
-    private Set<Long> filterUserIdsByDataScope(Set<Long> tenantUserIds, Long tenantId) {
-        LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser == null) {
-            return tenantUserIds;
-        }
-
-        DataScopeResult scope = dataScopeHelper.computeDataScope(loginUser.getUserId(), tenantId);
-        if (scope.isAll()) {
-            return tenantUserIds;
-        }
-
-        Set<Long> visibleIds = new HashSet<>();
-        if (scope.isSelfOnly()) {
-            visibleIds.add(loginUser.getUserId());
-        }
-        if (!scope.getDeptIds().isEmpty()) {
-            List<SysUserDeptDO> relations = userDeptMapper.selectList(Wrappers.<SysUserDeptDO>lambdaQuery()
-                    .eq(SysUserDeptDO::getTenantId, tenantId)
-                    .in(SysUserDeptDO::getUserId, tenantUserIds)
-                    .in(SysUserDeptDO::getDeptId, scope.getDeptIds()));
-            relations.stream()
-                    .map(SysUserDeptDO::getUserId)
-                    .filter(Objects::nonNull)
-                    .forEach(visibleIds::add);
-        }
-
-        return tenantUserIds.stream()
-                .filter(visibleIds::contains)
-                .collect(Collectors.toSet());
     }
 
     private void assignDept(Long tenantId, Long userId, Long deptId, boolean defaultRootIfNull) {

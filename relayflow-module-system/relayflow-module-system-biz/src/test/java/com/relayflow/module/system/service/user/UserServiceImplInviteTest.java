@@ -22,7 +22,6 @@ import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.dept.DeptService;
-import com.relayflow.module.system.service.permission.DataScopeHelper;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.permission.PermissionService;
 import com.relayflow.module.system.service.tenant.TenantService;
@@ -73,8 +72,6 @@ class UserServiceImplInviteTest {
     private PasswordEncoder passwordEncoder;
     @Spy
     private TenantProperties tenantProperties = new TenantProperties();
-    @Mock
-    private DataScopeHelper dataScopeHelper;
     @Mock
     private PermissionCacheEvictor permissionCacheEvictor;
     @Mock

@@ -33,7 +33,7 @@ export function useAdminNav() {
     permission: 'system:user:list',
     onSelect: closeSidebar
   }, {
-    label: '角色管理',
+    label: '管理员角色',
     icon: 'i-lucide-shield',
     to: '/admin/system/role',
     permission: 'system:role:list',

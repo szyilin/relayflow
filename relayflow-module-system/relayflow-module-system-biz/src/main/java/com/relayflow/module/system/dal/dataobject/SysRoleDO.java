@@ -3,13 +3,11 @@ package com.relayflow.module.system.dal.dataobject;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.TenantBaseDO;
-import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.RoleType;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.io.Serializable;
 /**
  * <p>
  * 
@@ -37,9 +35,6 @@ public class SysRoleDO extends TenantBaseDO {
 
     @TableField("role_type")
     private RoleType roleType;
-
-    @TableField("data_scope")
-    private DataScope dataScope;
 
     @TableField("can_delegate")
     private Integer canDelegate;

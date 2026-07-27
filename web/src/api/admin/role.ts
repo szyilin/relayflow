@@ -1,25 +1,34 @@
 import { del, get, post, put } from '../request'
 
-export type DataScope = 'ALL' | 'DEPT' | 'DEPT_AND_CHILD' | 'SELF' | 'CUSTOM'
 export type RoleType = 'SYSTEM' | 'CUSTOM'
+
+export interface RoleAdminSimple {
+  userId: number
+  nickname?: string
+  username?: string
+  avatar?: string | null
+  mobile?: string | null
+  deptName?: string | null
+}
 
 export interface RolePageItem {
   id: number
   parentId: number
   name: string
-  code: string
+  code?: string | null
   roleType: RoleType
-  dataScope: DataScope
   canDelegate?: number
   sort?: number
   status?: number
   remark?: string
   createTime?: string
+  permissionIds?: number[]
+  permissionSummary?: string
+  admins?: RoleAdminSimple[]
 }
 
 export interface RoleDetail extends RolePageItem {
   permissionIds: number[]
-  deptIds: number[]
 }
 
 export interface RolePageResult {
@@ -34,16 +43,13 @@ export interface RolePageQuery {
 }
 
 export interface RoleSavePayload {
-  parentId: number
+  parentId?: number | null
   name: string
-  code: string
-  dataScope: DataScope
   canDelegate?: number
   sort?: number
   status?: number
   remark?: string
   permissionIds?: number[]
-  deptIds?: number[]
 }
 
 export interface RoleUpdatePayload extends RoleSavePayload {
@@ -91,6 +97,20 @@ export function deleteRole(id: number): Promise<boolean> {
   return del<boolean>('/admin-api/system/role/delete', {
     params: { id }
   })
+}
+
+export function getRoleMembers(roleId: number): Promise<RoleAdminSimple[]> {
+  return get<RoleAdminSimple[]>('/admin-api/system/role/members', {
+    params: { roleId }
+  })
+}
+
+export function addRoleMembers(roleId: number, userIds: number[]): Promise<boolean> {
+  return post<boolean>('/admin-api/system/role/add-members', { roleId, userIds })
+}
+
+export function removeRoleMember(roleId: number, userId: number): Promise<boolean> {
+  return post<boolean>('/admin-api/system/role/remove-member', { roleId, userId })
 }
 
 export function getPermissionList(): Promise<PermissionNode[]> {

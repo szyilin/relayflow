@@ -2,7 +2,10 @@ package com.relayflow.module.system.controller.admin.role;
 
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.common.pojo.PageResult;
+import com.relayflow.module.system.controller.admin.role.vo.RoleAdminSimpleVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleCreateReqVO;
+import com.relayflow.module.system.controller.admin.role.vo.RoleMemberRemoveReqVO;
+import com.relayflow.module.system.controller.admin.role.vo.RoleMembersAddReqVO;
 import com.relayflow.module.system.controller.admin.role.vo.RolePageReqVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleRespVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleUpdateReqVO;
@@ -20,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Validated
 @RestController
@@ -58,6 +63,26 @@ public class RoleController {
     @DeleteMapping("/delete")
     public CommonResult<Boolean> deleteRole(@RequestParam @NotNull Long id) {
         roleService.deleteRole(id);
+        return CommonResult.success(true);
+    }
+
+    @PreAuthorize("hasAuthority('system:role:query')")
+    @GetMapping("/members")
+    public CommonResult<List<RoleAdminSimpleVO>> listMembers(@RequestParam @NotNull Long roleId) {
+        return CommonResult.success(roleService.listMembers(roleId));
+    }
+
+    @PreAuthorize("hasAuthority('system:role:update')")
+    @PostMapping("/add-members")
+    public CommonResult<Boolean> addMembers(@Valid @RequestBody RoleMembersAddReqVO request) {
+        roleService.addMembers(request);
+        return CommonResult.success(true);
+    }
+
+    @PreAuthorize("hasAuthority('system:role:update')")
+    @PostMapping("/remove-member")
+    public CommonResult<Boolean> removeMember(@Valid @RequestBody RoleMemberRemoveReqVO request) {
+        roleService.removeMember(request);
         return CommonResult.success(true);
     }
 }

@@ -100,12 +100,13 @@ onMounted(async () => {
             class="admin-nav-menu"
           />
         </template>
-
-        <AdminBackToWorkspace :collapsed="collapsed" />
       </template>
 
       <template #footer="{ collapsed }">
-        <AdminUserMenu :collapsed="collapsed" />
+        <div class="flex w-full flex-col gap-0.5">
+          <AdminBackToWorkspace :collapsed="collapsed" />
+          <AdminUserMenu :collapsed="collapsed" />
+        </div>
       </template>
     </UDashboardSidebar>
 

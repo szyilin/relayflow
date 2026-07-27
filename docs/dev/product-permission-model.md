@@ -87,17 +87,17 @@ V2 在 §2.1–§2.3 语义不变的前提下，增加**企业（tenant）维度
 
 ## 3. 管理面 RBAC（进入后台之后）
 
-管理后台内部采用已有 **双轴 RBAC**（详见 `system-schema-v1` design、`docs/dev/code-style.md` § RBAC）：
+管理后台内部采用 **单轴 RBAC**（角色 + 功能权限；详见 `docs/dev/code-style.md` § RBAC、`admin-roles-simplify`）：
 
-| 轴 | 作用 |
+| 项 | 作用 |
 |----|------|
 | **功能权限** | `permission.code` 控制菜单、按钮、API（如 `system:user:list`） |
-| **数据范围** | `sys_role.data_scope` + `sys_role_dept` 控制可操作的组织数据边界 |
+| **数据可见性** | 具备某管理权限即对该类后台数据**全量**可见；**不**再按角色配置部门级「数据范围」 |
 
 约定：
 
 - 菜单/导航按 `permission.code` 过滤；无 permission 的 API 返回 HTTP 403。
-- 多角色 permission **并集**；data scope **并集**（与现有 kernel 一致）。
+- 多角色 permission **并集**。
 - **禁止**用管理面 RBAC 的 permission 去限制 `/app/**` 路由或员工工作台菜单（除非未来单独 spec 的客户端策略层）。
 
 ---

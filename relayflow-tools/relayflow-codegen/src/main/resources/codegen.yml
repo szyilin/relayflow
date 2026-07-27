@@ -47,4 +47,3 @@ modules:
 enum-columns:
   sys_tenant_user.status: TenantUserStatus
   sys_role.role_type: RoleType
-  sys_role.data_scope: DataScope

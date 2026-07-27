@@ -6,20 +6,30 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.PageResult;
 import com.relayflow.framework.tenant.config.TenantProperties;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.system.controller.admin.role.vo.RoleAdminSimpleVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleCreateReqVO;
+import com.relayflow.module.system.controller.admin.role.vo.RoleMemberRemoveReqVO;
+import com.relayflow.module.system.controller.admin.role.vo.RoleMembersAddReqVO;
 import com.relayflow.module.system.controller.admin.role.vo.RolePageReqVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleRespVO;
 import com.relayflow.module.system.controller.admin.role.vo.RoleUpdateReqVO;
 import com.relayflow.module.system.convert.RoleConvert;
+import com.relayflow.module.system.dal.dataobject.SysDeptDO;
+import com.relayflow.module.system.dal.dataobject.SysPermissionDO;
 import com.relayflow.module.system.dal.dataobject.SysRoleDO;
-import com.relayflow.module.system.dal.dataobject.SysRoleDeptDO;
 import com.relayflow.module.system.dal.dataobject.SysRolePermissionDO;
+import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
+import com.relayflow.module.system.dal.dataobject.SysUserDO;
+import com.relayflow.module.system.dal.dataobject.SysUserDeptDO;
 import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
-import com.relayflow.module.system.dal.mapper.SysRoleDeptMapper;
+import com.relayflow.module.system.dal.mapper.SysDeptMapper;
+import com.relayflow.module.system.dal.mapper.SysPermissionMapper;
 import com.relayflow.module.system.dal.mapper.SysRoleMapper;
 import com.relayflow.module.system.dal.mapper.SysRolePermissionMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
+import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
-import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.RoleType;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
@@ -30,24 +40,34 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class RoleServiceImpl implements RoleService {
 
+    private static final int PAGE_ADMIN_PREVIEW_LIMIT = 8;
+    private static final int PERMISSION_SUMMARY_MAX_LEN = 48;
+
     private final SysRoleMapper roleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
-    private final SysRoleDeptMapper roleDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
+    private final SysUserMapper userMapper;
+    private final SysTenantUserMapper tenantUserMapper;
+    private final SysUserDeptMapper userDeptMapper;
+    private final SysDeptMapper deptMapper;
+    private final SysPermissionMapper permissionMapper;
     private final TenantProperties tenantProperties;
     private final PermissionCacheEvictor permissionCacheEvictor;
 
@@ -60,16 +80,14 @@ public class RoleServiceImpl implements RoleService {
                 new Page<>(request.getPageNo(), request.getPageSize()),
                 Wrappers.<SysRoleDO>lambdaQuery()
                         .eq(SysRoleDO::getTenantId, tenantId)
-                        .and(StringUtils.hasText(keyword), wrapper -> wrapper
-                                .like(SysRoleDO::getName, keyword)
-                                .or()
-                                .like(SysRoleDO::getCode, keyword))
+                        .like(StringUtils.hasText(keyword), SysRoleDO::getName, keyword)
                         .orderByAsc(SysRoleDO::getSort)
                         .orderByAsc(SysRoleDO::getId));
 
         List<RoleRespVO> list = page.getRecords().stream()
                 .map(RoleConvert.INSTANCE::toVo)
                 .toList();
+        enrichPageExtras(list, tenantId);
         return PageResult.of(list, page.getTotal());
     }
 
@@ -79,7 +97,8 @@ public class RoleServiceImpl implements RoleService {
         SysRoleDO role = requireRole(id, tenantId);
         RoleRespVO vo = RoleConvert.INSTANCE.toVo(role);
         vo.setPermissionIds(loadPermissionIds(id, tenantId));
-        vo.setDeptIds(loadDeptIds(id, tenantId));
+        vo.setPermissionSummary(buildPermissionSummary(vo.getPermissionIds(), tenantId));
+        vo.setAdmins(listMembers(id));
         return vo;
     }
 
@@ -87,17 +106,16 @@ public class RoleServiceImpl implements RoleService {
     @Transactional
     public Long createRole(RoleCreateReqVO request) {
         Long tenantId = resolveTenantId();
-        validateParentExists(request.getParentId(), tenantId, null);
-        validateCodeUnique(request.getCode().trim(), tenantId, null);
-        validatePermissionSubset(request.getParentId(), tenantId, request.getPermissionIds());
+        Long parentId = normalizeParentId(request.getParentId());
+        validateParentExists(parentId, tenantId, null);
+        validatePermissionSubset(parentId, tenantId, request.getPermissionIds());
 
         SysRoleDO role = new SysRoleDO();
         role.setTenantId(tenantId);
-        role.setParentId(request.getParentId());
+        role.setParentId(parentId);
         role.setName(request.getName().trim());
-        role.setCode(request.getCode().trim());
+        role.setCode(null);
         role.setRoleType(RoleType.CUSTOM);
-        role.setDataScope(request.getDataScope());
         role.setCanDelegate(request.getCanDelegate() != null ? request.getCanDelegate() : 0);
         role.setSort(request.getSort() != null ? request.getSort() : 0);
         role.setStatus(request.getStatus() != null ? request.getStatus() : 0);
@@ -105,7 +123,6 @@ public class RoleServiceImpl implements RoleService {
         roleMapper.insert(role);
 
         syncRolePermissions(role.getId(), tenantId, request.getPermissionIds());
-        syncRoleDepts(role.getId(), tenantId, request.getDataScope(), request.getDeptIds());
         permissionCacheEvictor.evictByRole(tenantId, role.getId());
         return role.getId();
     }
@@ -119,14 +136,13 @@ public class RoleServiceImpl implements RoleService {
             throw new ServiceException(ErrorCodeConstants.ROLE_SYSTEM_UPDATE_FORBIDDEN);
         }
 
-        validateParentExists(request.getParentId(), tenantId, request.getId());
-        validateCodeUnique(request.getCode().trim(), tenantId, request.getId());
-        validatePermissionSubset(request.getParentId(), tenantId, request.getPermissionIds());
+        Long parentId = normalizeParentId(request.getParentId());
+        validateParentExists(parentId, tenantId, request.getId());
+        validatePermissionSubset(parentId, tenantId, request.getPermissionIds());
 
-        existing.setParentId(request.getParentId());
+        existing.setParentId(parentId);
         existing.setName(request.getName().trim());
-        existing.setCode(request.getCode().trim());
-        existing.setDataScope(request.getDataScope());
+        existing.setCode(null);
         if (request.getCanDelegate() != null) {
             existing.setCanDelegate(request.getCanDelegate());
         }
@@ -140,7 +156,6 @@ public class RoleServiceImpl implements RoleService {
         roleMapper.updateById(existing);
 
         syncRolePermissions(existing.getId(), tenantId, request.getPermissionIds());
-        syncRoleDepts(existing.getId(), tenantId, request.getDataScope(), request.getDeptIds());
         permissionCacheEvictor.evictByRole(tenantId, existing.getId());
     }
 
@@ -171,10 +186,192 @@ public class RoleServiceImpl implements RoleService {
         rolePermissionMapper.delete(Wrappers.<SysRolePermissionDO>lambdaQuery()
                 .eq(SysRolePermissionDO::getTenantId, tenantId)
                 .eq(SysRolePermissionDO::getRoleId, id));
-        roleDeptMapper.delete(Wrappers.<SysRoleDeptDO>lambdaQuery()
-                .eq(SysRoleDeptDO::getTenantId, tenantId)
-                .eq(SysRoleDeptDO::getRoleId, id));
         roleMapper.deleteById(id);
+    }
+
+    @Override
+    public List<RoleAdminSimpleVO> listMembers(Long roleId) {
+        Long tenantId = resolveTenantId();
+        requireRole(roleId, tenantId);
+        return loadAdmins(List.of(roleId), tenantId, Integer.MAX_VALUE).getOrDefault(roleId, List.of());
+    }
+
+    @Override
+    @Transactional
+    public void addMembers(RoleMembersAddReqVO request) {
+        Long tenantId = resolveTenantId();
+        requireRole(request.getRoleId(), tenantId);
+        if (CollectionUtils.isEmpty(request.getUserIds())) {
+            return;
+        }
+
+        Set<Long> existing = userRoleMapper.selectList(Wrappers.<SysUserRoleDO>lambdaQuery()
+                        .eq(SysUserRoleDO::getTenantId, tenantId)
+                        .eq(SysUserRoleDO::getRoleId, request.getRoleId())
+                        .in(SysUserRoleDO::getUserId, request.getUserIds()))
+                .stream()
+                .map(SysUserRoleDO::getUserId)
+                .collect(Collectors.toSet());
+
+        for (Long userId : request.getUserIds().stream().distinct().toList()) {
+            requireTenantMember(userId, tenantId);
+            if (existing.contains(userId)) {
+                continue;
+            }
+            SysUserRoleDO relation = new SysUserRoleDO();
+            relation.setTenantId(tenantId);
+            relation.setUserId(userId);
+            relation.setRoleId(request.getRoleId());
+            userRoleMapper.insert(relation);
+            permissionCacheEvictor.evictUser(tenantId, userId);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void removeMember(RoleMemberRemoveReqVO request) {
+        Long tenantId = resolveTenantId();
+        requireRole(request.getRoleId(), tenantId);
+        userRoleMapper.delete(Wrappers.<SysUserRoleDO>lambdaQuery()
+                .eq(SysUserRoleDO::getTenantId, tenantId)
+                .eq(SysUserRoleDO::getRoleId, request.getRoleId())
+                .eq(SysUserRoleDO::getUserId, request.getUserId()));
+        permissionCacheEvictor.evictUser(tenantId, request.getUserId());
+    }
+
+    private void enrichPageExtras(List<RoleRespVO> list, Long tenantId) {
+        if (list.isEmpty()) {
+            return;
+        }
+        List<Long> roleIds = list.stream().map(RoleRespVO::getId).toList();
+        Map<Long, List<Long>> permissionIdsByRole = loadPermissionIdsByRoles(roleIds, tenantId);
+        Map<Long, List<RoleAdminSimpleVO>> adminsByRole = loadAdmins(roleIds, tenantId, PAGE_ADMIN_PREVIEW_LIMIT);
+        for (RoleRespVO vo : list) {
+            List<Long> permissionIds = permissionIdsByRole.getOrDefault(vo.getId(), List.of());
+            vo.setPermissionIds(permissionIds);
+            vo.setPermissionSummary(buildPermissionSummary(permissionIds, tenantId));
+            vo.setAdmins(adminsByRole.getOrDefault(vo.getId(), List.of()));
+        }
+    }
+
+    private Map<Long, List<Long>> loadPermissionIdsByRoles(List<Long> roleIds, Long tenantId) {
+        if (roleIds.isEmpty()) {
+            return Map.of();
+        }
+        List<SysRolePermissionDO> relations = rolePermissionMapper.selectList(
+                Wrappers.<SysRolePermissionDO>lambdaQuery()
+                        .eq(SysRolePermissionDO::getTenantId, tenantId)
+                        .in(SysRolePermissionDO::getRoleId, roleIds));
+        Map<Long, List<Long>> result = new HashMap<>();
+        for (SysRolePermissionDO relation : relations) {
+            result.computeIfAbsent(relation.getRoleId(), ignored -> new ArrayList<>())
+                    .add(relation.getPermissionId());
+        }
+        result.values().forEach(ids -> ids.sort(Long::compareTo));
+        return result;
+    }
+
+    private Map<Long, List<RoleAdminSimpleVO>> loadAdmins(List<Long> roleIds, Long tenantId, int limitPerRole) {
+        if (roleIds.isEmpty()) {
+            return Map.of();
+        }
+        List<SysUserRoleDO> relations = userRoleMapper.selectList(Wrappers.<SysUserRoleDO>lambdaQuery()
+                .eq(SysUserRoleDO::getTenantId, tenantId)
+                .in(SysUserRoleDO::getRoleId, roleIds)
+                .orderByAsc(SysUserRoleDO::getId));
+        if (relations.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<Long> userIds = relations.stream().map(SysUserRoleDO::getUserId).collect(Collectors.toSet());
+        Map<Long, SysUserDO> users = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(SysUserDO::getId, Function.identity(), (a, b) -> a));
+        Map<Long, String> deptNameByUser = loadPrimaryDeptNames(userIds, tenantId);
+
+        Map<Long, List<RoleAdminSimpleVO>> result = new HashMap<>();
+        for (SysUserRoleDO relation : relations) {
+            List<RoleAdminSimpleVO> bucket = result.computeIfAbsent(relation.getRoleId(), ignored -> new ArrayList<>());
+            if (bucket.size() >= limitPerRole) {
+                continue;
+            }
+            SysUserDO user = users.get(relation.getUserId());
+            if (user == null) {
+                continue;
+            }
+            RoleAdminSimpleVO admin = new RoleAdminSimpleVO();
+            admin.setUserId(user.getId());
+            admin.setNickname(user.getNickname());
+            admin.setUsername(user.getUsername());
+            admin.setAvatar(user.getAvatar());
+            admin.setMobile(user.getMobile());
+            admin.setDeptName(deptNameByUser.get(user.getId()));
+            bucket.add(admin);
+        }
+        return result;
+    }
+
+    private Map<Long, String> loadPrimaryDeptNames(Set<Long> userIds, Long tenantId) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<SysUserDeptDO> relations = userDeptMapper.selectList(Wrappers.<SysUserDeptDO>lambdaQuery()
+                .eq(SysUserDeptDO::getTenantId, tenantId)
+                .in(SysUserDeptDO::getUserId, userIds)
+                .eq(SysUserDeptDO::getPrimaryFlag, 1));
+        if (relations.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> deptIds = relations.stream().map(SysUserDeptDO::getDeptId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> deptNames = deptIds.isEmpty()
+                ? Map.of()
+                : deptMapper.selectBatchIds(deptIds).stream()
+                .collect(Collectors.toMap(SysDeptDO::getId, SysDeptDO::getName, (a, b) -> a));
+        Map<Long, String> result = new HashMap<>();
+        for (SysUserDeptDO relation : relations) {
+            result.putIfAbsent(relation.getUserId(), deptNames.get(relation.getDeptId()));
+        }
+        return result;
+    }
+
+    private String buildPermissionSummary(List<Long> permissionIds, Long tenantId) {
+        if (CollectionUtils.isEmpty(permissionIds)) {
+            return "";
+        }
+        List<SysPermissionDO> all = permissionMapper.selectList(Wrappers.<SysPermissionDO>lambdaQuery()
+                .eq(SysPermissionDO::getTenantId, tenantId));
+        Map<Long, SysPermissionDO> byId = all.stream()
+                .collect(Collectors.toMap(SysPermissionDO::getId, Function.identity(), (a, b) -> a));
+        LinkedHashSet<String> roots = new LinkedHashSet<>();
+        for (Long permissionId : permissionIds) {
+            SysPermissionDO current = byId.get(permissionId);
+            while (current != null) {
+                Long parentId = current.getParentId() != null ? current.getParentId() : 0L;
+                if (parentId == 0L) {
+                    if (StringUtils.hasText(current.getName())) {
+                        roots.add(current.getName());
+                    }
+                    break;
+                }
+                current = byId.get(parentId);
+            }
+        }
+        if (roots.isEmpty()) {
+            return "";
+        }
+        String joined = String.join("、", roots);
+        if (joined.length() <= PERMISSION_SUMMARY_MAX_LEN) {
+            return joined;
+        }
+        return joined.substring(0, PERMISSION_SUMMARY_MAX_LEN - 1) + "…";
+    }
+
+    private void requireTenantMember(Long userId, Long tenantId) {
+        SysTenantUserDO tenantUser = tenantUserMapper.selectOne(Wrappers.<SysTenantUserDO>lambdaQuery()
+                .eq(SysTenantUserDO::getTenantId, tenantId)
+                .eq(SysTenantUserDO::getUserId, userId));
+        if (tenantUser == null) {
+            throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
+        }
     }
 
     private SysRoleDO requireRole(Long id, Long tenantId) {
@@ -185,6 +382,10 @@ public class RoleServiceImpl implements RoleService {
             throw new ServiceException(ErrorCodeConstants.ROLE_NOT_FOUND);
         }
         return role;
+    }
+
+    private Long normalizeParentId(Long parentId) {
+        return parentId == null || parentId == 0L ? 0L : parentId;
     }
 
     private void validateParentExists(Long parentId, Long tenantId, Long currentRoleId) {
@@ -208,15 +409,6 @@ public class RoleServiceImpl implements RoleService {
             if (descendants.contains(parentId)) {
                 throw new ServiceException(ErrorCodeConstants.ROLE_PARENT_INVALID);
             }
-        }
-    }
-
-    private void validateCodeUnique(String code, Long tenantId, Long excludeId) {
-        SysRoleDO existing = roleMapper.selectOne(Wrappers.<SysRoleDO>lambdaQuery()
-                .eq(SysRoleDO::getTenantId, tenantId)
-                .eq(SysRoleDO::getCode, code));
-        if (existing != null && !Objects.equals(existing.getId(), excludeId)) {
-            throw new ServiceException(ErrorCodeConstants.ROLE_CODE_DUPLICATE);
         }
     }
 
@@ -250,20 +442,6 @@ public class RoleServiceImpl implements RoleService {
                 .toList();
     }
 
-    private List<Long> loadDeptIds(Long roleId, Long tenantId) {
-        List<SysRoleDeptDO> relations = roleDeptMapper.selectList(
-                Wrappers.<SysRoleDeptDO>lambdaQuery()
-                        .eq(SysRoleDeptDO::getTenantId, tenantId)
-                        .eq(SysRoleDeptDO::getRoleId, roleId));
-        if (relations.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return relations.stream()
-                .map(SysRoleDeptDO::getDeptId)
-                .sorted()
-                .toList();
-    }
-
     private void syncRolePermissions(Long roleId, Long tenantId, List<Long> permissionIds) {
         rolePermissionMapper.delete(Wrappers.<SysRolePermissionDO>lambdaQuery()
                 .eq(SysRolePermissionDO::getTenantId, tenantId)
@@ -282,31 +460,13 @@ public class RoleServiceImpl implements RoleService {
         }
     }
 
-    private void syncRoleDepts(Long roleId, Long tenantId, DataScope dataScope, List<Long> deptIds) {
-        roleDeptMapper.delete(Wrappers.<SysRoleDeptDO>lambdaQuery()
-                .eq(SysRoleDeptDO::getTenantId, tenantId)
-                .eq(SysRoleDeptDO::getRoleId, roleId));
-
-        if (dataScope != DataScope.CUSTOM || CollectionUtils.isEmpty(deptIds)) {
-            return;
-        }
-
-        for (Long deptId : deptIds.stream().distinct().toList()) {
-            SysRoleDeptDO relation = new SysRoleDeptDO();
-            relation.setTenantId(tenantId);
-            relation.setRoleId(roleId);
-            relation.setDeptId(deptId);
-            roleDeptMapper.insert(relation);
-        }
-    }
-
     private Map<Long, List<Long>> loadRoleChildrenMap(Long tenantId) {
         List<SysRoleDO> roles = roleMapper.selectList(Wrappers.<SysRoleDO>lambdaQuery()
                 .eq(SysRoleDO::getTenantId, tenantId));
         Map<Long, List<Long>> childrenByParent = new HashMap<>();
         for (SysRoleDO role : roles) {
             Long parentId = role.getParentId() != null ? role.getParentId() : 0L;
-            childrenByParent.computeIfAbsent(parentId, ignored -> new java.util.ArrayList<>()).add(role.getId());
+            childrenByParent.computeIfAbsent(parentId, ignored -> new ArrayList<>()).add(role.getId());
         }
         return childrenByParent;
     }

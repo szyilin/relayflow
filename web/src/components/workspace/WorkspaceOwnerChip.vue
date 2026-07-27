@@ -52,11 +52,15 @@ const resolvedName = computed(() => {
 })
 
 const resolvedAvatarUrl = computed(() => {
-  if (props.avatarUrl) {
-    return resolveAvatarUrl(props.avatarUrl) || props.avatarUrl
-  }
+  // Prefer current session avatar for self — list payloads may carry a stale file id.
   if (isSelf.value) {
-    return resolveAvatarUrl(auth.user?.avatar)
+    const fromAuth = resolveAvatarUrl(auth.user?.avatar)
+    if (fromAuth) {
+      return fromAuth
+    }
+  }
+  if (props.avatarUrl) {
+    return resolveAvatarUrl(props.avatarUrl) || undefined
   }
   return undefined
 })
@@ -110,7 +114,7 @@ async function openMessage() {
   >
     <button
       type="button"
-      class="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left hover:bg-[var(--ws-bg-muted)]"
+      class="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left hover:bg-[var(--ws-bg-muted,var(--ui-bg-elevated))]"
       :title="resolvedName"
       @click="onChipClick"
     >
@@ -120,7 +124,7 @@ async function openMessage() {
         :text="avatarText"
         :class="avatarClass"
       />
-      <span class="min-w-0 truncate text-xs text-[var(--ws-text-secondary)]">
+      <span class="min-w-0 truncate text-xs text-[var(--ws-text-secondary,var(--ui-text-muted))]">
         {{ resolvedName }}
       </span>
     </button>

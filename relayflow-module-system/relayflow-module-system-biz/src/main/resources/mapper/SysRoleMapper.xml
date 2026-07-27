@@ -15,7 +15,6 @@
         <result column="name" property="name" />
         <result column="code" property="code" />
         <result column="role_type" property="roleType" />
-        <result column="data_scope" property="dataScope" />
         <result column="can_delegate" property="canDelegate" />
         <result column="sort" property="sort" />
         <result column="status" property="status" />
@@ -31,7 +30,7 @@
         updater,
         update_time,
         deleted,
-        parent_id, name, code, role_type, data_scope, can_delegate, sort, status, remark
+        parent_id, name, code, role_type, can_delegate, sort, status, remark
     </sql>
 
 </mapper>

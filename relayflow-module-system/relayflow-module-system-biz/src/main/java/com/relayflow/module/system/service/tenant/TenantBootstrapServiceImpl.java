@@ -15,7 +15,6 @@ import com.relayflow.module.system.dal.mapper.SysRolePermissionMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantMapper;
 import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
-import com.relayflow.module.system.enums.DataScope;
 import com.relayflow.module.system.enums.RoleType;
 import com.relayflow.module.system.service.dept.DeptService;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
@@ -99,7 +98,6 @@ public class TenantBootstrapServiceImpl implements TenantBootstrapService {
         role.setName("超级管理员");
         role.setCode(SUPER_ADMIN_CODE);
         role.setRoleType(RoleType.SYSTEM);
-        role.setDataScope(DataScope.ALL);
         role.setCanDelegate(1);
         role.setSort(0);
         role.setStatus(0);
