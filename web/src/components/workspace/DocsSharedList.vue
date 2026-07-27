@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DocsSharedWithMeItem } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import { resolveAvatarUrl } from '../../utils/avatar'
 
 const props = withDefaults(defineProps<{
   items: DocsSharedWithMeItem[]
@@ -107,6 +108,7 @@ function rowActions(item: DocsSharedWithMeItem) {
               v-if="item.ownerUserId"
               :user-id="item.ownerUserId"
               :display-name="item.ownerDisplayName"
+              :avatar-url="resolveAvatarUrl(item.ownerAvatarFileId)"
             />
             <span>{{ item.permission === 'EDIT' ? '可编辑' : '可阅读' }}</span>
             <span>{{ formatTime(item.sharedAt) }}</span>

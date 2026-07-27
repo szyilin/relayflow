@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DocsStarredItem } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import { resolveAvatarUrl } from '../../utils/avatar'
 
 const props = withDefaults(defineProps<{
   items: DocsStarredItem[]
@@ -91,6 +92,7 @@ function rowActions(item: DocsStarredItem) {
               v-if="item.ownerUserId"
               :user-id="item.ownerUserId"
               :display-name="item.ownerDisplayName"
+              :avatar-url="resolveAvatarUrl(item.ownerAvatarFileId)"
             />
           </div>
         </div>

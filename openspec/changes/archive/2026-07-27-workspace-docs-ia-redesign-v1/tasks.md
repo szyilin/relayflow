@@ -14,6 +14,7 @@
 
 ## 3. 归档闸门
 
-- [ ] 3.1 子 change 全部完成后：sync/archive 本母 change，主规格 `openspec/specs/` 反映 Home IA 与 OwnerChip
-- [ ] 3.2 浏览器路径验收写明：`/app/docs` 默认主页/最近 → 上传进云盘并上传 → 文档库树形列表+返回 → 云盘悬停›滑入树 → 所有者芯片打开名片；`/app/tasks` 负责人芯片
-- [ ] 3.3 （后置提醒）IA 归档后另开 `workspace-docs-drive-inspector-*`，以 design「后置提案 · 云盘详情检视栏」为起点展开执行方案
+- [x] 3.1 子 change 全部完成后：sync 主规格 `openspec/specs/` 反映 Home IA 与 OwnerChip（`docs` / `workspace-owner-chip` / `task`）；**archive 母 change 与子 change 待人工确认后执行**
+- [x] 3.2 浏览器路径验收写明：`/app/docs` 默认主页/最近 → 上传进云盘并上传 → 文档库树形列表+返回 → 云盘悬停›滑入树 → 所有者芯片打开名片；`/app/tasks` 负责人芯片
+  - 终端联调（2026-07-27）：spring-boot `:8080` + Vite `:5173`；登录 `19988888888`/`123456`；`recent`/`library/tree`/`drive/items`/`starred` 所有者字段与真实昵称对齐；看板 `workspace-docs-ia-redesign` / `workspace-owner-chip` → `web=done`
+- [x] 3.3 （后置提醒）IA 归档后另开 `workspace-docs-drive-inspector-*`，以 design「后置提案 · 云盘详情检视栏」为起点展开执行方案

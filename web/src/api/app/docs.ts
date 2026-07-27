@@ -69,6 +69,7 @@ export interface DocsRecentItem {
   ownerUserId?: string
   ownerDisplayName?: string
   ownedByMe?: boolean
+  ownerAvatarFileId?: string | null
   createTime?: string | null
   lastOpenedAt?: string | null
   starred?: boolean
@@ -90,10 +91,15 @@ export interface DocsSharedWithMeItem {
   permission: DocsSharePermission
   ownerUserId: string
   ownerDisplayName: string
+  ownedByMe?: boolean
+  ownerAvatarFileId?: string | null
   grantedByUserId: string
   grantedByDisplayName: string
   sharedAt: string
   starred: boolean
+  createTime?: string | null
+  lastOpenedAt?: string | null
+  locationLabel?: string
 }
 
 export interface DocsStarredItem {
@@ -104,7 +110,11 @@ export interface DocsStarredItem {
   accessState: DocsAccessState
   ownerUserId: string
   ownerDisplayName: string
+  ownedByMe?: boolean
+  ownerAvatarFileId?: string | null
   locationLabel: string
+  createTime?: string | null
+  lastOpenedAt?: string | null
 }
 
 export interface DocsBodySaveResp {

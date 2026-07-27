@@ -69,7 +69,7 @@ web/src/
 | 点击 | `stopPropagation` + `useClickAnchoredPopover` → `WorkspaceBusinessCard`；不得单独触发行打开 |
 | 数据 | `userId` 必填；`displayName` / `avatarUrl` 可选；否则从 auth / contacts 解析 |
 | 复用 | 云文档列表所有者列、任务负责人等；多负责人最多约 3 个 chip + `+N` |
-| Change | [`workspace-owner-chip-web`](../../openspec/changes/workspace-owner-chip-web/proposal.md) |
+| Change | [`workspace-owner-chip-web`](../../openspec/changes/archive/2026-07-27-workspace-owner-chip-web/proposal.md) |
 
 ## 工作台设置窗
 

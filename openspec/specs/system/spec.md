@@ -570,36 +570,44 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 ### 需求：工作台用户资料 API
 
-系统须向已认证工作台成员暴露 `/app-api/system/user/profile`，用于读写全局资料字段；**不**要求 `sys_permission`。
+系统须向已认证工作台成员暴露 `/app-api/system/user/profile`，用于读写**当前企业成员级**展示资料（昵称、头像、签名、封面）；**不**要求 `sys_permission`。账号密码等凭证字段仍属全局 `sys_user`。
 
 #### 场景：获取当前资料
 
 - 当 已认证工作台成员请求 `GET /app-api/system/user/profile`
 - 那么 返回 `userId`、`username`、`nickname`、`avatar`（fileId 或空）、`tenantId`、`tenantName`、`tenantVerified`（V1 恒为 `false`）、`isAdmin`
+- 并且 `nickname` / `avatar` / `signature` / `coverFileId` 来自当前 `sys_tenant_user` 成员资料（无成员值时昵称可回退 `sys_user` / username）
 
 #### 场景：更新昵称
 
 - 当 成员调用 `PUT /app-api/system/user/profile` 并提交非空 `nickname`（≤ 64 字符）
-- 那么 系统更新 `sys_user.nickname` 并返回与 GET 相同结构
+- 那么 系统更新当前租户 `sys_tenant_user.nickname` 并返回与 GET 相同结构
+- 并且 MUST NOT 用该昵称覆盖同账号其他企业的成员昵称
 
 #### 场景：更新头像
 
 - 当 成员调用 `PUT /app-api/system/user/profile` 并提交有效租户内 `fileId` 作为 `avatar`
-- 那么 系统写入 `sys_user.avatar` 并返回更新后资料
+- 那么 系统写入当前租户 `sys_tenant_user.avatar` 并返回更新后资料
+- 并且 MUST NOT 写入全局 `sys_user.avatar` 作为成员展示真源
 
 #### 场景：拒绝空昵称
 
 - 当 `PUT` 将 `nickname` 置空
 - 那么 系统以业务错误 `USER_NICKNAME_EMPTY` 拒绝
 
+#### 场景：跨企业资料隔离
+
+- 当 同一账号在企业 A 设置头像后切换到企业 B
+- 那么 企业 B 的 profile / permission-info 头像 MUST NOT 自动变成企业 A 的头像（除非 B 成员行本身有相同值）
+
 ### 需求：权限信息含头像
 
-系统须在 `GET /admin-api/system/auth/get-permission-info` 响应中包含当前用户 `avatar` fileId，供会话恢复与工作台 UI 展示。
+系统须在 `GET /admin-api/system/auth/get-permission-info` 响应中包含当前用户在**当前租户**的 `avatar` fileId，供会话恢复与工作台 UI 展示。
 
 #### 场景：permission info 返回 avatar
 
 - 当 已认证用户请求 `GET /admin-api/system/auth/get-permission-info`
-- 那么 响应 `avatar` 与 `sys_user.avatar` 一致
+- 那么 响应 `avatar` / `nickname` 与当前租户 `sys_tenant_user` 成员资料一致（昵称可回退全局用户名）
 
 ### Requirement: Member invite notification trigger
 

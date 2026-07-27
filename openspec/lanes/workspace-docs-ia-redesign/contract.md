@@ -1,9 +1,9 @@
 # API 契约：workspace-docs-ia-redesign
 
-> **状态**：draft（`-web` 起草；`-api` 按本契约补齐 VO）  
+> **状态**：frozen（`-api` 已按契约补齐 VO；`-integrate` 联调完成；看板 web=`done`）  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
-> **母 change**：[`workspace-docs-ia-redesign-v1`](../../changes/workspace-docs-ia-redesign-v1/proposal.md)  
-> **前端 change**：[`workspace-docs-home-ia-web`](../../changes/workspace-docs-home-ia-web/proposal.md)  
+> **母 change**：[`workspace-docs-ia-redesign-v1`](../../changes/archive/2026-07-27-workspace-docs-ia-redesign-v1/proposal.md)  
+> **前端 change**：[`workspace-docs-home-ia-web`](../../changes/archive/2026-07-27-workspace-docs-home-ia-web/proposal.md)  
 > **基线**：share-star / library / drive 既有端点保留；本契约仅写 **列表字段增量** 与行为对齐
 
 ## 背景

@@ -71,8 +71,8 @@
 | **workspace-docs-library** | **ready** | **done** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | integrate 完成；store 无 Mock；E2E `/app/docs` |
 | **workspace-docs-drive** | **archived** | **done** | `/app-api/docs/drive/*` · `/app/docs` 云盘 | [contract](../../openspec/lanes/workspace-docs-drive/contract.md) | 母 change 已归档；integrate + 跨容器 move；store 无 Mock；知识库暂缓 |
 | **workspace-docs-share-star** | **archived** | **done** | share / shared / star / recent visit · `/app/docs` | [contract](../../openspec/lanes/workspace-docs-share-star/contract.md) | 母 change 已归档；store 无临时协作层 |
-| **workspace-owner-chip** | — | **ui_ready** | `WorkspaceOwnerChip` · docs 列表 / 任务负责人 | — | [change](../../openspec/changes/workspace-owner-chip-web/proposal.md)；点开 `WorkspaceBusinessCard` |
-| **workspace-docs-ia-redesign** | **archived** | **ui_ready** | 主页 Tab · Library 右栏树表 · Drive 滑入 · `/app/docs` | [contract](../../openspec/lanes/workspace-docs-ia-redesign/contract.md) | 母 [v1](../../openspec/changes/workspace-docs-ia-redesign-v1/proposal.md)；web 已演示；api VO 已按 contract 补齐；待 integrate |
+| **workspace-owner-chip** | — | **done** | `WorkspaceOwnerChip` · docs 列表 / 任务负责人 | — | [archive](../../openspec/changes/archive/2026-07-27-workspace-owner-chip-web/proposal.md)；点开 `WorkspaceBusinessCard` |
+| **workspace-docs-ia-redesign** | **archived** | **done** | 主页 Tab · Library 右栏树表 · Drive 滑入 · `/app/docs` | [contract](../../openspec/lanes/workspace-docs-ia-redesign/contract.md) | 母 [archive](../../openspec/changes/archive/2026-07-27-workspace-docs-ia-redesign-v1/proposal.md)；integrate 完成；列表字段走真实 API |
 | **workspace-task-quick-views** | **archived** | **done** | `scope=ALL\|ASSIGNED_BY_ME` · `assignerId` · `/app/tasks` 快速访问 | [contract](../../openspec/lanes/workspace-task-quick-views/contract.md) | integrate 完成；store 无本地临时 |
 | **workspace-task-view-config** | **archived** | **done** | `GET/PUT …/view-config/*` · `/app/tasks` 工具栏 | [contract](../../openspec/lanes/workspace-task-view-config/contract.md) | integrate 完成；store 无本地暂存 |
 | **workspace-task-group-by-field** | **archived** | **done** | `PUT …/group-move` · `/app/tasks` 按字段分区/看板列 | [contract](../../openspec/lanes/workspace-task-group-by-field/contract.md) | integrate 完成；store 无本地拖拽暂存；`board-move` 过渡兼容 |
@@ -81,7 +81,7 @@
 | **workspace-task-mine-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/mine-group/*` · `/app/tasks`「我负责的」自定义分组 | [contract](../../openspec/lanes/workspace-task-mine-groups/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-multi-list** | **archived** | **done** | `PUT …/list-memberships` · 详情多清单 | [contract](../../openspec/lanes/workspace-task-multi-list/contract.md) | integrate 完成；store 无本地 Mock |
 | **workspace-task-list-groups** | **archived** | **done** | `GET/POST/PUT/DELETE …/list-group/*` · 清单内分组 | [contract](../../openspec/lanes/workspace-task-list-groups/contract.md) | integrate 完成；store 无本地 Mock |
-| **workspace-task-list-archive-restore** | **done** | **done** | `GET …/list/archived` · `POST …/list/unarchive` · `/app/tasks` 已归档 | [contract](../../openspec/lanes/workspace-task-list/contract.md) | 归档可发现 + 恢复；[change](../../openspec/changes/workspace-task-list-archive-restore/proposal.md) |
+| **workspace-task-list-archive-restore** | **done** | **done** | `GET …/list/archived` · `POST …/list/unarchive` · `/app/tasks` 已归档 | [contract](../../openspec/lanes/workspace-task-list/contract.md) | 归档可发现 + 恢复；[archive](../../openspec/changes/archive/2026-07-27-workspace-task-list-archive-restore/proposal.md) |
 | **workspace-task-custom-field** | **archived** | **done** | 清单单选自定义字段 · `groupBy=custom:{id}` · EAV | [contract](../../openspec/lanes/workspace-task-custom-field/contract.md) | P8；integrate 完成；store 无本地 Mock |
 
 **已交付顺序**：`list-web` → `list-api` → `list-integrate` → `board-web` → `board-api` → `board-integrate`。

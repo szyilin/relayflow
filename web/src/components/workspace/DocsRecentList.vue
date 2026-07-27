@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DocsRecentItem } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import { resolveAvatarUrl } from '../../utils/avatar'
 
 const props = withDefaults(defineProps<{
   items: DocsRecentItem[]
@@ -184,6 +185,7 @@ function rowActions(item: DocsRecentItem) {
               v-if="item.ownerUserId"
               :user-id="item.ownerUserId"
               :display-name="item.ownerDisplayName"
+              :avatar-url="resolveAvatarUrl(item.ownerAvatarFileId)"
             />
             <span
               v-else

@@ -8,6 +8,7 @@ import { useDocsStore } from '../../stores/docs'
 import { useAuthStore } from '../../stores/auth'
 import type { DocsLibraryNode } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import { resolveAvatarUrl } from '../../utils/avatar'
 
 defineProps<{
   /** When true, hide top crumbs (middle tree already navigates) */
@@ -364,6 +365,7 @@ defineExpose({
               v-if="folder.ownerUserId || auth.userId"
               :user-id="(folder.ownerUserId || auth.userId)!"
               :display-name="folder.ownerDisplayName"
+              :avatar-url="resolveAvatarUrl(folder.ownerAvatarFileId)"
             />
           </div>
           <span class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block">
@@ -406,6 +408,7 @@ defineExpose({
               v-if="item.ownerUserId || auth.userId"
               :user-id="(item.ownerUserId || auth.userId)!"
               :display-name="item.ownerDisplayName"
+              :avatar-url="resolveAvatarUrl(item.ownerAvatarFileId)"
             />
           </div>
           <span class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block">
