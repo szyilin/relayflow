@@ -27,12 +27,11 @@ RelayFlow 管理端 UI 已定调（B · Clean Enterprise）。**新增或修改 
 - 主操作用 `UButton color="primary"`；反馈用 `useToast()`
 - 图标 Lucide（`i-lucide-*`）；语义色用 Nuxt UI class，**禁止**页面级 hex
 - 接 API 时 **只改 store / `api/admin/`**，保留 template 与壳层
-- 设计预览等开发工具链 **仅 DEV** 出现在 sidebar
 
 ## 禁止
 
 - 在已有等价 Nuxt UI 组件时手写大量自定义样式
-- 原型/demo 路由进入**生产**产品 sidebar（DEV 底栏设计预览除外）
+- 原型/demo 路由进入产品 sidebar
 - 管理端页面直接 `fetch` 裸 URL（须走 `web/src/api/admin/`；presigned 上传等例外在 api/composable 层）
 - 接 API 时重写 login 页 layout 或整体壳层（除非新开 UI change）
 - 再引入常驻 `web/src/mocks/` 或已废弃的 `isApiUnavailable` 全局回退

@@ -12,8 +12,7 @@ const {
   open,
   primaryLinks,
   systemLinks,
-  infraLinks,
-  devLinks
+  infraLinks
 } = useAdminNav()
 
 const authStore = useAuthStore()
@@ -101,15 +100,6 @@ onMounted(async () => {
             class="admin-nav-menu"
           />
         </template>
-
-        <UNavigationMenu
-          v-if="devLinks.length"
-          :collapsed="collapsed"
-          :items="devLinks"
-          orientation="vertical"
-          tooltip
-          class="mt-auto admin-nav-menu"
-        />
 
         <AdminBackToWorkspace :collapsed="collapsed" />
       </template>

@@ -1,6 +1,6 @@
 # 管理端 UI 设计 Token
 
-> **来源**：摘自 `admin-ui-prototype` 验收版（B · Clean Enterprise），对照 `web/src/assets/css/main.css` 与 `pages/admin/design-preview.vue`。  
+> **来源**：摘自 `admin-ui-prototype` 验收版（B · Clean Enterprise），对照 `web/src/assets/css/main.css`。  
 > 真源代码变更时须同步更新本文档。
 
 ## 视觉方向
@@ -62,10 +62,6 @@
 | 产品名 | **RelayFlow** |
 | 登录副标题 | 「企业协作平台 · 管理控制台」 |
 | 登录左栏 | `from-primary-600 via-primary-600 to-primary-800` 渐变 |
-
-## 组件板
-
-开发期验收见 `/admin/design-preview`（色板、Button、Alert、Form、Table、Empty、Skeleton）。
 
 ## 参考
 

@@ -35,6 +35,8 @@ const keyword = ref('')
 const loading = ref(false)
 const errorMessage = ref<string | null>(null)
 const activeManagedGroupId = ref<string | null>(null)
+/** Avoid re-showing blocking skeleton after first successful load of an empty list */
+const externalHydrated = ref(false)
 
 const excludeSet = computed(() => {
   const set = new Set(props.excludeUserIds)
@@ -131,10 +133,29 @@ const managedMemberRows = computed(() => {
   })
 })
 
+/** Soft in-view loading — never blank the whole pane with skeletons on tag click */
+const showOrgLoading = computed(() =>
+  loading.value
+  && contacts.depts.length === 0
+  && contacts.members.length === 0)
+
+const showExternalLoading = computed(() =>
+  loading.value
+  && !externalHydrated.value
+  && contacts.externalContacts.length === 0)
+
+const showManagedLoading = computed(() =>
+  (loading.value || memberPicker.loadingManaged)
+  && !memberPicker.loadedOnce
+  && memberPicker.managedGroups.length === 0)
+
 watch(view, async (next) => {
   errorMessage.value = null
   if (next === 'org') {
-    loading.value = true
+    const cold = contacts.depts.length === 0 && contacts.members.length === 0
+    if (cold) {
+      loading.value = true
+    }
     try {
       await contacts.fetchDepts()
       const rootId = contacts.rootDeptId()
@@ -150,9 +171,13 @@ watch(view, async (next) => {
     }
   }
   if (next === 'external') {
-    loading.value = true
+    const cold = !externalHydrated.value && contacts.externalContacts.length === 0
+    if (cold) {
+      loading.value = true
+    }
     try {
       await contacts.fetchExternal({ silent: true })
+      externalHydrated.value = true
     } catch {
       errorMessage.value = contacts.lastError ?? '加载外部联系人失败'
     } finally {
@@ -160,7 +185,10 @@ watch(view, async (next) => {
     }
   }
   if (next === 'managed') {
-    loading.value = true
+    const cold = !memberPicker.loadedOnce && memberPicker.managedGroups.length === 0
+    if (cold) {
+      loading.value = true
+    }
     try {
       await memberPicker.loadManagedGroups()
     } catch {
@@ -234,13 +262,11 @@ function groupFullySelected(groupId: string) {
 }
 
 async function enterDept(deptId: string) {
-  loading.value = true
+  // Keep current org rows visible while drilling down — avoid pane flash
   try {
     await contacts.enterDept(deptId)
   } catch {
     errorMessage.value = contacts.lastError ?? '进入部门失败'
-  } finally {
-    loading.value = false
   }
 }
 
@@ -268,6 +294,7 @@ defineExpose({
   reset() {
     goSources()
     errorMessage.value = null
+    loading.value = false
   }
 })
 </script>
@@ -295,18 +322,7 @@ defineExpose({
           {{ errorMessage }}
         </p>
 
-        <div
-          v-if="loading || (view === 'managed' && memberPicker.loadingManaged)"
-          class="space-y-2 p-2"
-        >
-          <USkeleton
-            v-for="i in 4"
-            :key="i"
-            class="h-10 w-full"
-          />
-        </div>
-
-        <template v-else-if="view === 'sources'">
+        <template v-if="view === 'sources'">
           <button
             v-for="item in sourceEntries"
             :key="item.key"
@@ -334,40 +350,51 @@ defineExpose({
           >
             ← 返回
           </button>
-          <button
-            v-for="dept in orgRows.depts"
-            :key="dept.id"
-            type="button"
-            class="workspace-list-item flex w-full items-center gap-3 px-3 py-2 text-left"
-            @click="enterDept(dept.id)"
+          <div
+            v-if="showOrgLoading"
+            class="flex items-center justify-center py-10"
           >
-            <UIcon name="i-lucide-folder-tree" class="size-4 text-primary" />
-            <span class="min-w-0 flex-1 truncate text-sm">{{ dept.name }}</span>
-            <span class="text-xs text-primary">下级</span>
-          </button>
-          <label
-            v-for="member in orgRows.members"
-            :key="member.id"
-            class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-rail-hover)]"
-          >
-            <UCheckbox
-              :model-value="isSelected(member.id)"
-              @update:model-value="toggleMember({
-                userId: member.id,
-                displayName: member.nickname,
-                avatarText: member.avatarText,
-                subtitle: member.deptName
-              }, $event === true)"
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="size-5 animate-spin text-[var(--ws-text-muted)]"
             />
-            <UAvatar :text="member.avatarText" size="sm" />
-            <span class="truncate text-sm">{{ member.nickname }}</span>
-          </label>
-          <UEmpty
-            v-if="!orgRows.depts.length && !orgRows.members.length"
-            icon="i-lucide-users"
-            title="此部门暂无成员"
-            class="py-8"
-          />
+          </div>
+          <template v-else>
+            <button
+              v-for="dept in orgRows.depts"
+              :key="dept.id"
+              type="button"
+              class="workspace-list-item flex w-full items-center gap-3 px-3 py-2 text-left"
+              @click="enterDept(dept.id)"
+            >
+              <UIcon name="i-lucide-folder-tree" class="size-4 text-primary" />
+              <span class="min-w-0 flex-1 truncate text-sm">{{ dept.name }}</span>
+              <span class="text-xs text-primary">下级</span>
+            </button>
+            <label
+              v-for="member in orgRows.members"
+              :key="member.id"
+              class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-rail-hover)]"
+            >
+              <UCheckbox
+                :model-value="isSelected(member.id)"
+                @update:model-value="toggleMember({
+                  userId: member.id,
+                  displayName: member.nickname,
+                  avatarText: member.avatarText,
+                  subtitle: member.deptName
+                }, $event === true)"
+              />
+              <UAvatar :text="member.avatarText" size="sm" />
+              <span class="truncate text-sm">{{ member.nickname }}</span>
+            </label>
+            <UEmpty
+              v-if="!orgRows.depts.length && !orgRows.members.length"
+              icon="i-lucide-users"
+              title="此部门暂无成员"
+              class="py-8"
+            />
+          </template>
         </template>
 
         <template v-else-if="view === 'external'">
@@ -378,38 +405,49 @@ defineExpose({
           >
             ← 返回
           </button>
-          <label
-            v-for="person in externalRows"
-            :key="person.id"
-            class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-rail-hover)]"
+          <div
+            v-if="showExternalLoading"
+            class="flex items-center justify-center py-10"
           >
-            <UCheckbox
-              :model-value="isSelected(person.userId)"
-              @update:model-value="toggleMember({
-                userId: person.userId,
-                displayName: person.displayName,
-                avatarText: person.avatarText,
-                subtitle: person.orgLabel,
-                external: true
-              }, $event === true)"
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="size-5 animate-spin text-[var(--ws-text-muted)]"
             />
-            <UAvatar :text="person.avatarText" size="sm" />
-            <span class="truncate text-sm">{{ person.displayName }}</span>
-            <UBadge
-              color="primary"
-              variant="subtle"
-              size="sm"
+          </div>
+          <template v-else>
+            <label
+              v-for="person in externalRows"
+              :key="person.id"
+              class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-rail-hover)]"
             >
-              外部
-            </UBadge>
-          </label>
-          <UEmpty
-            v-if="!externalRows.length"
-            icon="i-lucide-globe"
-            title="暂无外部联系人"
-            description="添加外部联系人后可在此选择"
-            class="py-8"
-          />
+              <UCheckbox
+                :model-value="isSelected(person.userId)"
+                @update:model-value="toggleMember({
+                  userId: person.userId,
+                  displayName: person.displayName,
+                  avatarText: person.avatarText,
+                  subtitle: person.orgLabel,
+                  external: true
+                }, $event === true)"
+              />
+              <UAvatar :text="person.avatarText" size="sm" />
+              <span class="truncate text-sm">{{ person.displayName }}</span>
+              <UBadge
+                color="primary"
+                variant="subtle"
+                size="sm"
+              >
+                外部
+              </UBadge>
+            </label>
+            <UEmpty
+              v-if="!externalRows.length"
+              icon="i-lucide-globe"
+              title="暂无外部联系人"
+              description="添加外部联系人后可在此选择"
+              class="py-8"
+            />
+          </template>
         </template>
 
         <template v-else-if="view === 'managed'">
@@ -421,38 +459,49 @@ defineExpose({
             ← 返回
           </button>
           <div
-            v-for="group in managedRows"
-            :key="group.id"
-            class="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
+            v-if="showManagedLoading"
+            class="flex items-center justify-center py-10"
           >
-            <UCheckbox
-              :model-value="groupFullySelected(group.id)"
-              :disabled="!selectableMembersOf(group.id).length"
-              @update:model-value="toggleManagedGroup(group.id, $event === true)"
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="size-5 animate-spin text-[var(--ws-text-muted)]"
             />
-            <button
-              type="button"
-              class="flex min-w-0 flex-1 items-center gap-3 text-left"
-              @click="openManagedMembers(group.id)"
-            >
-              <UAvatar
-                icon="i-lucide-users"
-                size="sm"
-              />
-              <span class="truncate text-sm">
-                {{ group.title }}
-                <span class="text-[var(--ws-text-muted)]">({{ group.memberCount }})</span>
-              </span>
-              <UIcon name="i-lucide-chevron-right" class="ml-auto size-4 opacity-50" />
-            </button>
           </div>
-          <UEmpty
-            v-if="!managedRows.length"
-            icon="i-lucide-users"
-            title="暂无我管理的群组"
-            description="你担任群主或管理员的群会出现在这里"
-            class="py-8"
-          />
+          <template v-else>
+            <div
+              v-for="group in managedRows"
+              :key="group.id"
+              class="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
+            >
+              <UCheckbox
+                :model-value="groupFullySelected(group.id)"
+                :disabled="!selectableMembersOf(group.id).length"
+                @update:model-value="toggleManagedGroup(group.id, $event === true)"
+              />
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                @click="openManagedMembers(group.id)"
+              >
+                <UAvatar
+                  icon="i-lucide-users"
+                  size="sm"
+                />
+                <span class="truncate text-sm">
+                  {{ group.title }}
+                  <span class="text-[var(--ws-text-muted)]">({{ group.memberCount }})</span>
+                </span>
+                <UIcon name="i-lucide-chevron-right" class="ml-auto size-4 opacity-50" />
+              </button>
+            </div>
+            <UEmpty
+              v-if="!managedRows.length"
+              icon="i-lucide-users"
+              title="暂无我管理的群组"
+              description="你担任群主或管理员的群会出现在这里"
+              class="py-8"
+            />
+          </template>
         </template>
 
         <template v-else>

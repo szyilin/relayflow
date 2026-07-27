@@ -68,24 +68,12 @@ export function useAdminNav() {
 
   const systemLinks = computed(() => filterNavItems(systemLinksRaw, hasPermission))
   const infraLinks = computed(() => filterNavItems(infraLinksRaw, hasPermission))
-  const devLinks = computed<NavigationMenuItem[]>(() => {
-    if (!import.meta.env.DEV) {
-      return []
-    }
-    return [{
-      label: '设计预览',
-      icon: 'i-lucide-palette',
-      to: '/admin/design-preview',
-      onSelect: closeSidebar
-    }]
-  })
 
   return {
     open,
     primaryLinks,
     systemLinks,
     infraLinks,
-    devLinks,
     closeSidebar
   }
 }

@@ -37,7 +37,7 @@ RelayFlow 管理端前端采用 **「先看见、先确认、再提炼规则、�
 - 方向 **B · Clean Enterprise**（teal 主色、清爽企业 SaaS）
 - 主题 **跟随系统** `prefers-color-scheme`
 - 登录页 **左右分栏**
-- 启用 **`/admin/design-preview`** 组件板（开发期）
+- 曾启用 **`/admin/design-preview`** 组件板（开发期；定调完成后已移除）
 
 **本阶段不写完整规则手册**——详细 token、页面模式以阶段 2 代码为准，阶段 3 再从代码归纳。
 
@@ -48,7 +48,7 @@ RelayFlow 管理端前端采用 **「先看见、先确认、再提炼规则、�
 **验收对象（你看的是这些，不是 API）**：
 
 - 壳层：sidebar 分组、navbar、租户区、用户菜单
-- 代表页：登录、概览、列表、表单、空状态、design-preview
+- 代表页：登录、概览、列表、表单、空状态（定调期另有 design-preview，已移除）
 - 交互：登录 → 各页 → 退出 → 未登录拦截
 - 观感：颜色、密度、圆角、中文可读性、Light/Dark
 
@@ -56,7 +56,7 @@ RelayFlow 管理端前端采用 **「先看见、先确认、再提炼规则、�
 
 1. 壳层骨架（`layouts/admin.vue`、`layouts/auth.vue`、`useAdminNav`）
 2. 设计 token 落地（`main.css`，B 方向）
-3. 组件板（`/admin/design-preview`）
+3. 组件板（定调期 `/admin/design-preview`，已移除）
 4. 代表页占位 + Mock store / 守卫
 5. 清理 dashboard 模板 demo
 6. `pnpm build` + 浏览器走查
