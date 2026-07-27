@@ -123,10 +123,6 @@ async function openMessage() {
       <span class="min-w-0 truncate text-xs text-[var(--ws-text-secondary)]">
         {{ resolvedName }}
       </span>
-      <span
-        v-if="isSelf"
-        class="shrink-0 rounded bg-[var(--ws-bg-muted)] px-1 py-px text-[10px] text-[var(--ws-text-muted)]"
-      >我</span>
     </button>
     <template #content>
       <WorkspaceBusinessCard
