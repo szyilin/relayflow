@@ -9,9 +9,11 @@ import com.relayflow.module.docs.controller.app.vo.DocExportMdRespVO;
 import com.relayflow.module.docs.controller.app.vo.DocRecentItemRespVO;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.document.DocDocumentService;
+import com.relayflow.module.docs.service.star.DocStarService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -29,6 +31,7 @@ import java.util.List;
 public class DocDocumentController {
 
     private final DocDocumentService docDocumentService;
+    private final DocStarService docStarService;
 
     @GetMapping("/documents/{objectId}")
     public CommonResult<DocDocumentRespVO> getDocument(@PathVariable Long objectId) {
@@ -52,9 +55,27 @@ public class DocDocumentController {
         return CommonResult.success(docDocumentService.exportMarkdown(objectId));
     }
 
+    @PutMapping("/documents/{objectId}/star")
+    public CommonResult<Boolean> star(@PathVariable Long objectId) {
+        docStarService.star(objectId);
+        return CommonResult.success(true);
+    }
+
+    @DeleteMapping("/documents/{objectId}/star")
+    public CommonResult<Boolean> unstar(@PathVariable Long objectId) {
+        docStarService.unstar(objectId);
+        return CommonResult.success(true);
+    }
+
     @GetMapping("/recent")
     public CommonResult<List<DocRecentItemRespVO>> recent(
             @RequestParam(value = "limit", defaultValue = "20") int limit) {
         return CommonResult.success(docDocumentService.listRecent(limit));
+    }
+
+    @DeleteMapping("/recent/{objectId}")
+    public CommonResult<Boolean> removeRecent(@PathVariable Long objectId) {
+        docDocumentService.removeRecent(objectId);
+        return CommonResult.success(true);
     }
 }

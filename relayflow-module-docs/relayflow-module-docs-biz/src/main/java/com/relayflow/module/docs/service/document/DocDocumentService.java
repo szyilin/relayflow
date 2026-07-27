@@ -17,4 +17,6 @@ public interface DocDocumentService {
     DocExportMdRespVO exportMarkdown(Long objectId);
 
     List<DocRecentItemRespVO> listRecent(int limit);
+
+    void removeRecent(Long objectId);
 }

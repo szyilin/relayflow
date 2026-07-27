@@ -1,23 +1,41 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
+  createDocumentShare,
   createLibraryNode,
+  deleteDocumentShare,
   deleteLibraryNode,
   exportDocumentMarkdown,
   getDocument,
+  leaveSharedDocument,
+  listDocumentShares,
   listLibraryTree,
   listRecentDocuments,
+  listSharedWithMe,
+  listStarredDocuments,
+  removeRecentDocument,
   saveDocumentBody,
+  starDocument,
+  unstarDocument,
+  updateDocumentShare,
   updateLibraryNode,
   type DocsDocument,
   type DocsLibraryNode,
   type DocsRecentItem,
+  type DocsShareItem,
+  type DocsSharePermission,
+  type DocsSharedWithMeItem,
+  type DocsStarredItem,
   type TipTapDocJson
 } from '../api/app/docs'
 import { ApiError } from '../api/request'
+import { useAuthStore } from './auth'
 import { useDocsDriveStore } from './docsDrive'
+import { useProfileStore } from './profile'
 
 /** Business error codes from relayflow-module-docs ErrorCodeConstants */
+const DOC_NOT_FOUND = 1_006_001_001
+const DOC_FORBIDDEN = 1_006_001_002
 const DOC_VERSION_CONFLICT = 1_006_001_003
 
 function cloneDoc(body: TipTapDocJson): TipTapDocJson {
@@ -26,6 +44,12 @@ function cloneDoc(body: TipTapDocJson): TipTapDocJson {
 
 function toStoreError(error: unknown, fallback: string): Error {
   if (error instanceof ApiError) {
+    if (error.code === DOC_NOT_FOUND) {
+      return new Error('文档不存在或已被删除')
+    }
+    if (error.code === DOC_FORBIDDEN) {
+      return new Error('无权访问该文档（分享已取消或已离开）')
+    }
     return new Error(error.message || fallback)
   }
   if (error instanceof Error) {
@@ -64,7 +88,7 @@ function patchTreeTitle(nodes: DocsLibraryNode[], objectId: string, title: strin
 }
 
 export const useDocsStore = defineStore('docs', () => {
-  const panel = ref<'library' | 'recent' | 'drive'>('library')
+  const panel = ref<'library' | 'recent' | 'shared' | 'starred' | 'drive'>('library')
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -72,12 +96,36 @@ export const useDocsStore = defineStore('docs', () => {
 
   const treeRoots = ref<DocsLibraryNode[]>([])
   const recentItems = ref<DocsRecentItem[]>([])
+  const sharedItems = ref<DocsSharedWithMeItem[]>([])
+  const starredItems = ref<DocsStarredItem[]>([])
+  const sharesByObject = ref<Record<string, DocsShareItem[]>>({})
 
   const activeObjectId = ref<string | null>(null)
   const activeDocument = ref<DocsDocument | null>(null)
 
+  function myUserId() {
+    return useAuthStore().userId ?? useProfileStore().profile?.userId ?? ''
+  }
+
   function findNodeByObjectId(objectId: string): DocsLibraryNode | undefined {
     return findNodeInTree(treeRoots.value, n => n.objectId === objectId)
+  }
+
+  function isStarred(objectId: string) {
+    if (!objectId) {
+      return false
+    }
+    if (starredItems.value.some(i => i.objectId === objectId)) {
+      return true
+    }
+    if (sharedItems.value.some(i => i.objectId === objectId && i.starred)) {
+      return true
+    }
+    return recentItems.value.some(i => i.objectId === objectId && i.starred)
+  }
+
+  function listShares(objectId: string): DocsShareItem[] {
+    return sharesByObject.value[objectId] ?? []
   }
 
   async function loadTree() {
@@ -86,7 +134,38 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function loadRecent(limit = 20) {
-    recentItems.value = await listRecentDocuments(limit)
+    try {
+      recentItems.value = await listRecentDocuments(limit)
+    } catch {
+      recentItems.value = []
+    }
+  }
+
+  async function loadShared(limit = 50) {
+    try {
+      const resp = await listSharedWithMe(limit)
+      sharedItems.value = resp.items ?? []
+    } catch {
+      sharedItems.value = []
+    }
+  }
+
+  async function loadStarred(limit = 50) {
+    try {
+      const resp = await listStarredDocuments(limit)
+      starredItems.value = resp.items ?? []
+    } catch {
+      starredItems.value = []
+    }
+  }
+
+  async function loadShares(objectId: string) {
+    const resp = await listDocumentShares(objectId)
+    sharesByObject.value = {
+      ...sharesByObject.value,
+      [objectId]: resp.shares ?? []
+    }
+    return sharesByObject.value[objectId]
   }
 
   async function ensureHydrated() {
@@ -96,7 +175,10 @@ export const useDocsStore = defineStore('docs', () => {
     loading.value = true
     error.value = null
     try {
-      await Promise.all([loadTree(), loadRecent()])
+      if (!useProfileStore().profile) {
+        await useProfileStore().fetchProfile().catch(() => null)
+      }
+      await Promise.all([loadTree(), loadRecent(), loadShared(), loadStarred()])
       hydrated.value = true
     } catch (e) {
       error.value = toStoreError(e, '加载文档库失败').message
@@ -104,6 +186,10 @@ export const useDocsStore = defineStore('docs', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function refreshCollabLists() {
+    await Promise.all([loadRecent(), loadShared(), loadStarred()])
   }
 
   async function createPage(parentId: string | null = null, title = '未命名文档') {
@@ -122,6 +208,14 @@ export const useDocsStore = defineStore('docs', () => {
       activeDocument.value = { ...activeDocument.value, title: updated.title }
     }
     recentItems.value = recentItems.value.map(item =>
+      item.objectId === updated.objectId
+        ? { ...item, title: updated.title, titleSnapshot: updated.title }
+        : item
+    )
+    sharedItems.value = sharedItems.value.map(item =>
+      item.objectId === updated.objectId ? { ...item, title: updated.title } : item
+    )
+    starredItems.value = starredItems.value.map(item =>
       item.objectId === updated.objectId ? { ...item, title: updated.title } : item
     )
   }
@@ -136,23 +230,42 @@ export const useDocsStore = defineStore('docs', () => {
     const removedObjectId = node?.objectId
     await deleteLibraryNode(nodeId)
     await loadTree()
-    await loadRecent()
+    await refreshCollabLists()
     if (removedObjectId && activeObjectId.value === removedObjectId) {
       clearActive()
     }
   }
 
   async function openDocument(objectId: string) {
-    const doc = await getDocument(objectId)
-    activeObjectId.value = objectId
-    activeDocument.value = {
-      ...doc,
-      body: cloneDoc(doc.body)
+    const tombstone = recentItems.value.find(i => i.objectId === objectId)
+    if (tombstone?.accessState === 'DELETED') {
+      throw new Error('文档已被删除，无法打开')
     }
-    await loadRecent()
+    if (tombstone?.accessState === 'NO_ACCESS') {
+      throw new Error('无权访问该文档（分享已取消或已离开）')
+    }
+
+    try {
+      const doc = await getDocument(objectId)
+      const enriched: DocsDocument = {
+        ...doc,
+        body: cloneDoc(doc.body),
+        ownedByMe: doc.ownedByMe ?? findNodeByObjectId(objectId) != null,
+        permission: doc.permission ?? 'EDIT',
+        ownerUserId: doc.ownerUserId ?? myUserId()
+      }
+      activeObjectId.value = objectId
+      activeDocument.value = enriched
+      await loadRecent()
+    } catch (e) {
+      throw toStoreError(e, '打开文档失败')
+    }
   }
 
   async function saveTitle(objectId: string, title: string) {
+    if (activeDocument.value?.objectId === objectId && activeDocument.value.permission === 'VIEW') {
+      throw new Error('无权重命名')
+    }
     const node = findNodeByObjectId(objectId)
     if (node) {
       await renameNode(node.nodeId, title)
@@ -168,12 +281,15 @@ export const useDocsStore = defineStore('docs', () => {
       }
       return
     }
-    throw new Error('文档不存在')
+    throw new Error('文档不存在或无权重命名')
   }
 
   async function saveBody(objectId: string, body: TipTapDocJson, contentVersion: number) {
     saving.value = true
     try {
+      if (activeDocument.value?.objectId === objectId && activeDocument.value.permission === 'VIEW') {
+        throw new Error('无权编辑')
+      }
       const resp = await saveDocumentBody(objectId, { body, contentVersion })
       if (activeDocument.value?.objectId === objectId) {
         activeDocument.value = {
@@ -194,8 +310,90 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function exportMarkdown(objectId: string): Promise<string> {
-    const resp = await exportDocumentMarkdown(objectId)
-    return resp.markdown
+    try {
+      const resp = await exportDocumentMarkdown(objectId)
+      return resp.markdown
+    } catch (e) {
+      throw toStoreError(e, '导出失败')
+    }
+  }
+
+  async function grantShare(
+    objectId: string,
+    granteeUserId: string,
+    _granteeDisplayName: string,
+    permission: DocsSharePermission
+  ) {
+    if (granteeUserId === myUserId()) {
+      throw new Error('不能分享给自己')
+    }
+    try {
+      await createDocumentShare(objectId, { granteeUserId, permission })
+      await loadShares(objectId)
+    } catch (e) {
+      throw toStoreError(e, '分享失败')
+    }
+  }
+
+  async function updateSharePermission(
+    objectId: string,
+    shareId: string,
+    permission: DocsSharePermission
+  ) {
+    try {
+      await updateDocumentShare(objectId, shareId, { permission })
+      await loadShares(objectId)
+    } catch (e) {
+      throw toStoreError(e, '更新权限失败')
+    }
+  }
+
+  async function revokeShare(objectId: string, shareId: string) {
+    try {
+      await deleteDocumentShare(objectId, shareId)
+      await loadShares(objectId)
+    } catch (e) {
+      throw toStoreError(e, '撤销失败')
+    }
+  }
+
+  async function leaveShare(objectId: string) {
+    try {
+      await leaveSharedDocument(objectId)
+      if (activeObjectId.value === objectId) {
+        clearActive()
+      }
+      await refreshCollabLists()
+    } catch (e) {
+      throw toStoreError(e, '离开分享失败')
+    }
+  }
+
+  async function toggleStar(objectId: string) {
+    const starred = isStarred(objectId)
+    try {
+      if (starred) {
+        await unstarDocument(objectId)
+      } else {
+        const visit = recentItems.value.find(r => r.objectId === objectId)
+        if (visit?.accessState && visit.accessState !== 'OK') {
+          throw new Error('无法星标不可访问的文档')
+        }
+        await starDocument(objectId)
+      }
+      await refreshCollabLists()
+    } catch (e) {
+      throw toStoreError(e, '星标操作失败')
+    }
+  }
+
+  async function removeFromRecent(objectId: string) {
+    try {
+      await removeRecentDocument(objectId)
+      recentItems.value = recentItems.value.filter(i => i.objectId !== objectId)
+    } catch (e) {
+      throw toStoreError(e, '从最近移除失败')
+    }
   }
 
   function clearActive() {
@@ -207,10 +405,14 @@ export const useDocsStore = defineStore('docs', () => {
     hydrated.value = false
     treeRoots.value = []
     recentItems.value = []
+    sharedItems.value = []
+    starredItems.value = []
+    sharesByObject.value = {}
     clearActive()
     error.value = null
     loading.value = false
     saving.value = false
+    panel.value = 'library'
   }
 
   return {
@@ -220,11 +422,17 @@ export const useDocsStore = defineStore('docs', () => {
     error,
     treeRoots,
     recentItems,
+    sharedItems,
+    starredItems,
     activeObjectId,
     activeDocument,
     ensureHydrated,
     loadTree,
     loadRecent,
+    loadShared,
+    loadStarred,
+    loadShares,
+    refreshCollabLists,
     createPage,
     renameNode,
     moveNode,
@@ -235,6 +443,14 @@ export const useDocsStore = defineStore('docs', () => {
     exportMarkdown,
     clearActive,
     resetLocal,
-    findNodeByObjectId
+    findNodeByObjectId,
+    listShares,
+    grantShare,
+    updateSharePermission,
+    revokeShare,
+    leaveShare,
+    toggleStar,
+    isStarred,
+    removeFromRecent
   }
 })

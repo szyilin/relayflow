@@ -17,7 +17,10 @@ public enum ErrorCodeConstants implements ErrorCode {
     DOC_DRIVE_FOLDER_NOT_EMPTY(1_006_001_007, "文件夹非空，请先移走或删除内容"),
     DOC_DRIVE_FOLDER_INVALID(1_006_001_008, "云盘文件夹无效或会形成循环"),
     DOC_STORAGE_FILE_INVALID(1_006_001_009, "存储文件无效或不属于当前用户"),
-    DOC_PLACEMENT_INVALID(1_006_001_010, "文档放置无效或不支持该移动");
+    DOC_PLACEMENT_INVALID(1_006_001_010, "文档放置无效或不支持该移动"),
+    DOC_SHARE_SELF(1_006_001_011, "不能分享给自己"),
+    DOC_SHARE_TYPE_UNSUPPORTED(1_006_001_012, "该类型文档暂不支持分享"),
+    DOC_GRANTEE_INVALID(1_006_001_013, "被分享人不是本企业有效成员");
 
     private final Integer code;
     private final String msg;

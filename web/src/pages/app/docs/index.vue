@@ -6,7 +6,11 @@ import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import DocsTreeNodes from '../../../components/workspace/DocsTreeNodes.vue'
 import DocsDriveBrowser from '../../../components/workspace/DocsDriveBrowser.vue'
 import DocsRichEditor from '../../../components/workspace/DocsRichEditor.vue'
-import type { DocsLibraryNode, TipTapDocJson } from '../../../api/app/docs'
+import DocsRecentList from '../../../components/workspace/DocsRecentList.vue'
+import DocsSharedList from '../../../components/workspace/DocsSharedList.vue'
+import DocsStarredList from '../../../components/workspace/DocsStarredList.vue'
+import DocsShareDialog from '../../../components/workspace/DocsShareDialog.vue'
+import type { DocsLibraryNode, DocsSharePermission, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
 import { useDocsStore } from '../../../stores/docs'
 import { useDocsDriveStore } from '../../../stores/docsDrive'
@@ -37,10 +41,42 @@ const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
 const saveHint = ref('')
 /** Where the open document was launched from (for back / path bar). */
-const docOpenSource = ref<'library' | 'recent' | 'drive' | null>(null)
+const docOpenSource = ref<'library' | 'recent' | 'drive' | 'shared' | 'starred' | null>(null)
 
-const docMoreItems = computed(() => [
-  [
+const shareOpen = ref(false)
+const shareObjectId = ref<string | null>(null)
+const shareTitle = ref('')
+
+const shareList = computed(() =>
+  shareObjectId.value ? docs.listShares(shareObjectId.value) : []
+)
+
+const docEditable = computed(() => docs.activeDocument?.permission !== 'VIEW')
+
+const docMoreItems = computed(() => {
+  const doc = docs.activeDocument
+  const objectId = doc?.objectId
+  const owned = doc?.ownedByMe === true
+  const groups: Array<Array<{ label: string, icon?: string, color?: 'error', onSelect: () => void }>> = []
+  const primary: Array<{ label: string, icon?: string, onSelect: () => void }> = [
+    {
+      label: docs.isStarred(objectId ?? '') ? '取消星标' : '星标',
+      icon: 'i-lucide-star',
+      onSelect: () => {
+        if (objectId) {
+          void onToggleStar(objectId)
+        }
+      }
+    },
+    {
+      label: '复制链接',
+      icon: 'i-lucide-link',
+      onSelect: () => {
+        if (objectId) {
+          void copyDocLink(objectId)
+        }
+      }
+    },
     {
       label: '导出 Markdown',
       icon: 'i-lucide-download',
@@ -49,7 +85,41 @@ const docMoreItems = computed(() => [
       }
     }
   ]
-])
+  if (owned && objectId) {
+    primary.unshift({
+      label: '分享',
+      icon: 'i-lucide-share-2',
+      onSelect: () => {
+        void openShare(objectId)
+      }
+    })
+  }
+  groups.push(primary)
+  if (docOpenSource.value === 'recent' && objectId) {
+    groups.push([
+      {
+        label: '从「最近」中移除',
+        icon: 'i-lucide-eye-off',
+        onSelect: () => {
+          void onRemoveRecent(objectId)
+        }
+      }
+    ])
+  }
+  if (!owned && objectId) {
+    groups.push([
+      {
+        label: '离开分享',
+        icon: 'i-lucide-log-out',
+        color: 'error',
+        onSelect: () => {
+          void onLeaveShare(objectId)
+        }
+      }
+    ])
+  }
+  return groups
+})
 
 type PanelKey = 'library' | 'recent' | 'shared' | 'starred' | 'drive' | 'wiki'
 
@@ -59,8 +129,8 @@ const panelNav: Array<
 > = [
   { type: 'section', label: '快捷访问' },
   { type: 'item', key: 'recent', label: '最近', icon: 'i-lucide-clock', enabled: true },
-  { type: 'item', key: 'shared', label: '与我共享', icon: 'i-lucide-users', enabled: false },
-  { type: 'item', key: 'starred', label: '星标', icon: 'i-lucide-star', enabled: false },
+  { type: 'item', key: 'shared', label: '与我共享', icon: 'i-lucide-users', enabled: true },
+  { type: 'item', key: 'starred', label: '星标', icon: 'i-lucide-star', enabled: true },
   { type: 'section', label: '空间' },
   { type: 'item', key: 'library', label: '我的文档库', icon: 'i-lucide-book-open', enabled: true },
   { type: 'item', key: 'drive', label: '云盘', icon: 'i-lucide-hard-drive', enabled: true },
@@ -82,16 +152,7 @@ function isPanelActive(key: PanelKey): boolean {
   if (!key) {
     return false
   }
-  if (key === 'library') {
-    return docs.panel === 'library'
-  }
-  if (key === 'recent') {
-    return docs.panel === 'recent'
-  }
-  if (key === 'drive') {
-    return docs.panel === 'drive'
-  }
-  return false
+  return docs.panel === key
 }
 
 const flatMoveTargets = computed(() => {
@@ -151,7 +212,7 @@ watch(
 
 const persistBody = useDebounceFn(async () => {
   const doc = docs.activeDocument
-  if (!doc) {
+  if (!doc || doc.permission === 'VIEW') {
     return
   }
   try {
@@ -170,6 +231,9 @@ const persistBody = useDebounceFn(async () => {
 }, 1200)
 
 async function onBodyUpdate(value: TipTapDocJson) {
+  if (!docEditable.value) {
+    return
+  }
   draftBody.value = value
   saveHint.value = '保存中…'
   await persistBody()
@@ -177,7 +241,7 @@ async function onBodyUpdate(value: TipTapDocJson) {
 
 async function onTitleBlur() {
   const doc = docs.activeDocument
-  if (!doc) {
+  if (!doc || !docEditable.value) {
     return
   }
   try {
@@ -207,13 +271,15 @@ async function selectPanel(key: PanelKey) {
     }
     return
   }
-  docs.panel = key === 'recent' ? 'recent' : 'library'
-  if (key === 'library' || key === 'recent') {
-    docs.clearActive()
-    docOpenSource.value = null
-  }
+  docs.panel = key as 'library' | 'recent' | 'shared' | 'starred' | 'drive'
+  docs.clearActive()
+  docOpenSource.value = null
   if (key === 'recent') {
     void docs.loadRecent().catch(() => {})
+  } else if (key === 'shared') {
+    void docs.loadShared().catch(() => {})
+  } else if (key === 'starred') {
+    void docs.loadStarred().catch(() => {})
   }
 }
 
@@ -240,7 +306,11 @@ async function onCreate(parentId: string | null = null) {
 
 async function onOpen(objectId: string) {
   try {
-    docOpenSource.value = docs.panel === 'recent' ? 'recent' : 'library'
+    if (docs.panel === 'recent' || docs.panel === 'shared' || docs.panel === 'starred' || docs.panel === 'library') {
+      docOpenSource.value = docs.panel
+    } else {
+      docOpenSource.value = 'library'
+    }
     await docs.openDocument(objectId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '打开失败', color: 'error' })
@@ -255,10 +325,131 @@ function backFromDocument() {
     void docsDrive.loadListing(docsDrive.currentFolderId).catch((e) => {
       toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
     })
-  } else if (source === 'recent') {
-    docs.panel = 'recent'
+  } else if (source === 'recent' || source === 'shared' || source === 'starred' || source === 'library') {
+    docs.panel = source
   } else {
     docs.panel = 'library'
+  }
+}
+
+async function copyDocLink(objectId: string) {
+  const url = `${window.location.origin}/app/docs?docId=${objectId}`
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.add({ title: '已复制链接', color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败', color: 'error' })
+  }
+}
+
+async function openShare(objectId: string) {
+  shareObjectId.value = objectId
+  const node = docs.findNodeByObjectId(objectId)
+  const recent = docs.recentItems.find(i => i.objectId === objectId)
+  shareTitle.value = node?.title || recent?.title || docs.activeDocument?.title || '未命名文档'
+  shareOpen.value = true
+  try {
+    await docs.loadShares(objectId)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '加载协作者失败', color: 'error' })
+  }
+}
+
+async function onGrantShare(payload: { granteeUserId: string, granteeDisplayName: string, permission: DocsSharePermission }) {
+  if (!shareObjectId.value) {
+    return
+  }
+  try {
+    await docs.grantShare(shareObjectId.value, payload.granteeUserId, payload.granteeDisplayName, payload.permission)
+    toast.add({ title: `已分享给 ${payload.granteeDisplayName}`, color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '分享失败', color: 'error' })
+  }
+}
+
+async function onRevokeShare(shareId: string) {
+  if (!shareObjectId.value) {
+    return
+  }
+  try {
+    await docs.revokeShare(shareObjectId.value, shareId)
+    toast.add({ title: '已撤销', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '撤销失败', color: 'error' })
+  }
+}
+
+async function onUpdateSharePerm(payload: { shareId: string, permission: DocsSharePermission }) {
+  if (!shareObjectId.value) {
+    return
+  }
+  try {
+    await docs.updateSharePermission(shareObjectId.value, payload.shareId, payload.permission)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '更新权限失败', color: 'error' })
+  }
+}
+
+async function onToggleStar(objectId: string) {
+  const wasStarred = docs.isStarred(objectId)
+  try {
+    await docs.toggleStar(objectId)
+    toast.add({ title: wasStarred ? '已取消星标' : '已加星标', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '操作失败', color: 'error' })
+  }
+}
+
+async function onRemoveRecent(objectId: string) {
+  try {
+    await docs.removeFromRecent(objectId)
+    if (docs.activeObjectId === objectId) {
+      docs.clearActive()
+    }
+    toast.add({ title: '已从最近移除', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '移除失败', color: 'error' })
+  }
+}
+
+async function onLeaveShare(objectId: string) {
+  const ok = window.confirm('确定离开该分享？离开后将无法再打开此文档。')
+  if (!ok) {
+    return
+  }
+  try {
+    await docs.leaveShare(objectId)
+    toast.add({ title: '已离开分享', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '离开失败', color: 'error' })
+  }
+}
+
+async function onDeleteOwnedFromRecent(objectId: string) {
+  const node = docs.findNodeByObjectId(objectId)
+  if (!node) {
+    toast.add({ title: '仅支持删除文档库中的文档', color: 'neutral' })
+    return
+  }
+  await onDelete(node)
+}
+
+async function onExportMdFor(objectId: string) {
+  try {
+    const markdown = await docs.exportMarkdown(objectId)
+    const title = docs.recentItems.find(i => i.objectId === objectId)?.title
+      || docs.sharedItems.find(i => i.objectId === objectId)?.title
+      || 'document'
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title || 'document'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.add({ title: '已导出 Markdown', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '导出失败', color: 'error' })
   }
 }
 
@@ -383,7 +574,18 @@ function nodeActions(node: DocsLibraryNode) {
       { label: '新建子文档', icon: 'i-lucide-file-plus', onSelect: () => void onCreate(node.nodeId) },
       { label: '重命名', icon: 'i-lucide-pencil', onSelect: () => openRename(node) },
       { label: '移动到…', icon: 'i-lucide-folder-input', onSelect: () => openMove(node) },
-      { label: '移动到云盘', icon: 'i-lucide-hard-drive', onSelect: () => void openMoveToDrive(node) }
+      { label: '移动到云盘', icon: 'i-lucide-hard-drive', onSelect: () => void openMoveToDrive(node) },
+      { label: '分享', icon: 'i-lucide-share-2', onSelect: () => void openShare(node.objectId) },
+      {
+        label: docs.isStarred(node.objectId) ? '取消星标' : '星标',
+        icon: 'i-lucide-star',
+        onSelect: () => void onToggleStar(node.objectId)
+      },
+      {
+        label: '导出 Markdown',
+        icon: 'i-lucide-download',
+        onSelect: () => void onExportMdFor(node.objectId)
+      }
     ],
     [
       { label: '删除', icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: () => void onDelete(node) }
@@ -488,47 +690,40 @@ meta:
       @open-rich-doc="onOpenDriveRichDoc"
     />
 
-    <div
+    <DocsRecentList
       v-else-if="docs.panel === 'recent' && !docs.activeDocument"
-      class="flex h-full min-h-0 flex-col"
-    >
-      <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3">
-        <UIcon
-          name="i-lucide-clock"
-          class="size-4 shrink-0 text-[var(--ws-text-muted)]"
-        />
-        <h2 class="text-base font-semibold">
-          最近
-        </h2>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-3">
-        <p
-          v-if="!docs.recentItems.length"
-          class="px-2 py-8 text-center text-sm text-[var(--ws-text-muted)]"
-        >
-          打开过的文档会显示在这里。
-        </p>
-        <button
-          v-for="item in docs.recentItems"
-          :key="item.objectId"
-          type="button"
-          class="workspace-list-item mb-0.5 flex w-full items-center gap-3 px-3 py-2.5 text-left"
-          @click="onOpen(item.objectId)"
-        >
-          <UIcon
-            name="i-lucide-file-text"
-            class="size-4 shrink-0 text-[var(--ws-text-muted)]"
-          />
-          <span class="min-w-0 flex-1 truncate text-sm font-medium">
-            {{ item.title || '未命名文档' }}
-          </span>
-          <UIcon
-            name="i-lucide-chevron-right"
-            class="size-4 shrink-0 text-[var(--ws-text-muted)] opacity-50"
-          />
-        </button>
-      </div>
-    </div>
+      :items="docs.recentItems"
+      :active-object-id="docs.activeObjectId"
+      @open="onOpen"
+      @remove="(id) => void onRemoveRecent(id)"
+      @delete-owned="onDeleteOwnedFromRecent"
+      @share="(id) => void openShare(id)"
+      @star="(id) => void onToggleStar(id)"
+      @copy-link="(id) => void copyDocLink(id)"
+      @export-md="(id) => void onExportMdFor(id)"
+    />
+
+    <DocsSharedList
+      v-else-if="docs.panel === 'shared' && !docs.activeDocument"
+      :items="docs.sharedItems"
+      :active-object-id="docs.activeObjectId"
+      @open="onOpen"
+      @leave="(id) => void onLeaveShare(id)"
+      @star="(id) => void onToggleStar(id)"
+      @copy-link="(id) => void copyDocLink(id)"
+      @export-md="(id) => void onExportMdFor(id)"
+    />
+
+    <DocsStarredList
+      v-else-if="docs.panel === 'starred' && !docs.activeDocument"
+      :items="docs.starredItems"
+      :active-object-id="docs.activeObjectId"
+      @open="onOpen"
+      @unstar="(id) => void onToggleStar(id)"
+      @share="(id) => void openShare(id)"
+      @copy-link="(id) => void copyDocLink(id)"
+      @export-md="(id) => void onExportMdFor(id)"
+    />
 
     <div
       v-else-if="!docs.activeDocument"
@@ -610,6 +805,7 @@ meta:
           size="lg"
           variant="ghost"
           placeholder="未命名文档"
+          :disabled="!docEditable"
           @blur="onTitleBlur"
         />
         <span class="shrink-0 text-xs text-[var(--ws-text-muted)]">{{ saveHint }}</span>
@@ -625,6 +821,7 @@ meta:
       </div>
       <DocsRichEditor
         :model-value="draftBody"
+        :editable="docEditable"
         class="min-h-0 flex-1"
         @update:model-value="onBodyUpdate"
       />
@@ -713,4 +910,14 @@ meta:
       </div>
     </template>
   </UModal>
+
+  <DocsShareDialog
+    v-model:open="shareOpen"
+    :object-id="shareObjectId"
+    :title="shareTitle"
+    :shares="shareList"
+    @grant="onGrantShare"
+    @revoke="onRevokeShare"
+    @update-permission="onUpdateSharePerm"
+  />
 </template>

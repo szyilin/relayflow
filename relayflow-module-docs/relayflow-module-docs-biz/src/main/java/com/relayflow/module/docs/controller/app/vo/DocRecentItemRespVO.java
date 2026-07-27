@@ -11,5 +11,23 @@ public class DocRecentItemRespVO {
 
     private String title;
 
+    private String titleSnapshot;
+
+    private String type;
+
+    private String accessState;
+
+    private String locationLabel;
+
+    private Long ownerUserId;
+
+    private String ownerDisplayName;
+
+    private Boolean ownedByMe;
+
+    private OffsetDateTime createTime;
+
     private OffsetDateTime lastOpenedAt;
+
+    private Boolean starred;
 }

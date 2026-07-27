@@ -4,6 +4,8 @@ export const DOCS_BODY_FORMAT = 'tiptap_json_v1' as const
 
 export type DocsBodyFormat = typeof DOCS_BODY_FORMAT
 export type DocsObjectType = 'RICH_DOC'
+export type DocsSharePermission = 'VIEW' | 'EDIT'
+export type DocsAccessState = 'OK' | 'DELETED' | 'NO_ACCESS'
 
 /** TipTap / ProseMirror document JSON */
 export type TipTapDocJson = {
@@ -50,12 +52,57 @@ export interface DocsDocument {
   bodyFormat: DocsBodyFormat
   contentVersion: number
   lastOpenedAt?: string | null
+  ownerUserId?: string
+  ownedByMe?: boolean
+  permission?: DocsSharePermission
 }
 
 export interface DocsRecentItem {
   objectId: string
   title: string
+  titleSnapshot?: string
+  type?: DocsObjectType
+  accessState?: DocsAccessState
+  locationLabel?: string
+  ownerUserId?: string
+  ownerDisplayName?: string
+  ownedByMe?: boolean
+  createTime?: string | null
   lastOpenedAt?: string | null
+  starred?: boolean
+}
+
+export interface DocsShareItem {
+  shareId: string
+  granteeUserId: string
+  granteeDisplayName: string
+  permission: DocsSharePermission
+  grantedByUserId: string
+  createTime: string
+}
+
+export interface DocsSharedWithMeItem {
+  objectId: string
+  title: string
+  type: DocsObjectType
+  permission: DocsSharePermission
+  ownerUserId: string
+  ownerDisplayName: string
+  grantedByUserId: string
+  grantedByDisplayName: string
+  sharedAt: string
+  starred: boolean
+}
+
+export interface DocsStarredItem {
+  objectId: string
+  title: string
+  type: DocsObjectType
+  starredAt: string
+  accessState: DocsAccessState
+  ownerUserId: string
+  ownerDisplayName: string
+  locationLabel: string
 }
 
 export interface DocsBodySaveResp {
@@ -119,4 +166,55 @@ export function listRecentDocuments(limit = 20): Promise<DocsRecentItem[]> {
   return get<DocsRecentItem[]>('/app-api/docs/recent', {
     params: { limit }
   })
+}
+
+export function removeRecentDocument(objectId: string): Promise<void> {
+  return del<void>(`/app-api/docs/recent/${objectId}`)
+}
+
+export function listDocumentShares(objectId: string): Promise<{ shares: DocsShareItem[] }> {
+  return get<{ shares: DocsShareItem[] }>(`/app-api/docs/documents/${objectId}/shares`)
+}
+
+export function createDocumentShare(
+  objectId: string,
+  payload: { granteeUserId: string, permission: DocsSharePermission }
+): Promise<DocsShareItem> {
+  return post<DocsShareItem>(`/app-api/docs/documents/${objectId}/shares`, payload)
+}
+
+export function updateDocumentShare(
+  objectId: string,
+  shareId: string,
+  payload: { permission: DocsSharePermission }
+): Promise<DocsShareItem> {
+  return put<DocsShareItem>(`/app-api/docs/documents/${objectId}/shares/${shareId}`, payload)
+}
+
+export function deleteDocumentShare(objectId: string, shareId: string): Promise<void> {
+  return del<void>(`/app-api/docs/documents/${objectId}/shares/${shareId}`)
+}
+
+export function listSharedWithMe(limit = 50): Promise<{ items: DocsSharedWithMeItem[] }> {
+  return get<{ items: DocsSharedWithMeItem[] }>('/app-api/docs/shared', {
+    params: { limit }
+  })
+}
+
+export function leaveSharedDocument(objectId: string): Promise<void> {
+  return del<void>(`/app-api/docs/shared/${objectId}`)
+}
+
+export function listStarredDocuments(limit = 50): Promise<{ items: DocsStarredItem[] }> {
+  return get<{ items: DocsStarredItem[] }>('/app-api/docs/starred', {
+    params: { limit }
+  })
+}
+
+export function starDocument(objectId: string): Promise<void> {
+  return put<void>(`/app-api/docs/documents/${objectId}/star`)
+}
+
+export function unstarDocument(objectId: string): Promise<void> {
+  return del<void>(`/app-api/docs/documents/${objectId}/star`)
 }

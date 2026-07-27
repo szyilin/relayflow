@@ -21,4 +21,11 @@ public class DocDocumentRespVO {
     private Integer contentVersion;
 
     private OffsetDateTime lastOpenedAt;
+
+    private Long ownerUserId;
+
+    private Boolean ownedByMe;
+
+    /** VIEW | EDIT for the caller */
+    private String permission;
 }
