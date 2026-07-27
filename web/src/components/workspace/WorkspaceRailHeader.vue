@@ -11,6 +11,7 @@ import WorkspaceAddExternalContactModal from './WorkspaceAddExternalContactModal
 import { useAuthStore } from '../../stores/auth'
 import { useCreateHubStore } from '../../stores/createHub'
 import { useDocsStore } from '../../stores/docs'
+import { useOrgInviteStore } from '../../stores/orgInvite'
 import { useProfileStore } from '../../stores/profile'
 import { useUserPreferenceStore } from '../../stores/userPreference'
 import { useWorkspaceSearchShortcut } from '../../composables/useWorkspaceSearchShortcut'
@@ -21,6 +22,7 @@ const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const preferenceStore = useUserPreferenceStore()
 const createHub = useCreateHubStore()
+const orgInvite = useOrgInviteStore()
 const {
   createGroupOpen,
   orgInviteOpen,
@@ -118,6 +120,7 @@ onMounted(() => {
   void Promise.all([
     authStore.fetchMyTenants().catch(() => {}),
     profileStore.fetchProfile().catch(() => {}),
+    orgInvite.loadCapability().catch(() => {}),
     authStore.dockSyncAfterSession()
   ])
 })

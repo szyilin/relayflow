@@ -1,27 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { useAuthStore } from './auth'
-import { useInviteSettingsStore } from './inviteSettings'
+import { useOrgInviteStore } from './orgInvite'
 
 export const useCreateHubStore = defineStore('createHub', () => {
   const createGroupOpen = ref(false)
   const orgInviteOpen = ref(false)
   const addExternalOpen = ref(false)
 
-  /**
-   * `-web`: derive from inviteSettings store (admin page) + isAdmin.
-   * Later replaced by GET /app-api/system/org-invite/capability.
-   */
-  const canInvite = computed(() => {
-    const mode = useInviteSettingsStore().settings.inviteMode
-    if (mode === 'OFF') {
-      return false
-    }
-    if (mode === 'ALL_MEMBERS') {
-      return true
-    }
-    return useAuthStore().isAdmin
-  })
+  /** From GET /app-api/system/org-invite/capability via orgInvite store. */
+  const canInvite = computed(() => useOrgInviteStore().canInvite)
 
   function openCreateGroup() {
     createGroupOpen.value = true

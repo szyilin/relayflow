@@ -1,7 +1,7 @@
 # API 契约：org-invite
 
-> **状态**：settings **implemented**；channels **implemented**（`org-invite-channels-api`）  
-> **变更**：`org-invite-settings-api` / `org-invite-channels-api`  
+> **状态**：settings **integrated**（管理端 store 已接）；channels **integrated**（工作台 store 已接）  
+> **变更**：`org-invite-settings-integrate` / `org-invite-channels-integrate`  
 > **母 change**：`workspace-plus-create-v1`  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
@@ -12,11 +12,29 @@
 | 管理端 | `/admin-api/system/invite-settings` | JWT + 管理身份 + `system:user:list`（读）/ `system:user:create`（写） |
 | 工作台 | `/app-api/system/org-invite/*` | JWT + 有效组织成员 |
 
-## 邀请设置（已实现）
+## 邀请设置（已集成）
 
-见既有 `GET` / `PUT /admin-api/system/invite-settings`（默认 `ADMIN_ONLY` 等）。
+`GET` / `PUT /admin-api/system/invite-settings`（全量 PUT）。无行时返回默认：`ADMIN_ONLY` / `INVITER_DEPT` / `[]` / `3` / `false`。
 
-## 工作台渠道（已实现）
+前端：`api/admin/inviteSettings.ts` → `stores/inviteSettings` → `/admin/system/invite-settings`。
+
+```bash
+TOKEN="<jwt>"
+
+curl -s "http://localhost:8080/admin-api/system/invite-settings" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s -X PUT "http://localhost:8080/admin-api/system/invite-settings" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"inviteMode":"ALL_MEMBERS","nonAdminScope":"INVITER_DEPT","nonAdminDeptIds":[],"nonAdminExpireDays":3,"nonAdminRequireApproval":false}'
+```
+
+## 工作台渠道（已集成）
+
+`GET …/capability` · `GET …/shared` · `POST …/shared/reset` · `POST …/mobile` · `POST …/consume`。
+
+前端：`api/app/orgInvite.ts` → `stores/orgInvite` / `stores/createHub.canInvite` → `WorkspaceOrgInviteModal` · `/app/invite/join`。
 
 ### GET /app-api/system/org-invite/capability
 

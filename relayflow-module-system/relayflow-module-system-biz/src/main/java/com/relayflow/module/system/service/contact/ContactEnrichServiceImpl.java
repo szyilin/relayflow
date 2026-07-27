@@ -3,7 +3,9 @@ package com.relayflow.module.system.service.contact;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
+import com.relayflow.module.system.controller.app.vo.AppContactAccountSearchHitRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactExternalItemRespVO;
+import com.relayflow.module.system.controller.app.vo.AppContactRequestCreateReqVO;
 import com.relayflow.module.system.controller.app.vo.AppContactRequestItemRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactStarredItemRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactStarredUpdateReqVO;
@@ -42,6 +44,9 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
 
     public static final String STATUS_PENDING = "pending";
     public static final String STATUS_ACCEPTED = "accepted";
+    public static final String STATUS_REJECTED = "rejected";
+
+    private static final int SUBTITLE_MAX = 200;
 
     private static final Collator ZH_COLLATOR = Collator.getInstance(Locale.CHINA);
 
@@ -129,6 +134,130 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
     }
 
     @Override
+    @Transactional
+    public AppContactRequestItemRespVO rejectRequest(Long requestId) {
+        Long toUserId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireActiveMember(tenantId, toUserId);
+
+        SysContactRequestDO row = contactRequestMapper.selectById(requestId);
+        if (row == null
+                || !Objects.equals(row.getTenantId(), tenantId)
+                || !Objects.equals(row.getToUserId(), toUserId)) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_REQUEST_NOT_FOUND);
+        }
+        if (!STATUS_PENDING.equals(row.getStatus())) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_REQUEST_INVALID);
+        }
+
+        row.setStatus(STATUS_REJECTED);
+        contactRequestMapper.updateById(row);
+
+        DisplayProfile profile = loadProfiles(Set.of(row.getFromUserId()), tenantId)
+                .getOrDefault(row.getFromUserId(), DisplayProfile.unknown());
+        return toRequestVo(row, profile);
+    }
+
+    @Override
+    public List<AppContactAccountSearchHitRespVO> searchAccount(String mobile, String email) {
+        Long ownerUserId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireActiveMember(tenantId, ownerUserId);
+
+        String mobileQ = StringUtils.hasText(mobile) ? mobile.trim() : null;
+        String emailQ = StringUtils.hasText(email) ? email.trim() : null;
+        if (mobileQ == null && emailQ == null) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_ACCOUNT_SEARCH_INVALID);
+        }
+        if (mobileQ != null && emailQ != null) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_ACCOUNT_SEARCH_INVALID);
+        }
+        if (mobileQ != null && !mobileQ.matches("^\\d{11}$")) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_ACCOUNT_SEARCH_INVALID);
+        }
+        if (emailQ != null && (!emailQ.contains("@") || emailQ.length() < 5)) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_ACCOUNT_SEARCH_INVALID);
+        }
+
+        LambdaQueryWrapper<SysUserDO> query = new LambdaQueryWrapper<SysUserDO>();
+        if (mobileQ != null) {
+            query.eq(SysUserDO::getMobile, mobileQ);
+        } else {
+            query.eq(SysUserDO::getEmail, emailQ);
+        }
+        List<SysUserDO> users = userMapper.selectList(query).stream()
+                .filter(u -> !Objects.equals(u.getId(), ownerUserId))
+                .toList();
+        if (users.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> userIds = users.stream().map(SysUserDO::getId).collect(Collectors.toSet());
+        Map<Long, DisplayProfile> profiles = loadProfiles(userIds, tenantId);
+        Set<Long> related = loadAlreadyRelatedTargetIds(tenantId, ownerUserId, userIds);
+
+        return users.stream()
+                .map(user -> {
+                    DisplayProfile profile = profiles.getOrDefault(user.getId(), DisplayProfile.unknown());
+                    AppContactAccountSearchHitRespVO vo = new AppContactAccountSearchHitRespVO();
+                    vo.setUserId(user.getId());
+                    vo.setDisplayName(profile.displayName());
+                    vo.setOrgLabel(profile.orgLabel());
+                    vo.setAvatarText(profile.avatarText());
+                    vo.setAlreadyAdded(related.contains(user.getId()));
+                    return vo;
+                })
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public AppContactRequestItemRespVO createRequest(AppContactRequestCreateReqVO request) {
+        Long fromUserId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireActiveMember(tenantId, fromUserId);
+
+        Long targetUserId = request.getTargetUserId();
+        if (targetUserId == null) {
+            throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
+        }
+        if (Objects.equals(targetUserId, fromUserId)) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_REQUEST_SELF);
+        }
+        SysUserDO target = userMapper.selectById(targetUserId);
+        if (target == null) {
+            throw new ServiceException(ErrorCodeConstants.USER_NOT_FOUND);
+        }
+        if (isAlreadyRelated(tenantId, fromUserId, targetUserId)) {
+            throw new ServiceException(ErrorCodeConstants.CONTACT_REQUEST_DUPLICATE);
+        }
+
+        String subtitle = request.getMessage() == null ? "" : request.getMessage().trim();
+        if (subtitle.length() > SUBTITLE_MAX) {
+            subtitle = subtitle.substring(0, SUBTITLE_MAX);
+        }
+
+        SysContactRequestDO row = new SysContactRequestDO();
+        row.setTenantId(tenantId);
+        row.setFromUserId(fromUserId);
+        row.setToUserId(targetUserId);
+        row.setStatus(STATUS_PENDING);
+        row.setSubtitle(subtitle);
+        contactRequestMapper.insert(row);
+
+        if (row.getCreateTime() == null) {
+            SysContactRequestDO saved = contactRequestMapper.selectById(row.getId());
+            if (saved != null) {
+                row.setCreateTime(saved.getCreateTime());
+            }
+        }
+
+        DisplayProfile profile = loadProfiles(Set.of(fromUserId), tenantId)
+                .getOrDefault(fromUserId, DisplayProfile.unknown());
+        return toRequestVo(row, profile);
+    }
+
+    @Override
     public List<AppContactStarredItemRespVO> listStarred() {
         Long ownerUserId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
@@ -198,6 +327,32 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
         row.setOwnerUserId(ownerUserId);
         row.setTargetUserId(targetUserId);
         contactExternalMapper.insert(row);
+    }
+
+    private boolean isAlreadyRelated(Long tenantId, Long ownerUserId, Long targetUserId) {
+        return loadAlreadyRelatedTargetIds(tenantId, ownerUserId, Set.of(targetUserId)).contains(targetUserId);
+    }
+
+    private Set<Long> loadAlreadyRelatedTargetIds(Long tenantId, Long ownerUserId, Set<Long> targetUserIds) {
+        if (targetUserIds == null || targetUserIds.isEmpty()) {
+            return Set.of();
+        }
+        Set<Long> related = contactExternalMapper.selectList(new LambdaQueryWrapper<SysContactExternalDO>()
+                        .eq(SysContactExternalDO::getTenantId, tenantId)
+                        .eq(SysContactExternalDO::getOwnerUserId, ownerUserId)
+                        .in(SysContactExternalDO::getTargetUserId, targetUserIds))
+                .stream()
+                .map(SysContactExternalDO::getTargetUserId)
+                .collect(Collectors.toSet());
+        related.addAll(contactRequestMapper.selectList(new LambdaQueryWrapper<SysContactRequestDO>()
+                        .eq(SysContactRequestDO::getTenantId, tenantId)
+                        .eq(SysContactRequestDO::getFromUserId, ownerUserId)
+                        .eq(SysContactRequestDO::getStatus, STATUS_PENDING)
+                        .in(SysContactRequestDO::getToUserId, targetUserIds))
+                .stream()
+                .map(SysContactRequestDO::getToUserId)
+                .collect(Collectors.toSet()));
+        return related;
     }
 
     private SysContactStarDO findStar(Long tenantId, Long ownerUserId, Long targetUserId) {

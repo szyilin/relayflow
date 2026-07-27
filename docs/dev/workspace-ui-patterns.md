@@ -42,14 +42,14 @@ web/src/
 |----|------|
 | 触发 | `WorkspaceRailHeader` 头像行右侧「+」→ `UDropdownMenu` |
 | 菜单项 | 创建群组、添加企业成员、添加外部联系人、创建文档（本期仅此四项） |
-| 添加企业成员 | 仅 `canInvite` 时显示；`-web` 默认 `auth.isAdmin`（对齐邀请设置 `ADMIN_ONLY`） |
+| 添加企业成员 | 仅 `canInvite` 时显示；真源 `GET /app-api/system/org-invite/capability` |
 | 创建群组 | `WorkspaceCreateGroupModal` + `WorkspaceMemberPicker`（组织内 / 外部 / 我管理的群组） |
 | 选人器 | `WorkspaceMemberPicker`：三源；`excludeUserIds` 隐藏已选/已在群；「我管理的群组」=`stores/memberPicker`（IM 会话+members 聚合，非 seed） |
 | 邀请入群 | `ImInviteMembersModal` **必须**内嵌同一 picker，并传入当前群 `excludeUserIds` |
-| 添加企业成员 UI | `WorkspaceOrgInviteModal` 四 Tab（QR/链接/码/手机号）；草稿 `stores/orgInvite`；加入页 `/app/invite/join` |
+| 添加企业成员 UI | `WorkspaceOrgInviteModal` 四 Tab（QR/链接/码/手机号）；`stores/orgInvite` → `/app-api/system/org-invite/*`；加入页 `/app/invite/join` |
 | 添加外部联系人 | `WorkspaceAddExternalContactModal`；`-web` 精确手机/邮箱可临时结果 |
 | 创建文档 | 跳转 `/app/docs` + `docs.createPage()` |
-| 状态 | `stores/createHub.ts`（`canInvite` 读 `inviteSettings`）；契约 [`workspace-create-hub`](../../openspec/lanes/workspace-create-hub/contract.md) · [`org-invite`](../../openspec/lanes/org-invite/contract.md) · [`im-group-chat` managed](../../openspec/lanes/im-group-chat/contract.md) |
+| 状态 | `stores/createHub.ts`（`canInvite` 读 orgInvite capability）；契约 [`workspace-create-hub`](../../openspec/lanes/workspace-create-hub/contract.md) · [`org-invite`](../../openspec/lanes/org-invite/contract.md) · [`im-group-chat` managed](../../openspec/lanes/im-group-chat/contract.md) |
 
 ## 资料名片与个人入口
 

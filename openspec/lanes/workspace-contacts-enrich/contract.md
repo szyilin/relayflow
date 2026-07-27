@@ -77,7 +77,7 @@
 ]
 ```
 
-`status`：`pending` | `accepted` | `rejected`（V1 实现 list 全量；写路径仅 `accept`）。
+`status`：`pending` | `accepted` | `rejected`（V1 实现 list 全量；写路径含 `accept` / `reject` / `POST request`）。
 
 ### POST /app-api/system/contact/request/{id}/accept
 
@@ -86,7 +86,7 @@
 - 仅 `to_user_id` = 当前用户且 `status=pending` 可同意
 - 其它情况返回业务错误
 
-**Response `data`**：可为空对象或更新后的申请项（实现返回更新后的 `ContactRequestItem`）。
+**Response `data`**：更新后的 `ContactRequestItem`。
 
 ### GET /app-api/system/contact/starred/list
 
@@ -130,14 +130,13 @@ curl -s -X PUT "http://localhost:8080/app-api/system/contact/starred/<userId>" \
 
 验收样例 SQL 见 change `workspace-contacts-enrich-api` tasks / design（不写入 Flyway seed）。
 
-## 发起添加 / 拒绝（`workspace-contact-add-external-*`）
+## 发起添加 / 拒绝（已实现 · `workspace-contact-add-external-api`）
 
-> `-web`：前端 `contactAdd` store 草稿搜索 + outgoing；拒绝为 contacts 本地改状态。  
-> `-api`：实现下列端点后 integrate 去草稿。
+> 前端 integrate：`contactAdd` store 接下列端点；拒绝走 `reject`。
 
 ### GET /app-api/system/contact/search-account
 
-Query：`mobile` **或** `email`（二选一，确切匹配）。
+Query：`mobile` **或** `email`（二选一，确切匹配）。均缺或同时提供 → 业务错误。
 
 **Response `data`**：`ContactAccountSearchHit[]`
 
@@ -153,7 +152,7 @@ Query：`mobile` **或** `email`（二选一，确切匹配）。
 ]
 ```
 
-同一手机号/邮箱绑定多账号时全部返回。无匹配 → `[]`。
+同一手机号/邮箱绑定多账号时全部返回。无匹配 → `[]`。排除当前用户自身。`alreadyAdded`：本租户已是外部联系人或已有发出的 `pending`。
 
 ### POST /app-api/system/contact/request
 
@@ -161,11 +160,32 @@ Query：`mobile` **或** `email`（二选一，确切匹配）。
 { "targetUserId": "201", "message": "可选附言" }
 ```
 
-成功后目标用户的 `request/list` 出现 `pending`。已是外部联系人或已有 pending → 业务错误或幂等（`-api` 定稿）。
+成功后目标用户的 `request/list` 出现 `pending`。已是外部联系人或已有 pending / 自己 → 业务错误。
+
+**Response `data`**：创建后的申请项（`fromUserId` 为发起人）。
 
 ### POST /app-api/system/contact/request/{id}/reject
 
 仅 `to_user_id` = 当前用户且 `pending` 可拒绝 → `status=rejected`，不写 external。
+
+**Response `data`**：更新后的申请项。
+
+## curl（发起 / 拒绝）
+
+```bash
+TOKEN="<jwt>"
+
+curl -s "http://localhost:8080/app-api/system/contact/search-account?mobile=13900001111" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST "http://localhost:8080/app-api/system/contact/request" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"targetUserId":"<userId>","message":"你好"}'
+
+curl -s -X POST "http://localhost:8080/app-api/system/contact/request/<id>/reject" \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ## 前端映射
 
@@ -174,7 +194,7 @@ Query：`mobile` **或** `email`（二选一，确切匹配）。
 | 分类导航 | `stores/contacts.ts` `category` | 本地 |
 | 组织内 | 同上 + `deptPath` | 既有 dept/user API |
 | 外部 / 申请 / 星标 | 同上 | `GET/POST/PUT /app-api/system/contact/*`（integrate 后无 store seed） |
-| 添加外部 | `stores/contactAdd` + Hub/通讯录入口 | `-web` 草稿；`-api` search + create request |
+| 添加外部 | `stores/contactAdd` + Hub/通讯录入口 | `-api` 已实现；`-integrate` 接 search + create + reject |
 | 我的群组 | `stores/im` conversations | IM list（`type=group`） |
 
 ## V1 不在范围

@@ -132,7 +132,7 @@ async function save() {
     })
     toast.add({
       title: '已保存',
-      description: '当前为前端草稿；对接 API 后将写入租户配置',
+      description: '邀请设置已写入当前租户',
       color: 'success'
     })
   } catch {

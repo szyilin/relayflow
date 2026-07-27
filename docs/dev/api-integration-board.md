@@ -96,9 +96,9 @@
 |------|----------|----------|-------------|------|------|
 | **workspace-plus-create-v1** | planned | — | 母 change：Create Hub + 组织邀请 redesign | [母](../../openspec/changes/workspace-plus-create-v1/proposal.md) | 规划真源；实现落子切片 |
 | **workspace-create-hub** | planned | **ui_ready** | Rail「+」· 建群/邀成员/加外部/建文档 | [contract](../../openspec/lanes/workspace-create-hub/contract.md) | `-web` 完成；capability / 邀请渠道 / 外部申请 API 后续 |
-| **org-invite-settings** | **archived** | **ui_ready** | `/admin/system/invite-settings` | [contract](../../openspec/lanes/org-invite/contract.md) | `-api` 完成（GET/PUT）；`-integrate` 待接 store |
-| **org-invite-channels** | **archived** | **ui_ready** | 「+」添加企业成员 · `/app/invite/join` | [contract](../../openspec/lanes/org-invite/contract.md) | `-api` 完成；`-integrate` 待接 orgInvite store |
-| **workspace-contact-add-external** | planned | **ui_ready** | 搜索/发起外部联系人 · 拒绝申请 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-web` 完成（contactAdd 草稿）；`-api` 待做 |
+| **org-invite-settings** | **archived** | **done** | `/admin/system/invite-settings` | [contract](../../openspec/lanes/org-invite/contract.md) | `-integrate` 完成；store 接 GET/PUT |
+| **org-invite-channels** | **archived** | **done** | 「+」添加企业成员 · `/app/invite/join` | [contract](../../openspec/lanes/org-invite/contract.md) | `-integrate` 完成；orgInvite store 接 capability/shared/mobile/consume |
+| **workspace-contact-add-external** | **archived** | **ui_ready** | 搜索/发起外部联系人 · 拒绝申请 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-api` 完成（search/request/reject）；`-integrate` 待接 contactAdd |
 | **workspace-member-picker** | planned | **ui_ready** | 共享选人器 · 我管理的群组（IM 聚合）· 邀请入群复用 | [create-hub](../../openspec/lanes/workspace-create-hub/contract.md) · [im-group](../../openspec/lanes/im-group-chat/contract.md) | `-web` 完成；`GET …/group/managed` 草案待 `-api` |
 
 ### SUPERSEDED（不再按旧写真源扩写）

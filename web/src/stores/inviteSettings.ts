@@ -2,23 +2,23 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   DEFAULT_INVITE_SETTINGS,
+  getInviteSettings,
+  updateInviteSettings,
   type InviteSettings
 } from '../api/admin/inviteSettings'
+import { ApiError } from '../api/request'
 
 function cloneSettings(source: InviteSettings): InviteSettings {
   return {
     inviteMode: source.inviteMode,
     nonAdminScope: source.nonAdminScope,
-    nonAdminDeptIds: [...source.nonAdminDeptIds],
+    nonAdminDeptIds: [...(source.nonAdminDeptIds ?? [])],
     nonAdminExpireDays: source.nonAdminExpireDays,
     nonAdminRequireApproval: source.nonAdminRequireApproval
   }
 }
 
-/**
- * Tenant invite settings. `-web` keeps session memory only;
- * `-api` / integrate will replace load/save with admin-api.
- */
+/** Tenant invite settings — admin-api is the only source of truth. */
 export const useInviteSettingsStore = defineStore('inviteSettings', () => {
   const settings = ref<InviteSettings>(cloneSettings(DEFAULT_INVITE_SETTINGS))
   const loading = ref(false)
@@ -30,11 +30,14 @@ export const useInviteSettingsStore = defineStore('inviteSettings', () => {
     loading.value = true
     lastError.value = null
     try {
-      // Keep local defaults until API is ready
-      if (!hydrated.value) {
-        settings.value = cloneSettings(DEFAULT_INVITE_SETTINGS)
-        hydrated.value = true
-      }
+      const data = await getInviteSettings()
+      settings.value = cloneSettings(data)
+      hydrated.value = true
+    } catch (error) {
+      lastError.value = error instanceof ApiError
+        ? error.message
+        : '加载邀请设置失败，请确认后端服务已启动'
+      throw error
     } finally {
       loading.value = false
     }
@@ -49,10 +52,13 @@ export const useInviteSettingsStore = defineStore('inviteSettings', () => {
         && next.nonAdminDeptIds.length === 0) {
         throw new Error('请至少指定一个可邀请部门')
       }
-      settings.value = cloneSettings(next)
+      const data = await updateInviteSettings(cloneSettings(next))
+      settings.value = cloneSettings(data)
       hydrated.value = true
     } catch (error) {
-      lastError.value = error instanceof Error ? error.message : '保存失败'
+      lastError.value = error instanceof ApiError || error instanceof Error
+        ? error.message
+        : '保存失败'
       throw error
     } finally {
       saving.value = false

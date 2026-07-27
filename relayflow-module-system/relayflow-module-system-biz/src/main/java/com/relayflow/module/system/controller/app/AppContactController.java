@@ -1,7 +1,9 @@
 package com.relayflow.module.system.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
+import com.relayflow.module.system.controller.app.vo.AppContactAccountSearchHitRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactExternalItemRespVO;
+import com.relayflow.module.system.controller.app.vo.AppContactRequestCreateReqVO;
 import com.relayflow.module.system.controller.app.vo.AppContactRequestItemRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactStarredItemRespVO;
 import com.relayflow.module.system.controller.app.vo.AppContactStarredUpdateReqVO;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -41,6 +44,24 @@ public class AppContactController {
     @PostMapping("/request/{id}/accept")
     public CommonResult<AppContactRequestItemRespVO> acceptRequest(@PathVariable("id") @NotNull Long id) {
         return CommonResult.success(contactEnrichService.acceptRequest(id));
+    }
+
+    @PostMapping("/request/{id}/reject")
+    public CommonResult<AppContactRequestItemRespVO> rejectRequest(@PathVariable("id") @NotNull Long id) {
+        return CommonResult.success(contactEnrichService.rejectRequest(id));
+    }
+
+    @PostMapping("/request")
+    public CommonResult<AppContactRequestItemRespVO> createRequest(
+            @Valid @RequestBody AppContactRequestCreateReqVO request) {
+        return CommonResult.success(contactEnrichService.createRequest(request));
+    }
+
+    @GetMapping("/search-account")
+    public CommonResult<List<AppContactAccountSearchHitRespVO>> searchAccount(
+            @RequestParam(required = false) String mobile,
+            @RequestParam(required = false) String email) {
+        return CommonResult.success(contactEnrichService.searchAccount(mobile, email));
     }
 
     @GetMapping("/starred/list")

@@ -32,13 +32,31 @@ async function tryConsume(kind: 'token' | 'code', value: string) {
       })
       return
     }
-    const result = orgInvite.consumeDraft(kind, value)
-    resultOk.value = result.ok
-    resultMessage.value = result.message
+    const trimmed = value.trim()
+    if (!trimmed) {
+      resultOk.value = false
+      resultMessage.value = kind === 'token' ? '缺少邀请凭证' : '请输入邀请码'
+      return
+    }
+    const result = await orgInvite.consume(
+      kind === 'token' ? { token: trimmed } : { code: trimmed }
+    )
+    resultOk.value = true
+    resultMessage.value = result.alreadyMember
+      ? '你已是该企业成员'
+      : '已成功加入企业'
     toast.add({
-      title: result.ok ? '加入结果' : '无法加入',
-      description: result.message,
-      color: result.ok ? 'success' : 'error'
+      title: result.alreadyMember ? '已是成员' : '加入成功',
+      description: resultMessage.value,
+      color: 'success'
+    })
+  } catch {
+    resultOk.value = false
+    resultMessage.value = orgInvite.lastError ?? '无法加入'
+    toast.add({
+      title: '无法加入',
+      description: resultMessage.value,
+      color: 'error'
     })
   } finally {
     busy.value = false
@@ -75,7 +93,7 @@ meta:
             加入企业
           </h1>
           <p class="mt-1 text-sm text-[var(--ws-text-muted)]">
-            通过邀请链接或邀请码加入当前会话中的企业（`-web` 草稿校验）
+            通过邀请链接或邀请码加入企业
           </p>
         </div>
       </template>

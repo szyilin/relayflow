@@ -71,6 +71,12 @@ export function useTenantSwitchReload() {
       // 侧栏展示回退到 auth store
     }
 
+    try {
+      await orgInvite.loadCapability()
+    } catch {
+      // 「+」菜单隐藏添加企业成员直至下次成功
+    }
+
     if (route.path.startsWith('/app/messages')) {
       try {
         await im.fetchConversations()
