@@ -2,6 +2,7 @@ package com.relayflow.module.docs.controller.app.vo;
 
 import lombok.Data;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +18,10 @@ public class DocLibraryNodeTreeVO {
     private String title;
 
     private Integer sortOrder;
+
+    private OffsetDateTime createTime;
+
+    private OffsetDateTime lastOpenedAt;
 
     private List<DocLibraryNodeTreeVO> children = new ArrayList<>();
 }

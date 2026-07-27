@@ -30,4 +30,6 @@ public class DocRecentItemRespVO {
     private OffsetDateTime lastOpenedAt;
 
     private Boolean starred;
+
+    private String ownerAvatarFileId;
 }

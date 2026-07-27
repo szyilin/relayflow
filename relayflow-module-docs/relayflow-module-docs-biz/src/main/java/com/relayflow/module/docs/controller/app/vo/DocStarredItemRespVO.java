@@ -21,5 +21,13 @@ public class DocStarredItemRespVO {
 
     private String ownerDisplayName;
 
+    private String ownerAvatarFileId;
+
+    private Boolean ownedByMe;
+
     private String locationLabel;
+
+    private OffsetDateTime createTime;
+
+    private OffsetDateTime lastOpenedAt;
 }

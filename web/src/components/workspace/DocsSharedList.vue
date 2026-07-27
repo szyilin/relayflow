@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { DocsSharedWithMeItem } from '../../api/app/docs'
+import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   items: DocsSharedWithMeItem[]
   activeObjectId?: string | null
-}>()
+  embedded?: boolean
+}>(), {
+  embedded: false
+})
 
 const emit = defineEmits<{
   open: [objectId: string]
@@ -63,7 +67,10 @@ function rowActions(item: DocsSharedWithMeItem) {
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3">
+    <div
+      v-if="!embedded"
+      class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3"
+    >
       <UIcon
         name="i-lucide-users"
         class="size-4 shrink-0 text-[var(--ws-text-muted)]"
@@ -95,8 +102,14 @@ function rowActions(item: DocsSharedWithMeItem) {
           <div class="truncate text-sm font-medium">
             {{ item.title || '未命名文档' }}
           </div>
-          <div class="truncate text-xs text-[var(--ws-text-muted)]">
-            {{ item.ownerDisplayName }} · {{ item.permission === 'EDIT' ? '可编辑' : '可阅读' }} · {{ formatTime(item.sharedAt) }}
+          <div class="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ws-text-muted)]">
+            <WorkspaceOwnerChip
+              v-if="item.ownerUserId"
+              :user-id="item.ownerUserId"
+              :display-name="item.ownerDisplayName"
+            />
+            <span>{{ item.permission === 'EDIT' ? '可编辑' : '可阅读' }}</span>
+            <span>{{ formatTime(item.sharedAt) }}</span>
           </div>
         </div>
         <UDropdownMenu :items="rowActions(item)">

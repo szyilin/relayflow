@@ -17,4 +17,8 @@ public class DocDriveItemRespVO {
     private String mimeType;
     private Integer sortOrder;
     private OffsetDateTime updateTime;
+
+    private Long ownerUserId;
+    private String ownerDisplayName;
+    private String ownerAvatarFileId;
 }

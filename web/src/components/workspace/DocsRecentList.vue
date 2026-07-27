@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import type { DocsRecentItem } from '../../api/app/docs'
+import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   items: DocsRecentItem[]
   activeObjectId?: string | null
-}>()
+  /** Hide page title when embedded under Home tabs */
+  embedded?: boolean
+}>(), {
+  embedded: false
+})
 
 const emit = defineEmits<{
   open: [objectId: string]
@@ -110,7 +115,10 @@ function rowActions(item: DocsRecentItem) {
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3">
+    <div
+      v-if="!embedded"
+      class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3"
+    >
       <UIcon
         name="i-lucide-clock"
         class="size-4 shrink-0 text-[var(--ws-text-muted)]"
@@ -168,13 +176,20 @@ function rowActions(item: DocsRecentItem) {
           >
             {{ item.locationLabel || '—' }}
           </button>
-          <button
-            type="button"
-            class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block md:text-left"
-            @click="emit('open', item.objectId)"
+          <div
+            class="hidden min-w-0 md:block"
+            @click.stop
           >
-            {{ item.ownerDisplayName || '—' }}
-          </button>
+            <WorkspaceOwnerChip
+              v-if="item.ownerUserId"
+              :user-id="item.ownerUserId"
+              :display-name="item.ownerDisplayName"
+            />
+            <span
+              v-else
+              class="text-xs text-[var(--ws-text-muted)]"
+            >—</span>
+          </div>
           <button
             type="button"
             class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block md:text-left"

@@ -11,5 +11,12 @@ public class DocDriveFolderRespVO {
     private Long parentId;
     private String name;
     private Integer sortOrder;
+
     private OffsetDateTime updateTime;
+
+    private Long ownerUserId;
+
+    private String ownerDisplayName;
+
+    private String ownerAvatarFileId;
 }

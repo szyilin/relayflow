@@ -10,8 +10,10 @@ import com.relayflow.module.docs.controller.app.vo.DocLibraryNodeUpdateReqVO;
 import com.relayflow.module.docs.controller.app.vo.DocLibraryTreeRespVO;
 import com.relayflow.module.docs.dal.dataobject.DocLibraryNodeDO;
 import com.relayflow.module.docs.dal.dataobject.DocObjectDO;
+import com.relayflow.module.docs.dal.dataobject.DocUserVisitDO;
 import com.relayflow.module.docs.dal.mapper.DocLibraryNodeMapper;
 import com.relayflow.module.docs.dal.mapper.DocObjectMapper;
+import com.relayflow.module.docs.dal.mapper.DocUserVisitMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
@@ -39,6 +41,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
 
     private final DocLibraryNodeMapper docLibraryNodeMapper;
     private final DocObjectMapper docObjectMapper;
+    private final DocUserVisitMapper docUserVisitMapper;
     private final DocAccessService docAccessService;
 
     @Override
@@ -61,6 +64,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
                 .collect(Collectors.toSet());
         Map<Long, DocObjectDO> objectsById = docObjectMapper.selectBatchIds(objectIds).stream()
                 .collect(Collectors.toMap(DocObjectDO::getId, row -> row));
+        Map<Long, OffsetDateTime> lastOpenedByObject = loadLastOpenedAt(userId, objectIds);
 
         Map<Long, List<DocLibraryNodeDO>> childrenByParent = new HashMap<>();
         for (DocLibraryNodeDO node : nodes) {
@@ -74,7 +78,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
         }
 
         DocLibraryTreeRespVO resp = new DocLibraryTreeRespVO();
-        resp.setNodes(buildTreeLevel(childrenByParent, objectsById, 0L));
+        resp.setNodes(buildTreeLevel(childrenByParent, objectsById, lastOpenedByObject, 0L));
         return resp;
     }
 
@@ -203,6 +207,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
     private List<DocLibraryNodeTreeVO> buildTreeLevel(
             Map<Long, List<DocLibraryNodeDO>> childrenByParent,
             Map<Long, DocObjectDO> objectsById,
+            Map<Long, OffsetDateTime> lastOpenedByObject,
             Long parentKey) {
         List<DocLibraryNodeDO> siblings = childrenByParent.getOrDefault(parentKey, List.of());
         List<DocLibraryNodeTreeVO> result = new ArrayList<>(siblings.size());
@@ -214,10 +219,26 @@ public class DocLibraryServiceImpl implements DocLibraryService {
             vo.setSortOrder(node.getSortOrder());
             DocObjectDO object = objectsById.get(node.getObjectId());
             vo.setTitle(object != null ? object.getTitle() : DocConstants.DEFAULT_TITLE);
-            vo.setChildren(buildTreeLevel(childrenByParent, objectsById, node.getId()));
+            vo.setCreateTime(object != null ? object.getCreateTime() : null);
+            vo.setLastOpenedAt(lastOpenedByObject.get(node.getObjectId()));
+            vo.setChildren(buildTreeLevel(childrenByParent, objectsById, lastOpenedByObject, node.getId()));
             result.add(vo);
         }
         return result;
+    }
+
+    private Map<Long, OffsetDateTime> loadLastOpenedAt(Long userId, Set<Long> objectIds) {
+        if (objectIds == null || objectIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, OffsetDateTime> map = new HashMap<>();
+        for (DocUserVisitDO visit : docUserVisitMapper.selectList(
+                Wrappers.<DocUserVisitDO>lambdaQuery()
+                        .eq(DocUserVisitDO::getUserId, userId)
+                        .in(DocUserVisitDO::getObjectId, objectIds))) {
+            map.put(visit.getObjectId(), visit.getLastOpenedAt());
+        }
+        return map;
     }
 
     private DocLibraryNodeSummaryRespVO toSummary(DocLibraryNodeDO node, DocObjectDO object) {

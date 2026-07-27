@@ -194,7 +194,11 @@ public class DocDocumentServiceImpl implements DocDocumentService {
             vo.setAccessState(DocConstants.ACCESS_STATE_DELETED);
             vo.setLocationLabel(DocConstants.LOCATION_DELETED);
             vo.setOwnedByMe(DocConstants.VISIT_SOURCE_OWNER.equals(visit.getSource()));
-            vo.setOwnerDisplayName(vo.getOwnedByMe() ? "我" : null);
+            if (vo.getOwnedByMe()) {
+                vo.setOwnerUserId(userId);
+                vo.setOwnerDisplayName(resolveNickname(userId));
+                vo.setOwnerAvatarFileId(resolveAvatarFileId(userId));
+            }
             return vo;
         }
 
@@ -205,7 +209,8 @@ public class DocDocumentServiceImpl implements DocDocumentService {
         vo.setCreateTime(object.getCreateTime());
         boolean owned = Objects.equals(object.getOwnerUserId(), userId);
         vo.setOwnedByMe(owned);
-        vo.setOwnerDisplayName(owned ? "我" : resolveNickname(object.getOwnerUserId()));
+        vo.setOwnerDisplayName(resolveNickname(object.getOwnerUserId()));
+        vo.setOwnerAvatarFileId(resolveAvatarFileId(object.getOwnerUserId()));
 
         try {
             docAccessService.resolveAccess(object.getId(), userId);
@@ -231,6 +236,18 @@ public class DocDocumentServiceImpl implements DocDocumentService {
             log.warn("Resolve nickname failed (best-effort): userId={}", userId, ex);
         }
         return String.valueOf(userId);
+    }
+
+    private String resolveAvatarFileId(Long userId) {
+        try {
+            UserBasicDTO basic = userApi.getUserBasic(userId);
+            if (basic != null && StringUtils.hasText(basic.getAvatarFileId())) {
+                return basic.getAvatarFileId();
+            }
+        } catch (Exception ex) {
+            log.warn("Resolve avatar failed (best-effort): userId={}", userId, ex);
+        }
+        return null;
     }
 
     private static int clampLimit(int limit) {

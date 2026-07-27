@@ -12,9 +12,11 @@ import com.relayflow.module.docs.controller.app.vo.DocSharedListRespVO;
 import com.relayflow.module.docs.dal.dataobject.DocObjectDO;
 import com.relayflow.module.docs.dal.dataobject.DocShareDO;
 import com.relayflow.module.docs.dal.dataobject.DocStarDO;
+import com.relayflow.module.docs.dal.dataobject.DocUserVisitDO;
 import com.relayflow.module.docs.dal.mapper.DocObjectMapper;
 import com.relayflow.module.docs.dal.mapper.DocShareMapper;
 import com.relayflow.module.docs.dal.mapper.DocStarMapper;
+import com.relayflow.module.docs.dal.mapper.DocUserVisitMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
@@ -30,8 +32,10 @@ import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -44,6 +48,7 @@ public class DocShareServiceImpl implements DocShareService {
     private final DocShareMapper docShareMapper;
     private final DocObjectMapper docObjectMapper;
     private final DocStarMapper docStarMapper;
+    private final DocUserVisitMapper docUserVisitMapper;
     private final DocAccessService docAccessService;
     private final TenantMemberApi tenantMemberApi;
     private final UserApi userApi;
@@ -147,6 +152,7 @@ public class DocShareServiceImpl implements DocShareService {
                         .last("LIMIT " + effective));
         Set<Long> objectIds = shares.stream().map(DocShareDO::getObjectId).collect(Collectors.toCollection(HashSet::new));
         Set<Long> starredIds = loadStarredObjectIds(userId, objectIds);
+        Map<Long, OffsetDateTime> lastOpenedByObject = loadLastOpenedAt(userId, objectIds);
 
         List<DocSharedItemRespVO> items = new ArrayList<>();
         for (DocShareDO share : shares) {
@@ -161,9 +167,14 @@ public class DocShareServiceImpl implements DocShareService {
             item.setPermission(share.getPermission());
             item.setOwnerUserId(object.getOwnerUserId());
             item.setOwnerDisplayName(resolveNickname(object.getOwnerUserId()));
+            item.setOwnerAvatarFileId(resolveAvatarFileId(object.getOwnerUserId()));
+            item.setOwnedByMe(Objects.equals(object.getOwnerUserId(), userId));
             item.setGrantedByUserId(share.getGrantedByUserId());
             item.setGrantedByDisplayName(resolveNickname(share.getGrantedByUserId()));
             item.setSharedAt(share.getCreateTime());
+            item.setCreateTime(object.getCreateTime());
+            item.setLastOpenedAt(lastOpenedByObject.get(object.getId()));
+            item.setLocationLabel(DocConstants.LOCATION_SHARED);
             item.setStarred(starredIds.contains(object.getId()));
             items.add(item);
         }
@@ -228,6 +239,20 @@ public class DocShareServiceImpl implements DocShareService {
                 .collect(Collectors.toCollection(HashSet::new));
     }
 
+    private Map<Long, OffsetDateTime> loadLastOpenedAt(Long userId, Set<Long> objectIds) {
+        if (objectIds == null || objectIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, OffsetDateTime> map = new HashMap<>();
+        for (DocUserVisitDO visit : docUserVisitMapper.selectList(
+                Wrappers.<DocUserVisitDO>lambdaQuery()
+                        .eq(DocUserVisitDO::getUserId, userId)
+                        .in(DocUserVisitDO::getObjectId, objectIds))) {
+            map.put(visit.getObjectId(), visit.getLastOpenedAt());
+        }
+        return map;
+    }
+
     private String resolveNickname(Long userId) {
         try {
             UserBasicDTO basic = userApi.getUserBasic(userId);
@@ -241,6 +266,18 @@ public class DocShareServiceImpl implements DocShareService {
             log.warn("Resolve nickname failed (best-effort): userId={}", userId, ex);
         }
         return String.valueOf(userId);
+    }
+
+    private String resolveAvatarFileId(Long userId) {
+        try {
+            UserBasicDTO basic = userApi.getUserBasic(userId);
+            if (basic != null && StringUtils.hasText(basic.getAvatarFileId())) {
+                return basic.getAvatarFileId();
+            }
+        } catch (Exception ex) {
+            log.warn("Resolve avatar failed (best-effort): userId={}", userId, ex);
+        }
+        return null;
     }
 
     private static int clampLimit(int limit) {

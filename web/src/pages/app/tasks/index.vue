@@ -7,6 +7,7 @@ import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
 import TaskCustomFieldsModal from '../../../components/workspace/TaskCustomFieldsModal.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
 import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
+import WorkspaceOwnerChip from '../../../components/workspace/WorkspaceOwnerChip.vue'
 import WsDateTimeInput from '../../../components/workspace/WsDateTimeInput.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
@@ -733,15 +734,15 @@ function subtaskHint(task: { subtaskDoneCount?: number, subtaskTotal?: number })
   return `${task.subtaskDoneCount ?? 0}/${total}`
 }
 
-function assigneeFieldLabel(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
-  const ids = resolveAssigneeIds(task)
-  if (!ids.length) {
-    return ''
-  }
-  if (ids.length > 1) {
-    return `${ids.length} 人`
-  }
-  return assigneeBucketLabel(ids[0]!)
+const ASSIGNEE_CHIP_LIMIT = 3
+
+function assigneeChipIds(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
+  return resolveAssigneeIds(task).slice(0, ASSIGNEE_CHIP_LIMIT)
+}
+
+function assigneeOverflowCount(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
+  const total = resolveAssigneeIds(task).length
+  return total > ASSIGNEE_CHIP_LIMIT ? total - ASSIGNEE_CHIP_LIMIT : 0
 }
 
 function overdueBadgeLabel(count: number, capped: boolean): string {
@@ -1524,8 +1525,22 @@ meta:
                     <span v-if="viewConfigStore.isFieldVisible('status')">
                       {{ task.status === 'DONE' ? '已完成' : '未完成' }}
                     </span>
-                    <span v-if="viewConfigStore.isFieldVisible('assignee') && assigneeFieldLabel(task)">
-                      负责人 {{ assigneeFieldLabel(task) }}
+                    <span
+                      v-if="viewConfigStore.isFieldVisible('assignee') && assigneeChipIds(task).length"
+                      class="inline-flex min-w-0 flex-wrap items-center gap-1"
+                      @click.stop
+                    >
+                      <span class="shrink-0">负责人</span>
+                      <WorkspaceOwnerChip
+                        v-for="uid in assigneeChipIds(task)"
+                        :key="uid"
+                        :user-id="uid"
+                        :display-name="assigneeBucketLabel(uid)"
+                      />
+                      <span
+                        v-if="assigneeOverflowCount(task)"
+                        class="text-[var(--ws-text-muted)]"
+                      >+{{ assigneeOverflowCount(task) }}</span>
                     </span>
                     <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
                   </p>

@@ -87,8 +87,12 @@ function patchTreeTitle(nodes: DocsLibraryNode[], objectId: string, title: strin
   })
 }
 
+export type DocsPanel = 'home' | 'library' | 'drive'
+export type DocsHomeTab = 'recent' | 'shared' | 'starred'
+
 export const useDocsStore = defineStore('docs', () => {
-  const panel = ref<'library' | 'recent' | 'shared' | 'starred' | 'drive'>('library')
+  const panel = ref<DocsPanel>('home')
+  const homeTab = ref<DocsHomeTab>('recent')
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
@@ -412,11 +416,13 @@ export const useDocsStore = defineStore('docs', () => {
     error.value = null
     loading.value = false
     saving.value = false
-    panel.value = 'library'
+    panel.value = 'home'
+    homeTab.value = 'recent'
   }
 
   return {
     panel,
+    homeTab,
     loading,
     saving,
     error,

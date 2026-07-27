@@ -9,6 +9,9 @@ export interface DocsDriveFolder {
   name: string
   sortOrder: number
   updateTime: string
+  ownerUserId?: string
+  ownerDisplayName?: string
+  ownerAvatarFileId?: string | null
 }
 
 export interface DocsDriveItem {
@@ -22,6 +25,9 @@ export interface DocsDriveItem {
   mimeType?: string | null
   sortOrder: number
   updateTime: string
+  ownerUserId?: string
+  ownerDisplayName?: string
+  ownerAvatarFileId?: string | null
 }
 
 export interface DocsDriveListing {

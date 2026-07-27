@@ -27,7 +27,10 @@ import com.relayflow.module.docs.service.access.DocAccessService;
 import com.relayflow.module.infra.api.file.FileApi;
 import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
 import com.relayflow.module.infra.api.file.dto.FileRespDTO;
+import com.relayflow.module.system.api.user.UserApi;
+import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -45,6 +48,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocDriveServiceImpl implements DocDriveService {
@@ -55,6 +59,7 @@ public class DocDriveServiceImpl implements DocDriveService {
     private final DocObjectMapper docObjectMapper;
     private final DocAccessService docAccessService;
     private final FileApi fileApi;
+    private final UserApi userApi;
 
     @Override
     public DocDriveFolderListRespVO listFolders(Long parentId) {
@@ -62,8 +67,11 @@ public class DocDriveServiceImpl implements DocDriveService {
         if (parentId != null) {
             docAccessService.requireOwnedDriveFolder(parentId, userId);
         }
+        OwnerView owner = resolveOwnerView(userId);
         DocDriveFolderListRespVO resp = new DocDriveFolderListRespVO();
-        resp.setFolders(loadChildFolders(userId, parentId).stream().map(this::toFolderResp).toList());
+        resp.setFolders(loadChildFolders(userId, parentId).stream()
+                .map(folder -> toFolderResp(folder, owner))
+                .toList());
         return resp;
     }
 
@@ -73,9 +81,10 @@ public class DocDriveServiceImpl implements DocDriveService {
         if (folderId != null) {
             docAccessService.requireOwnedDriveFolder(folderId, userId);
         }
+        OwnerView owner = resolveOwnerView(userId);
 
         List<DocDriveFolderRespVO> folders = loadChildFolders(userId, folderId).stream()
-                .map(this::toFolderResp)
+                .map(folder -> toFolderResp(folder, owner))
                 .toList();
 
         List<DocDriveItemDO> itemRows = loadChildItems(userId, folderId);
@@ -86,7 +95,7 @@ public class DocDriveServiceImpl implements DocDriveService {
             if (object == null) {
                 continue;
             }
-            items.add(toItemResp(row, object, resolveFileMeta(object)));
+            items.add(toItemResp(row, object, resolveFileMeta(object), owner));
         }
 
         DocDriveListingRespVO resp = new DocDriveListingRespVO();
@@ -117,7 +126,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         folder.setUpdater(userId);
         folder.setUpdateTime(now);
         docDriveFolderMapper.insert(folder);
-        return toFolderResp(folder);
+        return toFolderResp(folder, resolveOwnerView(userId));
     }
 
     @Override
@@ -149,7 +158,7 @@ public class DocDriveServiceImpl implements DocDriveService {
             folder.setUpdateTime(now);
             docDriveFolderMapper.updateById(folder);
         }
-        return toFolderResp(folder);
+        return toFolderResp(folder, resolveOwnerView(userId));
     }
 
     @Override
@@ -220,7 +229,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         bind.setBizId(object.getId());
         fileApi.bindFile(bind);
 
-        return toItemResp(item, object, file);
+        return toItemResp(item, object, file, resolveOwnerView(userId));
     }
 
     @Override
@@ -266,7 +275,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         }
 
         object = docObjectMapper.selectById(object.getId());
-        return toItemResp(item, object, resolveFileMeta(object));
+        return toItemResp(item, object, resolveFileMeta(object), resolveOwnerView(userId));
     }
 
     @Override
@@ -548,17 +557,18 @@ public class DocDriveServiceImpl implements DocDriveService {
         return DocConstants.DEFAULT_TITLE;
     }
 
-    private DocDriveFolderRespVO toFolderResp(DocDriveFolderDO folder) {
+    private DocDriveFolderRespVO toFolderResp(DocDriveFolderDO folder, OwnerView owner) {
         DocDriveFolderRespVO vo = new DocDriveFolderRespVO();
         vo.setFolderId(folder.getId());
         vo.setParentId(folder.getParentId());
         vo.setName(folder.getName());
         vo.setSortOrder(folder.getSortOrder());
         vo.setUpdateTime(folder.getUpdateTime());
+        applyOwner(vo, owner);
         return vo;
     }
 
-    private DocDriveItemRespVO toItemResp(DocDriveItemDO item, DocObjectDO object, FileRespDTO file) {
+    private DocDriveItemRespVO toItemResp(DocDriveItemDO item, DocObjectDO object, FileRespDTO file, OwnerView owner) {
         DocDriveItemRespVO vo = new DocDriveItemRespVO();
         vo.setItemId(item.getId());
         vo.setFolderId(item.getFolderId());
@@ -568,6 +578,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         vo.setStorageFileId(object.getStorageFileId());
         vo.setSortOrder(item.getSortOrder());
         vo.setUpdateTime(item.getUpdateTime());
+        applyOwner(vo, owner);
         if (file != null) {
             vo.setSizeBytes(file.getSize());
             vo.setMimeType(file.getMimeType());
@@ -576,5 +587,47 @@ public class DocDriveServiceImpl implements DocDriveService {
             }
         }
         return vo;
+    }
+
+    private void applyOwner(DocDriveFolderRespVO vo, OwnerView owner) {
+        if (owner == null) {
+            return;
+        }
+        vo.setOwnerUserId(owner.userId());
+        vo.setOwnerDisplayName(owner.displayName());
+        vo.setOwnerAvatarFileId(owner.avatarFileId());
+    }
+
+    private void applyOwner(DocDriveItemRespVO vo, OwnerView owner) {
+        if (owner == null) {
+            return;
+        }
+        vo.setOwnerUserId(owner.userId());
+        vo.setOwnerDisplayName(owner.displayName());
+        vo.setOwnerAvatarFileId(owner.avatarFileId());
+    }
+
+    private OwnerView resolveOwnerView(Long userId) {
+        String displayName = String.valueOf(userId);
+        String avatarFileId = null;
+        try {
+            UserBasicDTO basic = userApi.getUserBasic(userId);
+            if (basic != null) {
+                if (StringUtils.hasText(basic.getNickname())) {
+                    displayName = basic.getNickname();
+                } else if (StringUtils.hasText(basic.getUsername())) {
+                    displayName = basic.getUsername();
+                }
+                if (StringUtils.hasText(basic.getAvatarFileId())) {
+                    avatarFileId = basic.getAvatarFileId();
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Resolve drive owner failed (best-effort): userId={}", userId, ex);
+        }
+        return new OwnerView(userId, displayName, avatarFileId);
+    }
+
+    private record OwnerView(Long userId, String displayName, String avatarFileId) {
     }
 }

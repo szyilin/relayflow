@@ -57,8 +57,19 @@ web/src/
 | 结构 | 封面区 + 叠压头像 + 显示名/企业 + 签名或备注区 + 操作按钮 |
 | self | 封面可点替换；签名可编辑；**消息**可开自聊备忘；无语音/视频；无「给自己备注」 |
 | peer | 签名只读；备注与描述可编辑（查看者私有）；消息接通；语音/视频占位；封面右上角 **⋯** 菜单可「设为/取消星标联系人」 |
-| 入口 | Rail「我的个人名片」→ self；通讯录点成员 → peer（若点自己则 self） |
+| 入口 | Rail「我的个人名片」→ self；通讯录点成员 → peer（若点自己则 self）；**列表所有者芯片** → self/peer |
 | 数据 | `stores/businessCard` + `stores/profile` → app-api；契约见 [`workspace-business-card/contract.md`](../../openspec/lanes/workspace-business-card/contract.md)；星标临时态见 `stores/contacts` |
+
+## 所有者芯片（列表通用）
+
+| 项 | 规范 |
+|----|------|
+| 组件 | `WorkspaceOwnerChip` |
+| 展示 | 头像（图或字）+ **真实显示名**；当前用户可旁标「我」，**禁止**单独用「我」代替姓名 |
+| 点击 | `stopPropagation` + `useClickAnchoredPopover` → `WorkspaceBusinessCard`；不得单独触发行打开 |
+| 数据 | `userId` 必填；`displayName` / `avatarUrl` 可选；否则从 auth / contacts 解析 |
+| 复用 | 云文档列表所有者列、任务负责人等；多负责人最多约 3 个 chip + `+N` |
+| Change | [`workspace-owner-chip-web`](../../openspec/changes/workspace-owner-chip-web/proposal.md) |
 
 ## 工作台设置窗
 

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
-import DocsTreeNodes from '../../../components/workspace/DocsTreeNodes.vue'
 import DocsDriveBrowser from '../../../components/workspace/DocsDriveBrowser.vue'
+import DocsDriveFolderTree from '../../../components/workspace/DocsDriveFolderTree.vue'
+import DocsLibraryList from '../../../components/workspace/DocsLibraryList.vue'
 import DocsRichEditor from '../../../components/workspace/DocsRichEditor.vue'
 import DocsRecentList from '../../../components/workspace/DocsRecentList.vue'
 import DocsSharedList from '../../../components/workspace/DocsSharedList.vue'
@@ -12,7 +13,7 @@ import DocsStarredList from '../../../components/workspace/DocsStarredList.vue'
 import DocsShareDialog from '../../../components/workspace/DocsShareDialog.vue'
 import type { DocsLibraryNode, DocsSharePermission, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
-import { useDocsStore } from '../../../stores/docs'
+import { useDocsStore, type DocsHomeTab, type DocsPanel } from '../../../stores/docs'
 import { useDocsDriveStore } from '../../../stores/docsDrive'
 import { listDriveFolders } from '../../../api/app/docs-drive'
 
@@ -41,7 +42,14 @@ const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
 const saveHint = ref('')
 /** Where the open document was launched from (for back / path bar). */
-const docOpenSource = ref<'library' | 'recent' | 'drive' | 'shared' | 'starred' | null>(null)
+const docOpenSource = ref<'library' | 'recent' | 'drive' | 'shared' | 'starred' | 'home' | null>(null)
+
+/** root = 云文档导航；driveExplorer = 滑入文件夹树 */
+const navMode = ref<'root' | 'driveExplorer'>('root')
+const driveHover = ref(false)
+const driveBrowserRef = ref<{ triggerUpload: () => void } | null>(null)
+const driveFolderTreeRef = ref<{ refresh: () => Promise<void> } | null>(null)
+const pendingDriveUpload = ref(false)
 
 const shareOpen = ref(false)
 const shareObjectId = ref<string | null>(null)
@@ -121,20 +129,23 @@ const docMoreItems = computed(() => {
   return groups
 })
 
-type PanelKey = 'library' | 'recent' | 'shared' | 'starred' | 'drive' | 'wiki'
+type PanelKey = DocsPanel | 'wiki'
 
 const panelNav: Array<
   | { type: 'section', label: string }
-  | { type: 'item', key: PanelKey, label: string, icon: string, enabled: boolean }
+  | { type: 'item', key: PanelKey, label: string, icon: string, enabled: boolean, enterable?: boolean }
 > = [
-  { type: 'section', label: '快捷访问' },
-  { type: 'item', key: 'recent', label: '最近', icon: 'i-lucide-clock', enabled: true },
-  { type: 'item', key: 'shared', label: '与我共享', icon: 'i-lucide-users', enabled: true },
-  { type: 'item', key: 'starred', label: '星标', icon: 'i-lucide-star', enabled: true },
-  { type: 'section', label: '空间' },
+  { type: 'section', label: '浏览' },
+  { type: 'item', key: 'home', label: '主页', icon: 'i-lucide-home', enabled: true },
   { type: 'item', key: 'library', label: '我的文档库', icon: 'i-lucide-book-open', enabled: true },
-  { type: 'item', key: 'drive', label: '云盘', icon: 'i-lucide-hard-drive', enabled: true },
+  { type: 'item', key: 'drive', label: '云盘', icon: 'i-lucide-hard-drive', enabled: true, enterable: true },
   { type: 'item', key: 'wiki', label: '知识库', icon: 'i-lucide-library', enabled: false }
+]
+
+const homeTabs: Array<{ key: DocsHomeTab, label: string }> = [
+  { key: 'recent', label: '最近访问' },
+  { key: 'shared', label: '与我共享' },
+  { key: 'starred', label: '星标' }
 ]
 
 const showDrivePathBar = computed(() =>
@@ -148,8 +159,16 @@ const driveDocCrumbs = computed(() => {
   return docsDrive.breadcrumbs
 })
 
+const lastOpenedByObjectId = computed(() => {
+  const map: Record<string, string | undefined> = {}
+  for (const item of docs.recentItems) {
+    map[item.objectId] = item.lastOpenedAt ?? undefined
+  }
+  return map
+})
+
 function isPanelActive(key: PanelKey): boolean {
-  if (!key) {
+  if (!key || key === 'wiki') {
     return false
   }
   return docs.panel === key
@@ -251,6 +270,32 @@ async function onTitleBlur() {
   }
 }
 
+async function enterDriveExplorer(options?: { upload?: boolean }) {
+  navMode.value = 'driveExplorer'
+  docs.panel = 'drive'
+  docs.clearActive()
+  docOpenSource.value = null
+  pendingDriveUpload.value = options?.upload === true
+  try {
+    await docsDrive.enterFolder(null)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
+  }
+  if (pendingDriveUpload.value) {
+    await nextTick()
+    driveBrowserRef.value?.triggerUpload()
+    pendingDriveUpload.value = false
+  }
+}
+
+function leaveDriveExplorer() {
+  navMode.value = 'root'
+  docs.panel = 'home'
+  docs.homeTab = 'recent'
+  docs.clearActive()
+  docOpenSource.value = null
+}
+
 async function selectPanel(key: PanelKey) {
   const item = panelNav.find(p => p.type === 'item' && p.key === key)
   if (!item || item.type !== 'item') {
@@ -261,32 +306,46 @@ async function selectPanel(key: PanelKey) {
     return
   }
   if (key === 'drive') {
-    docs.panel = 'drive'
-    docs.clearActive()
-    docOpenSource.value = null
-    try {
-      await docsDrive.loadListing(docsDrive.currentFolderId)
-    } catch (e) {
-      toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
-    }
+    await enterDriveExplorer()
     return
   }
-  docs.panel = key as 'library' | 'recent' | 'shared' | 'starred' | 'drive'
+  navMode.value = 'root'
+  docs.panel = key as DocsPanel
   docs.clearActive()
   docOpenSource.value = null
-  if (key === 'recent') {
+  if (key === 'home') {
+    docs.homeTab = 'recent'
     void docs.loadRecent().catch(() => {})
-  } else if (key === 'shared') {
+  }
+}
+
+async function selectHomeTab(tab: DocsHomeTab) {
+  docs.panel = 'home'
+  docs.homeTab = tab
+  docs.clearActive()
+  docOpenSource.value = null
+  if (tab === 'recent') {
+    void docs.loadRecent().catch(() => {})
+  } else if (tab === 'shared') {
     void docs.loadShared().catch(() => {})
-  } else if (key === 'starred') {
+  } else {
     void docs.loadStarred().catch(() => {})
   }
+}
+
+async function onHomeUpload() {
+  await enterDriveExplorer({ upload: true })
+}
+
+function onHomeTemplate() {
+  toast.add({ title: '即将推出', description: '模板库', color: 'neutral' })
 }
 
 async function onOpenDriveRichDoc(objectId: string) {
   try {
     docOpenSource.value = 'drive'
     docs.panel = 'drive'
+    navMode.value = 'driveExplorer'
     await docs.openDocument(objectId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '打开失败', color: 'error' })
@@ -296,6 +355,7 @@ async function onOpenDriveRichDoc(objectId: string) {
 async function onCreate(parentId: string | null = null) {
   try {
     await docs.createPage(parentId)
+    navMode.value = 'root'
     docs.panel = 'library'
     docOpenSource.value = 'library'
     toast.add({ title: '已新建文档', color: 'success' })
@@ -306,7 +366,9 @@ async function onCreate(parentId: string | null = null) {
 
 async function onOpen(objectId: string) {
   try {
-    if (docs.panel === 'recent' || docs.panel === 'shared' || docs.panel === 'starred' || docs.panel === 'library') {
+    if (docs.panel === 'home') {
+      docOpenSource.value = docs.homeTab
+    } else if (docs.panel === 'library' || docs.panel === 'drive') {
       docOpenSource.value = docs.panel
     } else {
       docOpenSource.value = 'library'
@@ -318,17 +380,47 @@ async function onOpen(objectId: string) {
 }
 
 function backFromDocument() {
-  const source = docOpenSource.value ?? docs.panel
+  const source = docOpenSource.value
   docs.clearActive()
   if (source === 'drive') {
     docs.panel = 'drive'
+    navMode.value = 'driveExplorer'
     void docsDrive.loadListing(docsDrive.currentFolderId).catch((e) => {
       toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
     })
-  } else if (source === 'recent' || source === 'shared' || source === 'starred' || source === 'library') {
-    docs.panel = source
-  } else {
+  } else if (source === 'recent' || source === 'shared' || source === 'starred') {
+    navMode.value = 'root'
+    docs.panel = 'home'
+    docs.homeTab = source
+  } else if (source === 'library') {
+    navMode.value = 'root'
     docs.panel = 'library'
+  } else {
+    navMode.value = 'root'
+    docs.panel = 'home'
+    docs.homeTab = 'recent'
+  }
+}
+
+async function onDriveTreeSelect(folderId: string | null, name?: string) {
+  try {
+    await docsDrive.enterFolder(folderId, name)
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '打开文件夹失败', color: 'error' })
+  }
+}
+
+async function onDriveTreeCreateFolder() {
+  const name = window.prompt('文件夹名称', '新建文件夹')
+  if (!name?.trim()) {
+    return
+  }
+  try {
+    await docsDrive.createFolder(name.trim())
+    await driveFolderTreeRef.value?.refresh()
+    toast.add({ title: '已新建文件夹', color: 'success' })
+  } catch (e) {
+    toast.add({ title: e instanceof Error ? e.message : '创建失败', color: 'error' })
   }
 }
 
@@ -456,6 +548,7 @@ async function onExportMdFor(objectId: string) {
 async function onDriveCrumbClick(folderId: string | null) {
   docs.clearActive()
   docs.panel = 'drive'
+  navMode.value = 'driveExplorer'
   docOpenSource.value = null
   try {
     await docsDrive.enterFolder(folderId)
@@ -562,6 +655,7 @@ async function confirmMoveToDrive() {
     }
     moveToDriveOpen.value = false
     docs.panel = 'drive'
+    navMode.value = 'driveExplorer'
     toast.add({ title: '已移动到云盘', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '移动失败', color: 'error' })
@@ -602,127 +696,213 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
-        <div class="font-semibold">
-          云文档
-        </div>
-        <UButton
-          size="xs"
-          color="primary"
-          icon="i-lucide-plus"
-          label="新建"
-          @click="onCreate(null)"
-        />
-      </div>
-      <div class="space-y-3 p-2 text-sm">
-        <template
-          v-for="(entry, idx) in panelNav"
-          :key="entry.type === 'section' ? `s-${entry.label}-${idx}` : entry.key"
+      <div
+        class="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <!-- 云文档根导航 -->
+        <div
+          class="flex min-h-0 flex-1 flex-col transition-transform duration-300 ease-out"
+          :class="navMode === 'driveExplorer' ? '-translate-x-full absolute inset-0 pointer-events-none' : 'translate-x-0 relative'"
         >
-          <div
-            v-if="entry.type === 'section'"
-            class="px-3 pt-1 text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)]"
-            :class="idx === 0 ? '' : 'mt-1 border-t border-[var(--ws-border-subtle)] pt-3'"
-          >
-            {{ entry.label }}
-          </div>
-          <button
-            v-else
-            type="button"
-            class="workspace-list-item flex w-full items-center gap-2.5 px-3 py-2 text-left"
-            :data-active="entry.enabled && isPanelActive(entry.key) ? 'true' : undefined"
-            :class="{ 'opacity-50': !entry.enabled }"
-            @click="selectPanel(entry.key)"
-          >
-            <UIcon
-              :name="entry.icon"
-              class="size-4 shrink-0"
-              :class="entry.enabled && isPanelActive(entry.key) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+          <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
+            <div class="font-semibold">
+              云文档
+            </div>
+            <UButton
+              size="xs"
+              color="primary"
+              icon="i-lucide-plus"
+              label="新建"
+              @click="onCreate(null)"
             />
-            <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
-            <span
-              v-if="!entry.enabled"
-              class="shrink-0 text-[10px] text-[var(--ws-text-muted)]"
-            >即将推出</span>
-          </button>
-        </template>
-      </div>
+          </div>
+          <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-2 text-sm">
+            <template
+              v-for="(entry, idx) in panelNav"
+              :key="entry.type === 'section' ? `s-${entry.label}-${idx}` : entry.key"
+            >
+              <div
+                v-if="entry.type === 'section'"
+                class="px-3 pt-1 text-[11px] font-semibold tracking-wide text-[var(--ws-text-muted)]"
+                :class="idx === 0 ? '' : 'mt-1 border-t border-[var(--ws-border-subtle)] pt-3'"
+              >
+                {{ entry.label }}
+              </div>
+              <button
+                v-else
+                type="button"
+                class="workspace-list-item group flex w-full items-center gap-2.5 px-3 py-2 text-left"
+                :data-active="entry.enabled && isPanelActive(entry.key) ? 'true' : undefined"
+                :class="{ 'opacity-50': !entry.enabled }"
+                @click="selectPanel(entry.key)"
+                @mouseenter="entry.key === 'drive' ? (driveHover = true) : undefined"
+                @mouseleave="entry.key === 'drive' ? (driveHover = false) : undefined"
+              >
+                <UIcon
+                  :name="entry.icon"
+                  class="size-4 shrink-0"
+                  :class="entry.enabled && isPanelActive(entry.key) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+                />
+                <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
+                <span
+                  v-if="!entry.enabled"
+                  class="shrink-0 text-[10px] text-[var(--ws-text-muted)]"
+                >即将推出</span>
+                <UIcon
+                  v-else-if="entry.enterable && (driveHover || isPanelActive('drive'))"
+                  name="i-lucide-chevron-right"
+                  class="size-4 shrink-0 text-[var(--ws-text-muted)] opacity-80"
+                />
+              </button>
+            </template>
+          </div>
+        </div>
 
-      <div
-        v-if="docs.panel === 'library'"
-        class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
-      >
-        <p
-          v-if="!docs.treeRoots.length"
-          class="px-2 py-3 text-xs text-[var(--ws-text-muted)]"
+        <!-- 云盘滑入文件夹树 -->
+        <div
+          class="absolute inset-0 flex min-h-0 flex-col bg-[var(--ws-bg)] transition-transform duration-300 ease-out"
+          :class="navMode === 'driveExplorer' ? 'translate-x-0' : 'translate-x-full pointer-events-none'"
         >
-          还没有文档，点击上方「新建」开始。
-        </p>
-        <DocsTreeNodes
-          :nodes="docs.treeRoots"
-          :active-object-id="docs.activeObjectId"
-          :actions-for="nodeActions"
-          @open="onOpen"
-        />
-      </div>
-
-      <div
-        v-else-if="docs.panel === 'recent'"
-        class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
-      >
-        <p class="px-2 py-3 text-xs text-[var(--ws-text-muted)]">
-          最近打开的文档 · 在右侧查看
-        </p>
-      </div>
-
-      <div
-        v-else-if="docs.panel === 'drive'"
-        class="min-h-0 flex-1 overflow-y-auto border-t border-[var(--ws-border-subtle)] p-2"
-      >
-        <p class="px-2 py-3 text-xs text-[var(--ws-text-muted)]">
-          我的文件夹 · 在右侧浏览与上传
-        </p>
+          <DocsDriveFolderTree
+            v-if="navMode === 'driveExplorer'"
+            ref="driveFolderTreeRef"
+            :selected-folder-id="docsDrive.currentFolderId"
+            @back="leaveDriveExplorer"
+            @select="onDriveTreeSelect"
+            @create-folder="onDriveTreeCreateFolder"
+          />
+        </div>
       </div>
     </template>
 
+    <!-- 主区：主页 -->
+    <div
+      v-if="docs.panel === 'home' && !docs.activeDocument"
+      class="flex h-full min-h-0 flex-col"
+    >
+      <div class="grid grid-cols-1 gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-4 sm:grid-cols-3">
+        <button
+          type="button"
+          class="flex items-center gap-3 rounded-xl border border-[var(--ws-border-subtle)] px-4 py-3 text-left hover:bg-[var(--ws-list-hover)]"
+          @click="onCreate(null)"
+        >
+          <span class="flex size-10 items-center justify-center rounded-lg bg-[var(--ui-primary)]/10 text-[var(--ui-primary)]">
+            <UIcon
+              name="i-lucide-file-plus"
+              class="size-5"
+            />
+          </span>
+          <span>
+            <span class="block text-sm font-semibold">新建</span>
+            <span class="text-xs text-[var(--ws-text-muted)]">创建文档</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-3 rounded-xl border border-[var(--ws-border-subtle)] px-4 py-3 text-left hover:bg-[var(--ws-list-hover)]"
+          @click="onHomeUpload"
+        >
+          <span class="flex size-10 items-center justify-center rounded-lg bg-[var(--ws-bg-muted)]">
+            <UIcon
+              name="i-lucide-upload"
+              class="size-5 text-[var(--ws-text-secondary)]"
+            />
+          </span>
+          <span>
+            <span class="block text-sm font-semibold">上传</span>
+            <span class="text-xs text-[var(--ws-text-muted)]">进入云盘上传</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-3 rounded-xl border border-[var(--ws-border-subtle)] px-4 py-3 text-left hover:bg-[var(--ws-list-hover)]"
+          @click="onHomeTemplate"
+        >
+          <span class="flex size-10 items-center justify-center rounded-lg bg-[var(--ws-bg-muted)]">
+            <UIcon
+              name="i-lucide-layout-template"
+              class="size-5 text-[var(--ws-text-secondary)]"
+            />
+          </span>
+          <span>
+            <span class="block text-sm font-semibold">模板库</span>
+            <span class="text-xs text-[var(--ws-text-muted)]">即将推出</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-1 border-b border-[var(--ws-border-subtle)] px-3 pt-2">
+        <button
+          v-for="tab in homeTabs"
+          :key="tab.key"
+          type="button"
+          class="relative px-3 py-2 text-sm transition-colors"
+          :class="docs.homeTab === tab.key
+            ? 'font-semibold text-[var(--ws-text)]'
+            : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'"
+          @click="selectHomeTab(tab.key)"
+        >
+          {{ tab.label }}
+          <span
+            v-if="docs.homeTab === tab.key"
+            class="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[var(--ui-primary)]"
+          />
+        </button>
+      </div>
+
+      <div class="min-h-0 flex-1">
+        <DocsRecentList
+          v-if="docs.homeTab === 'recent'"
+          embedded
+          :items="docs.recentItems"
+          :active-object-id="docs.activeObjectId"
+          @open="onOpen"
+          @remove="(id) => void onRemoveRecent(id)"
+          @delete-owned="onDeleteOwnedFromRecent"
+          @share="(id) => void openShare(id)"
+          @star="(id) => void onToggleStar(id)"
+          @copy-link="(id) => void copyDocLink(id)"
+          @export-md="(id) => void onExportMdFor(id)"
+        />
+        <DocsSharedList
+          v-else-if="docs.homeTab === 'shared'"
+          embedded
+          :items="docs.sharedItems"
+          :active-object-id="docs.activeObjectId"
+          @open="onOpen"
+          @leave="(id) => void onLeaveShare(id)"
+          @star="(id) => void onToggleStar(id)"
+          @copy-link="(id) => void copyDocLink(id)"
+          @export-md="(id) => void onExportMdFor(id)"
+        />
+        <DocsStarredList
+          v-else
+          embedded
+          :items="docs.starredItems"
+          :active-object-id="docs.activeObjectId"
+          @open="onOpen"
+          @unstar="(id) => void onToggleStar(id)"
+          @share="(id) => void openShare(id)"
+          @copy-link="(id) => void copyDocLink(id)"
+          @export-md="(id) => void onExportMdFor(id)"
+        />
+      </div>
+    </div>
+
+    <DocsLibraryList
+      v-else-if="docs.panel === 'library' && !docs.activeDocument"
+      :nodes="docs.treeRoots"
+      :active-object-id="docs.activeObjectId"
+      :actions-for="nodeActions"
+      :last-opened-by-object-id="lastOpenedByObjectId"
+      @open="onOpen"
+    />
+
     <DocsDriveBrowser
-      v-if="docs.panel === 'drive' && !docs.activeDocument"
+      v-else-if="docs.panel === 'drive' && !docs.activeDocument"
+      ref="driveBrowserRef"
+      hide-breadcrumbs
       @open-rich-doc="onOpenDriveRichDoc"
-    />
-
-    <DocsRecentList
-      v-else-if="docs.panel === 'recent' && !docs.activeDocument"
-      :items="docs.recentItems"
-      :active-object-id="docs.activeObjectId"
-      @open="onOpen"
-      @remove="(id) => void onRemoveRecent(id)"
-      @delete-owned="onDeleteOwnedFromRecent"
-      @share="(id) => void openShare(id)"
-      @star="(id) => void onToggleStar(id)"
-      @copy-link="(id) => void copyDocLink(id)"
-      @export-md="(id) => void onExportMdFor(id)"
-    />
-
-    <DocsSharedList
-      v-else-if="docs.panel === 'shared' && !docs.activeDocument"
-      :items="docs.sharedItems"
-      :active-object-id="docs.activeObjectId"
-      @open="onOpen"
-      @leave="(id) => void onLeaveShare(id)"
-      @star="(id) => void onToggleStar(id)"
-      @copy-link="(id) => void copyDocLink(id)"
-      @export-md="(id) => void onExportMdFor(id)"
-    />
-
-    <DocsStarredList
-      v-else-if="docs.panel === 'starred' && !docs.activeDocument"
-      :items="docs.starredItems"
-      :active-object-id="docs.activeObjectId"
-      @open="onOpen"
-      @unstar="(id) => void onToggleStar(id)"
-      @share="(id) => void openShare(id)"
-      @copy-link="(id) => void copyDocLink(id)"
-      @export-md="(id) => void onExportMdFor(id)"
     />
 
     <div
@@ -732,7 +912,7 @@ meta:
       <UEmpty
         icon="i-lucide-file-text"
         title="选择或新建文档"
-        description="我的文档库支持页面树与富文本编辑；云盘可浏览「我的文件夹」并上传文件"
+        description="从主页浏览最近与共享，或打开我的文档库与云盘"
       >
         <template #actions>
           <UButton
@@ -743,8 +923,8 @@ meta:
           <UButton
             color="neutral"
             variant="soft"
-            label="打开云盘"
-            @click="selectPanel('drive')"
+            label="打开主页"
+            @click="selectPanel('home')"
           />
         </template>
       </UEmpty>

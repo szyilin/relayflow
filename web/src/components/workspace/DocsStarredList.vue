@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { DocsStarredItem } from '../../api/app/docs'
+import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   items: DocsStarredItem[]
   activeObjectId?: string | null
-}>()
+  embedded?: boolean
+}>(), {
+  embedded: false
+})
 
 const emit = defineEmits<{
   open: [objectId: string]
@@ -46,7 +50,10 @@ function rowActions(item: DocsStarredItem) {
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <div class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3">
+    <div
+      v-if="!embedded"
+      class="flex items-center gap-2 border-b border-[var(--ws-border-subtle)] px-5 py-3"
+    >
       <UIcon
         name="i-lucide-star"
         class="size-4 shrink-0 text-[var(--ws-text-muted)]"
@@ -78,8 +85,13 @@ function rowActions(item: DocsStarredItem) {
           <div class="truncate text-sm font-medium">
             {{ item.title || '未命名文档' }}
           </div>
-          <div class="truncate text-xs text-[var(--ws-text-muted)]">
-            {{ item.locationLabel }} · {{ item.ownerDisplayName }}
+          <div class="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ws-text-muted)]">
+            <span class="truncate">{{ item.locationLabel || '—' }}</span>
+            <WorkspaceOwnerChip
+              v-if="item.ownerUserId"
+              :user-id="item.ownerUserId"
+              :display-name="item.ownerDisplayName"
+            />
           </div>
         </div>
         <UDropdownMenu :items="rowActions(item)">

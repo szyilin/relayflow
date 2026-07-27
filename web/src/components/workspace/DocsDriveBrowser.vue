@@ -5,7 +5,14 @@ import { infraFileDownloadPath } from '../../api/app/docs-drive'
 import { downloadAuthenticatedFile } from '../../api/app/file'
 import { useDocsDriveStore } from '../../stores/docsDrive'
 import { useDocsStore } from '../../stores/docs'
+import { useAuthStore } from '../../stores/auth'
 import type { DocsLibraryNode } from '../../api/app/docs'
+import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+
+defineProps<{
+  /** When true, hide top crumbs (middle tree already navigates) */
+  hideBreadcrumbs?: boolean
+}>()
 
 const emit = defineEmits<{
   openRichDoc: [objectId: string]
@@ -13,6 +20,7 @@ const emit = defineEmits<{
 
 const drive = useDocsDriveStore()
 const docs = useDocsStore()
+const auth = useAuthStore()
 const toast = useToast()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -227,12 +235,35 @@ function itemActions(item: DocsDriveItem) {
     ]
   ]
 }
+
+function formatTime(value?: string | null) {
+  if (!value) {
+    return '—'
+  }
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) {
+    return '—'
+  }
+  return d.toLocaleString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+defineExpose({
+  triggerUpload
+})
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
     <div class="flex flex-wrap items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-3">
-      <nav class="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm">
+      <nav
+        v-if="!hideBreadcrumbs"
+        class="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm"
+      >
         <template
           v-for="(crumb, index) in drive.breadcrumbs"
           :key="`${crumb.folderId ?? 'root'}-${index}`"
@@ -251,6 +282,12 @@ function itemActions(item: DocsDriveItem) {
           </button>
         </template>
       </nav>
+      <div
+        v-else
+        class="min-w-0 flex-1 truncate text-sm font-semibold"
+      >
+        {{ drive.breadcrumbs[drive.breadcrumbs.length - 1]?.name || '我的文件夹' }}
+      </div>
       <UButton
         size="sm"
         color="neutral"
@@ -290,77 +327,115 @@ function itemActions(item: DocsDriveItem) {
         此文件夹为空。可新建文件夹或上传文件。
       </p>
 
-      <ul
+      <div
         v-else
-        class="divide-y divide-[var(--ws-border-subtle)] rounded-lg border border-[var(--ws-border-subtle)]"
+        class="overflow-hidden rounded-lg border border-[var(--ws-border-subtle)]"
       >
-        <li
+        <div
+          class="hidden grid-cols-[minmax(0,1.4fr)_minmax(7rem,0.7fr)_minmax(6rem,0.55fr)_2.5rem] gap-2 border-b border-[var(--ws-border-subtle)] bg-[var(--ws-bg-muted)]/40 px-3 py-2 text-[11px] font-medium text-[var(--ws-text-muted)] md:grid"
+        >
+          <span>名称</span>
+          <span>所有者</span>
+          <span>修改时间</span>
+          <span />
+        </div>
+
+        <div
           v-for="folder in drive.listing.folders"
           :key="folder.folderId"
-          class="flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--ws-list-hover)]"
+          class="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--ws-border-subtle)] px-3 py-2.5 hover:bg-[var(--ws-list-hover)] md:grid-cols-[minmax(0,1.4fr)_minmax(7rem,0.7fr)_minmax(6rem,0.55fr)_2.5rem]"
         >
           <button
             type="button"
-            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="flex min-w-0 items-center gap-3 text-left"
             @click="drive.enterFolder(folder.folderId, folder.name)"
           >
             <UIcon
               name="i-lucide-folder"
               class="size-5 shrink-0 text-amber-500"
             />
-            <span class="min-w-0 flex-1 truncate font-medium">{{ folder.name }}</span>
-            <span class="shrink-0 text-xs text-[var(--ws-text-muted)]">文件夹</span>
+            <span class="min-w-0 truncate font-medium">{{ folder.name }}</span>
           </button>
-          <UDropdownMenu :items="folderActions(folder)">
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-ellipsis"
-              aria-label="更多"
+          <div
+            class="hidden min-w-0 md:block"
+            @click.stop
+          >
+            <WorkspaceOwnerChip
+              v-if="folder.ownerUserId || auth.userId"
+              :user-id="(folder.ownerUserId || auth.userId)!"
+              :display-name="folder.ownerDisplayName"
             />
-          </UDropdownMenu>
-        </li>
+          </div>
+          <span class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block">
+            {{ formatTime(folder.updateTime) }}
+          </span>
+          <div @click.stop>
+            <UDropdownMenu :items="folderActions(folder)">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis"
+                aria-label="更多"
+              />
+            </UDropdownMenu>
+          </div>
+        </div>
 
-        <li
+        <div
           v-for="item in drive.listing.items"
           :key="item.itemId"
-          class="flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--ws-list-hover)]"
+          class="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--ws-border-subtle)] px-3 py-2.5 last:border-b-0 hover:bg-[var(--ws-list-hover)] md:grid-cols-[minmax(0,1.4fr)_minmax(7rem,0.7fr)_minmax(6rem,0.55fr)_2.5rem]"
         >
           <button
             type="button"
-            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="flex min-w-0 items-center gap-3 text-left"
             @click="onOpenItem(item)"
           >
             <UIcon
               :name="item.type === 'FILE' ? 'i-lucide-file' : 'i-lucide-file-text'"
               class="size-5 shrink-0 text-[var(--ws-text-muted)]"
             />
-            <span class="min-w-0 flex-1 truncate font-medium">{{ item.title }}</span>
-            <span class="shrink-0 text-xs text-[var(--ws-text-muted)]">
-              {{ item.type === 'FILE' ? drive.formatSize(item.sizeBytes) : '文档' }}
-            </span>
+            <span class="min-w-0 truncate font-medium">{{ item.title }}</span>
           </button>
-          <UButton
-            v-if="item.type === 'FILE'"
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-download"
-            aria-label="下载"
-            @click="onDownload(item)"
-          />
-          <UDropdownMenu :items="itemActions(item)">
+          <div
+            class="hidden min-w-0 md:block"
+            @click.stop
+          >
+            <WorkspaceOwnerChip
+              v-if="item.ownerUserId || auth.userId"
+              :user-id="(item.ownerUserId || auth.userId)!"
+              :display-name="item.ownerDisplayName"
+            />
+          </div>
+          <span class="hidden truncate text-xs text-[var(--ws-text-muted)] md:block">
+            {{ formatTime(item.updateTime) }}
+          </span>
+          <div
+            class="flex items-center justify-end gap-0.5"
+            @click.stop
+          >
             <UButton
+              v-if="item.type === 'FILE'"
               size="xs"
               color="neutral"
               variant="ghost"
-              icon="i-lucide-ellipsis"
-              aria-label="更多"
+              icon="i-lucide-download"
+              aria-label="下载"
+              @click="onDownload(item)"
             />
-          </UDropdownMenu>
-        </li>
-      </ul>
+            <UDropdownMenu :items="itemActions(item)">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis"
+                aria-label="更多"
+              />
+            </UDropdownMenu>
+          </div>
+        </div>
+      </div>
     </div>
 
     <UModal

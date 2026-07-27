@@ -27,6 +27,8 @@ export interface DocsLibraryNode {
   objectId: string
   title: string
   sortOrder: number
+  createTime?: string
+  lastOpenedAt?: string
   children: DocsLibraryNode[]
 }
 

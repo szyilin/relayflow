@@ -19,11 +19,21 @@ public class DocSharedItemRespVO {
 
     private String ownerDisplayName;
 
+    private String ownerAvatarFileId;
+
+    private Boolean ownedByMe;
+
     private Long grantedByUserId;
 
     private String grantedByDisplayName;
 
     private OffsetDateTime sharedAt;
+
+    private OffsetDateTime createTime;
+
+    private OffsetDateTime lastOpenedAt;
+
+    private String locationLabel;
 
     private Boolean starred;
 }

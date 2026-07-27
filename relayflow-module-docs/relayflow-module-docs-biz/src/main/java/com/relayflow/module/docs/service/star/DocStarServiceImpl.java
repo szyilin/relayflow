@@ -6,7 +6,9 @@ import com.relayflow.module.docs.controller.app.vo.DocStarredItemRespVO;
 import com.relayflow.module.docs.controller.app.vo.DocStarredListRespVO;
 import com.relayflow.module.docs.dal.dataobject.DocObjectDO;
 import com.relayflow.module.docs.dal.dataobject.DocStarDO;
+import com.relayflow.module.docs.dal.dataobject.DocUserVisitDO;
 import com.relayflow.module.docs.dal.mapper.DocStarMapper;
+import com.relayflow.module.docs.dal.mapper.DocUserVisitMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
 import com.relayflow.module.system.api.user.UserApi;
@@ -19,8 +21,13 @@ import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -28,6 +35,7 @@ import java.util.Objects;
 public class DocStarServiceImpl implements DocStarService {
 
     private final DocStarMapper docStarMapper;
+    private final DocUserVisitMapper docUserVisitMapper;
     private final DocAccessService docAccessService;
     private final UserApi userApi;
 
@@ -40,6 +48,9 @@ public class DocStarServiceImpl implements DocStarService {
                         .eq(DocStarDO::getUserId, userId)
                         .orderByDesc(DocStarDO::getCreateTime)
                         .last("LIMIT " + Math.max(effective * 2, effective)));
+
+        Set<Long> candidateIds = stars.stream().map(DocStarDO::getObjectId).collect(Collectors.toCollection(HashSet::new));
+        Map<Long, OffsetDateTime> lastOpenedByObject = loadLastOpenedAt(userId, candidateIds);
 
         List<DocStarredItemRespVO> items = new ArrayList<>();
         for (DocStarDO star : stars) {
@@ -55,7 +66,11 @@ public class DocStarServiceImpl implements DocStarService {
                 item.setAccessState(DocConstants.ACCESS_STATE_OK);
                 item.setOwnerUserId(object.getOwnerUserId());
                 item.setOwnerDisplayName(resolveNickname(object.getOwnerUserId()));
+                item.setOwnerAvatarFileId(resolveAvatarFileId(object.getOwnerUserId()));
+                item.setOwnedByMe(Objects.equals(object.getOwnerUserId(), userId));
                 item.setLocationLabel(docAccessService.resolveLocationLabel(object, userId, false));
+                item.setCreateTime(object.getCreateTime());
+                item.setLastOpenedAt(lastOpenedByObject.get(object.getId()));
                 items.add(item);
                 if (items.size() >= effective) {
                     break;
@@ -110,6 +125,20 @@ public class DocStarServiceImpl implements DocStarService {
         }
     }
 
+    private Map<Long, OffsetDateTime> loadLastOpenedAt(Long userId, Set<Long> objectIds) {
+        if (objectIds == null || objectIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, OffsetDateTime> map = new HashMap<>();
+        for (DocUserVisitDO visit : docUserVisitMapper.selectList(
+                Wrappers.<DocUserVisitDO>lambdaQuery()
+                        .eq(DocUserVisitDO::getUserId, userId)
+                        .in(DocUserVisitDO::getObjectId, objectIds))) {
+            map.put(visit.getObjectId(), visit.getLastOpenedAt());
+        }
+        return map;
+    }
+
     private String resolveNickname(Long userId) {
         try {
             UserBasicDTO basic = userApi.getUserBasic(userId);
@@ -123,6 +152,18 @@ public class DocStarServiceImpl implements DocStarService {
             log.warn("Resolve nickname failed (best-effort): userId={}", userId, ex);
         }
         return String.valueOf(userId);
+    }
+
+    private String resolveAvatarFileId(Long userId) {
+        try {
+            UserBasicDTO basic = userApi.getUserBasic(userId);
+            if (basic != null && StringUtils.hasText(basic.getAvatarFileId())) {
+                return basic.getAvatarFileId();
+            }
+        } catch (Exception ex) {
+            log.warn("Resolve avatar failed (best-effort): userId={}", userId, ex);
+        }
+        return null;
     }
 
     private static int clampLimit(int limit) {
