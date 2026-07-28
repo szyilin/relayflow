@@ -41,6 +41,7 @@ export function useRtcRoom() {
   const error = ref<string | null>(null)
   const activeSpeakerIds = ref<string[]>([])
   const revision = ref(0)
+  let speakerBumpTimer: ReturnType<typeof setTimeout> | null = null
 
   const participants = computed(() => {
     revision.value
@@ -49,6 +50,39 @@ export function useRtcRoom() {
 
   function bump() {
     revision.value += 1
+  }
+
+  /** Speaking updates are high-frequency; coalesce to reduce tile churn. */
+  function bumpSpeakersSoon() {
+    if (speakerBumpTimer != null) {
+      return
+    }
+    speakerBumpTimer = setTimeout(() => {
+      speakerBumpTimer = null
+      bump()
+    }, 100)
+  }
+
+  function bindRoomEvents(r: Room) {
+    r
+      .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+        activeSpeakerIds.value = speakers.map(s => s.identity)
+        bumpSpeakersSoon()
+      })
+      .on(RoomEvent.TrackSubscribed, () => bump())
+      .on(RoomEvent.TrackUnsubscribed, () => bump())
+      .on(RoomEvent.TrackMuted, () => bump())
+      .on(RoomEvent.TrackUnmuted, () => bump())
+      .on(RoomEvent.TrackPublished, () => bump())
+      .on(RoomEvent.LocalTrackPublished, () => bump())
+      .on(RoomEvent.LocalTrackUnpublished, () => bump())
+      .on(RoomEvent.ParticipantConnected, () => bump())
+      .on(RoomEvent.ParticipantDisconnected, () => bump())
+      .on(RoomEvent.Disconnected, () => {
+        connected.value = false
+        phase.value = 'idle'
+        bump()
+      })
   }
 
   async function connect(opts: RtcConnectOptions) {
@@ -64,31 +98,14 @@ export function useRtcRoom() {
     try {
       await disconnect()
       const r = new Room({
+        // Local preview is unreliable with dynacast when alone (no subscribers).
         adaptiveStream: true,
-        dynacast: true,
-        // Fail faster than default when ICE/signaling hangs (common with wrong node-ip).
-        disconnectOnPageLeave: true
+        dynacast: false,
+        disconnectOnPageLeave: true,
+        stopLocalTrackOnUnpublish: true
       })
-      r
-        .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
-          activeSpeakerIds.value = speakers.map(s => s.identity)
-          bump()
-        })
-        .on(RoomEvent.TrackSubscribed, () => bump())
-        .on(RoomEvent.TrackUnsubscribed, () => bump())
-        .on(RoomEvent.TrackMuted, () => bump())
-        .on(RoomEvent.TrackUnmuted, () => bump())
-        .on(RoomEvent.ParticipantConnected, () => bump())
-        .on(RoomEvent.ParticipantDisconnected, () => bump())
-        .on(RoomEvent.LocalTrackPublished, () => bump())
-        .on(RoomEvent.LocalTrackUnpublished, () => bump())
-        .on(RoomEvent.Disconnected, () => {
-          connected.value = false
-          phase.value = 'idle'
-          bump()
-        })
+      bindRoomEvents(r)
 
-      // Signal first so UI can leave "connecting" as soon as room is up.
       await Promise.race([
         r.connect(opts.url, opts.token),
         new Promise<never>((_, reject) => {
@@ -100,7 +117,6 @@ export function useRtcRoom() {
       phase.value = 'publishing'
       bump()
 
-      // Acquire devices after signaling — do not block "connected" forever on getUserMedia.
       const pubTasks: Promise<unknown>[] = []
       if (opts.audio !== false) {
         pubTasks.push(r.localParticipant.setMicrophoneEnabled(true).catch((e) => {
@@ -127,6 +143,10 @@ export function useRtcRoom() {
   }
 
   async function disconnect() {
+    if (speakerBumpTimer != null) {
+      clearTimeout(speakerBumpTimer)
+      speakerBumpTimer = null
+    }
     const r = room.value
     room.value = null
     connected.value = false
@@ -136,7 +156,6 @@ export function useRtcRoom() {
     }
     if (r) {
       try {
-        // Ensure local mic/cam tracks are stopped (browser indicator).
         await r.localParticipant.setMicrophoneEnabled(false).catch(() => {})
         await r.localParticipant.setCameraEnabled(false).catch(() => {})
       } catch {
@@ -148,12 +167,20 @@ export function useRtcRoom() {
   }
 
   async function setMicEnabled(enabled: boolean) {
-    await room.value?.localParticipant.setMicrophoneEnabled(enabled)
+    const r = room.value
+    if (!r) {
+      return
+    }
+    await r.localParticipant.setMicrophoneEnabled(enabled)
     bump()
   }
 
   async function setCameraEnabled(enabled: boolean) {
-    await room.value?.localParticipant.setCameraEnabled(enabled)
+    const r = room.value
+    if (!r) {
+      return
+    }
+    await r.localParticipant.setCameraEnabled(enabled)
     bump()
   }
 
@@ -222,18 +249,25 @@ function collectTiles(room: Room | null, speakingIds: string[]): RtcTileParticip
     let audioTrack: RemoteTrack | LocalTrack | null = null
     let isMuted = true
     let hasVideo = false
+
     p.trackPublications.forEach((pub: TrackPublication) => {
-      if (pub.kind === Track.Kind.Video && pub.track && !pub.isMuted) {
+      // Prefer camera over screenshare for the main tile.
+      if (pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera && pub.track) {
+        // Keep track reference even while muted so the <video> attach is not torn down.
         videoTrack = pub.track as RemoteTrack | LocalTrack
-        hasVideo = true
+        hasVideo = !pub.isMuted
+      } else if (pub.kind === Track.Kind.Video && pub.track && !videoTrack) {
+        videoTrack = pub.track as RemoteTrack | LocalTrack
+        hasVideo = !pub.isMuted
       }
-      if (pub.kind === Track.Kind.Audio) {
+      if (pub.kind === Track.Kind.Audio && pub.source === Track.Source.Microphone) {
         isMuted = pub.isMuted || !pub.track
         if (pub.track) {
           audioTrack = pub.track as RemoteTrack | LocalTrack
         }
       }
     })
+
     tiles.push({
       identity: p.identity,
       name: p.name || p.identity,

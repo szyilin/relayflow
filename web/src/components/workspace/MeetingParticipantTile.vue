@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { LocalTrack, RemoteTrack } from 'livekit-client'
 import type { RtcTileParticipant } from '../../composables/rtc'
 
 const props = defineProps<{
@@ -7,38 +8,102 @@ const props = defineProps<{
 }>()
 
 const videoRef = ref<HTMLVideoElement | null>(null)
+const audioRef = ref<HTMLAudioElement | null>(null)
+let attachedVideo: LocalTrack | RemoteTrack | null = null
+let attachedAudio: LocalTrack | RemoteTrack | null = null
 
-function attach() {
+function attachVideo() {
   const el = videoRef.value
-  const track = props.participant.videoTrack
+  const track = props.participant.videoTrack ?? null
   if (!el) {
     return
   }
-  if (track && 'attach' in track && typeof track.attach === 'function') {
+  if (track === attachedVideo && el.srcObject) {
+    return
+  }
+  if (attachedVideo && attachedVideo !== track) {
+    try {
+      attachedVideo.detach(el)
+    } catch {
+      // ignore
+    }
+    attachedVideo = null
+  }
+  if (track && typeof track.attach === 'function') {
     track.attach(el)
-  } else {
-    el.srcObject = null
+    attachedVideo = track
+    void el.play().catch(() => {})
   }
 }
 
-function detach() {
-  const el = videoRef.value
-  const track = props.participant.videoTrack
-  if (track && 'detach' in track && typeof track.detach === 'function') {
-    track.detach()
+function attachAudio() {
+  // Local audio must not be played back (echo).
+  if (props.participant.isLocal) {
+    return
   }
-  if (el) {
-    el.srcObject = null
+  const el = audioRef.value
+  const track = props.participant.audioTrack ?? null
+  if (!el) {
+    return
+  }
+  if (track === attachedAudio && el.srcObject) {
+    return
+  }
+  if (attachedAudio && attachedAudio !== track) {
+    try {
+      attachedAudio.detach(el)
+    } catch {
+      // ignore
+    }
+    attachedAudio = null
+  }
+  if (track && typeof track.attach === 'function') {
+    track.attach(el)
+    attachedAudio = track
+    void el.play().catch(() => {})
   }
 }
 
-watch(() => props.participant.videoTrack, () => {
-  detach()
-  attach()
-}, { flush: 'post' })
+function detachAll() {
+  const videoEl = videoRef.value
+  const audioEl = audioRef.value
+  if (attachedVideo && videoEl) {
+    try {
+      attachedVideo.detach(videoEl)
+    } catch {
+      // ignore
+    }
+  }
+  if (attachedAudio && audioEl) {
+    try {
+      attachedAudio.detach(audioEl)
+    } catch {
+      // ignore
+    }
+  }
+  attachedVideo = null
+  attachedAudio = null
+}
 
-onMounted(attach)
-onUnmounted(detach)
+async function syncMedia() {
+  await nextTick()
+  attachVideo()
+  attachAudio()
+}
+
+watch(
+  () => [props.participant.videoTrack, props.participant.audioTrack, props.participant.hasVideo] as const,
+  () => {
+    void syncMedia()
+  },
+  { flush: 'post' }
+)
+
+onMounted(() => {
+  void syncMedia()
+})
+
+onUnmounted(detachAll)
 </script>
 
 <template>
@@ -46,14 +111,22 @@ onUnmounted(detach)
     class="relative aspect-video overflow-hidden rounded-xl bg-neutral-900 text-white shadow-sm ring-1 ring-white/10"
     :class="participant.isSpeaking ? 'ring-2 ring-emerald-400' : ''"
   >
+    <!-- Keep <video> mounted; toggling v-show/v-if tears down attach and causes flicker. -->
     <video
-      v-show="participant.hasVideo"
       ref="videoRef"
-      class="size-full object-cover"
-      :class="participant.isLocal ? 'scale-x-[-1]' : ''"
+      class="absolute inset-0 size-full object-cover"
+      :class="[
+        participant.isLocal ? 'scale-x-[-1]' : '',
+        participant.hasVideo ? 'opacity-100' : 'opacity-0'
+      ]"
       playsinline
       autoplay
       muted
+    />
+    <audio
+      v-if="!participant.isLocal"
+      ref="audioRef"
+      autoplay
     />
     <div
       v-if="!participant.hasVideo"
