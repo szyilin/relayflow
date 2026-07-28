@@ -50,6 +50,7 @@ openspec archive <change-name>
 | **管理端 UI 定调工作流** | [admin-ui-workflow.md](docs/dev/admin-ui-workflow.md) | **管理端 Mock 原型、规则沉淀、接 API 前** |
 | **员工工作台 UI** | [workspace-ui-patterns.md](docs/dev/workspace-ui-patterns.md) | **编辑 `/app/*`、对接 app-api 前** |
 | **IM Bot / 业务触达** | [im-messaging-architecture-draft.md](docs/dev/im-messaging-architecture-draft.md) | **Bot、bot_dm、ImBotApi 概念与拍板结论** |
+| **智能体平台** | [agent-architecture-draft.md](docs/dev/agent-architecture-draft.md) | **AgentDef、Spring AI、Channel 隔离；母 change `agent-platform-foundation`** |
 | **可交互卡片** | [im-bot-interactive-card.md](docs/dev/im-bot-interactive-card.md) | **写 card / CardActionHandler / 卡片 action 前** |
 | 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |
@@ -94,7 +95,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：**重新规划中**。当前无 active OpenSpec change；历史 change 均已归档，未完成项已关闭（不作 backlog）。新路线以新立 change 为准，勿从 archive 未勾任务续做。
+**下一优先**：**智能体平台**（母 change [`agent-platform-foundation`](openspec/changes/agent-platform-foundation/proposal.md) + 架构 [`docs/dev/agent-architecture-draft.md`](docs/dev/agent-architecture-draft.md)）。子 change 骨架已开单：`admin-llm-provider-v1` → `agent-module-scaffold` → **`agent-runtime-core-v1`（亮点）** → `workspace-agent-web` → `workspace-agent-integrate` → `agent-skill-catalog-v1` → `im-bot-agent-carrier-v1` → `agent-automation-v1`。实现前先深化对应子 change 的 design/specs/tasks；勿在一个 OpenSpec 内吞全栈；勿从 archive 未勾任务续做。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

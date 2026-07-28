@@ -90,10 +90,20 @@
 
 ### 建议下一切片
 
-> **2026-07-20 路线重置**：旧建议切片（知识库 / 共享文件夹 / BPM / 短信等）**全部关闭，不再作为 backlog**。下一切片以新立 OpenSpec change 为准。
+> **2026-07-20 路线重置**：旧建议切片（知识库 / 共享文件夹 / BPM / 短信等）**全部关闭，不再作为 backlog**。下一切片以新立 OpenSpec change 为准。  
+> **2026-07-28**：智能体平台母 change 已立项——优先按下列 Agent 路线推进（实现前先深化子 change 骨架）。
 
 | 切片 | API 状态 | Web 状态 | 端点 / 页面 | 契约 | 说明 |
 |------|----------|----------|-------------|------|------|
+| **agent-platform-foundation** | n/a | n/a | 母：架构 + 开单 | [母](../../openspec/changes/agent-platform-foundation/proposal.md) · [草案](agent-architecture-draft.md) | 规划真源；不实现全产品 |
+| **admin-llm-provider-v1** | **done** | **ui_ready** | `/admin-api/agent/llm/**` · `/admin/infra/llm` | [contract](../../openspec/lanes/admin-llm-provider/contract.md) | 密钥 AesGcm；OpenAI 兼容；供 modelRef |
+| **agent-module-scaffold** | **done** | n/a | `module-agent` + Spring AI 1.1.8 | [change](../../openspec/changes/agent-module-scaffold/proposal.md) | `[平台]` 已 compile |
+| **agent-runtime-core-v1** | **done** | — | `/app-api/agent/def/**` · `/app-api/agent/session/**` | [contract](../../openspec/lanes/workspace-agent/contract.md) | Spring AI Runtime；Session ≠ IM |
+| **workspace-agent-web** | — | planned | `/app` 智能体壳 | 待起草 lane | 前端优先；Session ≠ messages |
+| **workspace-agent-integrate** | — | planned | 联调 | — | 去 Mock |
+| **agent-skill-catalog-v1** | planned | — | Skill → Tool → `*-api` | 骨架 | 内置技能 |
+| **im-bot-agent-carrier-v1** | planned | — | Bot 供给 API | 骨架 | Agent 生命周期载体 |
+| **agent-automation-v1** | planned | planned | 自动化 + Bot 推送 | 骨架 | 结果只进 IM |
 | **workspace-plus-create-v1** | planned | — | 母 change：Create Hub + 组织邀请 redesign | [母](../../openspec/changes/workspace-plus-create-v1/proposal.md) | 规划真源；实现落子切片 |
 | **workspace-create-hub** | planned | **ui_ready** | Rail「+」· 建群/邀成员/加外部/建文档 | [contract](../../openspec/lanes/workspace-create-hub/contract.md) | `-web` 完成；capability / 邀请渠道 / 外部申请 API 后续 |
 | **org-invite-settings** | **archived** | **done** | `/admin/system/invite-settings` | [contract](../../openspec/lanes/org-invite/contract.md) | `-integrate` 完成；store 接 GET/PUT |

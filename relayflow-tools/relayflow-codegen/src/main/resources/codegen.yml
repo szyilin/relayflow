@@ -42,6 +42,11 @@ modules:
     entity-package: dal.dataobject
     mapper-package: dal.mapper
     enum-package: com.relayflow.module.docs.enums
+  agent:
+    package-parent: com.relayflow.module.agent
+    entity-package: dal.dataobject
+    mapper-package: dal.mapper
+    enum-package: com.relayflow.module.agent.enums
 
 # Optional: table.column -> Enum simple name (under module enum-package)
 enum-columns:

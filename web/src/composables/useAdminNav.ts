@@ -67,6 +67,12 @@ export function useAdminNav() {
     permission: 'infra:storage:query',
     onSelect: closeSidebar
   }, {
+    label: '模型设置',
+    icon: 'i-lucide-sparkles',
+    to: '/admin/infra/llm',
+    permission: 'agent:llm:query',
+    onSelect: closeSidebar
+  }, {
     label: '文件管理',
     icon: 'i-lucide-folder-open',
     to: '/admin/infra/file',
