@@ -1,5 +1,6 @@
 package com.relayflow.module.calendar.service.event;
 
+import com.relayflow.module.calendar.api.event.dto.CalEventLinkedCreateReqDTO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventCreateReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRescheduleReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRespondReqVO;
@@ -17,6 +18,14 @@ public interface CalEventService {
     CalEventRespVO get(Long id);
 
     Long create(CalEventCreateReqVO request);
+
+    /**
+     * Cross-domain: create event on organizer primary calendar with {@code meeting_id}.
+     */
+    Long createLinkedEvent(CalEventLinkedCreateReqDTO request);
+
+    /** Clear {@code meeting_id} on events linked to the given meeting (best-effort). */
+    void clearMeetingLink(Long meetingId);
 
     void update(CalEventUpdateReqVO request);
 

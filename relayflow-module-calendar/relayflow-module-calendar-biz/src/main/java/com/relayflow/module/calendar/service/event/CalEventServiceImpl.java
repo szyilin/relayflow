@@ -3,6 +3,7 @@ package com.relayflow.module.calendar.service.event;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
+import com.relayflow.module.calendar.api.event.dto.CalEventLinkedCreateReqDTO;
 import com.relayflow.module.calendar.controller.app.vo.CalAttendeeRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventCreateReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalEventRescheduleReqVO;
@@ -188,6 +189,56 @@ public class CalEventServiceImpl implements CalEventService {
         calendarBotNotifyService.notifyInvite(event, attendeeIds);
         calendarBotNotifyService.pushRemindIfDue(event, userId);
         return event.getId();
+    }
+
+    @Override
+    @Transactional
+    public Long createLinkedEvent(CalEventLinkedCreateReqDTO request) {
+        if (request == null || request.getTenantId() == null || request.getOrganizerUserId() == null
+                || request.getMeetingId() == null || request.getStartTime() == null || request.getEndTime() == null) {
+            throw new ServiceException(ErrorCodeConstants.EVENT_TIME_INVALID);
+        }
+        validateTime(request.getStartTime(), request.getEndTime());
+        CalCalendarDO calendar = calCalendarService.ensurePrimary(request.getTenantId(), request.getOrganizerUserId());
+        OffsetDateTime now = OffsetDateTime.now();
+        CalEventDO event = new CalEventDO();
+        event.setTenantId(request.getTenantId());
+        event.setCalendarId(calendar.getId());
+        event.setTitle(normalizeTitle(request.getTitle()));
+        event.setStartTime(request.getStartTime());
+        event.setEndTime(request.getEndTime());
+        event.setAllDay(0);
+        event.setOrganizerId(request.getOrganizerUserId());
+        event.setStatus(CalendarEventStatus.CONFIRMED.name());
+        event.setMeetingId(request.getMeetingId());
+        event.setCreator(request.getOrganizerUserId());
+        event.setCreateTime(now);
+        event.setUpdater(request.getOrganizerUserId());
+        event.setUpdateTime(now);
+        calEventMapper.insert(event);
+        insertAttendee(event, request.getOrganizerUserId(), CalendarAttendeeRole.ORGANIZER,
+                CalendarAttendeeResponse.ACCEPTED, now);
+        calendarBotNotifyService.pushRemindIfDue(event, request.getOrganizerUserId());
+        return event.getId();
+    }
+
+    @Override
+    @Transactional
+    public void clearMeetingLink(Long meetingId) {
+        if (meetingId == null) {
+            return;
+        }
+        List<CalEventDO> linked = calEventMapper.selectList(Wrappers.<CalEventDO>lambdaQuery()
+                .eq(CalEventDO::getMeetingId, meetingId));
+        if (CollectionUtils.isEmpty(linked)) {
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        for (CalEventDO event : linked) {
+            event.setMeetingId(null);
+            event.setUpdateTime(now);
+            calEventMapper.updateById(event);
+        }
     }
 
     @Override
@@ -578,6 +629,7 @@ public class CalEventServiceImpl implements CalEventService {
                 || StringUtils.hasText(ex.getOverrideTitle())
                 || ex.getOverrideStart() != null
                 || ex.getOverrideEnd() != null));
+        vo.setMeetingId(master.getMeetingId());
 
         List<CalAttendeeDO> attendees = attendeesByEvent.getOrDefault(master.getId(), List.of());
         List<CalAttendeeRespVO> attendeeVos = new ArrayList<>(attendees.size());

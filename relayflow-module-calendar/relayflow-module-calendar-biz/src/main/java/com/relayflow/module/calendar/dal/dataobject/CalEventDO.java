@@ -58,4 +58,8 @@ public class CalEventDO extends TenantBaseDO {
     /** RFC5545 RRULE; null = single instance */
     @TableField("rrule")
     private String rrule;
+
+    /** Opaque meeting id from meeting domain; null when not a video meeting */
+    @TableField("meeting_id")
+    private Long meetingId;
 }

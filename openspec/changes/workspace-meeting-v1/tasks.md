@@ -31,11 +31,11 @@
 
 ## 4. meeting-api（含日历跨域 API）
 
-- [ ] 4.1 新建 `meeting-api` / `meeting-biz`；Flyway：`mtg_meeting`、`mtg_participant`（V1 不做 chat 表）
-- [ ] 4.2 **新建** `calendar-api` 的 `CalEventApi`（或等价）+ `cal_event.meeting_id`；实现于 calendar-biz
-- [ ] 4.3 App API：发起、按 code/id 预加入、**join-credentials（懒 ensure rtc + 签 token + 记 participant）**、预约（调 CalEventApi）、结束/离开、历史
-- [ ] 4.4 权限：当前租户有效成员；host 结束会议；禁止 meeting Mapper 访问 `cal_*`
-- [ ] 4.5 `./mvnw -pl relayflow-server -am compile`
+- [x] 4.1 新建 `meeting-api` / `meeting-biz`；Flyway：`mtg_meeting`、`mtg_participant`（V1 不做 chat 表）
+- [x] 4.2 **新建** `calendar-api` 的 `CalEventApi`（或等价）+ `cal_event.meeting_id`；实现于 calendar-biz
+- [x] 4.3 App API：发起、按 code/id 预加入、**join-credentials（懒 ensure rtc + 签 token + 记 participant）**、预约（调 CalEventApi）、结束/离开、历史
+- [x] 4.4 权限：当前租户有效成员；host 结束会议；禁止 meeting Mapper 访问 `cal_*`
+- [x] 4.5 `./mvnw -pl relayflow-server -am compile`
 
 ## 5. meeting-integrate
 

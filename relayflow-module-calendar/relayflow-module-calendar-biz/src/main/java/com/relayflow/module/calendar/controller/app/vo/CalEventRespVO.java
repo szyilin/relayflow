@@ -54,4 +54,7 @@ public class CalEventRespVO {
     private Boolean isException;
 
     private Boolean recurring;
+
+    /** Opaque linked meeting id when scheduled via meeting domain */
+    private Long meetingId;
 }
