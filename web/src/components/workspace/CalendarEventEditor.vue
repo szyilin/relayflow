@@ -2,7 +2,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatISO, parseISO } from 'date-fns'
-import type { CalendarEditScope, CalendarEvent } from '../../api/app/calendar'
+import type { CalendarEditScope, CalendarEvent, CalendarVideoMeetingKind } from '../../api/app/calendar'
+import { scheduleMeeting } from '../../api/app/meeting'
 import { useAuthStore } from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useContactsStore } from '../../stores/contacts'
@@ -15,6 +16,8 @@ const props = defineProps<{
   initialStart?: Date
   initialEnd?: Date
   initialAllDay?: boolean
+  /** Prefill when opening from meeting Hub「预约会议」 */
+  initialVideoMeetingKind?: CalendarVideoMeetingKind
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
@@ -27,7 +30,25 @@ const contacts = useContactsStore()
 const auth = useAuthStore()
 const toast = useToast()
 
-const linkedMeetingId = computed(() => props.event?.meetingId || null)
+const linkedMeetingId = computed(() =>
+  form.videoMeetingKind === 'RELAYFLOW' ? (form.meetingId || props.event?.meetingId || null) : null)
+
+const externalMeetingUrl = computed({
+  get: () => form.externalMeetingUrl,
+  set: (v: string) => { form.externalMeetingUrl = v }
+})
+
+const videoMeetingItems = [
+  { label: '无视频会议', value: 'NONE' },
+  { label: 'RelayFlow 视频会议', value: 'RELAYFLOW' },
+  { label: '其他视频会议', value: 'EXTERNAL' }
+]
+
+function clearVideoMeeting() {
+  form.videoMeetingKind = 'NONE'
+  form.meetingId = null
+  form.externalMeetingUrl = ''
+}
 
 function joinLinkedMeeting() {
   if (!linkedMeetingId.value) {
@@ -38,6 +59,14 @@ function joinLinkedMeeting() {
     path: '/app/meeting',
     query: { meetingId: linkedMeetingId.value }
   })
+}
+
+function openExternalMeeting() {
+  const url = form.externalMeetingUrl.trim()
+  if (!url) {
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 const submitting = ref(false)
@@ -58,7 +87,10 @@ const form = reactive({
   attendeeUserIds: [] as string[],
   recurrence: 'none' as RecurrenceFreq,
   recurrenceCount: 10,
-  editScope: 'ALL' as CalendarEditScope
+  editScope: 'ALL' as CalendarEditScope,
+  videoMeetingKind: 'NONE' as CalendarVideoMeetingKind,
+  meetingId: null as string | null,
+  externalMeetingUrl: ''
 })
 
 const isOrganizer = computed(() =>
@@ -203,6 +235,11 @@ function resetForm() {
     form.recurrence = parsed.freq
     form.recurrenceCount = parsed.count
     form.editScope = 'THIS'
+    form.videoMeetingKind = props.event.videoMeetingKind === 'RELAYFLOW' || props.event.videoMeetingKind === 'EXTERNAL'
+      ? props.event.videoMeetingKind
+      : (props.event.meetingId ? 'RELAYFLOW' : 'NONE')
+    form.meetingId = props.event.meetingId ?? null
+    form.externalMeetingUrl = props.event.externalMeetingUrl ?? ''
     showMore.value = true
     return
   }
@@ -225,7 +262,12 @@ function resetForm() {
   form.recurrence = 'none'
   form.recurrenceCount = 10
   form.editScope = 'ALL'
-  showMore.value = false
+  form.videoMeetingKind = props.initialVideoMeetingKind === 'RELAYFLOW' || props.initialVideoMeetingKind === 'EXTERNAL'
+    ? props.initialVideoMeetingKind
+    : 'NONE'
+  form.meetingId = null
+  form.externalMeetingUrl = ''
+  showMore.value = form.videoMeetingKind !== 'NONE'
 }
 
 watch(open, async (isOpen) => {
@@ -272,6 +314,19 @@ async function handleSave() {
   submitting.value = true
   try {
     const rrule = buildRrule(form.recurrence, start, form.recurrenceCount)
+    let meetingId = form.meetingId
+    if (form.videoMeetingKind === 'RELAYFLOW' && !meetingId) {
+      const scheduled = await scheduleMeeting({
+        title: form.title.trim() || '(无主题)',
+        scheduledStart: formatISO(start),
+        scheduledEnd: formatISO(end)
+      })
+      meetingId = scheduled.id
+      form.meetingId = scheduled.id
+    }
+    if (form.videoMeetingKind !== 'RELAYFLOW') {
+      meetingId = null
+    }
     const payload = {
       calendarId: form.calendarId,
       title: form.title.trim() || '(无主题)',
@@ -282,7 +337,12 @@ async function handleSave() {
       remindBeforeMinutes: form.allDay ? null : form.remindBeforeMinutes,
       allDayRemindTime: form.allDay ? form.allDayRemindTime : null,
       attendeeUserIds: form.attendeeUserIds,
-      rrule
+      rrule,
+      videoMeetingKind: form.videoMeetingKind,
+      meetingId,
+      externalMeetingUrl: form.videoMeetingKind === 'EXTERNAL'
+        ? (form.externalMeetingUrl.trim() || null)
+        : null
     }
     if (props.mode === 'edit' && props.event) {
       await calendarStore.updateEvent({
@@ -435,6 +495,38 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
           />
         </UFormField>
 
+        <UFormField v-if="isOrganizer" label="视频会议">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <USelect
+                v-model="form.videoMeetingKind"
+                :items="videoMeetingItems"
+                class="min-w-0 flex-1"
+              />
+              <UButton
+                v-if="form.videoMeetingKind !== 'NONE'"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-x"
+                title="移除视频会议"
+                @click="clearVideoMeeting"
+              />
+            </div>
+            <UInput
+              v-if="form.videoMeetingKind === 'EXTERNAL'"
+              v-model="externalMeetingUrl"
+              placeholder="输入链接：https://…"
+              class="w-full"
+            />
+            <p
+              v-if="form.videoMeetingKind === 'RELAYFLOW'"
+              class="text-xs text-muted"
+            >
+              保存后将创建 RelayFlow 预约会议，并可从日程一键加入
+            </p>
+          </div>
+        </UFormField>
+
         <UFormField label="描述">
           <UTextarea
             v-model="form.description"
@@ -531,6 +623,15 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
           @click="joinLinkedMeeting"
         >
           加入会议
+        </UButton>
+        <UButton
+          v-else-if="mode === 'edit' && form.videoMeetingKind === 'EXTERNAL' && form.externalMeetingUrl"
+          color="primary"
+          variant="soft"
+          icon="i-lucide-external-link"
+          @click="openExternalMeeting"
+        >
+          打开会议链接
         </UButton>
         <UButton
           v-if="mode === 'edit' && isOrganizer"

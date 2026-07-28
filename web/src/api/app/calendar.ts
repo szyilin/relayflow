@@ -7,6 +7,7 @@ export type CalendarEventStatus = 'CONFIRMED' | 'CANCELLED'
 export type CalendarAttendeeRole = 'ORGANIZER' | 'ATTENDEE'
 export type CalendarAttendeeResponse = 'NEEDS_ACTION' | 'ACCEPTED' | 'DECLINED'
 export type CalendarEditScope = 'THIS' | 'ALL'
+export type CalendarVideoMeetingKind = 'NONE' | 'RELAYFLOW' | 'EXTERNAL'
 
 export interface CalendarItem {
   id: string
@@ -62,6 +63,8 @@ export interface CalendarEvent {
   recurring?: boolean
   /** Linked video meeting id when scheduled via meeting domain */
   meetingId?: string | null
+  videoMeetingKind?: CalendarVideoMeetingKind
+  externalMeetingUrl?: string | null
 }
 
 export interface CalendarEventCreatePayload {
@@ -75,6 +78,9 @@ export interface CalendarEventCreatePayload {
   allDayRemindTime?: string | null
   attendeeUserIds?: string[]
   rrule?: string | null
+  meetingId?: string | null
+  videoMeetingKind?: CalendarVideoMeetingKind
+  externalMeetingUrl?: string | null
 }
 
 export interface CalendarEventUpdatePayload extends CalendarEventCreatePayload {
@@ -148,6 +154,8 @@ function normalizeEvent(item: CalendarEvent & {
   organizerId?: string | number
   masterEventId?: string | number
   meetingId?: string | number | null
+  videoMeetingKind?: string | null
+  externalMeetingUrl?: string | null
   startTime?: unknown
   endTime?: unknown
   instanceStart?: unknown
@@ -179,7 +187,11 @@ function normalizeEvent(item: CalendarEvent & {
     instanceStart: item.instanceStart != null ? asIso(item.instanceStart) : undefined,
     isException: item.isException ?? undefined,
     recurring: item.recurring ?? undefined,
-    meetingId: item.meetingId != null ? asId(item.meetingId) : null
+    meetingId: item.meetingId != null ? asId(item.meetingId) : null,
+    videoMeetingKind: item.videoMeetingKind === 'RELAYFLOW' || item.videoMeetingKind === 'EXTERNAL'
+      ? item.videoMeetingKind
+      : 'NONE',
+    externalMeetingUrl: item.externalMeetingUrl ?? null
   }
 }
 

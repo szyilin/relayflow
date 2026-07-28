@@ -62,4 +62,11 @@ public class CalEventDO extends TenantBaseDO {
     /** Opaque meeting id from meeting domain; null when not a video meeting */
     @TableField("meeting_id")
     private Long meetingId;
+
+    /** NONE | RELAYFLOW | EXTERNAL */
+    @TableField("video_meeting_kind")
+    private String videoMeetingKind;
+
+    @TableField("external_meeting_url")
+    private String externalMeetingUrl;
 }

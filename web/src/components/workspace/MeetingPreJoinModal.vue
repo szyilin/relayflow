@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   open: boolean
-  title: string
+  title?: string
   primaryLabel?: string
-}>()
+  /** When true, show editable meeting code at top (join flow). */
+  codeEditable?: boolean
+  meetingCode?: string
+}>(), {
+  title: '视频会议',
+  primaryLabel: '开始会议',
+  codeEditable: false,
+  meetingCode: ''
+})
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  confirm: [opts: { audio: boolean, video: boolean }]
+  'update:meetingCode': [value: string]
+  confirm: [opts: { audio: boolean, video: boolean, meetingCode: string }]
 }>()
 
 const audioEnabled = ref(true)
@@ -17,37 +26,62 @@ const videoEnabled = ref(false)
 const speakerVolume = ref(80)
 const previewEl = ref<HTMLVideoElement | null>(null)
 let previewStream: MediaStream | null = null
+let previewGen = 0
 
 const dialogOpen = computed({
   get: () => props.open,
   set: (v: boolean) => emit('update:open', v)
 })
 
+const codeModel = computed({
+  get: () => props.meetingCode ?? '',
+  set: (v: string) => emit('update:meetingCode', v)
+})
+
 async function startPreview() {
-  stopPreview()
+  const gen = ++previewGen
+  stopPreviewTracksOnly()
   if (!videoEnabled.value || !props.open) {
     return
   }
   try {
-    previewStream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: false
     })
+    if (gen !== previewGen || !props.open || !videoEnabled.value) {
+      stream.getTracks().forEach(t => t.stop())
+      return
+    }
+    previewStream = stream
     if (previewEl.value) {
       previewEl.value.srcObject = previewStream
       await previewEl.value.play().catch(() => {})
     }
   } catch {
-    videoEnabled.value = false
+    if (gen === previewGen) {
+      videoEnabled.value = false
+    }
   }
 }
 
-function stopPreview() {
-  previewStream?.getTracks().forEach(t => t.stop())
+function stopPreviewTracksOnly() {
+  previewStream?.getTracks().forEach((t) => {
+    try {
+      t.stop()
+    } catch {
+      // ignore
+    }
+  })
   previewStream = null
   if (previewEl.value) {
     previewEl.value.srcObject = null
   }
+}
+
+function stopPreview() {
+  previewGen += 1
+  stopPreviewTracksOnly()
 }
 
 watch([() => props.open, videoEnabled], () => {
@@ -58,25 +92,48 @@ watch([() => props.open, videoEnabled], () => {
   }
 })
 
-onMounted(() => {
-  if (props.open && videoEnabled.value) {
-    void startPreview()
+watch(() => props.open, (open) => {
+  if (!open) {
+    stopPreview()
+    audioEnabled.value = true
+    videoEnabled.value = false
   }
 })
 
 onUnmounted(stopPreview)
 
 function onConfirm() {
-  emit('confirm', { audio: audioEnabled.value, video: videoEnabled.value })
+  // Release preview tracks before entering room so mic/cam aren't double-held.
+  stopPreview()
+  emit('confirm', {
+    audio: audioEnabled.value,
+    video: videoEnabled.value,
+    meetingCode: codeModel.value.trim()
+  })
 }
 </script>
 
 <template>
   <UModal
     v-model:open="dialogOpen"
-    :title="title"
+    :title="codeEditable ? undefined : title"
     :ui="{ content: 'sm:max-w-2xl' }"
   >
+    <template
+      v-if="codeEditable"
+      #header
+    >
+      <div class="w-full px-1">
+        <UInput
+          v-model="codeModel"
+          placeholder="会议号"
+          size="xl"
+          class="w-full"
+          :ui="{ base: 'text-center text-lg tracking-wider' }"
+          autofocus
+        />
+      </div>
+    </template>
     <template #body>
       <div class="flex flex-col gap-4">
         <div class="relative aspect-video overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
@@ -95,15 +152,6 @@ function onConfirm() {
             <UIcon name="i-lucide-user" class="size-16 opacity-40" />
             <span class="text-sm">摄像头已关闭</span>
           </div>
-          <UButton
-            class="absolute top-3 right-3"
-            size="sm"
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-sparkles"
-            title="虚拟背景（后续）"
-            disabled
-          />
         </div>
 
         <div class="flex flex-wrap items-center gap-3">

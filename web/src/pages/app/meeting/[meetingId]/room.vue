@@ -19,6 +19,7 @@ const wantVideo = computed(() => route.query.video === '1')
 
 const {
   connecting,
+  phase,
   error,
   participants,
   connect,
@@ -36,7 +37,15 @@ const chatInput = ref('')
 const chatMessages = ref<{ id: string, from: string, text: string }[]>([])
 const title = ref('视频会议')
 const meetingCode = ref('')
+const statusHint = computed(() => {
+  if (error.value) return error.value
+  if (phase.value === 'connecting') return '信令连接中…'
+  if (phase.value === 'publishing') return '正在开启设备…'
+  if (connecting.value) return '连接中…'
+  return ''
+})
 let offChat: (() => void) | undefined
+let leftReported = false
 
 const tiles = computed(() => participants.value)
 
@@ -54,6 +63,8 @@ onMounted(async () => {
       audio: wantAudio.value,
       video: wantVideo.value
     })
+    micOn.value = wantAudio.value
+    camOn.value = wantVideo.value
     offChat = onChat((msg) => {
       chatMessages.value.push({
         id: `${Date.now()}-${Math.random()}`,
@@ -69,17 +80,37 @@ onMounted(async () => {
   }
 })
 
+async function reportLeave() {
+  if (leftReported) {
+    return
+  }
+  leftReported = true
+  try {
+    const { leaveMeeting } = await import('../../../../api/app/meeting')
+    await leaveMeeting(meetingId.value)
+  } catch {
+    // best-effort
+  }
+}
+
 onUnmounted(async () => {
   offChat?.()
   await disconnect()
+  await reportLeave()
 })
+
+async function hangup() {
+  await disconnect()
+  await reportLeave()
+  await router.push('/app/meeting')
+}
 
 async function toggleMic() {
   micOn.value = !micOn.value
   try {
     await setMicEnabled(micOn.value)
   } catch {
-    // mock ok
+    micOn.value = !micOn.value
   }
 }
 
@@ -88,7 +119,7 @@ async function toggleCam() {
   try {
     await setCameraEnabled(camOn.value)
   } catch {
-    // mock ok
+    camOn.value = !camOn.value
   }
 }
 
@@ -107,19 +138,8 @@ async function onSendChat() {
   try {
     await sendChat(text)
   } catch {
-    // mock: local only
+    // local echo already shown
   }
-}
-
-async function hangup() {
-  try {
-    const { leaveMeeting } = await import('../../../../api/app/meeting')
-    await leaveMeeting(meetingId.value)
-  } catch {
-    // best-effort
-  }
-  await disconnect()
-  await router.push('/app/meeting')
 }
 </script>
 
@@ -132,8 +152,7 @@ async function hangup() {
         </h1>
         <p class="text-xs text-white/50">
           会议号 {{ meetingCode || '—' }}
-          <span v-if="connecting" class="ml-2">连接中…</span>
-          <span v-else-if="error" class="ml-2 text-red-400">{{ error }}</span>
+          <span v-if="statusHint" class="ml-2" :class="error ? 'text-red-400' : ''">{{ statusHint }}</span>
         </p>
       </div>
       <UButton

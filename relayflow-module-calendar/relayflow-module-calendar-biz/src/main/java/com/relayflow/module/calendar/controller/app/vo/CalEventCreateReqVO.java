@@ -40,4 +40,14 @@ public class CalEventCreateReqVO {
     /** RFC5545 RRULE; null/blank = single instance */
     @Size(max = 512)
     private String rrule;
+
+    /** Opaque RelayFlow meeting id when videoMeetingKind=RELAYFLOW */
+    private Long meetingId;
+
+    /** NONE | RELAYFLOW | EXTERNAL */
+    @Size(max = 16)
+    private String videoMeetingKind;
+
+    @Size(max = 1000)
+    private String externalMeetingUrl;
 }

@@ -16,10 +16,11 @@ import {
 export interface RtcConnectOptions {
   url: string
   token: string
-  /** When empty url/token (Mock), skip network connect. */
   audio?: boolean
   video?: boolean
 }
+
+export type RtcConnectPhase = 'idle' | 'connecting' | 'publishing' | 'connected' | 'error'
 
 export interface RtcTileParticipant {
   identity: string
@@ -36,6 +37,7 @@ export function useRtcRoom() {
   const room: ShallowRef<Room | null> = shallowRef(null)
   const connected = ref(false)
   const connecting = ref(false)
+  const phase = ref<RtcConnectPhase>('idle')
   const error = ref<string | null>(null)
   const activeSpeakerIds = ref<string[]>([])
   const revision = ref(0)
@@ -52,17 +54,20 @@ export function useRtcRoom() {
   async function connect(opts: RtcConnectOptions) {
     error.value = null
     if (!opts.url || !opts.token) {
-      // Mock / offline preview: no LiveKit server
-      connected.value = true
+      connected.value = false
       connecting.value = false
-      return
+      phase.value = 'error'
+      throw new Error('入会凭证不完整')
     }
     connecting.value = true
+    phase.value = 'connecting'
     try {
       await disconnect()
       const r = new Room({
         adaptiveStream: true,
-        dynacast: true
+        dynacast: true,
+        // Fail faster than default when ICE/signaling hangs (common with wrong node-ip).
+        disconnectOnPageLeave: true
       })
       r
         .on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
@@ -79,18 +84,42 @@ export function useRtcRoom() {
         .on(RoomEvent.LocalTrackUnpublished, () => bump())
         .on(RoomEvent.Disconnected, () => {
           connected.value = false
+          phase.value = 'idle'
           bump()
         })
 
-      await r.connect(opts.url, opts.token)
-      await r.localParticipant.setMicrophoneEnabled(opts.audio !== false)
-      await r.localParticipant.setCameraEnabled(opts.video === true)
+      // Signal first so UI can leave "connecting" as soon as room is up.
+      await Promise.race([
+        r.connect(opts.url, opts.token),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('连接超时，请检查 LiveKit 是否启动或网络/防火墙')), 20_000)
+        })
+      ])
       room.value = r
       connected.value = true
+      phase.value = 'publishing'
+      bump()
+
+      // Acquire devices after signaling — do not block "connected" forever on getUserMedia.
+      const pubTasks: Promise<unknown>[] = []
+      if (opts.audio !== false) {
+        pubTasks.push(r.localParticipant.setMicrophoneEnabled(true).catch((e) => {
+          console.warn('enable microphone failed', e)
+        }))
+      }
+      if (opts.video === true) {
+        pubTasks.push(r.localParticipant.setCameraEnabled(true).catch((e) => {
+          console.warn('enable camera failed', e)
+        }))
+      }
+      await Promise.all(pubTasks)
+      phase.value = 'connected'
       bump()
     } catch (e) {
       error.value = e instanceof Error ? e.message : '连接会议失败'
       connected.value = false
+      phase.value = 'error'
+      await disconnect()
       throw e
     } finally {
       connecting.value = false
@@ -102,8 +131,18 @@ export function useRtcRoom() {
     room.value = null
     connected.value = false
     activeSpeakerIds.value = []
+    if (phase.value !== 'error') {
+      phase.value = 'idle'
+    }
     if (r) {
-      await r.disconnect()
+      try {
+        // Ensure local mic/cam tracks are stopped (browser indicator).
+        await r.localParticipant.setMicrophoneEnabled(false).catch(() => {})
+        await r.localParticipant.setCameraEnabled(false).catch(() => {})
+      } catch {
+        // ignore
+      }
+      await r.disconnect(true)
     }
     bump()
   }
@@ -158,6 +197,7 @@ export function useRtcRoom() {
     room,
     connected,
     connecting,
+    phase,
     error,
     participants,
     activeSpeakerIds,

@@ -63,6 +63,7 @@ const editingEvent = ref<CalendarEvent | null>(null)
 const createInitialStart = ref<Date | undefined>()
 const createInitialEnd = ref<Date | undefined>()
 const createInitialAllDay = ref(false)
+const createInitialVideoMeetingKind = ref<'NONE' | 'RELAYFLOW' | 'EXTERNAL' | undefined>()
 
 const createCalendarOpen = ref(false)
 const createCalendarForm = reactive({
@@ -250,7 +251,7 @@ function selectMiniDay(day: Date) {
   }
 }
 
-function openCreate(day?: Date, hour?: number) {
+function openCreate(day?: Date, hour?: number, videoMeeting?: 'NONE' | 'RELAYFLOW' | 'EXTERNAL') {
   const base = day ? startOfDay(day) : anchorDate.value
   if (hour != null) {
     const start = new Date(base)
@@ -275,6 +276,7 @@ function openCreate(day?: Date, hour?: number) {
     createInitialEnd.value = end
     createInitialAllDay.value = false
   }
+  createInitialVideoMeetingKind.value = videoMeeting
   editingEvent.value = null
   eventEditorMode.value = 'create'
   eventEditorOpen.value = true
@@ -452,6 +454,22 @@ async function openDeepLinkedEvent() {
   }
 }
 
+function applyCreateMeetingDeepLink() {
+  const createRaw = route.query.create
+  const create = typeof createRaw === 'string' ? createRaw : Array.isArray(createRaw) ? createRaw[0] : null
+  if (create !== '1' && create !== 'true') {
+    return
+  }
+  const kindRaw = route.query.videoMeeting
+  const kind = typeof kindRaw === 'string' ? kindRaw : Array.isArray(kindRaw) ? kindRaw[0] : null
+  openCreate(
+    undefined,
+    undefined,
+    kind === 'RELAYFLOW' || kind === 'EXTERNAL' ? kind : 'RELAYFLOW'
+  )
+  void router.replace({ path: '/app/calendar', query: { ...route.query, create: undefined, videoMeeting: undefined } })
+}
+
 onMounted(async () => {
   void preference.fetchFromServer().then(() => {
     taskLayerVisible.value = preference.calendar.showTaskLayer
@@ -461,6 +479,7 @@ onMounted(async () => {
   try {
     await refreshRange()
     await openDeepLinkedEvent()
+    applyCreateMeetingDeepLink()
   } catch (error) {
     toast.add({
       title: error instanceof Error ? error.message : '加载日历失败',
@@ -504,6 +523,10 @@ watch(taskLayerVisible, () => {
 
 watch(() => route.query.eventId, () => {
   void openDeepLinkedEvent()
+})
+
+watch(() => route.query.create, () => {
+  applyCreateMeetingDeepLink()
 })
 
 watch(() => route.query.date, () => {
@@ -925,6 +948,7 @@ meta:
       :initial-start="createInitialStart"
       :initial-end="createInitialEnd"
       :initial-all-day="createInitialAllDay"
+      :initial-video-meeting-kind="createInitialVideoMeetingKind"
       @saved="refreshRange"
       @deleted="refreshRange"
     />

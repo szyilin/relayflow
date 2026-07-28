@@ -20,6 +20,7 @@ import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarAttendeeResponse;
 import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
+import com.relayflow.module.calendar.enums.CalendarVideoMeetingKind;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
 import com.relayflow.module.calendar.service.notify.CalendarBotNotifyService;
@@ -175,6 +176,8 @@ public class CalEventServiceImpl implements CalEventService {
         event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
         event.setStatus(CalendarEventStatus.CONFIRMED.name());
         event.setRrule(rrule);
+        applyVideoMeetingFields(event, request.getVideoMeetingKind(), request.getMeetingId(),
+                request.getExternalMeetingUrl());
         event.setCreator(userId);
         event.setCreateTime(now);
         event.setUpdater(userId);
@@ -211,6 +214,8 @@ public class CalEventServiceImpl implements CalEventService {
         event.setOrganizerId(request.getOrganizerUserId());
         event.setStatus(CalendarEventStatus.CONFIRMED.name());
         event.setMeetingId(request.getMeetingId());
+        event.setVideoMeetingKind(CalendarVideoMeetingKind.RELAYFLOW.name());
+        event.setExternalMeetingUrl(null);
         event.setCreator(request.getOrganizerUserId());
         event.setCreateTime(now);
         event.setUpdater(request.getOrganizerUserId());
@@ -283,6 +288,8 @@ public class CalEventServiceImpl implements CalEventService {
         event.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
         event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
         event.setRrule(rrule);
+        applyVideoMeetingFields(event, request.getVideoMeetingKind(), request.getMeetingId(),
+                request.getExternalMeetingUrl());
         event.setUpdater(userId);
         event.setUpdateTime(OffsetDateTime.now());
         calEventMapper.updateById(event);
@@ -402,12 +409,49 @@ public class CalEventServiceImpl implements CalEventService {
         event.setAllDayRemindTime(blankToNull(request.getAllDayRemindTime()));
         event.setStatus(CalendarEventStatus.CONFIRMED.name());
         event.setRrule(rrule);
+        applyVideoMeetingFields(event, request.getVideoMeetingKind(), request.getMeetingId(),
+                request.getExternalMeetingUrl());
+        if (event.getMeetingId() == null && source.getMeetingId() != null
+                && CalendarVideoMeetingKind.RELAYFLOW.name().equals(event.getVideoMeetingKind())) {
+            event.setMeetingId(source.getMeetingId());
+        }
         event.setCreator(userId);
         event.setCreateTime(now);
         event.setUpdater(userId);
         event.setUpdateTime(now);
         calEventMapper.insert(event);
         return event;
+    }
+
+    private static void applyVideoMeetingFields(CalEventDO event, String kindRaw, Long meetingId,
+                                                String externalUrl) {
+        CalendarVideoMeetingKind kind = parseVideoMeetingKind(kindRaw);
+        event.setVideoMeetingKind(kind.name());
+        switch (kind) {
+            case RELAYFLOW -> {
+                event.setMeetingId(meetingId);
+                event.setExternalMeetingUrl(null);
+            }
+            case EXTERNAL -> {
+                event.setMeetingId(null);
+                event.setExternalMeetingUrl(blankToNull(externalUrl));
+            }
+            case NONE -> {
+                event.setMeetingId(null);
+                event.setExternalMeetingUrl(null);
+            }
+        }
+    }
+
+    private static CalendarVideoMeetingKind parseVideoMeetingKind(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return CalendarVideoMeetingKind.NONE;
+        }
+        try {
+            return CalendarVideoMeetingKind.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return CalendarVideoMeetingKind.NONE;
+        }
     }
 
     private void copyAttendees(Long sourceEventId, CalEventDO targetEvent, Long userId) {
@@ -630,6 +674,10 @@ public class CalEventServiceImpl implements CalEventService {
                 || ex.getOverrideStart() != null
                 || ex.getOverrideEnd() != null));
         vo.setMeetingId(master.getMeetingId());
+        vo.setVideoMeetingKind(StringUtils.hasText(master.getVideoMeetingKind())
+                ? master.getVideoMeetingKind()
+                : CalendarVideoMeetingKind.NONE.name());
+        vo.setExternalMeetingUrl(master.getExternalMeetingUrl());
 
         List<CalAttendeeDO> attendees = attendeesByEvent.getOrDefault(master.getId(), List.of());
         List<CalAttendeeRespVO> attendeeVos = new ArrayList<>(attendees.size());

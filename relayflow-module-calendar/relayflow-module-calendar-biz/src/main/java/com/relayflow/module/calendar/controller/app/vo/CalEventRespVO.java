@@ -57,4 +57,9 @@ public class CalEventRespVO {
 
     /** Opaque linked meeting id when scheduled via meeting domain */
     private Long meetingId;
+
+    /** NONE | RELAYFLOW | EXTERNAL */
+    private String videoMeetingKind;
+
+    private String externalMeetingUrl;
 }

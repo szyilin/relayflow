@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.calendar.api.event.CalEventApi;
-import com.relayflow.module.calendar.api.event.dto.CalEventLinkedCreateReqDTO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingInstantReqVO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingJoinCredentialsReqVO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingJoinCredentialsRespVO;
@@ -94,23 +93,6 @@ public class MeetingServiceImpl implements MeetingService {
                 request.getScheduledStart(), request.getScheduledEnd(), now);
         mtgMeetingMapper.insert(meeting);
         upsertParticipant(meeting, userId, MeetingParticipantRole.HOST, now, false);
-
-        try {
-            CalEventLinkedCreateReqDTO linked = new CalEventLinkedCreateReqDTO();
-            linked.setTenantId(tenantId);
-            linked.setOrganizerUserId(userId);
-            linked.setTitle(meeting.getTitle());
-            linked.setStartTime(request.getScheduledStart());
-            linked.setEndTime(request.getScheduledEnd());
-            linked.setMeetingId(meeting.getId());
-            Long eventId = calEventApi.createLinkedEvent(linked);
-            meeting.setCalendarEventId(eventId);
-            meeting.setUpdateTime(OffsetDateTime.now());
-            mtgMeetingMapper.updateById(meeting);
-        } catch (RuntimeException ex) {
-            log.warn("CalEventApi.createLinkedEvent failed for meetingId={}: {}", meeting.getId(), ex.toString());
-            throw ex;
-        }
         return toSummary(meeting);
     }
 
@@ -197,6 +179,20 @@ public class MeetingServiceImpl implements MeetingService {
         row.setLeftAt(OffsetDateTime.now());
         row.setUpdateTime(OffsetDateTime.now());
         mtgParticipantMapper.updateById(row);
+
+        Long stillIn = mtgParticipantMapper.selectCount(new LambdaQueryWrapper<MtgParticipantDO>()
+                .eq(MtgParticipantDO::getMeetingId, meeting.getId())
+                .isNotNull(MtgParticipantDO::getJoinedAt)
+                .isNull(MtgParticipantDO::getLeftAt));
+        if (stillIn == null || stillIn == 0) {
+            // Also end if nobody ever joined (e.g. host cancelled after create) and caller left.
+            Long everJoined = mtgParticipantMapper.selectCount(new LambdaQueryWrapper<MtgParticipantDO>()
+                    .eq(MtgParticipantDO::getMeetingId, meeting.getId())
+                    .isNotNull(MtgParticipantDO::getJoinedAt));
+            if (everJoined != null && everJoined > 0) {
+                endMeetingInternal(meeting);
+            }
+        }
     }
 
     @Override
@@ -209,6 +205,10 @@ public class MeetingServiceImpl implements MeetingService {
         if (!meeting.getHostUserId().equals(userId)) {
             throw new ServiceException(ErrorCodeConstants.MEETING_HOST_REQUIRED);
         }
+        endMeetingInternal(meeting);
+    }
+
+    private void endMeetingInternal(MtgMeetingDO meeting) {
         if (MeetingStatus.ENDED.name().equals(meeting.getStatus())) {
             return;
         }
@@ -220,13 +220,13 @@ public class MeetingServiceImpl implements MeetingService {
             try {
                 rtcSessionApi.endSession(meeting.getRtcSessionId());
             } catch (RuntimeException ex) {
-                log.warn("RtcSessionApi.endSession failed meetingId={}: {}", meetingId, ex.toString());
+                log.warn("RtcSessionApi.endSession failed meetingId={}: {}", meeting.getId(), ex.toString());
             }
         }
         try {
             calEventApi.clearMeetingLink(meeting.getId());
         } catch (RuntimeException ex) {
-            log.warn("CalEventApi.clearMeetingLink failed meetingId={}: {}", meetingId, ex.toString());
+            log.warn("CalEventApi.clearMeetingLink failed meetingId={}: {}", meeting.getId(), ex.toString());
         }
     }
 
