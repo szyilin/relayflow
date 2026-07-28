@@ -15,131 +15,272 @@ const emit = defineEmits<{
   'update:regionPath': [value: string]
 }>()
 
-type SelectItem = { label: string, value: string, node: GeoRegionNode }
-
-const levelLabels = ['国家/地区', '省/直辖市', '城市', '区/县'] as const
-
-const selectedIds = ref<Array<string | null>>([null, null, null, null])
-const optionsByLevel = ref<SelectItem[][]>([[], [], [], []])
-const loadingLevel = ref<number | null>(null)
-const initialized = ref(false)
-
-const selectedItems = computed(() =>
-  selectedIds.value.map((id, index) =>
-    optionsByLevel.value[index]?.find(item => item.value === id) ?? null))
-
-function toSelectItems(nodes: GeoRegionNode[]): SelectItem[] {
-  return nodes.map(node => ({
-    label: node.name,
-    value: node.id,
-    node
-  }))
+interface CascaderColumn {
+  options: GeoRegionNode[]
+  selectedId: string | null
 }
 
-async function loadLevel(level: number, parentId?: string | null) {
-  loadingLevel.value = level
-  try {
-    const nodes = await props.loadChildren(parentId)
-    optionsByLevel.value[level] = toSelectItems(nodes)
-  } finally {
-    loadingLevel.value = null
+const open = ref(false)
+const loading = ref(false)
+const countryRoot = ref<GeoRegionNode | null>(null)
+const columns = ref<CascaderColumn[]>([])
+const selectedChain = ref<GeoRegionNode[]>([])
+/** 避免自身 emit 再次触发 hydrate */
+const syncing = ref(false)
+
+const displayLabel = computed(() => {
+  if (selectedChain.value.length === 0) {
+    return '请选择省 / 市 / 区'
   }
-}
+  return selectedChain.value.map(node => node.name).join(' / ')
+})
 
-function clearFromLevel(level: number) {
-  for (let i = level; i < selectedIds.value.length; i += 1) {
-    selectedIds.value[i] = null
-    if (i > level) {
-      optionsByLevel.value[i] = []
-    }
+const hasSelection = computed(() => selectedChain.value.length > 0)
+
+async function resolveCountryRoot(): Promise<GeoRegionNode | null> {
+  if (countryRoot.value) {
+    return countryRoot.value
   }
+  const roots = await props.loadChildren(null)
+  const china = roots.find(node => node.code === 'CN' || node.name.includes('中国'))
+    ?? roots[0]
+    ?? null
+  countryRoot.value = china
+  return china
 }
 
-function emitSelection() {
-  const names = selectedItems.value
-    .filter((item): item is SelectItem => item != null)
-    .map(item => item.label)
-  const leaf = [...selectedIds.value].reverse().find(id => id != null) ?? null
-  emit('update:modelValue', leaf)
+async function loadProvincesColumn(): Promise<CascaderColumn[]> {
+  const country = await resolveCountryRoot()
+  if (!country) {
+    return []
+  }
+  const provinces = await props.loadChildren(country.id)
+  return [{ options: provinces, selectedId: null }]
+}
+
+function emitComplete(chain: GeoRegionNode[]) {
+  selectedChain.value = chain
+  const leaf = chain[chain.length - 1]
+  if (!leaf) {
+    syncing.value = true
+    emit('update:modelValue', null)
+    emit('update:regionPath', '')
+    syncing.value = false
+    return
+  }
+  const names = [
+    ...(countryRoot.value ? [countryRoot.value.name] : []),
+    ...chain.map(node => node.name)
+  ]
+  syncing.value = true
+  emit('update:modelValue', leaf.id)
   emit('update:regionPath', props.buildRegionPath(names))
+  syncing.value = false
 }
 
-async function handleLevelChange(level: number, value: string | null) {
-  selectedIds.value[level] = value
-  clearFromLevel(level + 1)
-
-  const item = optionsByLevel.value[level]?.find(entry => entry.value === value)
-  if (item?.node.hasChildren) {
-    await loadLevel(level + 1, item.value)
+function clearIncompleteEmit() {
+  if (props.modelValue == null && !props.regionPath) {
+    return
   }
-
-  emitSelection()
+  syncing.value = true
+  emit('update:modelValue', null)
+  emit('update:regionPath', '')
+  syncing.value = false
 }
 
-async function hydrateFromModelValue() {
-  if (!props.modelValue) {
-    selectedIds.value = [null, null, null, null]
-    await loadLevel(0)
-    initialized.value = true
+async function selectOption(columnIndex: number, option: GeoRegionNode) {
+  const nextColumns = columns.value.slice(0, columnIndex + 1).map((column, index) => ({
+    options: column.options,
+    selectedId: index === columnIndex ? option.id : column.selectedId
+  }))
+
+  const nextChain = selectedChain.value.slice(0, columnIndex)
+  nextChain[columnIndex] = option
+
+  if (option.hasChildren) {
+    loading.value = true
+    try {
+      const children = await props.loadChildren(option.id)
+      columns.value = [
+        ...nextColumns,
+        { options: children, selectedId: null }
+      ]
+      selectedChain.value = nextChain
+      clearIncompleteEmit()
+    } finally {
+      loading.value = false
+    }
     return
   }
 
-  await loadLevel(0)
-  let parentId: string | null = null
+  columns.value = nextColumns
+  emitComplete(nextChain)
+  open.value = false
+}
 
-  for (let level = 0; level < levelLabels.length; level += 1) {
-    const options = optionsByLevel.value[level] ?? []
-    let matched = options.find(item => item.value === props.modelValue)
-    if (!matched && level === levelLabels.length - 1) {
-      matched = options.find(item => item.value === props.modelValue)
+async function hydrateFromModelValue() {
+  loading.value = true
+  try {
+    const country = await resolveCountryRoot()
+    if (!country) {
+      columns.value = []
+      selectedChain.value = []
+      return
     }
-    if (!matched) {
-      const target = options.find(item =>
-        props.regionPath?.includes(item.label))
-      matched = target
+
+    if (!props.modelValue) {
+      columns.value = await loadProvincesColumn()
+      selectedChain.value = []
+      return
     }
-    if (!matched) {
-      break
+
+    const pathNames = (props.regionPath ?? '')
+      .split('/')
+      .map(part => part.trim())
+      .filter(Boolean)
+      .filter(name => name !== country.name)
+
+    const nextColumns: CascaderColumn[] = []
+    const nextChain: GeoRegionNode[] = []
+    let parentId: string | null = country.id
+    let remainingNames = [...pathNames]
+
+    for (let depth = 0; depth < 3; depth += 1) {
+      const options = await props.loadChildren(parentId)
+      if (options.length === 0) {
+        break
+      }
+
+      let matched = options.find(item => item.id === props.modelValue)
+      if (!matched && remainingNames.length > 0) {
+        const expected = remainingNames[0]!
+        matched = options.find(item => item.name === expected)
+        if (matched) {
+          remainingNames = remainingNames.slice(1)
+        }
+      }
+
+      nextColumns.push({
+        options,
+        selectedId: matched?.id ?? null
+      })
+
+      if (!matched) {
+        break
+      }
+
+      nextChain.push(matched)
+      if (!matched.hasChildren || matched.id === props.modelValue) {
+        break
+      }
+      parentId = matched.id
     }
-    selectedIds.value[level] = matched.value
-    parentId = matched.value
-    if (matched.node.hasChildren && level < levelLabels.length - 1) {
-      await loadLevel(level + 1, parentId)
+
+    const leaf = nextChain[nextChain.length - 1]
+    if (leaf?.hasChildren && leaf.id !== props.modelValue) {
+      const children = await props.loadChildren(leaf.id)
+      nextColumns.push({ options: children, selectedId: null })
     }
+
+    columns.value = nextColumns.length ? nextColumns : await loadProvincesColumn()
+    selectedChain.value = nextChain
+  } finally {
+    loading.value = false
   }
+}
 
-  initialized.value = true
-  emitSelection()
+async function ensureColumnsReady() {
+  if (columns.value.length > 0) {
+    return
+  }
+  loading.value = true
+  try {
+    columns.value = await loadProvincesColumn()
+  } finally {
+    loading.value = false
+  }
 }
 
 watch(
-  () => props.modelValue,
-  async (value, prev) => {
-    if (!initialized.value || value !== prev) {
-      await hydrateFromModelValue()
+  () => [props.modelValue, props.regionPath] as const,
+  async () => {
+    if (syncing.value) {
+      return
     }
+    await hydrateFromModelValue()
   },
   { immediate: true }
 )
+
+watch(open, async (isOpen) => {
+  if (isOpen) {
+    await ensureColumnsReady()
+  }
+})
 </script>
 
 <template>
-  <div class="grid gap-3 sm:grid-cols-2">
-    <UFormField
-      v-for="(label, level) in levelLabels"
-      :key="label"
-      :label="label"
+  <UPopover
+    v-model:open="open"
+    :content="{ align: 'start', side: 'bottom' }"
+    :ui="{ content: 'p-0' }"
+  >
+    <UButton
+      color="neutral"
+      variant="outline"
+      class="w-full justify-between gap-2 font-normal"
+      :disabled="disabled"
+      :loading="loading && !open"
+      trailing-icon="i-lucide-chevrons-up-down"
     >
-      <USelectMenu
-        :model-value="selectedIds[level] ?? undefined"
-        :items="optionsByLevel[level] ?? []"
-        value-key="value"
-        :placeholder="`请选择${label}`"
-        :disabled="disabled || (level > 0 && !selectedIds[level - 1])"
-        :loading="loadingLevel === level"
-        class="w-full"
-        @update:model-value="(value: string | undefined) => handleLevelChange(level, value ?? null)"
-      />
-    </UFormField>
-  </div>
+      <span
+        class="min-w-0 flex-1 truncate text-left"
+        :class="hasSelection ? '' : 'text-muted'"
+      >
+        {{ displayLabel }}
+      </span>
+    </UButton>
+
+    <template #content>
+      <div class="flex max-h-72 min-w-64 overflow-hidden">
+        <div
+          v-if="loading && columns.length === 0"
+          class="flex min-w-40 items-center justify-center px-4 py-8 text-sm text-muted"
+        >
+          加载中…
+        </div>
+
+        <p
+          v-else-if="columns.length === 0"
+          class="px-4 py-8 text-sm text-muted"
+        >
+          暂无行政区划数据
+        </p>
+
+        <div
+          v-for="(column, columnIndex) in columns"
+          :key="columnIndex"
+          class="min-w-36 max-w-44 flex-1 overflow-y-auto border-default not-last:border-r"
+        >
+          <button
+            v-for="option in column.options"
+            :key="option.id"
+            type="button"
+            class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-elevated"
+            :class="column.selectedId === option.id ? 'bg-elevated font-medium text-highlighted' : 'text-default'"
+            @click="selectOption(columnIndex, option)"
+          >
+            <span class="min-w-0 truncate">
+              {{ option.name }}
+            </span>
+            <UIcon
+              v-if="option.hasChildren"
+              name="i-lucide-chevron-right"
+              class="size-4 shrink-0 text-muted"
+            />
+          </button>
+        </div>
+      </div>
+    </template>
+  </UPopover>
 </template>

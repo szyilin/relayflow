@@ -113,11 +113,21 @@ const selectedScale = computed({
 const addressModalTitle = computed(() =>
   editingAddressId.value ? '编辑企业地址' : '新增企业地址')
 
+const enterpriseNameInitial = computed(() => {
+  const name = (infoEditing.value ? profileForm.name : enterpriseStore.profile.name).trim()
+  return name ? name.slice(0, 1) : '企'
+})
+
 const addressTableRows = computed<AddressTableRow[]>(() =>
   enterpriseStore.addresses.map(item => ({
     ...item,
     typeLabels: item.types.map(type => ADDRESS_TYPE_LABEL[type]).join('、')
   })))
+
+function displayText(value: string | null | undefined): string {
+  const text = value?.trim()
+  return text ? text : '—'
+}
 
 const columns: TableColumn<AddressTableRow>[] = [{
   accessorKey: 'typeLabels',
@@ -359,239 +369,298 @@ meta:
         />
 
         <template v-else>
-          <UTabs
-            v-model="activeTab"
-            :items="tabItems"
-            class="w-full max-w-md"
-          />
+          <div class="space-y-4">
+            <UTabs
+              v-model="activeTab"
+              :items="tabItems"
+              class="w-full max-w-md"
+            />
 
-          <div v-if="activeTab === 'info'" class="mx-auto w-full max-w-2xl space-y-6">
-            <div class="flex flex-wrap items-center justify-end gap-2">
-              <template v-if="infoEditing">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  @click="cancelInfoEdit"
-                >
-                  取消
-                </UButton>
-                <UButton
-                  v-if="canUpdate"
-                  color="primary"
-                  :loading="enterpriseStore.profileSaving"
-                  @click="saveInfo"
-                >
-                  保存
-                </UButton>
-              </template>
-              <UButton
-                v-else-if="canUpdate"
-                color="primary"
-                variant="outline"
-                icon="i-lucide-pencil"
-                @click="startInfoEdit"
-              >
-                编辑
-              </UButton>
-            </div>
-
-            <UCard>
-              <template #header>
-                <div>
-                  <h3 class="text-sm font-semibold">
-                    基础信息
-                  </h3>
-                  <p class="mt-1 text-sm text-muted">
-                    企业名称可在本页修改；企业编号为系统分配且不可变更
-                  </p>
-                </div>
-              </template>
-
+            <UCard v-if="activeTab === 'info'">
               <div
                 v-if="enterpriseStore.profileLoading"
-                class="space-y-3"
+                class="space-y-6"
               >
-                <USkeleton class="h-10 w-full" />
-                <USkeleton class="h-10 w-full" />
+                <USkeleton class="h-20 w-full" />
+                <USkeleton class="h-28 w-full" />
+                <USkeleton class="h-28 w-full" />
               </div>
 
               <div
                 v-else
-                class="space-y-4"
+                class="space-y-8"
               >
-                <UFormField label="企业名称">
+                <!-- 基础信息 -->
+                <section class="space-y-4">
+                  <h3 class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+                    <span class="h-3.5 w-0.5 rounded-full bg-primary" />
+                    基础信息
+                  </h3>
+
+                  <div class="flex flex-col gap-4 rounded-lg bg-elevated/60 p-4 ring-1 ring-default sm:flex-row sm:items-center">
+                    <div class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xl font-semibold text-primary">
+                      {{ enterpriseNameInitial }}
+                    </div>
+
+                    <div class="min-w-0 flex-1 space-y-3">
+                      <div v-if="infoEditing && canUpdate">
+                        <UFormField label="企业名称">
+                          <UInput
+                            v-model="profileForm.name"
+                            placeholder="请输入企业名称"
+                            class="w-full max-w-md"
+                          />
+                        </UFormField>
+                      </div>
+                      <div
+                        v-else
+                        class="truncate text-base font-semibold text-highlighted"
+                      >
+                        {{ displayText(enterpriseStore.profile.name) }}
+                      </div>
+
+                      <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="space-y-1">
+                          <p class="text-xs text-muted">
+                            企业编号
+                          </p>
+                          <p class="text-sm text-default">
+                            {{ displayText(enterpriseStore.profile.code) }}
+                          </p>
+                        </div>
+                        <div class="space-y-1">
+                          <p class="text-xs text-muted">
+                            数据驻留地
+                          </p>
+                          <p class="text-sm text-default">
+                            {{ displayText(enterpriseStore.profile.dataResidency) }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- 更多信息 -->
+                <section class="space-y-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <h3 class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+                      <span class="h-3.5 w-0.5 rounded-full bg-primary" />
+                      更多信息
+                    </h3>
+
+                    <div class="flex items-center gap-2">
+                      <template v-if="infoEditing">
+                        <UButton
+                          color="neutral"
+                          variant="ghost"
+                          size="sm"
+                          @click="cancelInfoEdit"
+                        >
+                          取消
+                        </UButton>
+                        <UButton
+                          v-if="canUpdate"
+                          color="primary"
+                          size="sm"
+                          :loading="enterpriseStore.profileSaving"
+                          @click="saveInfo"
+                        >
+                          保存
+                        </UButton>
+                      </template>
+                      <UButton
+                        v-else-if="canUpdate"
+                        color="neutral"
+                        variant="ghost"
+                        size="sm"
+                        icon="i-lucide-pencil"
+                        @click="startInfoEdit"
+                      >
+                        编辑
+                      </UButton>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="infoEditing && canUpdate"
+                    class="grid gap-4 sm:grid-cols-2"
+                  >
+                    <UFormField label="所属行业">
+                      <USelectMenu
+                        v-model="selectedIndustry"
+                        :items="[...ENTERPRISE_INDUSTRY_OPTIONS]"
+                        placeholder="请选择行业"
+                        class="w-full"
+                      />
+                    </UFormField>
+
+                    <UFormField label="企业规模">
+                      <USelectMenu
+                        v-model="selectedScale"
+                        :items="[...ENTERPRISE_SCALE_OPTIONS]"
+                        placeholder="请选择规模"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <div
+                    v-else
+                    class="grid gap-x-8 gap-y-5 sm:grid-cols-2"
+                  >
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        所属行业
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.industryLabel) }}
+                      </p>
+                    </div>
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        企业规模
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.scaleLabel) }}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- 企业联系人 -->
+                <section class="space-y-4">
+                  <h3 class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+                    <span class="h-3.5 w-0.5 rounded-full bg-primary" />
+                    企业联系人
+                  </h3>
+
+                  <div
+                    v-if="infoEditing && canUpdate"
+                    class="grid gap-4 sm:grid-cols-2"
+                  >
+                    <UFormField label="联系人姓名">
+                      <UInput
+                        :model-value="profileForm.contactName ?? ''"
+                        placeholder="请输入联系人姓名"
+                        class="w-full"
+                        @update:model-value="profileForm.contactName = $event || null"
+                      />
+                    </UFormField>
+
+                    <UFormField label="联系人邮箱">
+                      <UInput
+                        :model-value="profileForm.contactEmail ?? ''"
+                        type="email"
+                        placeholder="name@company.com"
+                        class="w-full"
+                        @update:model-value="profileForm.contactEmail = $event || null"
+                      />
+                    </UFormField>
+
+                    <UFormField label="联系人手机">
+                      <UInput
+                        :model-value="profileForm.contactMobile ?? ''"
+                        placeholder="11 位手机号"
+                        class="w-full"
+                        @update:model-value="profileForm.contactMobile = $event || null"
+                      />
+                    </UFormField>
+
+                    <UFormField label="联系人座机">
+                      <UInput
+                        :model-value="profileForm.contactLandline ?? ''"
+                        placeholder="区号-号码"
+                        class="w-full"
+                        @update:model-value="profileForm.contactLandline = $event || null"
+                      />
+                    </UFormField>
+                  </div>
+
+                  <div
+                    v-else
+                    class="grid gap-x-8 gap-y-5 sm:grid-cols-2"
+                  >
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        联系人姓名
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.profile.contactName) }}
+                      </p>
+                    </div>
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        联系人邮箱
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.profile.contactEmail) }}
+                      </p>
+                    </div>
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        联系人手机
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.profile.contactMobile) }}
+                      </p>
+                    </div>
+                    <div class="space-y-1">
+                      <p class="text-xs text-muted">
+                        联系人座机
+                      </p>
+                      <p class="text-sm text-default">
+                        {{ displayText(enterpriseStore.profile.contactLandline) }}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </UCard>
+
+            <UCard v-else>
+              <div class="mb-4 flex flex-wrap items-end gap-3">
+                <UFormField
+                  label="搜索"
+                  class="!w-auto"
+                >
                   <UInput
-                    v-model="profileForm.name"
-                    placeholder="请输入企业名称"
-                    :disabled="!infoEditing || !canUpdate"
-                    class="w-full"
+                    v-model="addressFilters.keyword"
+                    placeholder="区划或详细地址"
+                    icon="i-lucide-search"
+                    class="w-56"
                   />
                 </UFormField>
 
                 <UFormField
-                  label="企业编号"
-                  hint="创建企业时自动生成，不可编辑"
+                  label="地址类型"
+                  class="!w-auto"
                 >
-                  <UInput
-                    :model-value="enterpriseStore.profile.code"
-                    disabled
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-            </UCard>
-
-            <UCard>
-              <template #header>
-                <div>
-                  <h3 class="text-sm font-semibold">
-                    更多信息
-                  </h3>
-                  <p class="mt-1 text-sm text-muted">
-                    行业与规模可在本页维护；数据驻留地只读展示
-                  </p>
-                </div>
-              </template>
-
-              <div class="space-y-4">
-                <UFormField label="所属行业">
                   <USelectMenu
-                    v-if="infoEditing && canUpdate"
-                    v-model="selectedIndustry"
-                    :items="[...ENTERPRISE_INDUSTRY_OPTIONS]"
-                    placeholder="请选择行业"
-                    class="w-full"
-                  />
-                  <UInput
-                    v-else
-                    :model-value="enterpriseStore.industryLabel"
-                    disabled
-                    class="w-full"
-                  />
-                </UFormField>
-
-                <UFormField label="企业规模">
-                  <USelectMenu
-                    v-if="infoEditing && canUpdate"
-                    v-model="selectedScale"
-                    :items="[...ENTERPRISE_SCALE_OPTIONS]"
-                    placeholder="请选择规模"
-                    class="w-full"
-                  />
-                  <UInput
-                    v-else
-                    :model-value="enterpriseStore.scaleLabel"
-                    disabled
-                    class="w-full"
+                    v-model="selectedAddressTypes"
+                    :items="ADDRESS_TYPE_OPTIONS"
+                    multiple
+                    placeholder="全部类型"
+                    class="w-56"
                   />
                 </UFormField>
 
                 <UFormField
-                  label="数据驻留地"
-                  hint="V1 固定为中国大陆，不可修改"
+                  label="状态"
+                  class="!w-auto"
                 >
-                  <UInput
-                    :model-value="enterpriseStore.profile.dataResidency"
-                    disabled
-                    class="w-full"
+                  <USelectMenu
+                    v-model="selectedStatusFilter"
+                    :items="statusFilterItems"
+                    class="w-40"
                   />
                 </UFormField>
-              </div>
-            </UCard>
-
-            <UCard>
-              <template #header>
-                <div>
-                  <h3 class="text-sm font-semibold">
-                    联系人
-                  </h3>
-                  <p class="mt-1 text-sm text-muted">
-                    注册创建企业时可预填；也可在此维护对外联系信息
-                  </p>
-                </div>
-              </template>
-
-              <div class="grid gap-4 sm:grid-cols-2">
-                <UFormField label="联系人姓名">
-                  <UInput
-                    :model-value="profileForm.contactName ?? ''"
-                    placeholder="请输入联系人姓名"
-                    :disabled="!infoEditing || !canUpdate"
-                    class="w-full"
-                    @update:model-value="profileForm.contactName = $event || null"
-                  />
-                </UFormField>
-
-                <UFormField label="联系人邮箱">
-                  <UInput
-                    :model-value="profileForm.contactEmail ?? ''"
-                    type="email"
-                    placeholder="name@company.com"
-                    :disabled="!infoEditing || !canUpdate"
-                    class="w-full"
-                    @update:model-value="profileForm.contactEmail = $event || null"
-                  />
-                </UFormField>
-
-                <UFormField label="联系人手机">
-                  <UInput
-                    :model-value="profileForm.contactMobile ?? ''"
-                    placeholder="11 位手机号"
-                    :disabled="!infoEditing || !canUpdate"
-                    class="w-full"
-                    @update:model-value="profileForm.contactMobile = $event || null"
-                  />
-                </UFormField>
-
-                <UFormField label="联系人座机">
-                  <UInput
-                    :model-value="profileForm.contactLandline ?? ''"
-                    placeholder="区号-号码"
-                    :disabled="!infoEditing || !canUpdate"
-                    class="w-full"
-                    @update:model-value="profileForm.contactLandline = $event || null"
-                  />
-                </UFormField>
-              </div>
-            </UCard>
-          </div>
-
-          <div v-else class="space-y-4">
-            <UCard>
-              <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                  <UFormField label="搜索">
-                    <UInput
-                      v-model="addressFilters.keyword"
-                      placeholder="区划或详细地址"
-                      icon="i-lucide-search"
-                      class="sm:w-56"
-                    />
-                  </UFormField>
-
-                  <UFormField label="地址类型">
-                    <USelectMenu
-                      v-model="selectedAddressTypes"
-                      :items="ADDRESS_TYPE_OPTIONS"
-                      multiple
-                      placeholder="全部类型"
-                      class="sm:w-56"
-                    />
-                  </UFormField>
-
-                  <UFormField label="状态">
-                    <USelectMenu
-                      v-model="selectedStatusFilter"
-                      :items="statusFilterItems"
-                      class="sm:w-40"
-                    />
-                  </UFormField>
-                </div>
 
                 <UButton
                   v-if="canUpdate"
                   icon="i-lucide-plus"
                   color="primary"
+                  class="ml-auto"
                   @click="openCreateAddress"
                 >
                   新增地址
