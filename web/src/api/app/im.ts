@@ -1,4 +1,4 @@
-import { get, post } from '../request'
+import { get, post, put } from '../request'
 
 export type ConversationType = 'direct' | 'group' | 'channel' | 'bot_dm'
 
@@ -146,6 +146,8 @@ export interface GroupBotRemoveResult {
 export interface CreateGroupPayload {
   name: string
   memberUserIds: string[]
+  groupKind?: 'NORMAL' | 'DEPT'
+  deptId?: string
 }
 
 export interface CreateGroupResult {
@@ -173,6 +175,10 @@ export interface MessageItem {
   clientMsgId?: string
   seq: number
   createTime: string
+  recalled?: boolean
+  edited?: boolean
+  recalledAt?: string
+  editedAt?: string
 }
 
 export interface SendMessagePayload {
@@ -237,7 +243,9 @@ function normalizeMessage(item: RawMessageItem): MessageItem {
     id: String(item.id),
     conversationId: String(item.conversationId),
     senderId: String(item.senderId),
-    seq: parseSeq(item.seq)
+    seq: parseSeq(item.seq),
+    recalled: Boolean(item.recalled),
+    edited: Boolean(item.edited)
   }
 }
 
@@ -373,6 +381,101 @@ export function addGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBo
 
 export function removeGroupBot(payload: GroupBotMembershipPayload): Promise<GroupBotRemoveResult> {
   return post<GroupBotRemoveResult>('/app-api/im/group/bots/remove', payload)
+}
+
+export interface ImEffectiveSettings {
+  groupMemberLimitDefault: number
+  allowPublicGroup: boolean
+  deptGroupLeavePolicy: 'ALLOW' | 'DENY'
+  memberExportPolicy: 'ALLOW_OWNER_ADMIN' | 'DENY_ALL' | 'ALLOW_DESIGNATED'
+  recallEnabled: boolean
+  recallWithinHours: number
+  editEnabled: boolean
+  editWithinHours: number
+}
+
+export function getImEffectiveSettings(): Promise<ImEffectiveSettings> {
+  return get<ImEffectiveSettings>('/app-api/im/settings/effective')
+}
+
+export interface GroupInfo {
+  conversationId: string
+  name: string
+  searchable: boolean
+  groupKind: 'NORMAL' | 'DEPT'
+  deptId?: string | null
+  myRole: GroupMemberRole
+}
+
+type RawGroupInfo = Omit<GroupInfo, 'conversationId' | 'deptId'> & {
+  conversationId: number | string
+  deptId?: number | string | null
+}
+
+export function getGroupInfo(conversationId: string): Promise<GroupInfo> {
+  return get<RawGroupInfo>('/app-api/im/group/info', {
+    params: { conversationId }
+  }).then(info => ({
+    ...info,
+    conversationId: String(info.conversationId),
+    deptId: info.deptId != null ? String(info.deptId) : null
+  }))
+}
+
+export function updateGroupPublic(conversationId: string, searchable: boolean): Promise<boolean> {
+  return put<boolean>('/app-api/im/group/public', { conversationId, searchable })
+}
+
+export interface PublicGroupSearchItem {
+  conversationId: string
+  name: string
+  memberCount: number
+}
+
+export function searchPublicGroups(keyword: string): Promise<PublicGroupSearchItem[]> {
+  return get<Array<{ conversationId: number | string, name: string, memberCount: number }>>(
+    '/app-api/im/group/search-public',
+    { params: { keyword } }
+  ).then(list => list.map(item => ({
+    conversationId: String(item.conversationId),
+    name: item.name,
+    memberCount: item.memberCount
+  })))
+}
+
+export function joinPublicGroup(conversationId: string): Promise<boolean> {
+  return post<boolean>('/app-api/im/group/join', { conversationId })
+}
+
+export function leaveGroup(conversationId: string): Promise<boolean> {
+  return post<boolean>('/app-api/im/group/leave', { conversationId })
+}
+
+export interface GroupMemberExportItem {
+  userId: string
+  nickname: string
+  mobile?: string | null
+  deptName?: string | null
+}
+
+export function exportGroupMembers(conversationId: string): Promise<GroupMemberExportItem[]> {
+  return get<Array<{ userId: number | string, nickname: string, mobile?: string | null, deptName?: string | null }>>(
+    '/app-api/im/group/members/export',
+    { params: { conversationId } }
+  ).then(list => list.map(item => ({
+    userId: String(item.userId),
+    nickname: item.nickname,
+    mobile: item.mobile,
+    deptName: item.deptName
+  })))
+}
+
+export function recallMessage(messageId: string): Promise<boolean> {
+  return post<boolean>('/app-api/im/message/recall', { messageId })
+}
+
+export function editMessage(messageId: string, content: string): Promise<boolean> {
+  return post<boolean>('/app-api/im/message/edit', { messageId, content })
 }
 
 export function postCardAction(payload: CardActionPayload): Promise<CardActionResult> {

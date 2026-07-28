@@ -4,20 +4,32 @@ import {
   addGroupBot as addGroupBotRequest,
   addGroupMembers,
   createGroup as createGroupRequest,
+  editMessage as editMessageRequest,
+  exportGroupMembers as exportGroupMembersRequest,
   getConversationList,
   getGroupBotCatalog,
+  getGroupInfo as getGroupInfoRequest,
   getGroupMembers,
+  getImEffectiveSettings,
   getMessageList,
   getReadStatus,
+  joinPublicGroup as joinPublicGroupRequest,
+  leaveGroup as leaveGroupRequest,
   markConversationRead,
+  recallMessage as recallMessageRequest,
   removeGroupBot as removeGroupBotRequest,
+  searchPublicGroups as searchPublicGroupsRequest,
   sendMessage,
+  updateGroupPublic as updateGroupPublicRequest,
   type ContentBlock,
   type ConversationItem,
   type GroupBotCatalogItem,
+  type GroupInfo,
   type GroupMemberItem,
+  type ImEffectiveSettings,
   type MessageContent,
-  type MessageItem
+  type MessageItem,
+  type PublicGroupSearchItem
 } from '../../api/app/im'
 import { ApiError } from '../../api/request'
 import { uploadPrivateFile } from '../../api/app/file'
@@ -45,6 +57,8 @@ export const useImStore = defineStore('im', () => {
   /** In-memory cache keyed by conversationId — avoids skeleton flash on revisit. */
   const messagesByConversation = ref<Record<string, MessageViewItem[]>>({})
   const groupMembers = ref<GroupMemberItem[]>([])
+  const groupInfo = ref<GroupInfo | null>(null)
+  const effectiveSettings = ref<ImEffectiveSettings | null>(null)
   const activeConversationId = ref<string>()
   const keyword = ref('')
   const loadingConversations = ref(false)
@@ -104,6 +118,8 @@ export const useImStore = defineStore('im', () => {
     messages.value = []
     messagesByConversation.value = {}
     groupMembers.value = []
+    groupInfo.value = null
+    effectiveSettings.value = null
     activeConversationId.value = undefined
     pendingDirectChat.value = null
     keyword.value = ''
@@ -261,13 +277,102 @@ export const useImStore = defineStore('im', () => {
     loadingGroupMembers.value = true
     lastError.value = null
     try {
-      groupMembers.value = await getGroupMembers(conversationId)
+      const [members, info] = await Promise.all([
+        getGroupMembers(conversationId),
+        getGroupInfoRequest(conversationId).catch(() => null)
+      ])
+      groupMembers.value = members
+      groupInfo.value = info
     } catch (error) {
       groupMembers.value = []
+      groupInfo.value = null
       lastError.value = error instanceof ApiError ? error.message : '加载群成员失败'
       throw error
     } finally {
       loadingGroupMembers.value = false
+    }
+  }
+
+  async function ensureEffectiveSettings() {
+    if (effectiveSettings.value) {
+      return effectiveSettings.value
+    }
+    effectiveSettings.value = await getImEffectiveSettings()
+    return effectiveSettings.value
+  }
+
+  async function setGroupPublic(conversationId: string, searchable: boolean) {
+    await updateGroupPublicRequest(conversationId, searchable)
+    if (groupInfo.value?.conversationId === conversationId) {
+      groupInfo.value = { ...groupInfo.value, searchable }
+    }
+  }
+
+  async function searchPublicGroups(keywordText: string): Promise<PublicGroupSearchItem[]> {
+    return searchPublicGroupsRequest(keywordText)
+  }
+
+  async function joinPublicGroup(conversationId: string) {
+    await joinPublicGroupRequest(conversationId)
+    await fetchConversations()
+    await selectConversation(conversationId)
+  }
+
+  async function leaveActiveGroup() {
+    const id = activeConversationId.value
+    if (!id) {
+      return
+    }
+    await leaveGroupRequest(id)
+    groupInfo.value = null
+    groupMembers.value = []
+    await fetchConversations()
+    activeConversationId.value = undefined
+    messages.value = []
+  }
+
+  async function exportActiveGroupMembersCsv() {
+    const id = activeConversationId.value
+    if (!id) {
+      return
+    }
+    const rows = await exportGroupMembersRequest(id)
+    const header = 'userId,nickname,mobile,deptName'
+    const body = rows.map(r =>
+      [r.userId, r.nickname, r.mobile ?? '', r.deptName ?? '']
+        .map(cell => `"${String(cell).replaceAll('"', '""')}"`)
+        .join(',')
+    ).join('\n')
+    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `group-members-${id}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function recallMessage(messageId: string) {
+    await recallMessageRequest(messageId)
+    const existing = messages.value.find(m => m.id === messageId)
+    if (existing) {
+      handleMessageUpdated({
+        ...existing,
+        recalled: true,
+        content: { version: 1, blocks: [{ type: 'text', text: '消息已撤回' }] }
+      })
+    }
+  }
+
+  async function editMessage(messageId: string, text: string) {
+    await editMessageRequest(messageId, text)
+    const existing = messages.value.find(m => m.id === messageId)
+    if (existing) {
+      handleMessageUpdated({
+        ...existing,
+        edited: true,
+        content: { version: 1, blocks: [{ type: 'text', text }] }
+      })
     }
   }
 
@@ -398,15 +503,28 @@ export const useImStore = defineStore('im', () => {
     handleMessageUpdated(message)
   }
 
-  async function createGroup(name: string, members: GroupMemberCandidate[]) {
+  async function createGroup(
+    name: string,
+    members: GroupMemberCandidate[],
+    options?: { groupKind?: 'NORMAL' | 'DEPT', deptId?: string }
+  ) {
     const trimmed = name.trim()
-    if (!trimmed || members.length === 0) {
+    const isDept = options?.groupKind === 'DEPT'
+    if (!trimmed) {
+      throw new Error('请填写群名称')
+    }
+    if (!isDept && members.length === 0) {
       throw new Error('请填写群名称并至少选择一名成员')
+    }
+    if (isDept && !options?.deptId) {
+      throw new Error('请选择部门')
     }
 
     const result = await createGroupRequest({
       name: trimmed,
-      memberUserIds: members.map(item => item.userId)
+      memberUserIds: members.map(item => item.userId),
+      groupKind: options?.groupKind ?? 'NORMAL',
+      deptId: options?.deptId
     })
 
     await fetchConversations()
@@ -726,6 +844,8 @@ export const useImStore = defineStore('im', () => {
     conversations,
     messages,
     groupMembers,
+    groupInfo,
+    effectiveSettings,
     activeConversationId,
     keyword,
     loadingConversations,
@@ -746,6 +866,14 @@ export const useImStore = defineStore('im', () => {
     openDirectChat,
     fetchMessages,
     fetchGroupMembers,
+    ensureEffectiveSettings,
+    setGroupPublic,
+    searchPublicGroups,
+    joinPublicGroup,
+    leaveActiveGroup,
+    exportActiveGroupMembersCsv,
+    recallMessage,
+    editMessage,
     createGroup,
     inviteGroupMembers,
     fetchGroupBotCatalog,

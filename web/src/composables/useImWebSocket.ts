@@ -114,6 +114,14 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       }
       return
     }
+    if (envelope.domain === 'im'
+      && (envelope.type === 'message.recalled' || envelope.type === 'message.edited')) {
+      const message = normalizeWsMessage(envelope.payload)
+      if (message && handlers.onMessageUpdated) {
+        handlers.onMessageUpdated(message)
+      }
+      return
+    }
     if (envelope.domain === 'im' && envelope.type === 'read.updated') {
       const payload = envelope.payload as Record<string, unknown> | undefined
       if (!payload || handlers.onReadUpdated == null) {

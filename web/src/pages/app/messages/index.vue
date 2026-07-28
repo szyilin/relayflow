@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { DropdownMenuItem } from '@nuxt/ui'
 import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
 import WorkspaceCreateGroupModal from '../../../components/workspace/WorkspaceCreateGroupModal.vue'
@@ -9,7 +10,7 @@ import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
 import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
-import type { ContentBlock, GroupMemberItem, MessageItem } from '../../../api/app/im'
+import type { ContentBlock, GroupMemberItem, MessageItem, PublicGroupSearchItem } from '../../../api/app/im'
 import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
@@ -27,9 +28,21 @@ const messageListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const draftInputRef = ref<HTMLInputElement | null>(null)
 const createGroupOpen = ref(false)
+const publicGroupSearchOpen = ref(false)
+const publicGroupKeyword = ref('')
+const publicGroupResults = ref<PublicGroupSearchItem[]>([])
+const publicGroupSearching = ref(false)
+const joiningGroupId = ref<string | null>(null)
 const inviteMembersOpen = ref(false)
 const addGroupBotOpen = ref(false)
 const groupMembersOpen = ref(false)
+const groupSearchableUpdating = ref(false)
+const exportingMembers = ref(false)
+const leavingGroup = ref(false)
+const editMessageOpen = ref(false)
+const editMessageId = ref<string | null>(null)
+const editMessageText = ref('')
+const editMessageSubmitting = ref(false)
 const removingBotCode = ref<string | null>(null)
 const pendingMentions = ref<GroupMemberItem[]>([])
 const mentionPickerOpen = ref(false)
@@ -140,6 +153,28 @@ const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
 const isBotDmActive = computed(() => active.value?.type === 'bot_dm')
 const isGroupOwner = computed(() => im.isCurrentUserGroupOwner())
+const isGroupModerator = computed(() => {
+  const role = im.groupInfo?.myRole
+  return role === 'owner' || role === 'admin'
+})
+const allowPublicGroup = computed(() => im.effectiveSettings?.allowPublicGroup ?? false)
+const canExportMembers = computed(() =>
+  im.effectiveSettings?.memberExportPolicy === 'ALLOW_OWNER_ADMIN' && isGroupModerator.value)
+const canLeaveGroup = computed(() => {
+  if (!isGroupActive.value) {
+    return false
+  }
+  if (im.groupInfo?.groupKind === 'DEPT' && im.effectiveSettings?.deptGroupLeavePolicy === 'DENY') {
+    return false
+  }
+  return true
+})
+const groupSearchable = computed({
+  get: () => im.groupInfo?.searchable ?? false,
+  set: (value: boolean) => {
+    void handleGroupSearchableChange(value)
+  }
+})
 const mentionableMembers = computed(() => {
   const me = im.currentUserId()
   return im.groupMembers.filter((member) => {
@@ -333,6 +368,7 @@ function syncPresenceWatch() {
 }
 
 onMounted(async () => {
+  void im.ensureEffectiveSettings().catch(() => {})
   await im.fetchConversations()
   const conversationId = typeof route.query.conversationId === 'string'
     ? route.query.conversationId
@@ -507,10 +543,207 @@ function handleDraftClick() {
   syncMentionPickerFromDraft()
 }
 
-watch(() => im.activeConversationId, () => {
+watch(() => im.activeConversationId, (conversationId) => {
   pendingMentions.value = []
   closeMentionPicker()
+  if (conversationId) {
+    void im.ensureEffectiveSettings().catch(() => {})
+  }
 })
+
+watch(publicGroupSearchOpen, (isOpen) => {
+  if (!isOpen) {
+    publicGroupKeyword.value = ''
+    publicGroupResults.value = []
+    publicGroupSearching.value = false
+  }
+})
+
+let publicGroupSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(publicGroupKeyword, (keyword) => {
+  if (publicGroupSearchTimer) {
+    clearTimeout(publicGroupSearchTimer)
+  }
+  const trimmed = keyword.trim()
+  if (!trimmed) {
+    publicGroupResults.value = []
+    publicGroupSearching.value = false
+    return
+  }
+  publicGroupSearching.value = true
+  publicGroupSearchTimer = setTimeout(() => {
+    void im.searchPublicGroups(trimmed)
+      .then(results => { publicGroupResults.value = results })
+      .catch(() => { publicGroupResults.value = [] })
+      .finally(() => { publicGroupSearching.value = false })
+  }, 300)
+})
+
+function hoursSince(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60)
+}
+
+function isTextMessage(msg: Pick<MessageItem, 'type' | 'content'>) {
+  return msg.type === 'text' && !im.isFileMessage(msg)
+}
+
+function canRecallMessage(msg: MessageItem): boolean {
+  if (msg.recalled || !isTextMessage(msg)) {
+    return false
+  }
+  const settings = im.effectiveSettings
+  if (!settings) {
+    return false
+  }
+  const withinHours = hoursSince(msg.createTime) <= settings.recallWithinHours
+  if (!withinHours) {
+    return false
+  }
+  if (isOwnMessage(msg.senderId)) {
+    return settings.recallEnabled
+  }
+  return isGroupActive.value && isGroupModerator.value
+}
+
+function canEditMessage(msg: MessageItem): boolean {
+  if (msg.recalled || !isOwnMessage(msg.senderId) || !isTextMessage(msg)) {
+    return false
+  }
+  const settings = im.effectiveSettings
+  if (!settings?.editEnabled) {
+    return false
+  }
+  return hoursSince(msg.createTime) <= settings.editWithinHours
+}
+
+function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
+  const items: DropdownMenuItem[] = []
+  if (canRecallMessage(msg)) {
+    items.push({
+      label: '撤回',
+      icon: 'i-lucide-undo-2',
+      onSelect: () => { void handleRecallMessage(msg.id) }
+    })
+  }
+  if (canEditMessage(msg)) {
+    items.push({
+      label: '编辑',
+      icon: 'i-lucide-pencil',
+      onSelect: () => { openEditMessage(msg) }
+    })
+  }
+  return items.length > 0 ? [items] : []
+}
+
+function hasMessageActions(msg: MessageItem) {
+  return messageActionItems(msg).length > 0
+}
+
+async function handleRecallMessage(messageId: string) {
+  try {
+    await im.recallMessage(messageId)
+    toast.add({ title: '消息已撤回', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '撤回失败',
+      color: 'error'
+    })
+  }
+}
+
+function openEditMessage(msg: MessageItem) {
+  editMessageId.value = msg.id
+  editMessageText.value = im.textFromContent(msg.content)
+  editMessageOpen.value = true
+}
+
+async function submitEditMessage() {
+  const messageId = editMessageId.value
+  const text = editMessageText.value.trim()
+  if (!messageId || !text || editMessageSubmitting.value) {
+    return
+  }
+  editMessageSubmitting.value = true
+  try {
+    await im.editMessage(messageId, text)
+    editMessageOpen.value = false
+    toast.add({ title: '消息已更新', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '编辑失败',
+      color: 'error'
+    })
+  } finally {
+    editMessageSubmitting.value = false
+  }
+}
+
+async function handleGroupSearchableChange(searchable: boolean) {
+  if (!active.value || groupSearchableUpdating.value) {
+    return
+  }
+  groupSearchableUpdating.value = true
+  try {
+    await im.setGroupPublic(active.value.id, searchable)
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '更新失败',
+      color: 'error'
+    })
+  } finally {
+    groupSearchableUpdating.value = false
+  }
+}
+
+async function handleExportMembers() {
+  exportingMembers.value = true
+  try {
+    await im.exportActiveGroupMembersCsv()
+    toast.add({ title: '成员列表已导出', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '导出失败',
+      color: 'error'
+    })
+  } finally {
+    exportingMembers.value = false
+  }
+}
+
+async function handleLeaveGroup() {
+  if (!canLeaveGroup.value || leavingGroup.value) {
+    return
+  }
+  leavingGroup.value = true
+  try {
+    await im.leaveActiveGroup()
+    groupMembersOpen.value = false
+    toast.add({ title: '已退出群聊', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '退出失败',
+      color: 'error'
+    })
+  } finally {
+    leavingGroup.value = false
+  }
+}
+
+async function handleJoinPublicGroup(conversationId: string) {
+  joiningGroupId.value = conversationId
+  try {
+    await im.joinPublicGroup(conversationId)
+    publicGroupSearchOpen.value = false
+    toast.add({ title: '已加入群聊', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '加入失败',
+      color: 'error'
+    })
+  } finally {
+    joiningGroupId.value = null
+  }
+}
 
 function isOwnMessage(senderId: string) {
   return senderId === im.currentUserId()
@@ -619,15 +852,27 @@ meta:
         <h2 class="font-semibold">
           消息
         </h2>
-        <UButton
-          icon="i-lucide-users-round"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          @click="createGroupOpen = true"
-        >
-          建群
-        </UButton>
+        <div class="flex items-center gap-1">
+          <UButton
+            v-if="allowPublicGroup"
+            icon="i-lucide-search"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="publicGroupSearchOpen = true"
+          >
+            查找公开群
+          </UButton>
+          <UButton
+            icon="i-lucide-users-round"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="createGroupOpen = true"
+          >
+            建群
+          </UButton>
+        </div>
       </div>
 
       <div class="p-3">
@@ -821,76 +1066,104 @@ meta:
               ]"
             >
               <div class="relative max-w-[75%]">
-                <div
-                  class="ws-msg-bubble px-3.5 py-2 text-sm"
-                  :class="[
-                    isOwnMessage(item.message.senderId)
-                      ? 'ws-msg-bubble--out bg-primary text-primary-foreground'
-                      : 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]',
-                    item.isGroupStart && item.isGroupEnd
-                      ? ''
-                      : item.isGroupStart
-                        ? 'ws-msg-bubble--group-start'
-                        : item.isGroupEnd
-                          ? 'ws-msg-bubble--group-end'
-                          : 'ws-msg-bubble--group-mid'
-                  ]"
-                >
-                  <p
-                    v-if="showSenderNickname(item.message, item.isGroupStart)"
-                    class="mb-1 text-xs font-medium opacity-80"
+                <div class="flex items-start gap-1">
+                  <div
+                    class="ws-msg-bubble min-w-0 flex-1 px-3.5 py-2 text-sm"
+                    :class="[
+                      item.message.recalled
+                        ? 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text-muted)] italic'
+                        : isOwnMessage(item.message.senderId)
+                          ? 'ws-msg-bubble--out bg-primary text-primary-foreground'
+                          : 'ws-msg-bubble--in bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]',
+                      !item.message.recalled && (item.isGroupStart && item.isGroupEnd
+                        ? ''
+                        : item.isGroupStart
+                          ? 'ws-msg-bubble--group-start'
+                          : item.isGroupEnd
+                            ? 'ws-msg-bubble--group-end'
+                            : 'ws-msg-bubble--group-mid')
+                    ]"
                   >
-                    {{ item.message.senderNickname }}
-                  </p>
-                  <template v-if="im.isFileMessage(item.message)">
-                    <ImAuthenticatedImage
-                      v-if="im.isImageMessage(item.message) && fileDownloadUrl(item.message)"
-                      :src="fileDownloadUrl(item.message)"
-                      :alt="fileName(item.message)"
-                    />
-                    <button
-                      v-else-if="fileDownloadUrl(item.message)"
-                      type="button"
-                      class="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 hover:underline"
-                      :class="isOwnMessage(item.message.senderId) ? 'text-primary-foreground' : 'text-[var(--ws-text)]'"
-                      @click="handleFileDownload(item.message)"
+                    <p
+                      v-if="showSenderNickname(item.message, item.isGroupStart)"
+                      class="mb-1 text-xs font-medium opacity-80"
+                      :class="item.message.recalled ? 'not-italic' : ''"
                     >
-                      <UIcon name="i-lucide-file" class="size-5 shrink-0" />
-                      <span class="truncate">{{ fileName(item.message) }}</span>
-                    </button>
-                    <p v-else class="whitespace-pre-wrap break-words">
-                      {{ im.messagePreviewFromContent(item.message.type, item.message.content) }}
+                      {{ item.message.senderNickname }}
                     </p>
-                  </template>
-                  <p v-else class="whitespace-pre-wrap break-words">
-                    <template v-for="(block, idx) in messageBlocks(item.message)" :key="idx">
-                      <span
-                        v-if="block.type === 'mention'"
-                        class="mx-0.5 inline font-medium"
-                        :class="isOwnMessage(item.message.senderId) ? 'underline decoration-white/70' : 'text-primary'"
-                      >{{ block.text }}</span>
-                      <span v-else-if="block.type === 'text'">{{ block.text }}</span>
+                    <template v-if="item.message.recalled">
+                      <p class="text-sm">
+                        消息已撤回
+                      </p>
                     </template>
-                  </p>
-                  <button
-                    v-if="deeplinkBlock(item.message)"
-                    type="button"
-                    class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
-                    :class="isOwnMessage(item.message.senderId)
-                      ? 'text-primary-foreground/90'
-                      : 'text-primary'"
-                    @click.stop="openDeeplink(deeplinkBlock(item.message)?.route)"
+                    <template v-else-if="im.isFileMessage(item.message)">
+                      <ImAuthenticatedImage
+                        v-if="im.isImageMessage(item.message) && fileDownloadUrl(item.message)"
+                        :src="fileDownloadUrl(item.message)"
+                        :alt="fileName(item.message)"
+                      />
+                      <button
+                        v-else-if="fileDownloadUrl(item.message)"
+                        type="button"
+                        class="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 hover:underline"
+                        :class="isOwnMessage(item.message.senderId) ? 'text-primary-foreground' : 'text-[var(--ws-text)]'"
+                        @click="handleFileDownload(item.message)"
+                      >
+                        <UIcon name="i-lucide-file" class="size-5 shrink-0" />
+                        <span class="truncate">{{ fileName(item.message) }}</span>
+                      </button>
+                      <p v-else class="whitespace-pre-wrap break-words">
+                        {{ im.messagePreviewFromContent(item.message.type, item.message.content) }}
+                      </p>
+                    </template>
+                    <p v-else class="whitespace-pre-wrap break-words">
+                      <template v-for="(block, idx) in messageBlocks(item.message)" :key="idx">
+                        <span
+                          v-if="block.type === 'mention'"
+                          class="mx-0.5 inline font-medium"
+                          :class="isOwnMessage(item.message.senderId) ? 'underline decoration-white/70' : 'text-primary'"
+                        >{{ block.text }}</span>
+                        <span v-else-if="block.type === 'text'">{{ block.text }}</span>
+                      </template>
+                    </p>
+                    <button
+                      v-if="!item.message.recalled && deeplinkBlock(item.message)"
+                      type="button"
+                      class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
+                      :class="isOwnMessage(item.message.senderId)
+                        ? 'text-primary-foreground/90'
+                        : 'text-primary'"
+                      @click.stop="openDeeplink(deeplinkBlock(item.message)?.route)"
+                    >
+                      <UIcon name="i-lucide-arrow-up-right" class="size-3.5" />
+                      {{ deeplinkLabel(deeplinkBlock(item.message)!) }}
+                    </button>
+                  </div>
+                  <UDropdownMenu
+                    v-if="hasMessageActions(item.message)"
+                    :items="messageActionItems(item.message)"
                   >
-                    <UIcon name="i-lucide-arrow-up-right" class="size-3.5" />
-                    {{ deeplinkLabel(deeplinkBlock(item.message)!) }}
-                  </button>
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      icon="i-lucide-ellipsis"
+                      square
+                      class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      @click.stop
+                    />
+                  </UDropdownMenu>
                 </div>
                 <div
-                  v-if="item.isGroupEnd || messageStatusSuffix(item.message)"
+                  v-if="item.isGroupEnd || messageStatusSuffix(item.message) || item.message.edited"
                   class="mt-0.5 flex items-center gap-1.5 px-1 text-[10px] text-[var(--ws-text-muted)]"
                   :class="isOwnMessage(item.message.senderId) ? 'justify-end' : 'justify-start'"
                 >
                   <span v-if="item.isGroupEnd">{{ im.formatClockTime(item.message.createTime) }}</span>
+                  <span
+                    v-if="item.message.edited && !item.message.recalled"
+                    class="rounded bg-[var(--ws-input-bar-bg)] px-1 py-0.5 text-[10px]"
+                  >已编辑</span>
                   <span v-if="messageStatusSuffix(item.message)">· {{ messageStatusSuffix(item.message) }}</span>
                 </div>
                 <span
@@ -1040,7 +1313,50 @@ meta:
   >
     <template #body>
       <div class="flex max-h-[60vh] flex-col">
+        <div
+          v-if="allowPublicGroup && isGroupModerator"
+          class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--ws-border-subtle)] px-3 py-2.5"
+        >
+          <div>
+            <p class="text-sm font-medium">
+              允许被搜索
+            </p>
+            <p class="text-xs text-[var(--ws-text-muted)]">
+              开启后企业成员可通过搜索加入
+            </p>
+          </div>
+          <USwitch
+            v-model="groupSearchable"
+            :loading="groupSearchableUpdating"
+            :disabled="!im.groupInfo"
+          />
+        </div>
+
         <div class="mb-3 flex items-center justify-end gap-1">
+          <UButton
+            v-if="canExportMembers"
+            icon="i-lucide-download"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :loading="exportingMembers"
+            title="导出成员 CSV"
+            @click="handleExportMembers"
+          >
+            导出
+          </UButton>
+          <UButton
+            v-if="canLeaveGroup"
+            icon="i-lucide-log-out"
+            color="error"
+            variant="ghost"
+            size="xs"
+            :loading="leavingGroup"
+            title="退出群聊"
+            @click="handleLeaveGroup"
+          >
+            退出
+          </UButton>
           <UButton
             v-if="isGroupOwner"
             icon="i-lucide-bot"
@@ -1112,6 +1428,101 @@ meta:
   </UModal>
 
   <WorkspaceCreateGroupModal v-model:open="createGroupOpen" />
+
+  <UModal
+    v-model:open="publicGroupSearchOpen"
+    title="查找公开群"
+    description="搜索企业内可被发现的公开群并加入"
+    :ui="{ content: 'max-w-md' }"
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UInput
+          v-model="publicGroupKeyword"
+          placeholder="输入群名称关键词"
+          icon="i-lucide-search"
+          autofocus
+        />
+        <div v-if="publicGroupSearching" class="space-y-2">
+          <USkeleton v-for="i in 3" :key="i" class="h-10 w-full" />
+        </div>
+        <div v-else-if="publicGroupKeyword.trim() && publicGroupResults.length === 0" class="py-4">
+          <UEmpty icon="i-lucide-search-x" title="未找到公开群" />
+        </div>
+        <div v-else-if="publicGroupResults.length" class="max-h-[40vh] space-y-1 overflow-y-auto">
+          <div
+            v-for="group in publicGroupResults"
+            :key="group.conversationId"
+            class="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-input-bar-bg)]"
+          >
+            <UAvatar
+              :text="group.name.slice(0, 1)"
+              icon="i-lucide-users"
+              size="sm"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">
+                {{ group.name }}
+              </p>
+              <p class="text-xs text-[var(--ws-text-muted)]">
+                {{ group.memberCount }} 人
+              </p>
+            </div>
+            <UButton
+              size="xs"
+              :loading="joiningGroupId === group.conversationId"
+              @click="handleJoinPublicGroup(group.conversationId)"
+            >
+              加入
+            </UButton>
+          </div>
+        </div>
+        <p
+          v-else
+          class="text-sm text-[var(--ws-text-muted)]"
+        >
+          输入关键词开始搜索
+        </p>
+      </div>
+    </template>
+  </UModal>
+
+  <UModal
+    v-model:open="editMessageOpen"
+    title="编辑消息"
+    :ui="{ content: 'max-w-md' }"
+  >
+    <template #body>
+      <form
+        class="space-y-4"
+        @submit.prevent="submitEditMessage"
+      >
+        <UTextarea
+          v-model="editMessageText"
+          placeholder="输入新内容"
+          :rows="4"
+          autofocus
+        />
+        <div class="flex justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="editMessageOpen = false"
+          >
+            取消
+          </UButton>
+          <UButton
+            type="submit"
+            :loading="editMessageSubmitting"
+            :disabled="!editMessageText.trim()"
+          >
+            保存
+          </UButton>
+        </div>
+      </form>
+    </template>
+  </UModal>
+
   <ImInviteMembersModal
     v-if="active && isGroupActive"
     v-model:open="inviteMembersOpen"
