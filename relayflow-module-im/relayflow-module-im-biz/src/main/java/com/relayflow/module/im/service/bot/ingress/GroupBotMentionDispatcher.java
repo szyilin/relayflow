@@ -84,6 +84,7 @@ public class GroupBotMentionDispatcher {
                         .botCode(bot.getCode())
                         .handlerKind(bot.getHandlerKind())
                         .botName(bot.getName())
+                        .ownerAgentId(bot.getOwnerAgentId())
                         .triggerUserId(triggerUserId)
                         .triggerMessageId(triggerMessageId)
                         .inboundText(inboundText)

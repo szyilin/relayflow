@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class AgentDefSaveReqVO {
 
@@ -26,4 +28,7 @@ public class AgentDefSaveReqVO {
     /** active | disabled; default active on create */
     @Size(max = 16)
     private String status;
+
+    /** Bound skill codes from catalog; empty/null means no tools. */
+    private List<String> skillIds;
 }

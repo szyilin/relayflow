@@ -1,8 +1,11 @@
 package com.relayflow.module.im.service.bot.runtime;
 
+import com.relayflow.module.agent.api.carrier.AgentCarrierInboundApi;
+import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.im.enums.ImBotHandlerKind;
 import com.relayflow.module.im.service.message.ImMessageService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -13,11 +16,14 @@ public class BotRuntimeImpl implements BotRuntime {
 
     private final BotPlatformHandlerRegistry platformHandlerRegistry;
     private final ImMessageService messageService;
+    private final ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi;
 
     public BotRuntimeImpl(BotPlatformHandlerRegistry platformHandlerRegistry,
-                          @Lazy ImMessageService messageService) {
+                          @Lazy ImMessageService messageService,
+                          ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi) {
         this.platformHandlerRegistry = platformHandlerRegistry;
         this.messageService = messageService;
+        this.agentCarrierInboundApi = agentCarrierInboundApi;
     }
 
     @Override
@@ -37,7 +43,6 @@ public class BotRuntimeImpl implements BotRuntime {
                 return;
             }
             if (ImBotHandlerKind.WEBHOOK.equals(kind)) {
-                // V1 stub: never perform external HTTP.
                 log.info("BotRuntime webhook stub (no HTTP): botCode={}, conversationId={}",
                         context.getBotCode(), context.getConversationId());
                 return;
@@ -54,11 +59,39 @@ public class BotRuntimeImpl implements BotRuntime {
     }
 
     private void dispatchPlatform(BotInboundContext context) {
+        if (context.getOwnerAgentId() != null) {
+            dispatchAgentCarrier(context);
+            return;
+        }
         BotPlatformHandler handler = platformHandlerRegistry.find(context.getBotCode());
         if (handler == null) {
             return;
         }
         BotHandlerReply reply = handler.handle(context);
+        persistReply(context, reply);
+    }
+
+    private void dispatchAgentCarrier(BotInboundContext context) {
+        AgentCarrierInboundApi api = agentCarrierInboundApi.getIfAvailable();
+        if (api == null) {
+            log.warn("BotRuntime: AgentCarrierInboundApi missing for ownerAgentId={}", context.getOwnerAgentId());
+            return;
+        }
+        AgentCarrierInboundCommand command = new AgentCarrierInboundCommand();
+        command.setTenantId(context.getTenantId());
+        command.setAgentId(context.getOwnerAgentId());
+        command.setConversationId(context.getConversationId());
+        command.setTriggerUserId(context.getTriggerUserId());
+        command.setTriggerMessageId(context.getTriggerMessageId());
+        command.setInboundText(context.getInboundText());
+        String text = api.handleInbound(command);
+        if (!StringUtils.hasText(text)) {
+            return;
+        }
+        persistReply(context, BotHandlerReply.text(text.trim()));
+    }
+
+    private void persistReply(BotInboundContext context, BotHandlerReply reply) {
         if (reply == null || !reply.hasText()) {
             return;
         }

@@ -54,4 +54,10 @@ public class ImBotDO extends BaseDO {
 
     @TableField("status")
     private Integer status;
+
+    /**
+     * Bound AgentDef id for carrier bots; null for system bots.
+     */
+    @TableField("owner_agent_id")
+    private Long ownerAgentId;
 }

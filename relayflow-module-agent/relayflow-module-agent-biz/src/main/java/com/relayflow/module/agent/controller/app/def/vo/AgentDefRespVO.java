@@ -2,6 +2,8 @@ package com.relayflow.module.agent.controller.app.def.vo;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class AgentDefRespVO {
 
@@ -13,4 +15,5 @@ public class AgentDefRespVO {
     private String status;
     private Long ownerUserId;
     private String visibility;
+    private List<String> skillIds;
 }

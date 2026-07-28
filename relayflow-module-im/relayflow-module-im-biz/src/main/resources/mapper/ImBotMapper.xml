@@ -15,10 +15,12 @@
         <result column="description" property="description" />
         <result column="avatar_file_id" property="avatarFileId" />
         <result column="scope" property="scope" />
+        <result column="type" property="type" />
         <result column="enable_policy" property="enablePolicy" />
         <result column="handler_kind" property="handlerKind" />
         <result column="capabilities_json" property="capabilitiesJson" />
         <result column="status" property="status" />
+        <result column="owner_agent_id" property="ownerAgentId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -29,7 +31,7 @@
         updater,
         update_time,
         deleted,
-        code, name, description, avatar_file_id, scope, enable_policy, handler_kind, capabilities_json, status
+        code, name, description, avatar_file_id, scope, type, enable_policy, handler_kind, capabilities_json, status, owner_agent_id
     </sql>
 
 </mapper>

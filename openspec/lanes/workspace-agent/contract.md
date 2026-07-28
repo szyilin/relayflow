@@ -22,11 +22,13 @@ Base: `/app-api/agent/def`（需登录；V1 仅本人 `owner_user_id`）
   "description": "可选",
   "systemPrompt": "你是…",
   "modelRef": "openai-gpt-4o-mini",
-  "status": "active"
+  "status": "active",
+  "skillIds": ["task.search", "task.list_due"]
 }
 ```
 
 - `modelRef` 必须对应已启用的 `/app-api/agent/llm/model/list-enabled` 中的 `code`
+- `skillIds` 可选；须为 `/app-api/agent/skill/catalog` 中的 code；未知编码拒绝
 - 不存 API Key
 
 ### Resp
@@ -40,9 +42,16 @@ Base: `/app-api/agent/def`（需登录；V1 仅本人 `owner_user_id`）
   "modelRef": "…",
   "status": "active",
   "ownerUserId": "…",
-  "visibility": "private"
+  "visibility": "private",
+  "skillIds": ["task.search"]
 }
 ```
+
+## Skill catalog（`agent-skill-catalog-v1`）
+
+`GET /app-api/agent/skill/catalog` → `{ code, name, description, inputSchema }[]`
+
+V1 内置：`task.search`、`task.list_due`（实现调 `TaskItemApi`，当前用户身份）。Session `send` 时按 Agent 绑定装配 Spring AI tools。
 
 ## Session
 
@@ -88,6 +97,6 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   http://localhost:8080/app-api/agent/session/send
 ```
 
-## 浏览器（待 web 切片）
+## 浏览器
 
-工作台智能体页接上述 API；对话内容不出现在 `/app/messages`。
+工作台 `/app/agents` 接上述 API（`workspace-agent-integrate` 已去 Mock）；对话内容不出现在 `/app/messages`。

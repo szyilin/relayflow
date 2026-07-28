@@ -99,10 +99,10 @@
 | **admin-llm-provider-v1** | **done** | **ui_ready** | `/admin-api/agent/llm/**` · `/admin/infra/llm` | [contract](../../openspec/lanes/admin-llm-provider/contract.md) | 密钥 AesGcm；OpenAI 兼容；供 modelRef |
 | **agent-module-scaffold** | **done** | n/a | `module-agent` + Spring AI 1.1.8 | [change](../../openspec/changes/agent-module-scaffold/proposal.md) | `[平台]` 已 compile |
 | **agent-runtime-core-v1** | **done** | — | `/app-api/agent/def/**` · `/app-api/agent/session/**` | [contract](../../openspec/lanes/workspace-agent/contract.md) | Spring AI Runtime；Session ≠ IM |
-| **workspace-agent-web** | — | **ui_ready** | `/app/agents` Mock 壳 | [contract](../../openspec/lanes/workspace-agent/contract.md) | 前端优先；Session ≠ messages；integrate 去 Mock |
-| **workspace-agent-integrate** | — | planned | 联调 | — | 去 Mock |
-| **agent-skill-catalog-v1** | planned | — | Skill → Tool → `*-api` | 骨架 | 内置技能 |
-| **im-bot-agent-carrier-v1** | planned | — | Bot 供给 API | 骨架 | Agent 生命周期载体 |
+| **workspace-agent-web** | — | **done** | `/app/agents` 壳 | [contract](../../openspec/lanes/workspace-agent/contract.md) | Mock 已由 integrate 替换 |
+| **workspace-agent-integrate** | — | **done** | 去 Mock 联调 Session/Runtime | [contract](../../openspec/lanes/workspace-agent/contract.md) | Session ≠ messages；非流式 send |
+| **agent-skill-catalog-v1** | **done** | — | SkillRegistry + `task.search`/`task.list_due` | [change](../../openspec/changes/agent-skill-catalog-v1/proposal.md) | Builtin → Tool → `TaskItemApi`；AgentDef.skillIds |
+| **im-bot-agent-carrier-v1** | **done** | — | `ImBotProvisioningApi` + 入站→AgentRuntime | [change](../../openspec/changes/im-bot-agent-carrier-v1/proposal.md) | type=tenant；Session ≠ IM |
 | **agent-automation-v1** | planned | planned | 自动化 + Bot 推送 | 骨架 | 结果只进 IM |
 | **workspace-plus-create-v1** | planned | — | 母 change：Create Hub + 组织邀请 redesign | [母](../../openspec/changes/workspace-plus-create-v1/proposal.md) | 规划真源；实现落子切片 |
 | **workspace-create-hub** | planned | **ui_ready** | Rail「+」· 建群/邀成员/加外部/建文档 | [contract](../../openspec/lanes/workspace-create-hub/contract.md) | `-web` 完成；capability / 邀请渠道 / 外部申请 API 后续 |

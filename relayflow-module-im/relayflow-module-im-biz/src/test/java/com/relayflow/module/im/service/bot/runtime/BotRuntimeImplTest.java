@@ -1,5 +1,7 @@
 package com.relayflow.module.im.service.bot.runtime;
 
+import com.relayflow.module.agent.api.carrier.AgentCarrierInboundApi;
+import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.im.enums.ImBotHandlerKind;
 import com.relayflow.module.im.service.message.ImMessageService;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,6 +21,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BotRuntimeImplTest {
@@ -25,16 +29,23 @@ class BotRuntimeImplTest {
     private static final long TENANT_ID = 1L;
     private static final long CONVERSATION_ID = 301L;
     private static final long BOT_ID = 900003L;
+    private static final long AGENT_ID = 42L;
 
     @Mock
     private ImMessageService messageService;
+
+    @Mock
+    private ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi;
+
+    @Mock
+    private AgentCarrierInboundApi carrierInboundApi;
 
     private BotRuntimeImpl runtime;
 
     @BeforeEach
     void setUp() {
-        // default empty registry; individual tests rebuild with handlers
-        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of()), messageService);
+        org.mockito.Mockito.lenient().when(agentCarrierInboundApi.getIfAvailable()).thenReturn(null);
+        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of()), messageService, agentCarrierInboundApi);
     }
 
     @Test
@@ -70,7 +81,7 @@ class BotRuntimeImplTest {
                 return BotHandlerReply.text("pong");
             }
         };
-        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(echo)), messageService);
+        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(echo)), messageService, agentCarrierInboundApi);
 
         runtime.dispatch(baseContext(ImBotHandlerKind.PLATFORM)
                 .botCode("echo-bot")
@@ -95,7 +106,7 @@ class BotRuntimeImplTest {
                 return BotHandlerReply.none();
             }
         };
-        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(silent)), messageService);
+        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(silent)), messageService, agentCarrierInboundApi);
 
         runtime.dispatch(baseContext(ImBotHandlerKind.PLATFORM).botCode("silent-bot").build());
         verify(messageService, never()).sendBotReply(anyLong(), anyLong(), anyLong(), any(), anyString());
@@ -114,10 +125,26 @@ class BotRuntimeImplTest {
                 throw new RuntimeException("boom");
             }
         };
-        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(boom)), messageService);
+        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of(boom)), messageService, agentCarrierInboundApi);
 
         runtime.dispatch(baseContext(ImBotHandlerKind.PLATFORM).botCode("boom-bot").build());
         verify(messageService, never()).sendBotReply(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void carrierOwnerAgentRoutesToAgentApi() {
+        when(agentCarrierInboundApi.getIfAvailable()).thenReturn(carrierInboundApi);
+        when(carrierInboundApi.handleInbound(any(AgentCarrierInboundCommand.class))).thenReturn("agent says hi");
+        runtime = new BotRuntimeImpl(new BotPlatformHandlerRegistry(List.of()), messageService, agentCarrierInboundApi);
+
+        runtime.dispatch(baseContext(ImBotHandlerKind.PLATFORM)
+                .ownerAgentId(AGENT_ID)
+                .botName("助手")
+                .inboundText("hello")
+                .build());
+
+        verify(carrierInboundApi).handleInbound(any(AgentCarrierInboundCommand.class));
+        verify(messageService).sendBotReply(eq(TENANT_ID), eq(CONVERSATION_ID), eq(BOT_ID), eq("助手"), eq("agent says hi"));
     }
 
     private BotInboundContext.BotInboundContextBuilder baseContext(String handlerKind) {

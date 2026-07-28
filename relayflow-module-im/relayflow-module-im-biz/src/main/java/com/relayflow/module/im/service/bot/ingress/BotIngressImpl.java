@@ -60,6 +60,7 @@ public class BotIngressImpl implements BotIngress {
                 .botCode(bot.getCode())
                 .handlerKind(bot.getHandlerKind())
                 .botName(bot.getName())
+                .ownerAgentId(bot.getOwnerAgentId())
                 .triggerUserId(context.getTriggerUserId())
                 .triggerMessageId(context.getTriggerMessageId())
                 .inboundText(context.getInboundText())

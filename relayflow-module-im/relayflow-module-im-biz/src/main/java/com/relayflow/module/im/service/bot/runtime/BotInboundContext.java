@@ -17,6 +17,8 @@ public class BotInboundContext {
     String botCode;
     String handlerKind;
     String botName;
+    /** Bound AgentDef id when this is an Agent carrier bot. */
+    Long ownerAgentId;
     /** User who triggered the inbound event (may be null for synthetic tests). */
     Long triggerUserId;
     Long triggerMessageId;

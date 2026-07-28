@@ -10,6 +10,12 @@ import com.relayflow.module.agent.dal.dataobject.AgentDefDO;
 import com.relayflow.module.agent.dal.mapper.AgentDefMapper;
 import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.llm.LlmConnectionResolver;
+import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.im.api.bot.ImBotProvisioningApi;
+import com.relayflow.module.im.api.bot.dto.ImBotProvisionAgentCarrierCommand;
+import com.relayflow.module.im.api.bot.dto.ImBotProvisionResult;
+import com.relayflow.module.im.api.bot.dto.ImBotRetireAgentCarrierCommand;
+import com.relayflow.module.im.api.bot.dto.ImBotUpdateAgentCarrierProfileCommand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +33,8 @@ public class AgentDefServiceImpl implements AgentDefService {
 
     private final AgentDefMapper agentDefMapper;
     private final LlmConnectionResolver llmConnectionResolver;
+    private final SkillRegistry skillRegistry;
+    private final ImBotProvisioningApi imBotProvisioningApi;
 
     @Override
     public List<AgentDefRespVO> listMine() {
@@ -58,9 +66,9 @@ public class AgentDefServiceImpl implements AgentDefService {
         row.setTenantId(tenantId);
         row.setOwnerUserId(userId);
         row.setVisibility(VISIBILITY_PRIVATE);
-        row.setSkillIdsJson("[]");
         applyFields(row, request, true);
         agentDefMapper.insert(row);
+        bindCarrier(row);
         return row.getId();
     }
 
@@ -75,13 +83,53 @@ public class AgentDefServiceImpl implements AgentDefService {
         AgentDefDO row = requireOwned(request.getId());
         applyFields(row, request, false);
         agentDefMapper.updateById(row);
+        syncCarrierProfile(row);
     }
 
     @Override
     @Transactional
     public void delete(Long id) {
         AgentDefDO row = requireOwned(id);
+        retireCarrier(row);
         agentDefMapper.deleteById(row.getId());
+    }
+
+    private void bindCarrier(AgentDefDO row) {
+        ImBotProvisionAgentCarrierCommand command = new ImBotProvisionAgentCarrierCommand();
+        command.setTenantId(row.getTenantId());
+        command.setAgentId(row.getId());
+        command.setName(row.getName());
+        command.setDescription(row.getDescription());
+        command.setOwnerUserId(row.getOwnerUserId());
+        ImBotProvisionResult result = imBotProvisioningApi.provisionAgentCarrier(command);
+        row.setCarrierBotId(result.getBotId());
+        agentDefMapper.updateById(row);
+    }
+
+    private void syncCarrierProfile(AgentDefDO row) {
+        if (row.getCarrierBotId() == null) {
+            bindCarrier(row);
+            return;
+        }
+        ImBotUpdateAgentCarrierProfileCommand command = new ImBotUpdateAgentCarrierProfileCommand();
+        command.setTenantId(row.getTenantId());
+        command.setAgentId(row.getId());
+        command.setName(row.getName());
+        command.setDescription(row.getDescription());
+        try {
+            imBotProvisioningApi.updateAgentCarrierProfile(command);
+        } catch (ServiceException ex) {
+            // Bot missing — re-provision
+            bindCarrier(row);
+        }
+    }
+
+    private void retireCarrier(AgentDefDO row) {
+        ImBotRetireAgentCarrierCommand command = new ImBotRetireAgentCarrierCommand();
+        command.setTenantId(row.getTenantId());
+        command.setAgentId(row.getId());
+        command.setBotId(row.getCarrierBotId());
+        imBotProvisioningApi.retireAgentCarrier(command);
     }
 
     private void applyFields(AgentDefDO row, AgentDefSaveReqVO request, boolean creating) {
@@ -97,6 +145,10 @@ public class AgentDefServiceImpl implements AgentDefService {
             status = STATUS_ACTIVE;
         }
         row.setStatus(status);
+
+        List<String> skillIds = request.getSkillIds() == null ? List.of() : request.getSkillIds();
+        skillRegistry.validateSkillCodes(skillIds);
+        row.setSkillIdsJson(skillRegistry.toSkillIdsJson(skillIds));
     }
 
     private void validateSave(AgentDefSaveReqVO request) {
@@ -130,6 +182,7 @@ public class AgentDefServiceImpl implements AgentDefService {
         vo.setStatus(row.getStatus());
         vo.setOwnerUserId(row.getOwnerUserId());
         vo.setVisibility(row.getVisibility());
+        vo.setSkillIds(skillRegistry.parseSkillIdsJson(row.getSkillIdsJson()));
         return vo;
     }
 }

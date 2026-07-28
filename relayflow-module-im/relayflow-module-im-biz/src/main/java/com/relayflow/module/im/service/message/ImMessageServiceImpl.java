@@ -25,6 +25,7 @@ import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
+import com.relayflow.module.im.service.bot.ingress.BotDmInboundDispatcher;
 import com.relayflow.module.im.service.bot.ingress.GroupBotMentionDispatcher;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
@@ -71,6 +72,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final RealtimeTransportApi realtimeTransportApi;
     private final UserApi userApi;
     private final GroupBotMentionDispatcher groupBotMentionDispatcher;
+    private final BotDmInboundDispatcher botDmInboundDispatcher;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
@@ -269,6 +271,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         SendMessageRespVO response = toSendResponse(message);
         dispatchRealtime(message, request.getContent(), userId, tenantId, realtimeContext, false);
         scheduleGroupBotMentionDispatch(tenantId, conversationId, userId, message.getId(), request.getContent());
+        scheduleBotDmInboundDispatch(tenantId, conversationId, userId, message.getId(), request.getContent());
         return response;
     }
 
@@ -276,6 +279,17 @@ public class ImMessageServiceImpl implements ImMessageService {
                                                  Long messageId, MessageContentVO content) {
         Runnable task = () -> groupBotMentionDispatcher.dispatchAfterUserMessage(
                 tenantId, conversationId, userId, messageId, content);
+        runAfterCommit(task);
+    }
+
+    private void scheduleBotDmInboundDispatch(Long tenantId, Long conversationId, Long userId,
+                                              Long messageId, MessageContentVO content) {
+        Runnable task = () -> botDmInboundDispatcher.dispatchAfterUserMessage(
+                tenantId, conversationId, userId, messageId, content);
+        runAfterCommit(task);
+    }
+
+    private void runAfterCommit(Runnable task) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

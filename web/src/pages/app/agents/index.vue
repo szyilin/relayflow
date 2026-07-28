@@ -34,11 +34,25 @@ watch(
   }
 )
 
-onMounted(() => {
-  void agent.bootstrap()
+onMounted(async () => {
+  try {
+    await agent.bootstrap()
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '加载失败',
+      color: 'error'
+    })
+  }
 })
 
 function openCreateAgent() {
+  if (!agent.models.length) {
+    toast.add({
+      title: '请先在管理端配置并启用模型连接',
+      description: '路径：管理后台 → 基础设施 → 模型连接',
+      color: 'warning'
+    })
+  }
   editorMode.value = 'create'
   editorForm.id = undefined
   editorForm.name = ''
@@ -146,6 +160,17 @@ async function handleHomeSend() {
   await handleSend()
 }
 
+async function handleOpenSession(sessionId: string) {
+  try {
+    await agent.openSession(sessionId)
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '打开会话失败',
+      color: 'error'
+    })
+  }
+}
+
 const modelItems = computed(() =>
   agent.models.map(m => ({
     label: `${m.name}（${m.modelName}）`,
@@ -216,11 +241,21 @@ meta:
         </button>
       </div>
 
-      <div v-if="agent.panelMode === 'agents'" class="flex-1 overflow-y-auto px-2 py-2">
+      <div v-if="agent.loading" class="space-y-2 px-3 py-3">
+        <USkeleton v-for="i in 4" :key="i" class="h-12 w-full" />
+      </div>
+
+      <div v-else-if="agent.panelMode === 'agents'" class="flex-1 overflow-y-auto px-2 py-2">
         <p class="px-2 pb-2 text-xs text-[var(--ws-text-muted)]">
-          管理你的专属智能体（演示数据）
+          管理你的专属智能体
         </p>
-        <div class="space-y-0.5">
+        <p
+          v-if="!agent.agents.length"
+          class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
+        >
+          还没有智能体，点击上方「新建」
+        </p>
+        <div v-else class="space-y-0.5">
           <div
             v-for="item in agent.agents"
             :key="item.id"
@@ -273,7 +308,7 @@ meta:
             type="button"
             class="workspace-list-item flex w-full flex-col gap-0.5 px-3 py-2.5 text-left"
             :data-active="agent.activeSessionId === session.id"
-            @click="agent.openSession(session.id)"
+            @click="handleOpenSession(session.id)"
           >
             <span class="truncate text-sm font-medium">
               {{ session.title || '未命名任务' }}
@@ -299,8 +334,23 @@ meta:
           让智能体帮你做点什么
         </h1>
         <p class="mb-8 max-w-md text-center text-sm text-[var(--ws-text-muted)]">
-          会话仅在本页，不会出现在「消息」里。接入真实模型后由 Runtime 生成回答。
+          会话仅在本页，不会出现在「消息」里。回复由 Spring AI Runtime 实时生成。
         </p>
+        <UAlert
+          v-if="agent.lastError"
+          class="mb-4 w-full max-w-xl"
+          color="error"
+          variant="subtle"
+          :title="agent.lastError"
+        />
+        <UAlert
+          v-else-if="!agent.loading && !agent.models.length"
+          class="mb-4 w-full max-w-xl"
+          color="warning"
+          variant="subtle"
+          title="尚未配置可用模型"
+          description="请先到管理后台「基础设施 → 模型连接」启用至少一个连接，再创建智能体。"
+        />
 
         <div class="mb-4 w-full max-w-xl">
           <label class="mb-1.5 block text-xs text-[var(--ws-text-muted)]">选择智能体</label>
@@ -374,27 +424,32 @@ meta:
         ref="messageListRef"
         class="flex-1 space-y-4 overflow-y-auto px-5 py-4"
       >
-        <div
-          v-for="msg in agent.activeMessages"
-          :key="msg.id"
-          class="flex"
-          :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
-        >
-          <div
-            class="max-w-[min(36rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
-            :class="msg.role === 'user'
-              ? 'bg-[var(--ui-primary)] text-white'
-              : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
-          >
-            {{ msg.content }}
-          </div>
+        <div v-if="agent.loadingMessages" class="space-y-3 py-4">
+          <USkeleton v-for="i in 3" :key="i" class="h-16 w-2/3" />
         </div>
-        <p
-          v-if="!agent.activeMessages.length"
-          class="py-12 text-center text-sm text-[var(--ws-text-muted)]"
-        >
-          发送第一条消息开始对话
-        </p>
+        <template v-else>
+          <div
+            v-for="msg in agent.activeMessages"
+            :key="msg.id"
+            class="flex"
+            :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              class="max-w-[min(36rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
+              :class="msg.role === 'user'
+                ? 'bg-[var(--ui-primary)] text-white'
+                : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
+            >
+              {{ msg.content }}
+            </div>
+          </div>
+          <p
+            v-if="!agent.activeMessages.length"
+            class="py-12 text-center text-sm text-[var(--ws-text-muted)]"
+          >
+            发送第一条消息开始对话
+          </p>
+        </template>
       </div>
 
       <div class="border-t border-[var(--ws-border-subtle)] p-4">
@@ -442,9 +497,13 @@ meta:
             <USelect
               v-model="editorForm.modelRef"
               :items="modelItems"
-              placeholder="选择 modelRef"
+              placeholder="选择已启用的模型"
               class="w-full"
+              :disabled="!modelItems.length"
             />
+            <p v-if="!modelItems.length" class="mt-1 text-xs text-[var(--ws-text-muted)]">
+              无可用模型：请先在管理端配置并启用模型连接。
+            </p>
           </UFormField>
         </div>
       </template>

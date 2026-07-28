@@ -22,6 +22,7 @@ public enum ErrorCodeConstants implements ErrorCode {
     AGENT_DEF_FORBIDDEN(1_009_002_002, "无权操作该智能体"),
     AGENT_DEF_INVALID(1_009_002_003, "智能体参数无效"),
     AGENT_DEF_DISABLED(1_009_002_004, "智能体已停用"),
+    AGENT_SKILL_UNKNOWN(1_009_002_005, "未知的技能编码"),
 
     AGENT_SESSION_NOT_FOUND(1_009_003_001, "会话不存在"),
     AGENT_SESSION_FORBIDDEN(1_009_003_002, "无权操作该会话"),

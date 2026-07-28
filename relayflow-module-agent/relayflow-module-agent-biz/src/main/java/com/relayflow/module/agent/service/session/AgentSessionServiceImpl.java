@@ -21,10 +21,12 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.runtime.AgentRunCommand;
 import com.relayflow.module.agent.runtime.AgentRunResult;
 import com.relayflow.module.agent.runtime.AgentRuntime;
+import com.relayflow.module.agent.skill.SkillRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -51,6 +53,7 @@ public class AgentSessionServiceImpl implements AgentSessionService {
     private final AgentDefMapper agentDefMapper;
     private final AgentBuilder agentBuilder;
     private final AgentRuntime agentRuntime;
+    private final SkillRegistry skillRegistry;
 
     @Override
     @Transactional
@@ -144,7 +147,9 @@ public class AgentSessionServiceImpl implements AgentSessionService {
         messageMapper.insert(userRow);
 
         List<Message> history = toSpringHistory(existing);
-        RuntimeAgent runtimeAgent = agentBuilder.build(agent, List.of());
+        List<String> skillIds = skillRegistry.parseSkillIdsJson(agent.getSkillIdsJson());
+        List<ToolCallback> tools = skillRegistry.resolveToolCallbacks(skillIds);
+        RuntimeAgent runtimeAgent = agentBuilder.build(agent, tools);
         AgentRunResult result = agentRuntime.run(AgentRunCommand.builder()
                 .modelRef(runtimeAgent.getModelRef())
                 .systemPrompt(runtimeAgent.getSystemPrompt())
