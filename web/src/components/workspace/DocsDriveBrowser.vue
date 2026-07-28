@@ -10,6 +10,7 @@ import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
 import AppTreeSelect from '../AppTreeSelect.vue'
 import { resolveAvatarUrl } from '../../utils/avatar'
 import { libraryNodesToTreeSelectItems } from '../../utils/treeSelect'
+import { appConfirm } from '../../composables/appConfirm'
 
 defineProps<{
   /** When true, hide top crumbs (middle tree already navigates) */
@@ -113,7 +114,11 @@ async function confirmRename() {
 }
 
 async function onDeleteFolder(folder: DocsDriveFolder) {
-  const ok = window.confirm(`确定删除文件夹「${folder.name}」？`)
+  const ok = await appConfirm({
+    title: '删除文件夹',
+    description: `确定删除文件夹「${folder.name}」？`,
+    confirmLabel: '删除'
+  })
   if (!ok) {
     return
   }
@@ -126,7 +131,11 @@ async function onDeleteFolder(folder: DocsDriveFolder) {
 }
 
 async function onDeleteItem(item: DocsDriveItem) {
-  const ok = window.confirm(`确定删除「${item.title}」？`)
+  const ok = await appConfirm({
+    title: '删除文件',
+    description: `确定删除「${item.title}」？`,
+    confirmLabel: '删除'
+  })
   if (!ok) {
     return
   }

@@ -13,6 +13,7 @@ import {
   type PermissionNode,
   type RoleAdminSimple,
   type RoleDetail,
+  type RoleId,
   type RolePageItem,
   type RoleSavePayload,
   type RoleType
@@ -40,7 +41,10 @@ function normalizeRole(item: RolePageItem): RoleListRecord {
     roleType: item.roleType,
     isSystem: item.roleType === 'SYSTEM',
     permissionSummary: item.permissionSummary?.trim() || '—',
-    admins: item.admins ?? [],
+    admins: (item.admins ?? []).map(admin => ({
+      ...admin,
+      userId: String(admin.userId)
+    })),
     status: typeof item.status === 'number'
       ? (item.status === 0 ? '启用' : '停用')
       : '启用',
@@ -112,7 +116,7 @@ export const useRoleStore = defineStore('role', () => {
     return collected
   }
 
-  async function fetchDetail(id: number): Promise<RoleDetail> {
+  async function fetchDetail(id: RoleId): Promise<RoleDetail> {
     return getRole(id)
   }
 
@@ -130,7 +134,7 @@ export const useRoleStore = defineStore('role', () => {
     }
   }
 
-  async function saveRole(payload: RoleSavePayload & { id?: number }) {
+  async function saveRole(payload: RoleSavePayload & { id?: RoleId }) {
     if (payload.id != null) {
       await updateRole({ ...payload, id: payload.id })
       return payload.id
@@ -138,19 +142,19 @@ export const useRoleStore = defineStore('role', () => {
     return createRole(payload)
   }
 
-  async function removeRole(id: number) {
+  async function removeRole(id: RoleId) {
     await deleteRole(id)
   }
 
-  async function fetchMembers(roleId: number) {
+  async function fetchMembers(roleId: RoleId) {
     return getRoleMembers(roleId)
   }
 
-  async function addMembers(roleId: number, userIds: number[]) {
+  async function addMembers(roleId: RoleId, userIds: string[]) {
     await addRoleMembers(roleId, userIds)
   }
 
-  async function removeMember(roleId: number, userId: number) {
+  async function removeMember(roleId: RoleId, userId: string) {
     await removeRoleMember(roleId, userId)
   }
 

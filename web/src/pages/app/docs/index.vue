@@ -21,6 +21,8 @@ import {
   loadDriveFolderTreeSelectItems,
   type AppTreeSelectItem
 } from '../../../utils/treeSelect'
+import { appConfirm } from '../../../composables/appConfirm'
+import { appPrompt } from '../../../composables/appPrompt'
 
 const route = useRoute()
 const router = useRouter()
@@ -404,12 +406,17 @@ async function onDriveTreeSelect(folderId: string | null, name?: string) {
 }
 
 async function onDriveTreeCreateFolder() {
-  const name = window.prompt('文件夹名称', '新建文件夹')
-  if (!name?.trim()) {
+  const name = await appPrompt({
+    title: '新建文件夹',
+    defaultValue: '新建文件夹',
+    placeholder: '文件夹名称',
+    confirmLabel: '创建'
+  })
+  if (!name) {
     return
   }
   try {
-    await docsDrive.createFolder(name.trim())
+    await docsDrive.createFolder(name)
     // Tree syncs from listing (no full refresh / flicker)
     toast.add({ title: '已新建文件夹', color: 'success' })
   } catch (e) {
@@ -498,7 +505,11 @@ async function onRemoveRecent(objectId: string) {
 }
 
 async function onLeaveShare(objectId: string) {
-  const ok = window.confirm('确定离开该分享？离开后将无法再打开此文档。')
+  const ok = await appConfirm({
+    title: '离开分享',
+    description: '确定离开该分享？离开后将无法再打开此文档。',
+    confirmLabel: '离开'
+  })
   if (!ok) {
     return
   }
@@ -588,7 +599,11 @@ async function confirmMove() {
 }
 
 async function onDelete(node: DocsLibraryNode) {
-  const ok = window.confirm(`确定删除「${node.title}」及其子页面？`)
+  const ok = await appConfirm({
+    title: '删除文档',
+    description: `确定删除「${node.title}」及其子页面？`,
+    confirmLabel: '删除'
+  })
   if (!ok) {
     return
   }

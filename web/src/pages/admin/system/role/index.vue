@@ -6,6 +6,7 @@ import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import AppTreeSelect from '../../../../components/AppTreeSelect.vue'
 import WorkspaceOwnerChip from '../../../../components/workspace/WorkspaceOwnerChip.vue'
 import { getUserPage, type UserPageItem } from '../../../../api/admin/user'
+import { appConfirm } from '../../../../composables/appConfirm'
 import { usePermission } from '../../../../composables/usePermission'
 import {
   type PermissionNode,
@@ -37,11 +38,11 @@ const addMemberOpen = ref(false)
 const userSearchKeyword = ref('')
 const userCandidates = ref<UserPageItem[]>([])
 const userSearchLoading = ref(false)
-const selectedUserIds = ref<number[]>([])
+const selectedUserIds = ref<string[]>([])
 
 const form = reactive({
-  id: null as number | null,
-  parentId: 0 as number,
+  id: null as string | null,
+  parentId: '0',
   name: '',
   canDelegate: 0,
   sort: 0,
@@ -112,10 +113,10 @@ const parentRoleTreeItems = computed(() => {
 })
 
 const parentRoleIdModel = computed({
-  get: () => (form.parentId > 0 ? String(form.parentId) : ''),
+  get: () => (form.parentId && form.parentId !== '0' ? form.parentId : ''),
   set: (value: string | null | undefined) => {
-    const next = Number(value)
-    form.parentId = Number.isFinite(next) && next > 0 ? next : 0
+    const next = value?.trim()
+    form.parentId = next && next !== '0' ? next : '0'
   }
 })
 
@@ -235,15 +236,16 @@ async function loadParentOptions() {
   parentOptions.value = await roleStore.fetchAllForOptions()
 }
 
-async function refreshParentPermissions(parentId: number) {
-  if (!parentId || parentId === 0) {
+async function refreshParentPermissions(parentId: string | number) {
+  const id = String(parentId ?? '0')
+  if (!id || id === '0') {
     parentPermissionIds.value = new Set()
     return
   }
   try {
-    const parent = await roleStore.fetchDetail(parentId)
+    const parent = await roleStore.fetchDetail(id)
     parentPermissionIds.value = new Set(parent.permissionIds)
-    form.permissionIds = form.permissionIds.filter(id => parentPermissionIds.value.has(id))
+    form.permissionIds = form.permissionIds.filter(pid => parentPermissionIds.value.has(pid))
   } catch {
     parentPermissionIds.value = new Set()
   }
@@ -251,7 +253,7 @@ async function refreshParentPermissions(parentId: number) {
 
 function resetForm() {
   form.id = null
-  form.parentId = 0
+  form.parentId = '0'
   form.name = ''
   form.canDelegate = 0
   form.sort = 0
@@ -285,9 +287,9 @@ async function openEditModal(record: RoleListRecord) {
   await loadParentOptions()
 
   try {
-    const detail = await roleStore.fetchDetail(Number(record.id))
-    form.id = detail.id
-    form.parentId = detail.parentId ?? 0
+    const detail = await roleStore.fetchDetail(record.id)
+    form.id = String(detail.id)
+    form.parentId = String(detail.parentId ?? 0)
     form.name = detail.name
     form.canDelegate = detail.canDelegate ?? 0
     form.sort = detail.sort ?? 0
@@ -315,9 +317,12 @@ async function openDetail(record: RoleListRecord, tab: 'members' | 'permissions'
   detailLoading.value = true
   try {
     await roleStore.fetchPermissions()
-    const detail = await roleStore.fetchDetail(Number(record.id))
+    const detail = await roleStore.fetchDetail(record.id)
     detailPermissionIds.value = [...detail.permissionIds]
-    detailMembers.value = await roleStore.fetchMembers(Number(record.id))
+    detailMembers.value = (await roleStore.fetchMembers(record.id)).map(member => ({
+      ...member,
+      userId: String(member.userId)
+    }))
   } catch {
     toast.add({
       title: '加载失败',
@@ -347,8 +352,8 @@ async function searchUsers() {
       pageSize: 20,
       keyword: userSearchKeyword.value.trim() || undefined
     })
-    const existing = new Set(detailMembers.value.map(item => item.userId))
-    userCandidates.value = data.list.filter(item => !existing.has(Number(item.id)))
+    const existing = new Set(detailMembers.value.map(item => String(item.userId)))
+    userCandidates.value = data.list.filter(item => !existing.has(String(item.id)))
   } catch (error) {
     toast.add({
       title: '加载用户失败',
@@ -360,7 +365,7 @@ async function searchUsers() {
   }
 }
 
-function toggleCandidate(userId: number, checked: boolean) {
+function toggleCandidate(userId: string, checked: boolean) {
   if (checked) {
     if (!selectedUserIds.value.includes(userId)) {
       selectedUserIds.value.push(userId)
@@ -376,10 +381,13 @@ async function confirmAddMembers() {
   }
   memberSaving.value = true
   try {
-    await roleStore.addMembers(Number(detailRole.value.id), selectedUserIds.value)
+    await roleStore.addMembers(detailRole.value.id, selectedUserIds.value)
     toast.add({ title: '已添加管理员', color: 'success' })
     addMemberOpen.value = false
-    detailMembers.value = await roleStore.fetchMembers(Number(detailRole.value.id))
+    detailMembers.value = (await roleStore.fetchMembers(detailRole.value.id)).map(member => ({
+      ...member,
+      userId: String(member.userId)
+    }))
     await loadPage()
   } catch (error) {
     toast.add({
@@ -396,13 +404,21 @@ async function onRemoveMember(member: RoleAdminSimple) {
   if (!detailRole.value) {
     return
   }
-  if (!window.confirm(`确定移除管理员「${member.nickname || member.username || member.userId}」？`)) {
+  const ok = await appConfirm({
+    title: '移除管理员',
+    description: `确定移除管理员「${member.nickname || member.username || member.userId}」？`,
+    confirmLabel: '移除'
+  })
+  if (!ok) {
     return
   }
   try {
-    await roleStore.removeMember(Number(detailRole.value.id), member.userId)
+    await roleStore.removeMember(detailRole.value.id, String(member.userId))
     toast.add({ title: '已移除', color: 'success' })
-    detailMembers.value = await roleStore.fetchMembers(Number(detailRole.value.id))
+    detailMembers.value = (await roleStore.fetchMembers(detailRole.value.id)).map(m => ({
+      ...m,
+      userId: String(m.userId)
+    }))
     await loadPage()
   } catch (error) {
     toast.add({
@@ -427,7 +443,7 @@ async function onSubmit() {
   try {
     const payload = {
       id: form.id ?? undefined,
-      parentId: form.parentId > 0 ? form.parentId : 0,
+      parentId: form.parentId !== '0' ? form.parentId : 0,
       name: form.name.trim(),
       canDelegate: form.canDelegate,
       sort: form.sort,
@@ -464,12 +480,17 @@ async function onDelete(record: RoleListRecord) {
     return
   }
 
-  if (!window.confirm(`确定删除角色「${record.name}」？`)) {
+  const ok = await appConfirm({
+    title: '删除角色',
+    description: `确定删除角色「${record.name}」？`,
+    confirmLabel: '删除'
+  })
+  if (!ok) {
     return
   }
 
   try {
-    await roleStore.removeRole(Number(record.id))
+    await roleStore.removeRole(record.id)
     toast.add({ title: '删除成功', color: 'success' })
     await loadPage()
   } catch (error) {
@@ -656,10 +677,10 @@ meta:
                   placeholder="请选择（可留空）"
                 />
                 <UButton
-                  v-if="form.parentId > 0"
+                  v-if="form.parentId !== '0'"
                   color="neutral"
                   variant="soft"
-                  @click="form.parentId = 0"
+                  @click="form.parentId = '0'"
                 >
                   清除
                 </UButton>
@@ -857,8 +878,8 @@ meta:
                 class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-elevated"
               >
                 <UCheckbox
-                  :model-value="selectedUserIds.includes(Number(user.id))"
-                  @update:model-value="toggleCandidate(Number(user.id), $event === true)"
+                  :model-value="selectedUserIds.includes(String(user.id))"
+                  @update:model-value="toggleCandidate(String(user.id), $event === true)"
                 />
                 <span>{{ user.nickname || user.username }}</span>
                 <span class="text-xs text-muted">{{ user.dept || '' }}</span>

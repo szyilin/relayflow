@@ -26,5 +26,7 @@ watchEffect(() => {
 <template>
   <UApp :toaster="toaster">
     <RouterView />
+    <AppConfirmModal />
+    <AppPromptModal />
   </UApp>
 </template>

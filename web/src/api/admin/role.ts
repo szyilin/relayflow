@@ -1,9 +1,10 @@
 import { del, get, post, put } from '../request'
 
+export type RoleId = string
 export type RoleType = 'SYSTEM' | 'CUSTOM'
 
 export interface RoleAdminSimple {
-  userId: number
+  userId: string
   nickname?: string
   username?: string
   avatar?: string | null
@@ -12,8 +13,8 @@ export interface RoleAdminSimple {
 }
 
 export interface RolePageItem {
-  id: number
-  parentId: number
+  id: RoleId
+  parentId: RoleId | number
   name: string
   code?: string | null
   roleType: RoleType
@@ -43,7 +44,7 @@ export interface RolePageQuery {
 }
 
 export interface RoleSavePayload {
-  parentId?: number | null
+  parentId?: RoleId | number | null
   name: string
   canDelegate?: number
   sort?: number
@@ -53,7 +54,7 @@ export interface RoleSavePayload {
 }
 
 export interface RoleUpdatePayload extends RoleSavePayload {
-  id: number
+  id: RoleId
 }
 
 export interface PermissionNode {
@@ -79,37 +80,37 @@ export function getRolePage(query: RolePageQuery): Promise<RolePageResult> {
   }))
 }
 
-export function getRole(id: number): Promise<RoleDetail> {
+export function getRole(id: RoleId): Promise<RoleDetail> {
   return get<RoleDetail>('/admin-api/system/role/get', {
     params: { id }
   })
 }
 
-export function createRole(data: RoleSavePayload): Promise<number> {
-  return post<number>('/admin-api/system/role/create', data)
+export function createRole(data: RoleSavePayload): Promise<RoleId> {
+  return post<RoleId | number>('/admin-api/system/role/create', data).then(id => String(id))
 }
 
 export function updateRole(data: RoleUpdatePayload): Promise<boolean> {
   return put<boolean>('/admin-api/system/role/update', data)
 }
 
-export function deleteRole(id: number): Promise<boolean> {
+export function deleteRole(id: RoleId): Promise<boolean> {
   return del<boolean>('/admin-api/system/role/delete', {
     params: { id }
   })
 }
 
-export function getRoleMembers(roleId: number): Promise<RoleAdminSimple[]> {
+export function getRoleMembers(roleId: RoleId): Promise<RoleAdminSimple[]> {
   return get<RoleAdminSimple[]>('/admin-api/system/role/members', {
     params: { roleId }
   })
 }
 
-export function addRoleMembers(roleId: number, userIds: number[]): Promise<boolean> {
+export function addRoleMembers(roleId: RoleId, userIds: string[]): Promise<boolean> {
   return post<boolean>('/admin-api/system/role/add-members', { roleId, userIds })
 }
 
-export function removeRoleMember(roleId: number, userId: number): Promise<boolean> {
+export function removeRoleMember(roleId: RoleId, userId: string): Promise<boolean> {
   return post<boolean>('/admin-api/system/role/remove-member', { roleId, userId })
 }
 
