@@ -310,18 +310,16 @@ meta:
             </div>
           </UCard>
 
-          <div
-            v-if="canUpdate"
-            class="flex justify-end gap-2"
-          >
+          <div class="flex justify-end gap-2">
             <UButton
               color="neutral"
               variant="ghost"
-              @click="applyFromStore"
+              to="/admin/system/user"
             >
-              取消
+              返回
             </UButton>
             <UButton
+              v-if="canUpdate"
               color="primary"
               :loading="inviteStore.saving"
               @click="save"

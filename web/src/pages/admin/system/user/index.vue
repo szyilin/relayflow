@@ -215,6 +215,15 @@ meta:
         >
           <template #actions>
             <UButton
+              v-if="hasPermission('system:user:list')"
+              to="/admin/system/invite-settings"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-settings"
+            >
+              邀请设置
+            </UButton>
+            <UButton
               v-if="hasPermission('system:user:create')"
               :to="createUserLink"
               icon="i-lucide-user-plus"

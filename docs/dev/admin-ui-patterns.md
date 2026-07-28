@@ -27,7 +27,7 @@ web/src/
 |------|------|
 | Sidebar | `UDashboardGroup` + `UDashboardSidebar`（可折叠、可拖拽） |
 | 品牌 | workflow 图标 + RelayFlow |
-| 导航分组 | 概览 → 系统管理（用户 / 角色 / 部门 / **邀请设置**）→ 基础设施 |
+| 导航分组 | 概览 → 系统管理（用户 / 角色 / 部门）→ 基础设施；邀请设置入口在成员列表「邀请成员」旁 |
 | Active 项 | 左 2px primary + 浅 primary 背景 |
 | 用户区 | Sidebar footer `AdminUserMenu` |
 | 内容 | 各页 `UDashboardPanel` + `AdminNavbar` |
@@ -53,7 +53,7 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| 标题区 | `AdminPageHeader` + 右侧主操作（如「新建用户」`UButton` `to=`） |
+| 标题区 | `AdminPageHeader` + 右侧操作：「邀请设置」（次要）+「邀请成员」（主操作） |
 | 筛选 | `UInput` + 搜索按钮，位于 `UCard` 内表格上方 |
 | 表格 | `UTable` + `@tanstack/table-core` 列定义 |
 | 分页 | `UPagination`，底部展示总条数；`pageSize` 建议 20、不超过 API 上限 100；**禁止**静默截断于单页 |
@@ -87,6 +87,7 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
+| 入口 | **不进 sidebar**；从 `/admin/system/user` 标题区「邀请设置」进入 |
 | 宽度 | `max-w-2xl` 居中；分组 `UCard` |
 | 内容 | 邀请功能三态；全员模式下非管理员范围 / 有效期 / 审批 |
 | 权限 | 查看 `system:user:list`；保存 `system:user:create`（`-api` 可换独立码） |
