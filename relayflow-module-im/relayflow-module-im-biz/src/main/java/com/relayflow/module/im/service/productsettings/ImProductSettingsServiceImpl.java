@@ -127,7 +127,54 @@ public class ImProductSettingsServiceImpl implements ImProductSettingsService {
             groupRuleMapper.insert(row);
         }
 
+        if (Boolean.FALSE.equals(request.getAllowPublicGroup())) {
+            groupMapper.update(null, Wrappers.<ImGroupDO>lambdaUpdate()
+                    .eq(ImGroupDO::getTenantId, tenantId)
+                    .eq(ImGroupDO::getSearchable, true)
+                    .set(ImGroupDO::getSearchable, false));
+        }
+
         return getSettings(tenantId);
+    }
+
+    @Override
+    public boolean resolveAllowPublicGroup(Long tenantId) {
+        return resolveAllowPublicGroup(findSettings(tenantId));
+    }
+
+    @Override
+    public String resolveDeptGroupLeavePolicy(Long tenantId) {
+        return resolveLeavePolicy(findSettings(tenantId));
+    }
+
+    @Override
+    public String resolveMemberExportPolicy(Long tenantId) {
+        return resolveExportPolicy(findSettings(tenantId));
+    }
+
+    @Override
+    public List<String> resolveMemberExportDesignatedUserIds(Long tenantId) {
+        return readDesignatedUserIds(findSettings(tenantId));
+    }
+
+    @Override
+    public boolean resolveRecallEnabled(Long tenantId) {
+        return resolveRecallEnabled(findSettings(tenantId));
+    }
+
+    @Override
+    public int resolveRecallWithinHours(Long tenantId) {
+        return resolveRecallWithinHours(findSettings(tenantId));
+    }
+
+    @Override
+    public boolean resolveEditEnabled(Long tenantId) {
+        return resolveEditEnabled(findSettings(tenantId));
+    }
+
+    @Override
+    public int resolveEditWithinHours(Long tenantId) {
+        return resolveEditWithinHours(findSettings(tenantId));
     }
 
     @Override

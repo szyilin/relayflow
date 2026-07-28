@@ -7,6 +7,8 @@ public final class ImRealtimeTypes {
     public static final String MESSAGE_ACK = "message.ack";
     public static final String MESSAGE_NEW = "message.new";
     public static final String MESSAGE_UPDATED = "message.updated";
+    public static final String MESSAGE_RECALLED = "message.recalled";
+    public static final String MESSAGE_EDITED = "message.edited";
     public static final String READ_UPDATED = "read.updated";
 
     private ImRealtimeTypes() {

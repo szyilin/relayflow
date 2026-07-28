@@ -48,4 +48,23 @@ public class UserApiImpl implements UserApi {
                 .distinct()
                 .toList();
     }
+
+    @Override
+    public List<Long> listUserIdsByDeptId(Long deptId) {
+        if (deptId == null || deptId <= 0) {
+            return List.of();
+        }
+        var query = Wrappers.<SysUserDeptDO>lambdaQuery()
+                .eq(SysUserDeptDO::getDeptId, deptId);
+        Long tenantId = TenantContextHolder.get();
+        if (tenantId != null) {
+            query.eq(SysUserDeptDO::getTenantId, tenantId);
+        }
+        return userDeptMapper.selectList(query)
+                .stream()
+                .map(SysUserDeptDO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
 }

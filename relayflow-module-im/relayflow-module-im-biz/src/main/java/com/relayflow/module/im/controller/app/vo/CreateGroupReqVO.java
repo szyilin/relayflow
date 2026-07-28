@@ -16,4 +16,10 @@ public class CreateGroupReqVO {
 
     @NotEmpty
     private List<Long> memberUserIds;
+
+    /** NORMAL (default) or DEPT */
+    private String groupKind;
+
+    /** Required when groupKind=DEPT */
+    private Long deptId;
 }

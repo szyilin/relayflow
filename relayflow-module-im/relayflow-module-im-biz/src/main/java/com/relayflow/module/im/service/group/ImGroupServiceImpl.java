@@ -12,7 +12,13 @@ import com.relayflow.module.im.controller.app.vo.GroupBotAddRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotCatalogItemRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotMembershipReqVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotRemoveRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupInfoRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupMemberExportItemVO;
 import com.relayflow.module.im.controller.app.vo.GroupMemberItemRespVO;
+import com.relayflow.module.im.controller.app.vo.JoinGroupReqVO;
+import com.relayflow.module.im.controller.app.vo.LeaveGroupReqVO;
+import com.relayflow.module.im.controller.app.vo.PublicGroupSearchItemRespVO;
+import com.relayflow.module.im.controller.app.vo.UpdateGroupPublicReqVO;
 import com.relayflow.module.im.dal.dataobject.ImBotDO;
 import com.relayflow.module.im.dal.dataobject.ImBotTenantEnablementDO;
 import com.relayflow.module.im.dal.dataobject.ImBotUserEnablementDO;
@@ -28,11 +34,13 @@ import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImBotType;
 import com.relayflow.module.im.enums.ImConversationType;
+import com.relayflow.module.im.enums.ImGroupKind;
 import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImMessageService;
 import com.relayflow.module.im.service.productsettings.ImProductSettingsService;
+import com.relayflow.module.system.api.dept.DeptApi;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +76,7 @@ public class ImGroupServiceImpl implements ImGroupService {
     private final ImMessageService messageService;
     private final ImProductSettingsService productSettingsService;
     private final UserApi userApi;
+    private final DeptApi deptApi;
 
     @Override
     @Transactional
@@ -78,13 +87,38 @@ public class ImGroupServiceImpl implements ImGroupService {
 
     private CreateGroupRespVO createGroup(Long tenantId, Long userId, CreateGroupReqVO request) {
         String name = normalizeGroupName(request.getName());
-        List<Long> memberUserIds = normalizeMemberUserIds(userId, request.getMemberUserIds());
+        String groupKind = normalizeGroupKind(request.getGroupKind());
+        Long deptId = request.getDeptId();
+
+        if (ImGroupKind.DEPT.equals(groupKind)) {
+            if (deptId == null || deptId <= 0) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_NAME_INVALID);
+            }
+            if (!deptApi.existsInTenant(tenantId, deptId)) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_INVALID);
+            }
+        } else if (deptId != null) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_NAME_INVALID);
+        }
+
+        Set<Long> memberIdSet = new LinkedHashSet<>(normalizeMemberUserIds(userId, request.getMemberUserIds()));
+        if (ImGroupKind.DEPT.equals(groupKind)) {
+            for (Long deptUserId : userApi.listUserIdsByDeptId(deptId)) {
+                if (!Objects.equals(deptUserId, userId)) {
+                    memberIdSet.add(deptUserId);
+                }
+            }
+        }
+        List<Long> memberUserIds = List.copyOf(memberIdSet);
         validateMembersExist(memberUserIds);
 
-        int memberCount = 1 + memberUserIds.size();
-        int memberLimit = productSettingsService.resolveMemberLimit(tenantId, null, userId);
-        if (memberCount > memberLimit) {
-            throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_LIMIT_EXCEEDED);
+        // 部门群不受默认/用户规则人数上限约束（与飞书说明对齐）
+        if (!ImGroupKind.DEPT.equals(groupKind)) {
+            int memberCount = 1 + memberUserIds.size();
+            int memberLimit = productSettingsService.resolveMemberLimit(tenantId, null, userId);
+            if (memberCount > memberLimit) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_LIMIT_EXCEEDED);
+            }
         }
 
         ImConversationDO conversation = new ImConversationDO();
@@ -100,6 +134,9 @@ public class ImGroupServiceImpl implements ImGroupService {
         group.setName(name);
         group.setOwnerUserId(userId);
         group.setCreator(userId);
+        group.setSearchable(false);
+        group.setGroupKind(groupKind);
+        group.setDeptId(ImGroupKind.DEPT.equals(groupKind) ? deptId : null);
         groupMapper.insert(group);
 
         insertUserMember(tenantId, conversation.getId(), userId, ImMemberRole.OWNER, userId);
@@ -143,7 +180,7 @@ public class ImGroupServiceImpl implements ImGroupService {
                 newMemberCount++;
             }
         }
-        if (newMemberCount > 0) {
+        if (newMemberCount > 0 && !ImGroupKind.DEPT.equals(group.getGroupKind())) {
             int memberLimit = productSettingsService.resolveMemberLimit(
                     tenantId, group.getConversationId(), group.getOwnerUserId());
             if (existingMemberIds.size() + newMemberCount > memberLimit) {
@@ -295,6 +332,175 @@ public class ImGroupServiceImpl implements ImGroupService {
         return response;
     }
 
+    @Override
+    public GroupInfoRespVO getGroupInfo(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return getGroupInfo(loginUser.getTenantId(), loginUser.getUserId(), conversationId);
+    }
+
+    private GroupInfoRespVO getGroupInfo(Long tenantId, Long userId, Long conversationId) {
+        ImGroupDO group = requireGroup(tenantId, conversationId);
+        ImConversationMemberDO membership = requireUserMembership(tenantId, conversationId, userId);
+
+        GroupInfoRespVO resp = new GroupInfoRespVO();
+        resp.setConversationId(group.getConversationId());
+        resp.setName(group.getName());
+        resp.setMemberCount(countUserMembers(tenantId, conversationId));
+        resp.setMyRole(membership.getRole());
+        resp.setSearchable(Boolean.TRUE.equals(group.getSearchable()));
+        resp.setGroupKind(group.getGroupKind() != null ? group.getGroupKind() : ImGroupKind.NORMAL);
+        resp.setDeptId(group.getDeptId());
+        return resp;
+    }
+
+    @Override
+    @Transactional
+    public void updatePublic(UpdateGroupPublicReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        updatePublic(loginUser.getTenantId(), loginUser.getUserId(), request);
+    }
+
+    private void updatePublic(Long tenantId, Long userId, UpdateGroupPublicReqVO request) {
+        ImGroupDO group = requireGroup(tenantId, request.getConversationId());
+        requireOwnerOrAdmin(tenantId, group.getConversationId(), userId);
+
+        if (Boolean.TRUE.equals(request.getSearchable())) {
+            if (!productSettingsService.resolveAllowPublicGroup(tenantId)) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_PUBLIC_DISABLED);
+            }
+            group.setSearchable(true);
+        } else {
+            group.setSearchable(false);
+        }
+        group.setUpdater(userId);
+        groupMapper.updateById(group);
+    }
+
+    @Override
+    public List<PublicGroupSearchItemRespVO> searchPublicGroups(String keyword) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return searchPublicGroups(loginUser.getTenantId(), loginUser.getUserId(), keyword);
+    }
+
+    private List<PublicGroupSearchItemRespVO> searchPublicGroups(Long tenantId, Long userId, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            throw new ServiceException(ErrorCodeConstants.SEARCH_KEYWORD_REQUIRED);
+        }
+        String trimmedKeyword = keyword.trim();
+        Set<Long> joinedConversationIds = loadJoinedGroupConversationIds(tenantId, userId);
+
+        List<ImGroupDO> groups = groupMapper.selectList(
+                Wrappers.<ImGroupDO>lambdaQuery()
+                        .eq(ImGroupDO::getTenantId, tenantId)
+                        .eq(ImGroupDO::getSearchable, true)
+                        .like(ImGroupDO::getName, trimmedKeyword)
+                        .orderByAsc(ImGroupDO::getName)
+                        .last("LIMIT 50"));
+
+        List<PublicGroupSearchItemRespVO> items = new ArrayList<>();
+        for (ImGroupDO group : groups) {
+            if (joinedConversationIds.contains(group.getConversationId())) {
+                continue;
+            }
+            PublicGroupSearchItemRespVO item = new PublicGroupSearchItemRespVO();
+            item.setConversationId(group.getConversationId());
+            item.setName(group.getName());
+            item.setMemberCount(countUserMembers(tenantId, group.getConversationId()));
+            items.add(item);
+        }
+        return items;
+    }
+
+    @Override
+    @Transactional
+    public void joinGroup(JoinGroupReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        joinGroup(loginUser.getTenantId(), loginUser.getUserId(), request);
+    }
+
+    private void joinGroup(Long tenantId, Long userId, JoinGroupReqVO request) {
+        ImGroupDO group = requireGroup(tenantId, request.getConversationId());
+        if (!Boolean.TRUE.equals(group.getSearchable())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_NOT_PUBLIC);
+        }
+
+        Set<Long> existingMemberIds = loadMemberUserIds(tenantId, group.getConversationId());
+        if (existingMemberIds.contains(userId)) {
+            return;
+        }
+
+        if (!ImGroupKind.DEPT.equals(group.getGroupKind())) {
+            int memberLimit = productSettingsService.resolveMemberLimit(
+                    tenantId, group.getConversationId(), group.getOwnerUserId());
+            if (existingMemberIds.size() + 1 > memberLimit) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_LIMIT_EXCEEDED);
+            }
+        }
+
+        insertUserMember(tenantId, group.getConversationId(), userId, ImMemberRole.MEMBER, userId);
+        UserBasicDTO member = userApi.getUserBasic(userId);
+        messageService.sendSystemMessage(tenantId, group.getConversationId(),
+                member.getNickname() + " 加入了群聊");
+    }
+
+    @Override
+    @Transactional
+    public void leaveGroup(LeaveGroupReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        leaveGroup(loginUser.getTenantId(), loginUser.getUserId(), request);
+    }
+
+    private void leaveGroup(Long tenantId, Long userId, LeaveGroupReqVO request) {
+        ImGroupDO group = requireGroup(tenantId, request.getConversationId());
+        ImConversationMemberDO membership = requireUserMembership(tenantId, request.getConversationId(), userId);
+
+        if (ImMemberRole.OWNER.equals(membership.getRole())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_OWNER_LEAVE_DENIED);
+        }
+
+        if (ImGroupKind.DEPT.equals(group.getGroupKind())
+                && "DENY".equals(productSettingsService.resolveDeptGroupLeavePolicy(tenantId))
+                && ImMemberRole.MEMBER.equals(membership.getRole())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_LEAVE_DENIED);
+        }
+
+        conversationMemberMapper.deleteById(membership.getId());
+        UserBasicDTO member = userApi.getUserBasic(userId);
+        messageService.sendSystemMessage(tenantId, group.getConversationId(),
+                member.getNickname() + " 退出了群聊");
+    }
+
+    @Override
+    public List<GroupMemberExportItemVO> exportMembers(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return exportMembers(loginUser.getTenantId(), loginUser.getUserId(), conversationId);
+    }
+
+    private List<GroupMemberExportItemVO> exportMembers(Long tenantId, Long userId, Long conversationId) {
+        ImGroupDO group = requireGroup(tenantId, conversationId);
+        ImConversationMemberDO membership = requireUserMembership(tenantId, conversationId, userId);
+        requireExportAllowed(tenantId, userId, membership);
+
+        List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .orderByAsc(ImConversationMemberDO::getJoinTime));
+
+        List<GroupMemberExportItemVO> items = new ArrayList<>();
+        for (ImConversationMemberDO member : members) {
+            UserBasicDTO user = userApi.getUserBasic(member.getSubjectId());
+            GroupMemberExportItemVO item = new GroupMemberExportItemVO();
+            item.setUserId(member.getSubjectId());
+            item.setNickname(user.getNickname());
+            item.setMobile(user.getMobile());
+            item.setDeptName(resolvePrimaryDeptName(tenantId, member.getSubjectId()));
+            items.add(item);
+        }
+        return items;
+    }
+
     public ImGroupDO requireGroup(Long tenantId, Long conversationId) {
         ImConversationDO conversation = conversationService.requireConversation(tenantId, conversationId);
         if (!ImConversationType.GROUP.equals(conversation.getType())) {
@@ -311,6 +517,21 @@ public class ImGroupServiceImpl implements ImGroupService {
     }
 
     private void requireOwner(Long tenantId, Long conversationId, Long userId) {
+        ImConversationMemberDO membership = requireUserMembership(tenantId, conversationId, userId);
+        if (!ImMemberRole.OWNER.equals(membership.getRole())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_OWNER_REQUIRED);
+        }
+    }
+
+    private void requireOwnerOrAdmin(Long tenantId, Long conversationId, Long userId) {
+        ImConversationMemberDO membership = requireUserMembership(tenantId, conversationId, userId);
+        if (!ImMemberRole.OWNER.equals(membership.getRole())
+                && !ImMemberRole.ADMIN.equals(membership.getRole())) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_OWNER_REQUIRED);
+        }
+    }
+
+    private ImConversationMemberDO requireUserMembership(Long tenantId, Long conversationId, Long userId) {
         ImConversationMemberDO membership = conversationMemberMapper.selectOne(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
@@ -320,9 +541,76 @@ public class ImGroupServiceImpl implements ImGroupService {
         if (membership == null) {
             throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
         }
-        if (!ImMemberRole.OWNER.equals(membership.getRole())) {
-            throw new ServiceException(ErrorCodeConstants.GROUP_OWNER_REQUIRED);
+        return membership;
+    }
+
+    private void requireExportAllowed(Long tenantId, Long userId, ImConversationMemberDO membership) {
+        String policy = productSettingsService.resolveMemberExportPolicy(tenantId);
+        if ("DENY_ALL".equals(policy)) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_EXPORT_DENIED);
         }
+        boolean ownerOrAdmin = ImMemberRole.OWNER.equals(membership.getRole())
+                || ImMemberRole.ADMIN.equals(membership.getRole());
+        if ("ALLOW_OWNER_ADMIN".equals(policy)) {
+            if (!ownerOrAdmin) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_EXPORT_DENIED);
+            }
+            return;
+        }
+        if ("ALLOW_DESIGNATED".equals(policy)) {
+            if (!ownerOrAdmin) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_EXPORT_DENIED);
+            }
+            List<String> designated = productSettingsService.resolveMemberExportDesignatedUserIds(tenantId);
+            boolean designatedUser = designated.stream()
+                    .anyMatch(id -> Objects.equals(String.valueOf(userId), id != null ? id.trim() : null));
+            if (!designatedUser) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_EXPORT_DENIED);
+            }
+        }
+    }
+
+    private String resolvePrimaryDeptName(Long tenantId, Long userId) {
+        List<Long> deptIds = userApi.listUserDeptIds(userId);
+        if (deptIds.isEmpty()) {
+            return null;
+        }
+        return deptApi.getDeptName(tenantId, deptIds.get(0));
+    }
+
+    private int countUserMembers(Long tenantId, Long conversationId) {
+        return loadMemberUserIds(tenantId, conversationId).size();
+    }
+
+    private Set<Long> loadJoinedGroupConversationIds(Long tenantId, Long userId) {
+        List<ImConversationMemberDO> memberships = conversationMemberMapper.selectList(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
+        if (memberships.isEmpty()) {
+            return Set.of();
+        }
+        Set<Long> conversationIds = memberships.stream()
+                .map(ImConversationMemberDO::getConversationId)
+                .collect(Collectors.toCollection(HashSet::new));
+        return groupMapper.selectList(
+                        Wrappers.<ImGroupDO>lambdaQuery()
+                                .eq(ImGroupDO::getTenantId, tenantId)
+                                .in(ImGroupDO::getConversationId, conversationIds))
+                .stream()
+                .map(ImGroupDO::getConversationId)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private String normalizeGroupKind(String groupKind) {
+        if (!StringUtils.hasText(groupKind) || ImGroupKind.NORMAL.equalsIgnoreCase(groupKind.trim())) {
+            return ImGroupKind.NORMAL;
+        }
+        if (ImGroupKind.DEPT.equalsIgnoreCase(groupKind.trim())) {
+            return ImGroupKind.DEPT;
+        }
+        throw new ServiceException(ErrorCodeConstants.GROUP_NAME_INVALID);
     }
 
     private ImBotDO requireActiveBot(String botCode) {

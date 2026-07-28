@@ -30,7 +30,15 @@ public enum ErrorCodeConstants implements ErrorCode {
     CARD_ACTION_INVALID(1_003_005_002, "卡片操作无效"),
     CARD_ACTION_EXPIRED(1_003_005_003, "卡片已过期"),
     CARD_ACTION_HANDLER_NOT_FOUND(1_003_005_004, "卡片处理器未注册"),
-    PRODUCT_SETTINGS_INVALID(1_003_006_001, "产品设置参数无效");
+    PRODUCT_SETTINGS_INVALID(1_003_006_001, "产品设置参数无效"),
+    GROUP_PUBLIC_DISABLED(1_003_003_008, "组织已禁止公开群"),
+    GROUP_NOT_PUBLIC(1_003_003_009, "该群未公开，无法加入"),
+    GROUP_LEAVE_DENIED(1_003_003_010, "部门群不允许退出"),
+    GROUP_OWNER_LEAVE_DENIED(1_003_003_011, "请先转让群主"),
+    GROUP_EXPORT_DENIED(1_003_003_012, "无权导出群成员"),
+    MESSAGE_RECALL_DENIED(1_003_002_006, "无权撤回该消息"),
+    MESSAGE_EDIT_DENIED(1_003_002_007, "无权编辑该消息"),
+    MESSAGE_NOT_FOUND(1_003_002_008, "消息不存在");
 
     private final Integer code;
     private final String msg;

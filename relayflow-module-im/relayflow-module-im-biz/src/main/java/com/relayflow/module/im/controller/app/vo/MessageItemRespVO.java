@@ -17,4 +17,8 @@ public class MessageItemRespVO {
     private String clientMsgId;
     private Long seq;
     private OffsetDateTime createTime;
+    private Boolean recalled;
+    private Boolean edited;
+    private OffsetDateTime recalledAt;
+    private OffsetDateTime editedAt;
 }

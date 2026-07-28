@@ -19,4 +19,20 @@ public interface ImProductSettingsService {
     ImEffectiveSettingsRespVO getEffectiveSettings();
 
     int resolveMemberLimit(Long tenantId, Long conversationId, Long userId);
+
+    boolean resolveAllowPublicGroup(Long tenantId);
+
+    String resolveDeptGroupLeavePolicy(Long tenantId);
+
+    String resolveMemberExportPolicy(Long tenantId);
+
+    List<String> resolveMemberExportDesignatedUserIds(Long tenantId);
+
+    boolean resolveRecallEnabled(Long tenantId);
+
+    int resolveRecallWithinHours(Long tenantId);
+
+    boolean resolveEditEnabled(Long tenantId);
+
+    int resolveEditWithinHours(Long tenantId);
 }

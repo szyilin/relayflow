@@ -35,4 +35,13 @@ public class ImGroupDO extends TenantBaseDO {
 
     @TableField("owner_user_id")
     private Long ownerUserId;
+
+    @TableField("searchable")
+    private Boolean searchable;
+
+    @TableField("group_kind")
+    private String groupKind;
+
+    @TableField("dept_id")
+    private Long deptId;
 }

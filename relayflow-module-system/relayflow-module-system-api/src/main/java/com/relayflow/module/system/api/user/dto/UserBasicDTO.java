@@ -10,4 +10,7 @@ public class UserBasicDTO {
     private String nickname;
     /** Tenant membership avatar (infra file id as string), nullable */
     private String avatarFileId;
+
+    /** Mobile number if available (for member export, etc.) */
+    private String mobile;
 }

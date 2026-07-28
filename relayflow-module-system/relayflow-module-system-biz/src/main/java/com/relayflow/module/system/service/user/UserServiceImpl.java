@@ -271,6 +271,7 @@ public class UserServiceImpl implements UserService {
         dto.setUsername(user.getUsername());
         dto.setNickname(resolveMemberNickname(member, user));
         dto.setAvatarFileId(StringUtils.hasText(member.getAvatar()) ? member.getAvatar().trim() : null);
+        dto.setMobile(StringUtils.hasText(user.getMobile()) ? user.getMobile().trim() : null);
         return dto;
     }
 

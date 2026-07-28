@@ -12,4 +12,6 @@ public interface UserApi {
     UserBasicDTO getUserBasic(Long userId);
 
     List<Long> listUserDeptIds(Long userId);
+
+    List<Long> listUserIdsByDeptId(Long deptId);
 }

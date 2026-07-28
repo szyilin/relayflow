@@ -9,12 +9,19 @@ import com.relayflow.module.im.controller.app.vo.GroupBotAddRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotCatalogItemRespVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotMembershipReqVO;
 import com.relayflow.module.im.controller.app.vo.GroupBotRemoveRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupInfoRespVO;
+import com.relayflow.module.im.controller.app.vo.GroupMemberExportItemVO;
 import com.relayflow.module.im.controller.app.vo.GroupMemberItemRespVO;
+import com.relayflow.module.im.controller.app.vo.JoinGroupReqVO;
+import com.relayflow.module.im.controller.app.vo.LeaveGroupReqVO;
+import com.relayflow.module.im.controller.app.vo.PublicGroupSearchItemRespVO;
+import com.relayflow.module.im.controller.app.vo.UpdateGroupPublicReqVO;
 import com.relayflow.module.im.service.group.ImGroupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -43,6 +50,41 @@ public class ImGroupController {
     public CommonResult<List<GroupMemberItemRespVO>> listMembers(
             @RequestParam("conversationId") Long conversationId) {
         return CommonResult.success(groupService.listMembers(conversationId));
+    }
+
+    @GetMapping("/members/export")
+    public CommonResult<List<GroupMemberExportItemVO>> exportMembers(
+            @RequestParam("conversationId") Long conversationId) {
+        return CommonResult.success(groupService.exportMembers(conversationId));
+    }
+
+    @GetMapping("/info")
+    public CommonResult<GroupInfoRespVO> getGroupInfo(@RequestParam("conversationId") Long conversationId) {
+        return CommonResult.success(groupService.getGroupInfo(conversationId));
+    }
+
+    @PutMapping("/public")
+    public CommonResult<Boolean> updatePublic(@Valid @RequestBody UpdateGroupPublicReqVO request) {
+        groupService.updatePublic(request);
+        return CommonResult.success(true);
+    }
+
+    @GetMapping("/search-public")
+    public CommonResult<List<PublicGroupSearchItemRespVO>> searchPublicGroups(
+            @RequestParam("keyword") String keyword) {
+        return CommonResult.success(groupService.searchPublicGroups(keyword));
+    }
+
+    @PostMapping("/join")
+    public CommonResult<Boolean> joinGroup(@Valid @RequestBody JoinGroupReqVO request) {
+        groupService.joinGroup(request);
+        return CommonResult.success(true);
+    }
+
+    @PostMapping("/leave")
+    public CommonResult<Boolean> leaveGroup(@Valid @RequestBody LeaveGroupReqVO request) {
+        groupService.leaveGroup(request);
+        return CommonResult.success(true);
     }
 
     @GetMapping("/bots/catalog")

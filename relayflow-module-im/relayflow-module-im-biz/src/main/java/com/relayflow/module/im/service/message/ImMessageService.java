@@ -15,6 +15,10 @@ public interface ImMessageService {
 
     SendMessageRespVO sendMyMessage(SendMessageReqVO request);
 
+    void recallMessage(Long messageId);
+
+    void editMessage(Long messageId, String content);
+
     /**
      * Persist an in-conversation <em>environment</em> tip ({@code sender_type=system}),
      * e.g. "X joined the group". Must not be used for cross-module business reach —

@@ -47,4 +47,10 @@ public class ImMessageDO extends TenantBaseDO {
 
     @TableField("reply_to_msg_id")
     private Long replyToMsgId;
+
+    @TableField("recalled_at")
+    private java.time.OffsetDateTime recalledAt;
+
+    @TableField("edited_at")
+    private java.time.OffsetDateTime editedAt;
 }

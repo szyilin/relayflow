@@ -17,13 +17,18 @@ import com.relayflow.module.im.dal.mapper.ImBotMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
+import com.relayflow.module.im.dal.dataobject.ImGroupDO;
+import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
+import com.relayflow.module.im.enums.ImConversationType;
+import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
 import com.relayflow.module.im.service.bot.ingress.GroupBotMentionDispatcher;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
+import com.relayflow.module.im.service.productsettings.ImProductSettingsService;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.system.api.user.UserApi;
@@ -36,6 +41,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,8 +63,10 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final ImMessageMapper messageMapper;
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
+    private final ImGroupMapper groupMapper;
     private final ImBotMapper botMapper;
     private final ImConversationService conversationService;
+    private final ImProductSettingsService productSettingsService;
     private final ImContentHelper contentHelper;
     private final RealtimeTransportApi realtimeTransportApi;
     private final UserApi userApi;
@@ -287,6 +295,178 @@ public class ImMessageServiceImpl implements ImMessageService {
         return sendMessage(loginUser.getTenantId(), loginUser.getUserId(), request, null);
     }
 
+    @Override
+    @Transactional
+    public void recallMessage(Long messageId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImMessageDO message = requireMessage(tenantId, messageId);
+        conversationService.requireMembership(tenantId, message.getConversationId(), userId);
+
+        if (message.getRecalledAt() != null) {
+            return;
+        }
+        if (SENDER_TYPE_SYSTEM.equals(message.getSenderType()) || MESSAGE_TYPE_SYSTEM.equals(message.getType())) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_RECALL_DENIED);
+        }
+
+        boolean isSender = SENDER_TYPE_USER.equals(message.getSenderType())
+                && Objects.equals(message.getSenderId(), userId);
+        boolean groupModerator = isGroupOwnerOrAdmin(tenantId, message.getConversationId(), userId);
+
+        if (!isSender && !groupModerator) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_RECALL_DENIED);
+        }
+        if (isSender && !groupModerator) {
+            if (!productSettingsService.resolveRecallEnabled(tenantId)) {
+                throw new ServiceException(ErrorCodeConstants.MESSAGE_RECALL_DENIED);
+            }
+            assertWithinWindow(message.getCreateTime(),
+                    productSettingsService.resolveRecallWithinHours(tenantId),
+                    ErrorCodeConstants.MESSAGE_RECALL_DENIED);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        MessageContentVO placeholder = textContent("消息已撤回");
+        message.setContentJson(contentHelper.toJson(placeholder));
+        message.setRecalledAt(now);
+        message.setUpdater(userId);
+        messageMapper.updateById(message);
+
+        conversationService.lockConversation(tenantId, message.getConversationId());
+        ImConversationDO conversation = conversationMapper.selectById(message.getConversationId());
+        if (conversation != null && Objects.equals(conversation.getLastMsgId(), message.getId())) {
+            conversation.setLastMsgPreview("消息已撤回");
+            conversation.setUpdater(userId);
+            conversationMapper.updateById(conversation);
+        }
+
+        fanoutMessageEvent(tenantId, message, ImRealtimeTypes.MESSAGE_RECALLED, userId);
+    }
+
+    @Override
+    @Transactional
+    public void editMessage(Long messageId, String content) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImMessageDO message = requireMessage(tenantId, messageId);
+        conversationService.requireMembership(tenantId, message.getConversationId(), userId);
+
+        if (message.getRecalledAt() != null) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_EDIT_DENIED);
+        }
+        if (!SENDER_TYPE_USER.equals(message.getSenderType())
+                || !Objects.equals(message.getSenderId(), userId)
+                || !MESSAGE_TYPE_TEXT.equals(message.getType())) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_EDIT_DENIED);
+        }
+        if (!productSettingsService.resolveEditEnabled(tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_EDIT_DENIED);
+        }
+        assertWithinWindow(message.getCreateTime(),
+                productSettingsService.resolveEditWithinHours(tenantId),
+                ErrorCodeConstants.MESSAGE_EDIT_DENIED);
+        if (!StringUtils.hasText(content)) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        MessageContentVO edited = textContent(content.trim());
+        message.setContentJson(contentHelper.toJson(edited));
+        message.setEditedAt(now);
+        message.setUpdater(userId);
+        messageMapper.updateById(message);
+
+        conversationService.lockConversation(tenantId, message.getConversationId());
+        ImConversationDO conversation = conversationMapper.selectById(message.getConversationId());
+        if (conversation != null && Objects.equals(conversation.getLastMsgId(), message.getId())) {
+            conversation.setLastMsgPreview(contentHelper.buildPreview(MESSAGE_TYPE_TEXT, edited));
+            conversation.setUpdater(userId);
+            conversationMapper.updateById(conversation);
+        }
+
+        fanoutMessageEvent(tenantId, message, ImRealtimeTypes.MESSAGE_EDITED, userId);
+    }
+
+    private ImMessageDO requireMessage(Long tenantId, Long messageId) {
+        if (messageId == null || messageId <= 0) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_NOT_FOUND);
+        }
+        ImMessageDO message = messageMapper.selectById(messageId);
+        if (message == null || !Objects.equals(message.getTenantId(), tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_NOT_FOUND);
+        }
+        return message;
+    }
+
+    private void assertWithinWindow(OffsetDateTime createTime, int withinHours, ErrorCodeConstants denied) {
+        if (createTime == null) {
+            throw new ServiceException(denied);
+        }
+        long hours = Duration.between(createTime, OffsetDateTime.now()).toHours();
+        if (hours >= withinHours) {
+            throw new ServiceException(denied);
+        }
+    }
+
+    private boolean isGroupOwnerOrAdmin(Long tenantId, Long conversationId, Long userId) {
+        ImConversationDO conversation = conversationMapper.selectById(conversationId);
+        if (conversation == null || !ImConversationType.GROUP.equals(conversation.getType())) {
+            return false;
+        }
+        ImGroupDO group = groupMapper.selectOne(
+                Wrappers.<ImGroupDO>lambdaQuery()
+                        .eq(ImGroupDO::getTenantId, tenantId)
+                        .eq(ImGroupDO::getConversationId, conversationId));
+        if (group == null) {
+            return false;
+        }
+        ImConversationMemberDO membership = conversationMemberMapper.selectOne(
+                Wrappers.<ImConversationMemberDO>lambdaQuery()
+                        .eq(ImConversationMemberDO::getTenantId, tenantId)
+                        .eq(ImConversationMemberDO::getConversationId, conversationId)
+                        .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER)
+                        .eq(ImConversationMemberDO::getSubjectId, userId));
+        if (membership == null) {
+            return false;
+        }
+        return ImMemberRole.OWNER.equals(membership.getRole())
+                || ImMemberRole.ADMIN.equals(membership.getRole());
+    }
+
+    private static MessageContentVO textContent(String text) {
+        MessageContentVO content = new MessageContentVO();
+        content.setVersion(1);
+        ContentBlockVO block = new ContentBlockVO();
+        block.setType("text");
+        block.setText(text);
+        content.setBlocks(List.of(block));
+        return content;
+    }
+
+    private void fanoutMessageEvent(Long tenantId, ImMessageDO message, String eventType, Long actorUserId) {
+        Map<Long, String> nicknameByUserId = loadSenderNicknames(List.of(message));
+        MessageItemRespVO payload = toMessageItem(message, nicknameByUserId);
+        RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
+                .domain(ImRealtimeTypes.DOMAIN)
+                .type(eventType)
+                .ts(System.currentTimeMillis())
+                .payload(payload)
+                .build();
+        List<Long> recipients = conversationService.listOtherMemberUserIds(
+                tenantId, message.getConversationId(), actorUserId);
+        // Include actor so multi-device / other tabs refresh
+        List<Long> all = new java.util.ArrayList<>(recipients);
+        if (actorUserId != null && !all.contains(actorUserId)) {
+            all.add(actorUserId);
+        }
+        if (!all.isEmpty()) {
+            realtimeTransportApi.sendToUsers(tenantId, all, envelope);
+        }
+    }
+
     private void validateSendRequest(SendMessageReqVO request) {
         if (request == null || !StringUtils.hasText(request.getClientMsgId())) {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_SEND_INVALID);
@@ -443,6 +623,13 @@ public class ImMessageServiceImpl implements ImMessageService {
         item.setClientMsgId(message.getClientMsgId());
         item.setSeq(message.getSeq());
         item.setCreateTime(message.getCreateTime());
+        item.setRecalled(message.getRecalledAt() != null);
+        item.setEdited(message.getEditedAt() != null);
+        item.setRecalledAt(message.getRecalledAt());
+        item.setEditedAt(message.getEditedAt());
+        if (Boolean.TRUE.equals(item.getRecalled())) {
+            item.setContent(textContent("消息已撤回"));
+        }
         if (message.getSenderId() != null && message.getSenderId() > 0
                 && (SENDER_TYPE_USER.equals(message.getSenderType())
                 || SENDER_TYPE_BOT.equals(message.getSenderType()))) {
