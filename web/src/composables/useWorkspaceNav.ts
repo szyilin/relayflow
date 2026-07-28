@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
+import { PRODUCT_REGISTRY } from '../products/registry'
 import { useImStore } from '../stores/im'
 
 export interface WorkspaceRailItem {
@@ -18,54 +19,52 @@ function formatUnreadBadge(count: number): string | undefined {
   return count > 99 ? '99+' : String(count)
 }
 
+/** Non-product rail entries that stay outside the product registry. */
+const EXTRA_RAIL: Omit<WorkspaceRailItem, 'badge'>[] = [
+  {
+    id: 'tasks',
+    label: '任务',
+    icon: 'i-lucide-check-square',
+    to: '/app/tasks'
+  },
+  {
+    id: 'contacts',
+    label: '通讯录',
+    icon: 'i-lucide-users',
+    to: '/app/contacts'
+  }
+]
+
 export function useWorkspaceNav() {
   const route = useRoute()
   const imStore = useImStore()
   const { totalUnreadCount } = storeToRefs(imStore)
 
-  const railItems = computed<WorkspaceRailItem[]>(() => [{
-    id: 'messages',
-    label: '消息',
-    icon: 'i-lucide-message-circle',
-    to: '/app/messages',
-    badge: formatUnreadBadge(totalUnreadCount.value)
-  }, {
-    id: 'calendar',
-    label: '日历',
-    icon: 'i-lucide-calendar',
-    to: '/app/calendar'
-  }, {
-    id: 'tasks',
-    label: '任务',
-    icon: 'i-lucide-check-square',
-    to: '/app/tasks'
-  }, {
-    id: 'docs',
-    label: '云文档',
-    icon: 'i-lucide-file-text',
-    to: '/app/docs'
-  }, {
-    id: 'contacts',
-    label: '通讯录',
-    icon: 'i-lucide-users',
-    to: '/app/contacts'
-  }])
+  const railItems = computed<WorkspaceRailItem[]>(() => {
+    const fromProducts: WorkspaceRailItem[] = PRODUCT_REGISTRY
+      .filter(p => p.workspacePath)
+      .map(p => ({
+        id: p.workspaceRailId ?? p.id,
+        label: p.id === 'im' ? '消息' : p.label,
+        icon: p.icon,
+        to: p.workspacePath!,
+        badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined
+      }))
+
+    // Preserve rail order: messages, calendar, tasks, docs, contacts
+    const byId = new Map([...fromProducts, ...EXTRA_RAIL].map(item => [item.id, item]))
+    const order = ['messages', 'calendar', 'tasks', 'docs', 'contacts'] as const
+    return order.flatMap((id) => {
+      const item = byId.get(id)
+      return item ? [item] : []
+    })
+  })
 
   const activeRailId = computed(() => {
-    if (route.path.startsWith('/app/messages')) {
-      return 'messages'
-    }
-    if (route.path.startsWith('/app/calendar')) {
-      return 'calendar'
-    }
-    if (route.path.startsWith('/app/tasks')) {
-      return 'tasks'
-    }
-    if (route.path.startsWith('/app/docs')) {
-      return 'docs'
-    }
-    if (route.path.startsWith('/app/contacts')) {
-      return 'contacts'
+    for (const item of railItems.value) {
+      if (route.path.startsWith(item.to)) {
+        return item.id
+      }
     }
     return 'messages'
   })

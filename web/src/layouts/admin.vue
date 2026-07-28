@@ -12,6 +12,7 @@ const {
   open,
   primaryLinks,
   systemLinks,
+  productLinks,
   infraLinks
 } = useAdminNav()
 
@@ -79,6 +80,22 @@ onMounted(async () => {
           <UNavigationMenu
             :collapsed="collapsed"
             :items="systemLinks"
+            orientation="vertical"
+            tooltip
+            class="admin-nav-menu"
+          />
+        </template>
+
+        <template v-if="productLinks.length">
+          <div
+            v-if="!collapsed"
+            class="px-3 pt-4 pb-1 text-xs font-medium uppercase tracking-wide text-muted"
+          >
+            产品设置
+          </div>
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="productLinks"
             orientation="vertical"
             tooltip
             class="admin-nav-menu"

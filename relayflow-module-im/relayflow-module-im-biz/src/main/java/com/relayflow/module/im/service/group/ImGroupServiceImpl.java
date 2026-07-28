@@ -32,6 +32,7 @@ import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImMessageService;
+import com.relayflow.module.im.service.productsettings.ImProductSettingsService;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +66,7 @@ public class ImGroupServiceImpl implements ImGroupService {
     private final ImBotUserEnablementMapper userEnablementMapper;
     private final ImConversationService conversationService;
     private final ImMessageService messageService;
+    private final ImProductSettingsService productSettingsService;
     private final UserApi userApi;
 
     @Override
@@ -78,6 +80,12 @@ public class ImGroupServiceImpl implements ImGroupService {
         String name = normalizeGroupName(request.getName());
         List<Long> memberUserIds = normalizeMemberUserIds(userId, request.getMemberUserIds());
         validateMembersExist(memberUserIds);
+
+        int memberCount = 1 + memberUserIds.size();
+        int memberLimit = productSettingsService.resolveMemberLimit(tenantId, null, userId);
+        if (memberCount > memberLimit) {
+            throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_LIMIT_EXCEEDED);
+        }
 
         ImConversationDO conversation = new ImConversationDO();
         conversation.setTenantId(tenantId);
@@ -129,6 +137,20 @@ public class ImGroupServiceImpl implements ImGroupService {
         validateMembersExist(memberUserIds);
 
         Set<Long> existingMemberIds = loadMemberUserIds(tenantId, group.getConversationId());
+        int newMemberCount = 0;
+        for (Long memberUserId : memberUserIds) {
+            if (!existingMemberIds.contains(memberUserId)) {
+                newMemberCount++;
+            }
+        }
+        if (newMemberCount > 0) {
+            int memberLimit = productSettingsService.resolveMemberLimit(
+                    tenantId, group.getConversationId(), group.getOwnerUserId());
+            if (existingMemberIds.size() + newMemberCount > memberLimit) {
+                throw new ServiceException(ErrorCodeConstants.GROUP_MEMBER_LIMIT_EXCEEDED);
+            }
+        }
+
         int addedCount = 0;
         for (Long memberUserId : memberUserIds) {
             if (existingMemberIds.contains(memberUserId)) {

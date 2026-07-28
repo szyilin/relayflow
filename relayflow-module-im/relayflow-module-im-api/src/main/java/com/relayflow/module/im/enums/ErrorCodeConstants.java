@@ -20,15 +20,17 @@ public enum ErrorCodeConstants implements ErrorCode {
     GROUP_NOT_FOUND(1_003_003_003, "群聊不存在"),
     GROUP_MEMBER_INVALID(1_003_003_004, "成员用户无效"),
     SEARCH_KEYWORD_REQUIRED(1_003_003_005, "请输入搜索关键词"),
+    GROUP_OWNER_REQUIRED(1_003_003_006, "仅群主可管理群内机器人"),
+    GROUP_MEMBER_LIMIT_EXCEEDED(1_003_003_007, "超过群成员人数上限"),
     BOT_NOT_FOUND(1_003_004_001, "机器人不存在或已停用"),
     BOT_NOT_ENABLED_FOR_TENANT(1_003_004_002, "机器人未在该企业启用"),
     BOT_NOT_ENABLED_FOR_USER(1_003_004_003, "用户未启用该机器人"),
     BOT_SEND_INVALID(1_003_004_004, "机器人发送参数无效"),
-    GROUP_OWNER_REQUIRED(1_003_003_006, "仅群主可管理群内机器人"),
     CARD_CONTENT_INVALID(1_003_005_001, "卡片内容无效"),
     CARD_ACTION_INVALID(1_003_005_002, "卡片操作无效"),
     CARD_ACTION_EXPIRED(1_003_005_003, "卡片已过期"),
-    CARD_ACTION_HANDLER_NOT_FOUND(1_003_005_004, "卡片处理器未注册");
+    CARD_ACTION_HANDLER_NOT_FOUND(1_003_005_004, "卡片处理器未注册"),
+    PRODUCT_SETTINGS_INVALID(1_003_006_001, "产品设置参数无效");
 
     private final Integer code;
     private final String msg;

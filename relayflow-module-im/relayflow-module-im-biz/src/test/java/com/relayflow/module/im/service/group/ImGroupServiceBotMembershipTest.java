@@ -19,6 +19,7 @@ import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImMessageService;
+import com.relayflow.module.im.service.productsettings.ImProductSettingsService;
 import com.relayflow.module.system.api.user.UserApi;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +66,8 @@ class ImGroupServiceBotMembershipTest {
     private ImConversationService conversationService;
     @Mock
     private ImMessageService messageService;
+    @Mock
+    private ImProductSettingsService productSettingsService;
     @Mock
     private UserApi userApi;
 

@@ -66,6 +66,55 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/products/': RouteRecordInfo<
+      '/admin/products/',
+      '/admin/products',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/calendar/': RouteRecordInfo<
+      '/admin/products/calendar/',
+      '/admin/products/calendar',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/docs/': RouteRecordInfo<
+      '/admin/products/docs/',
+      '/admin/products/docs',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/im/': RouteRecordInfo<
+      '/admin/products/im/',
+      '/admin/products/im',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/im/group-permission/': RouteRecordInfo<
+      '/admin/products/im/group-permission/',
+      '/admin/products/im/group-permission',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/im/group-size/': RouteRecordInfo<
+      '/admin/products/im/group-size/',
+      '/admin/products/im/group-size',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/im/message-permission/': RouteRecordInfo<
+      '/admin/products/im/message-permission/',
+      '/admin/products/im/message-permission',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/system/dept/': RouteRecordInfo<
       '/admin/system/dept/',
       '/admin/system/dept',
@@ -240,6 +289,62 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/login.vue': {
       routes:
         | '/admin/login'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/index.vue': {
+      routes:
+        | '/admin/products/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/calendar/index.vue': {
+      routes:
+        | '/admin/products/calendar/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/docs/index.vue': {
+      routes:
+        | '/admin/products/docs/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/im/index.vue': {
+      routes:
+        | '/admin/products/im/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/im/group-permission/index.vue': {
+      routes:
+        | '/admin/products/im/group-permission/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/im/group-size/index.vue': {
+      routes:
+        | '/admin/products/im/group-size/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/im/message-permission/index.vue': {
+      routes:
+        | '/admin/products/im/message-permission/'
       views:
         | never
       pathParamNames:

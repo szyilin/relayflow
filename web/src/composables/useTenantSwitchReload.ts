@@ -11,6 +11,7 @@ import { useDocsDriveStore } from '../stores/docsDrive'
 import { useImStore } from '../stores/im'
 import { useEnterpriseStore } from '../stores/enterprise'
 import { useInviteSettingsStore } from '../stores/inviteSettings'
+import { useImProductSettingsStore } from '../stores/imProductSettings'
 import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
@@ -30,6 +31,7 @@ export function useTenantSwitchReload() {
   const memberPicker = useMemberPickerStore()
   const enterprise = useEnterpriseStore()
   const inviteSettings = useInviteSettingsStore()
+  const imProductSettings = useImProductSettingsStore()
   const orgInvite = useOrgInviteStore()
   const profile = useProfileStore()
   const tasks = useTasksStore()
@@ -55,6 +57,7 @@ export function useTenantSwitchReload() {
     memberPicker.resetForTenantSwitch()
     enterprise.resetForTenantSwitch()
     inviteSettings.resetForTenantSwitch()
+    imProductSettings.resetForTenantSwitch()
     orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()

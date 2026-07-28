@@ -52,6 +52,14 @@ export function useAdminNav() {
     onSelect: closeSidebar
   }]
 
+  const productLinksRaw: AdminNavItem[] = [{
+    label: '产品设置',
+    icon: 'i-lucide-boxes',
+    to: '/admin/products',
+    permission: 'im:product-settings:query',
+    onSelect: closeSidebar
+  }]
+
   const infraLinksRaw: AdminNavItem[] = [{
     label: '存储设置',
     icon: 'i-lucide-hard-drive',
@@ -67,12 +75,14 @@ export function useAdminNav() {
   }]
 
   const systemLinks = computed(() => filterNavItems(systemLinksRaw, hasPermission))
+  const productLinks = computed(() => filterNavItems(productLinksRaw, hasPermission))
   const infraLinks = computed(() => filterNavItems(infraLinksRaw, hasPermission))
 
   return {
     open,
     primaryLinks,
     systemLinks,
+    productLinks,
     infraLinks,
     closeSidebar
   }
