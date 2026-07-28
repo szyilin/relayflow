@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { addHours, formatISO } from 'date-fns'
 import MeetingPreJoinModal from '../../../components/workspace/MeetingPreJoinModal.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import { getMeeting } from '../../../api/app/meeting'
 import { useMeetingStore } from '../../../stores/meeting'
 import { useToast } from '../../../composables/useToast'
 
+const route = useRoute()
 const router = useRouter()
 const meetingStore = useMeetingStore()
 const toast = useToast()
@@ -28,6 +30,24 @@ onMounted(() => {
   void meetingStore.loadHistory().catch((e: Error) => {
     toast.add({ title: e.message || '加载失败', color: 'error' })
   })
+  const fromCalendar = typeof route.query.meetingId === 'string' ? route.query.meetingId : ''
+  if (fromCalendar) {
+    void (async () => {
+      try {
+        const m = await getMeeting(fromCalendar)
+        pendingMeetingId.value = m.id
+        preJoinTitle.value = m.title
+        preJoinLabel.value = '加入会议'
+        preJoinOpen.value = true
+        await router.replace({ path: '/app/meeting' })
+      } catch (e) {
+        toast.add({
+          title: e instanceof Error ? e.message : '无法打开会议',
+          color: 'error'
+        })
+      }
+    })()
+  }
 })
 
 function toInputLocal(d: Date) {
@@ -97,7 +117,7 @@ async function onScheduleSubmit() {
     })
     scheduleOpen.value = false
     toast.add({
-      title: meetingStore.usingMock ? '已预约（Mock，未写入真实日历）' : '已预约并写入日历',
+      title: '已预约并写入日历',
       color: 'success'
     })
   } catch (e) {
@@ -182,7 +202,6 @@ function reopen(meetingId: string, title: string) {
           </h2>
           <p class="mt-1 text-sm text-muted">
             多人音视频会议 · 媒体由 LiveKit 承载
-            <span v-if="meetingStore.usingMock" class="ml-1 text-warning">（当前 Mock）</span>
           </p>
         </div>
       </div>

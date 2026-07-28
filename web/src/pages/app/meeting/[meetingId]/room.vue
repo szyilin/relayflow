@@ -18,7 +18,6 @@ const wantAudio = computed(() => route.query.audio !== '0')
 const wantVideo = computed(() => route.query.video === '1')
 
 const {
-  connected,
   connecting,
   error,
   participants,
@@ -39,31 +38,16 @@ const title = ref('视频会议')
 const meetingCode = ref('')
 let offChat: (() => void) | undefined
 
-const mockTiles = computed(() => {
-  if (connected.value && participants.value.length > 0) {
-    return participants.value
-  }
-  // Mock grid when not connected to LiveKit
-  const me = auth.user?.nickname || auth.user?.username || auth.userId || '我'
-  return [
-    {
-      identity: 'local',
-      name: String(me),
-      isLocal: true,
-      isSpeaking: false,
-      isMuted: !micOn.value,
-      hasVideo: false,
-      videoTrack: null,
-      audioTrack: null
-    }
-  ]
-})
+const tiles = computed(() => participants.value)
 
 onMounted(async () => {
   try {
     const cred = await meetingStore.getJoinCredentials(meetingId.value)
     title.value = cred.title
     meetingCode.value = cred.meetingCode
+    if (!cred.livekitUrl || !cred.token) {
+      throw new Error('入会凭证不完整')
+    }
     await connect({
       url: cred.livekitUrl,
       token: cred.token,
@@ -77,12 +61,6 @@ onMounted(async () => {
         text: msg.text
       })
     })
-    if (!cred.livekitUrl || !cred.token) {
-      toast.add({
-        title: 'Mock 模式：未连接 LiveKit，仅展示本地布局',
-        color: 'warning'
-      })
-    }
   } catch (e) {
     toast.add({
       title: e instanceof Error ? e.message : '进入会议失败',
@@ -134,6 +112,12 @@ async function onSendChat() {
 }
 
 async function hangup() {
+  try {
+    const { leaveMeeting } = await import('../../../../api/app/meeting')
+    await leaveMeeting(meetingId.value)
+  } catch {
+    // best-effort
+  }
   await disconnect()
   await router.push('/app/meeting')
 }
@@ -164,14 +148,14 @@ async function hangup() {
       <div class="min-w-0 flex-1 overflow-y-auto p-4">
         <div
           class="grid gap-3"
-          :class="mockTiles.length <= 1
+          :class="tiles.length <= 1
             ? 'grid-cols-1 max-w-3xl mx-auto'
-            : mockTiles.length <= 4
+            : tiles.length <= 4
               ? 'grid-cols-1 sm:grid-cols-2'
               : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'"
         >
           <MeetingParticipantTile
-            v-for="p in mockTiles"
+            v-for="p in tiles"
             :key="p.identity"
             :participant="p"
           />

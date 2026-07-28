@@ -102,7 +102,7 @@
 | **workspace-member-picker** | planned | **ui_ready** | 共享选人器 · 我管理的群组（IM 聚合）· 邀请入群复用 | [create-hub](../../openspec/lanes/workspace-create-hub/contract.md) · [im-group](../../openspec/lanes/im-group-chat/contract.md) | `-web` 完成；`GET …/group/managed` 草案待 `-api` |
 | **admin-enterprise-info** | **done** | **done** | `/admin-api/system/enterprise/*` · `/admin/system/enterprise` | [contract](../../openspec/lanes/admin-enterprise-info/contract.md) | `-integrate` 完成；档案/地址接真实 API；geo 接 `infra/geo/children` |
 | **admin-product-settings** | **ready** | **done** | `/admin-api/im/product-settings*` · `/admin/products/**` · app 公开群/撤回编辑 | [contract](../../openspec/lanes/admin-product-settings/contract.md) | 母 change 主能力已交付；docs/calendar 仍占位；详规另立 |
-| **workspace-meeting** | planned | **ui_ready** | `/app-api/meeting/*` · `/app/meeting` · rtc `RtcSessionApi` · `CalEventApi` | [contract](../../openspec/lanes/meeting/contract.md) | 母 [workspace-meeting-v1](../../openspec/changes/workspace-meeting-v1/proposal.md)；Hub/预进房/会中 UI Mock 完成；待 rtc/meeting-api |
+| **workspace-meeting** | **ready** | **done** | `/app-api/meeting/*` · `/app/meeting` · rtc `RtcSessionApi` · `CalEventApi` | [contract](../../openspec/lanes/meeting/contract.md) | 母 [workspace-meeting-v1](../../openspec/changes/workspace-meeting-v1/proposal.md)；去 Mock；join-credentials + LiveKit；日历「加入会议」 |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 

@@ -39,11 +39,11 @@
 
 ## 5. meeting-integrate
 
-- [ ] 5.1 前端去 Mock：对接 meeting join-credentials + 直连 LiveKit
-- [ ] 5.2 日历：有 `meeting_id` 时「加入会议」进预进房
-- [ ] 5.3 DataChannel 侧边聊天联调（不落库）
-- [ ] 5.4 端到端：两人发起/加入、宫格与说话者排序、预约进日历
-- [ ] 5.5 `pnpm build` + `pnpm typecheck`；`openspec validate workspace-meeting-v1 --strict`
+- [x] 5.1 前端去 Mock：对接 meeting join-credentials + 直连 LiveKit
+- [x] 5.2 日历：有 `meeting_id` 时「加入会议」进预进房
+- [x] 5.3 DataChannel 侧边聊天联调（不落库）
+- [ ] 5.4 端到端：两人发起/加入、宫格与说话者排序、预约进日历（需人工双浏览器 + LiveKit）
+- [x] 5.5 `pnpm build` + `pnpm typecheck`；`openspec validate workspace-meeting-v1 --strict`
 
 ## 6. 明确不做
 

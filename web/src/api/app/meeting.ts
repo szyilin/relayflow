@@ -1,10 +1,10 @@
 /**
  * Meeting app-api types + thin HTTP wrappers.
- * -web: store may Mock; integrate wires real endpoints.
  * Contract: openspec/lanes/meeting/contract.md
  */
 
 import { get, post } from '../request'
+import { normalizeId } from '../../utils/id'
 
 export type MeetingStatus = 'SCHEDULED' | 'LIVE' | 'ENDED'
 
@@ -41,24 +41,73 @@ export interface MeetingSchedulePayload {
   scheduledEnd: string
 }
 
-export function createInstantMeeting(payload: MeetingInstantPayload = {}) {
-  return post<MeetingSummary>('/app-api/meeting/instant', payload)
+function asId(value: unknown): string {
+  return normalizeId(value) ?? ''
 }
 
-export function scheduleMeeting(payload: MeetingSchedulePayload) {
-  return post<MeetingSummary>('/app-api/meeting/schedule', payload)
+function asIso(value: unknown): string | null | undefined {
+  if (value == null) {
+    return value as null | undefined
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+  return String(value)
 }
 
-export function getMeeting(id: string) {
-  return get<MeetingSummary>('/app-api/meeting/get', { params: { id } })
+function normalizeSummary(raw: MeetingSummary & Record<string, unknown>): MeetingSummary {
+  return {
+    id: asId(raw.id),
+    meetingCode: String(raw.meetingCode ?? ''),
+    title: String(raw.title ?? ''),
+    status: raw.status as MeetingStatus,
+    hostUserId: asId(raw.hostUserId),
+    hostNickname: raw.hostNickname as string | undefined,
+    scheduledStart: asIso(raw.scheduledStart) ?? null,
+    scheduledEnd: asIso(raw.scheduledEnd) ?? null,
+    calendarEventId: raw.calendarEventId != null ? asId(raw.calendarEventId) : null,
+    createTime: asIso(raw.createTime) ?? undefined
+  }
 }
 
-export function getMeetingByCode(code: string) {
-  return get<MeetingSummary>('/app-api/meeting/get-by-code', { params: { code } })
+function normalizeCredentials(raw: MeetingJoinCredentials & Record<string, unknown>): MeetingJoinCredentials {
+  return {
+    meetingId: asId(raw.meetingId),
+    meetingCode: String(raw.meetingCode ?? ''),
+    title: String(raw.title ?? ''),
+    livekitUrl: String(raw.livekitUrl ?? ''),
+    token: String(raw.token ?? ''),
+    roomName: String(raw.roomName ?? ''),
+    identity: String(raw.identity ?? '')
+  }
 }
 
-export function fetchJoinCredentials(body: { meetingId?: string, meetingCode?: string }) {
-  return post<MeetingJoinCredentials>('/app-api/meeting/join-credentials', body)
+export async function createInstantMeeting(payload: MeetingInstantPayload = {}) {
+  const data = await post<MeetingSummary>('/app-api/meeting/instant', payload)
+  return normalizeSummary(data as MeetingSummary & Record<string, unknown>)
+}
+
+export async function scheduleMeeting(payload: MeetingSchedulePayload) {
+  const data = await post<MeetingSummary>('/app-api/meeting/schedule', payload)
+  return normalizeSummary(data as MeetingSummary & Record<string, unknown>)
+}
+
+export async function getMeeting(id: string) {
+  const data = await get<MeetingSummary>('/app-api/meeting/get', { params: { id } })
+  return normalizeSummary(data as MeetingSummary & Record<string, unknown>)
+}
+
+export async function getMeetingByCode(code: string) {
+  const data = await get<MeetingSummary>('/app-api/meeting/get-by-code', { params: { code } })
+  return normalizeSummary(data as MeetingSummary & Record<string, unknown>)
+}
+
+export async function fetchJoinCredentials(body: { meetingId?: string, meetingCode?: string }) {
+  const data = await post<MeetingJoinCredentials>('/app-api/meeting/join-credentials', body)
+  return normalizeCredentials(data as MeetingJoinCredentials & Record<string, unknown>)
 }
 
 export function leaveMeeting(meetingId: string) {
@@ -69,6 +118,7 @@ export function endMeeting(meetingId: string) {
   return post<boolean>('/app-api/meeting/end', { meetingId })
 }
 
-export function fetchMeetingHistory() {
-  return get<MeetingSummary[]>('/app-api/meeting/history')
+export async function fetchMeetingHistory() {
+  const data = await get<MeetingSummary[]>('/app-api/meeting/history')
+  return (data ?? []).map(item => normalizeSummary(item as MeetingSummary & Record<string, unknown>))
 }

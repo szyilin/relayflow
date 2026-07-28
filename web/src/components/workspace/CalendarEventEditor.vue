@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { formatISO, parseISO } from 'date-fns'
 import type { CalendarEditScope, CalendarEvent } from '../../api/app/calendar'
 import { useAuthStore } from '../../stores/auth'
@@ -19,11 +20,25 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ saved: [eventId: string], deleted: [] }>()
 
+const router = useRouter()
 const calendarStore = useCalendarStore()
 const preference = useUserPreferenceStore()
 const contacts = useContactsStore()
 const auth = useAuthStore()
 const toast = useToast()
+
+const linkedMeetingId = computed(() => props.event?.meetingId || null)
+
+function joinLinkedMeeting() {
+  if (!linkedMeetingId.value) {
+    return
+  }
+  open.value = false
+  void router.push({
+    path: '/app/meeting',
+    query: { meetingId: linkedMeetingId.value }
+  })
+}
 
 const submitting = ref(false)
 const showMore = ref(false)
@@ -508,6 +523,15 @@ async function handleRespond(response: 'ACCEPTED' | 'DECLINED') {
 
     <template #footer>
       <div class="flex w-full flex-wrap items-center justify-end gap-2">
+        <UButton
+          v-if="mode === 'edit' && linkedMeetingId"
+          color="primary"
+          variant="soft"
+          icon="i-lucide-video"
+          @click="joinLinkedMeeting"
+        >
+          加入会议
+        </UButton>
         <UButton
           v-if="mode === 'edit' && isOrganizer"
           color="error"

@@ -60,6 +60,8 @@ export interface CalendarEvent {
   instanceStart?: string
   isException?: boolean
   recurring?: boolean
+  /** Linked video meeting id when scheduled via meeting domain */
+  meetingId?: string | null
 }
 
 export interface CalendarEventCreatePayload {
@@ -145,6 +147,7 @@ function normalizeEvent(item: CalendarEvent & {
   calendarId?: string | number
   organizerId?: string | number
   masterEventId?: string | number
+  meetingId?: string | number | null
   startTime?: unknown
   endTime?: unknown
   instanceStart?: unknown
@@ -175,7 +178,8 @@ function normalizeEvent(item: CalendarEvent & {
     masterEventId: item.masterEventId != null ? asId(item.masterEventId) : undefined,
     instanceStart: item.instanceStart != null ? asIso(item.instanceStart) : undefined,
     isException: item.isException ?? undefined,
-    recurring: item.recurring ?? undefined
+    recurring: item.recurring ?? undefined,
+    meetingId: item.meetingId != null ? asId(item.meetingId) : null
   }
 }
 
