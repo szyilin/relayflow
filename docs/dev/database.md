@@ -12,6 +12,8 @@ PostgreSQL + Flyway + MyBatis-Plus 的表结构、迁移与公共字段规范。
 | `task_` | task | `task_item` |
 | `cal_` | calendar | `cal_event` |
 | `doc_` | docs | `doc_object`、`doc_library_node`、`doc_drive_folder`、`doc_drive_item`、`doc_share`、`doc_star`、`doc_user_visit`（后三者见 `workspace-docs-share-star-v1`） |
+| `rtc_` | rtc | `rtc_session`（LiveKit 媒体会话元数据） |
+| `mtg_` | meeting | `mtg_meeting`、`mtg_participant` |
 | `bpm_` | bpm（V1.1） | `bpm_process` |
 
 租户元数据表（`sys_tenant`、`sys_tenant_user`）不带业务表通用的 `tenant_id` 约束，详见 `tenant-ready-foundation` design。
@@ -31,6 +33,8 @@ V1 用 **表前缀** 做逻辑分域，不建多库：
 - `task_*` 仅 task 域 Mapper 访问
 - `cal_*` 仅 calendar 域 Mapper 访问
 - `doc_*` 仅 docs 域 Mapper 访问
+- `rtc_*` 仅 rtc 域 Mapper 访问
+- `mtg_*` 仅 meeting 域 Mapper 访问
 
 **禁止** im-biz 的 SQL 出现 `sys_` 表；跨域读数据须走 `*-api`（如 `AdminUserApi`），不直连他域表。跨域写副作用若不必与当前请求强一致，走领域消息（见 [`cross-domain-messaging.md`](cross-domain-messaging.md)）。
 

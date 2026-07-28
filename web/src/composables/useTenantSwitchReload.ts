@@ -15,6 +15,7 @@ import { useImProductSettingsStore } from '../stores/imProductSettings'
 import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
+import { useMeetingStore } from '../stores/meeting'
 import { useUserPreferenceStore } from '../stores/userPreference'
 
 /**
@@ -39,6 +40,7 @@ export function useTenantSwitchReload() {
   const docs = useDocsStore()
   const docsDrive = useDocsDriveStore()
   const preference = useUserPreferenceStore()
+  const meeting = useMeetingStore()
 
   watch(() => [auth.tenantId, auth.userId] as const, async ([nextTenant, nextUser], prev) => {
     const [prevTenant, prevUser] = prev ?? [null, null]
@@ -61,6 +63,7 @@ export function useTenantSwitchReload() {
     orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()
+    meeting.resetForTenantSwitch()
     docs.resetLocal()
     docsDrive.resetLocal()
     preference.resetForTenantSwitch()

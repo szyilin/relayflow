@@ -51,9 +51,9 @@ export function useWorkspaceNav() {
         badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined
       }))
 
-    // Preserve rail order: messages, calendar, tasks, docs, contacts
+    // Preserve rail order: messages, calendar, meeting, tasks, docs, contacts
     const byId = new Map([...fromProducts, ...EXTRA_RAIL].map(item => [item.id, item]))
-    const order = ['messages', 'calendar', 'tasks', 'docs', 'contacts'] as const
+    const order = ['messages', 'calendar', 'meeting', 'tasks', 'docs', 'contacts'] as const
     return order.flatMap((id) => {
       const item = byId.get(id)
       return item ? [item] : []

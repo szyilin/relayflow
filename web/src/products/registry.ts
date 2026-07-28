@@ -48,6 +48,16 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     adminSettingsPath: '/admin/products/calendar',
     adminStatus: 'placeholder',
     description: '组织级日历设置（即将开放）'
+  },
+  {
+    id: 'meeting',
+    label: '视频会议',
+    icon: 'i-lucide-video',
+    workspacePath: '/app/meeting',
+    workspaceRailId: 'meeting',
+    adminSettingsPath: '/admin/products/meeting',
+    adminStatus: 'placeholder',
+    description: '组织级视频会议设置（即将开放）'
   }
 ]
 

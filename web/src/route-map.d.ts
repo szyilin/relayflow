@@ -213,6 +213,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/meeting/': RouteRecordInfo<
+      '/app/meeting/',
+      '/app/meeting',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/app/meeting/[meetingId]/room': RouteRecordInfo<
+      '/app/meeting/[meetingId]/room',
+      '/app/meeting/:meetingId/room',
+      { meetingId: ParamValue<true> },
+      { meetingId: ParamValue<false> },
+      | never
+    >,
     '/app/messages/': RouteRecordInfo<
       '/app/messages/',
       '/app/messages',
@@ -457,6 +471,22 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/login.vue': {
       routes:
         | '/app/login'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/meeting/index.vue': {
+      routes:
+        | '/app/meeting/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/meeting/[meetingId]/room.vue': {
+      routes:
+        | '/app/meeting/[meetingId]/room'
       views:
         | never
       pathParamNames:

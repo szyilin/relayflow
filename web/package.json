@@ -24,6 +24,7 @@
     "@vueuse/core": "^14.3.0",
     "axios": "^1.18.1",
     "date-fns": "^4.4.0",
+    "livekit-client": "^2.21.0",
     "pinia": "^3.0.4",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.3",
