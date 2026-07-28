@@ -13,6 +13,8 @@ export interface EnterpriseProfile {
   scale: string | null
   /** Read-only display; V1 fixed to mainland China. */
   dataResidency: string
+  /** infra file id; null when unset */
+  logoFileId: string | null
   contactName: string | null
   contactEmail: string | null
   contactMobile: string | null
@@ -20,6 +22,16 @@ export interface EnterpriseProfile {
 }
 
 export type EnterpriseProfileUpdate = Omit<EnterpriseProfile, 'code' | 'dataResidency'>
+
+export interface EnterpriseOverview {
+  code: string
+  name: string
+  logoFileId: string | null
+  memberCount: number
+  deptCount: number
+  superAdminCount: number
+  subAdminCount: number
+}
 
 export interface EnterpriseAddress {
   id: string
@@ -48,6 +60,10 @@ export interface EnterpriseAddressListQuery {
 
 export function getEnterpriseProfile(): Promise<EnterpriseProfile> {
   return get<EnterpriseProfile>('/admin-api/system/enterprise/profile')
+}
+
+export function getEnterpriseOverview(): Promise<EnterpriseOverview> {
+  return get<EnterpriseOverview>('/admin-api/system/enterprise/overview')
 }
 
 export function updateEnterpriseProfile(payload: EnterpriseProfileUpdate): Promise<EnterpriseProfile> {

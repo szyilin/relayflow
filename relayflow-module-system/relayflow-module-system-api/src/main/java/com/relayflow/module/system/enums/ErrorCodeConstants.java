@@ -59,7 +59,8 @@ public enum ErrorCodeConstants implements ErrorCode {
     ENTERPRISE_ADDRESS_TYPES_INVALID(1_001_006_002, "地址类型无效"),
     ENTERPRISE_ADDRESS_REGION_INVALID(1_001_006_003, "行政区划无效"),
     ENTERPRISE_ADDRESS_STATUS_INVALID(1_001_006_004, "地址状态无效"),
-    ENTERPRISE_PROFILE_NAME_REQUIRED(1_001_006_005, "企业名称不能为空");
+    ENTERPRISE_PROFILE_NAME_REQUIRED(1_001_006_005, "企业名称不能为空"),
+    ENTERPRISE_LOGO_INVALID(1_001_006_006, "企业头像文件无效");
 
     private final Integer code;
     private final String msg;

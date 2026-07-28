@@ -11,6 +11,8 @@ public class EnterpriseProfileRespVO {
     private String scale;
     /** V1 fixed display value. */
     private String dataResidency;
+    /** infra file id as string; null when unset */
+    private String logoFileId;
     private String contactName;
     private String contactEmail;
     private String contactMobile;

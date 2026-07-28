@@ -1,23 +1,37 @@
 package com.relayflow.module.system.service.enterprise;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.infra.api.file.FileApi;
+import com.relayflow.module.infra.api.file.dto.FileRespDTO;
 import com.relayflow.module.infra.api.geo.GeoRegionApi;
 import com.relayflow.module.infra.api.geo.dto.GeoRegionDTO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressSaveReqVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressStatusReqVO;
+import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseOverviewRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseProfileRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseProfileUpdateReqVO;
+import com.relayflow.module.system.dal.dataobject.SysDeptDO;
+import com.relayflow.module.system.dal.dataobject.SysRoleDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantAddressDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
+import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
+import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
+import com.relayflow.module.system.dal.mapper.SysDeptMapper;
+import com.relayflow.module.system.dal.mapper.SysRoleMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantAddressMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import com.relayflow.module.system.enums.RoleType;
+import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,19 +43,26 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class EnterpriseServiceImpl implements EnterpriseService {
 
     private static final String DATA_RESIDENCY_CN = "中国大陆";
+    private static final String SUPER_ADMIN_CODE = "super_admin";
     private static final Set<String> ADDRESS_TYPES = Set.of("JOB", "INTERVIEW", "STORE");
     private static final Set<String> ADDRESS_STATUSES = Set.of("ENABLED", "DISABLED");
 
     private final TenantService tenantService;
     private final SysTenantMapper tenantMapper;
     private final SysTenantAddressMapper addressMapper;
+    private final SysTenantUserMapper tenantUserMapper;
+    private final SysDeptMapper deptMapper;
+    private final SysRoleMapper roleMapper;
+    private final SysUserRoleMapper userRoleMapper;
     private final GeoRegionApi geoRegionApi;
+    private final FileApi fileApi;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -63,12 +84,32 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         tenant.setName(name);
         tenant.setIndustry(blankToNull(request.getIndustry()));
         tenant.setScale(blankToNull(request.getScale()));
+        tenant.setLogoFileId(resolveLogoFileId(request.getLogoFileId(), tenantId));
         tenant.setContactName(blankToNull(request.getContactName()));
         tenant.setContactEmail(blankToNull(request.getContactEmail()));
         tenant.setContactMobile(blankToNull(request.getContactMobile()));
         tenant.setContactLandline(blankToNull(request.getContactLandline()));
         tenantMapper.updateById(tenant);
         return toProfile(tenantService.getTenant(tenantId));
+    }
+
+    @Override
+    public EnterpriseOverviewRespVO getOverview() {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        SysTenantDO tenant = tenantService.getTenant(tenantId);
+
+        EnterpriseOverviewRespVO vo = new EnterpriseOverviewRespVO();
+        vo.setCode(tenant.getCode());
+        vo.setName(tenant.getName());
+        vo.setLogoFileId(tenant.getLogoFileId() == null ? null : String.valueOf(tenant.getLogoFileId()));
+        vo.setMemberCount(tenantUserMapper.selectCount(Wrappers.<SysTenantUserDO>lambdaQuery()
+                .eq(SysTenantUserDO::getTenantId, tenantId)
+                .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE)));
+        vo.setDeptCount(deptMapper.selectCount(Wrappers.<SysDeptDO>lambdaQuery()
+                .eq(SysDeptDO::getTenantId, tenantId)));
+        vo.setSuperAdminCount(countUsersByRoleCodes(tenantId, Set.of(SUPER_ADMIN_CODE)));
+        vo.setSubAdminCount(countUsersByRoleType(tenantId, RoleType.CUSTOM));
+        return vo;
     }
 
     @Override
@@ -161,6 +202,55 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         addressMapper.deleteById(id);
     }
 
+    private Long countUsersByRoleCodes(Long tenantId, Set<String> codes) {
+        List<SysRoleDO> roles = roleMapper.selectList(Wrappers.<SysRoleDO>lambdaQuery()
+                .eq(SysRoleDO::getTenantId, tenantId)
+                .in(SysRoleDO::getCode, codes));
+        return countDistinctUsers(tenantId, roles);
+    }
+
+    private Long countUsersByRoleType(Long tenantId, RoleType roleType) {
+        List<SysRoleDO> roles = roleMapper.selectList(Wrappers.<SysRoleDO>lambdaQuery()
+                .eq(SysRoleDO::getTenantId, tenantId)
+                .eq(SysRoleDO::getRoleType, roleType));
+        return countDistinctUsers(tenantId, roles);
+    }
+
+    private Long countDistinctUsers(Long tenantId, List<SysRoleDO> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return 0L;
+        }
+        Set<Long> roleIds = roles.stream().map(SysRoleDO::getId).collect(Collectors.toSet());
+        List<SysUserRoleDO> bindings = userRoleMapper.selectList(Wrappers.<SysUserRoleDO>lambdaQuery()
+                .eq(SysUserRoleDO::getTenantId, tenantId)
+                .in(SysUserRoleDO::getRoleId, roleIds));
+        return bindings.stream().map(SysUserRoleDO::getUserId).distinct().count();
+    }
+
+    private Long resolveLogoFileId(String raw, Long tenantId) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        Long fileId;
+        try {
+            fileId = Long.parseLong(raw.trim());
+        } catch (NumberFormatException ex) {
+            throw new ServiceException(ErrorCodeConstants.ENTERPRISE_LOGO_INVALID);
+        }
+        try {
+            FileRespDTO file = fileApi.getFile(fileId);
+            if (file == null || file.getTenantId() == null || !file.getTenantId().equals(tenantId)) {
+                throw new ServiceException(ErrorCodeConstants.ENTERPRISE_LOGO_INVALID);
+            }
+            return fileId;
+        } catch (ServiceException ex) {
+            if (ErrorCodeConstants.ENTERPRISE_LOGO_INVALID.getCode().equals(ex.getCode())) {
+                throw ex;
+            }
+            throw new ServiceException(ErrorCodeConstants.ENTERPRISE_LOGO_INVALID);
+        }
+    }
+
     private SysTenantAddressDO requireAddress(Long id) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         SysTenantAddressDO row = addressMapper.selectById(id);
@@ -228,6 +318,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         vo.setIndustry(tenant.getIndustry());
         vo.setScale(tenant.getScale());
         vo.setDataResidency(DATA_RESIDENCY_CN);
+        vo.setLogoFileId(tenant.getLogoFileId() == null ? null : String.valueOf(tenant.getLogoFileId()));
         vo.setContactName(tenant.getContactName());
         vo.setContactEmail(tenant.getContactEmail());
         vo.setContactMobile(tenant.getContactMobile());

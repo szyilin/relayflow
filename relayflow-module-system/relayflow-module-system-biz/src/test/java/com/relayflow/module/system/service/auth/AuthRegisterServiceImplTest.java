@@ -15,6 +15,7 @@ import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantBootstrapService;
+import com.relayflow.module.system.service.tenant.TenantCodeGenerator;
 import com.relayflow.module.system.service.tenant.TenantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,8 @@ class AuthRegisterServiceImplTest {
     private TenantService tenantService;
     @Mock
     private TenantBootstrapService tenantBootstrapService;
+    @Mock
+    private TenantCodeGenerator tenantCodeGenerator;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -137,6 +140,7 @@ class AuthRegisterServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(invited);
         when(tenantUserMapper.selectCount(any())).thenReturn(0L, 0L);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+        when(tenantCodeGenerator.nextUniqueCode()).thenReturn("AB2CD3EF4GH");
         doAnswer(invocation -> {
             SysTenantDO tenant = invocation.getArgument(0);
             tenant.setId(200001L);
@@ -175,6 +179,7 @@ class AuthRegisterServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(null);
         lenient().when(userMapper.selectCount(any())).thenReturn(0L);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
+        when(tenantCodeGenerator.nextUniqueCode()).thenReturn("AB2CD3EF4GH");
         doAnswer(invocation -> {
             SysTenantDO tenant = invocation.getArgument(0);
             tenant.setId(200001L);

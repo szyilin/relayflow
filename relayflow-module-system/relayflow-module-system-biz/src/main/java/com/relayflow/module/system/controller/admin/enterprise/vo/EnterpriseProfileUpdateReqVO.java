@@ -11,6 +11,8 @@ public class EnterpriseProfileUpdateReqVO {
 
     private String industry;
     private String scale;
+    /** infra file id as string; null/blank clears logo */
+    private String logoFileId;
     private String contactName;
     private String contactEmail;
     private String contactMobile;

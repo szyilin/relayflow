@@ -1,5 +1,6 @@
 package com.relayflow.module.system.dal.dataobject;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.BaseDO;
@@ -71,4 +72,10 @@ public class SysTenantDO extends BaseDO {
      */
     @TableField("contact_landline")
     private String contactLandline;
+
+    /**
+     * Enterprise logo infra_file.id
+     */
+    @TableField(value = "logo_file_id", updateStrategy = FieldStrategy.ALWAYS)
+    private Long logoFileId;
 }

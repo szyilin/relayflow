@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
@@ -18,6 +18,7 @@ import {
   ENTERPRISE_SCALE_OPTIONS,
   useEnterpriseStore
 } from '../../../../stores/enterprise'
+import { resolveAvatarUrl } from '../../../../utils/avatar'
 
 type EnterpriseTab = 'info' | 'address'
 
@@ -45,11 +46,14 @@ const profileForm = reactive<EnterpriseProfileUpdate>({
   name: '',
   industry: null,
   scale: null,
+  logoFileId: null,
   contactName: null,
   contactEmail: null,
   contactMobile: null,
   contactLandline: null
 })
+
+const logoInput = useTemplateRef<HTMLInputElement>('logoInput')
 
 const addressForm = reactive({
   types: [] as EnterpriseAddressType[],
@@ -118,6 +122,9 @@ const enterpriseNameInitial = computed(() => {
   return name ? name.slice(0, 1) : '企'
 })
 
+const enterpriseLogoUrl = computed(() =>
+  resolveAvatarUrl(enterpriseStore.profile.logoFileId))
+
 const addressTableRows = computed<AddressTableRow[]>(() =>
   enterpriseStore.addresses.map(item => ({
     ...item,
@@ -151,6 +158,7 @@ function applyProfileFromStore() {
   profileForm.name = p.name
   profileForm.industry = p.industry
   profileForm.scale = p.scale
+  profileForm.logoFileId = p.logoFileId
   profileForm.contactName = p.contactName
   profileForm.contactEmail = p.contactEmail
   profileForm.contactMobile = p.contactMobile
@@ -221,7 +229,8 @@ async function saveInfo() {
   try {
     await enterpriseStore.saveProfile({
       ...profileForm,
-      name: profileForm.name.trim()
+      name: profileForm.name.trim(),
+      logoFileId: enterpriseStore.profile.logoFileId
     })
     applyProfileFromStore()
     infoEditing.value = false
@@ -234,6 +243,37 @@ async function saveInfo() {
     toast.add({
       title: '保存失败',
       description: enterpriseStore.lastError ?? '请检查表单',
+      color: 'error'
+    })
+  }
+}
+
+function pickLogo() {
+  if (!canUpdate.value) {
+    return
+  }
+  logoInput.value?.click()
+}
+
+async function onLogoSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !canUpdate.value) {
+    return
+  }
+  if (!file.type.startsWith('image/')) {
+    toast.add({ title: '请选择图片文件', color: 'warning' })
+    return
+  }
+  try {
+    await enterpriseStore.uploadLogo(file)
+    applyProfileFromStore()
+    toast.add({ title: '企业头像已更新', color: 'success' })
+  } catch {
+    toast.add({
+      title: '上传失败',
+      description: enterpriseStore.lastError ?? '请稍后重试',
       color: 'error'
     })
   }
@@ -398,8 +438,41 @@ meta:
                   </h3>
 
                   <div class="flex flex-col gap-4 rounded-lg bg-elevated/60 p-4 ring-1 ring-default sm:flex-row sm:items-center">
-                    <div class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xl font-semibold text-primary">
-                      {{ enterpriseNameInitial }}
+                    <div class="relative shrink-0">
+                      <button
+                        type="button"
+                        class="group relative size-14 overflow-hidden rounded-lg bg-primary/15 text-xl font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        :disabled="!canUpdate || enterpriseStore.logoUploading"
+                        :title="canUpdate ? '更换企业头像' : undefined"
+                        @click="pickLogo"
+                      >
+                        <UAvatar
+                          v-if="enterpriseLogoUrl"
+                          :src="enterpriseLogoUrl"
+                          :alt="enterpriseStore.profile.name"
+                          size="3xl"
+                          class="size-14 rounded-lg"
+                        />
+                        <span
+                          v-else
+                          class="flex size-full items-center justify-center"
+                        >
+                          {{ enterpriseNameInitial }}
+                        </span>
+                        <span
+                          v-if="canUpdate"
+                          class="absolute inset-0 flex items-center justify-center bg-black/45 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          {{ enterpriseStore.logoUploading ? '上传中' : '更换' }}
+                        </span>
+                      </button>
+                      <input
+                        ref="logoInput"
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        @change="onLogoSelected"
+                      >
                     </div>
 
                     <div class="min-w-0 flex-1 space-y-3">
@@ -424,7 +497,7 @@ meta:
                           <p class="text-xs text-muted">
                             企业编号
                           </p>
-                          <p class="text-sm text-default">
+                          <p class="font-mono text-sm text-default">
                             {{ displayText(enterpriseStore.profile.code) }}
                           </p>
                         </div>
@@ -434,6 +507,9 @@ meta:
                           </p>
                           <p class="text-sm text-default">
                             {{ displayText(enterpriseStore.profile.dataResidency) }}
+                          </p>
+                          <p class="text-xs text-muted">
+                            V1 固定中国大陆，不可配置
                           </p>
                         </div>
                       </div>

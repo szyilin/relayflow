@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { getGeoChildren, type GeoRegionNode } from '../api/admin/geo'
 import {
   createEnterpriseAddress,
+  getEnterpriseOverview,
   getEnterpriseProfile,
   listEnterpriseAddresses,
   updateEnterpriseAddress,
@@ -14,9 +15,11 @@ import {
   type EnterpriseAddressStatus,
   type EnterpriseAddressType,
   type EnterpriseAddressUpdate,
+  type EnterpriseOverview,
   type EnterpriseProfile,
   type EnterpriseProfileUpdate
 } from '../api/admin/enterprise'
+import { confirmUpload, createUploadSession } from '../api/admin/file'
 import { ApiError } from '../api/request'
 
 export const ENTERPRISE_INDUSTRY_OPTIONS = [
@@ -56,6 +59,7 @@ const EMPTY_PROFILE: EnterpriseProfile = {
   industry: null,
   scale: null,
   dataResidency: '中国大陆',
+  logoFileId: null,
   contactName: null,
   contactEmail: null,
   contactMobile: null,
@@ -96,10 +100,13 @@ function toErrorMessage(error: unknown, fallback: string): string {
 
 export const useEnterpriseStore = defineStore('enterprise', () => {
   const profile = ref<EnterpriseProfile>(cloneProfile(EMPTY_PROFILE))
+  const overview = ref<EnterpriseOverview | null>(null)
   const addresses = ref<EnterpriseAddress[]>([])
   const profileLoading = ref(false)
+  const overviewLoading = ref(false)
   const addressesLoading = ref(false)
   const profileSaving = ref(false)
+  const logoUploading = ref(false)
   const addressSaving = ref(false)
   const lastError = ref<string | null>(null)
   const profileHydrated = ref(false)
@@ -124,6 +131,20 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     }
   }
 
+  async function loadOverview() {
+    overviewLoading.value = true
+    lastError.value = null
+    try {
+      overview.value = await getEnterpriseOverview()
+      return overview.value
+    } catch (error) {
+      lastError.value = toErrorMessage(error, '加载概览统计失败')
+      throw error
+    } finally {
+      overviewLoading.value = false
+    }
+  }
+
   async function saveProfile(payload: EnterpriseProfileUpdate) {
     profileSaving.value = true
     lastError.value = null
@@ -136,6 +157,64 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
       throw error
     } finally {
       profileSaving.value = false
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    if (!file.size) {
+      throw new ApiError(0, '不能上传空文件')
+    }
+    logoUploading.value = true
+    lastError.value = null
+    try {
+      const session = await createUploadSession({
+        filename: file.name,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        accessLevel: 'public'
+      })
+      const response = await fetch(session.uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: session.headers
+      })
+      if (!response.ok) {
+        throw new ApiError(0, `头像上传失败（HTTP ${response.status}）`)
+      }
+      const etag = response.headers.get('ETag')
+        ?? response.headers.get('etag')
+        ?? undefined
+      const confirmed = await confirmUpload({
+        uploadId: session.uploadId,
+        etag,
+        size: file.size
+      })
+      const current = profile.value
+      const data = await updateEnterpriseProfile({
+        name: current.name,
+        industry: current.industry,
+        scale: current.scale,
+        logoFileId: String(confirmed.fileId),
+        contactName: current.contactName,
+        contactEmail: current.contactEmail,
+        contactMobile: current.contactMobile,
+        contactLandline: current.contactLandline
+      })
+      profile.value = cloneProfile(data)
+      if (overview.value) {
+        overview.value = {
+          ...overview.value,
+          logoFileId: data.logoFileId,
+          name: data.name,
+          code: data.code
+        }
+      }
+      return data
+    } catch (error) {
+      lastError.value = toErrorMessage(error, '企业头像上传失败')
+      throw error
+    } finally {
+      logoUploading.value = false
     }
   }
 
@@ -211,6 +290,7 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
 
   function resetForTenantSwitch() {
     profile.value = cloneProfile(EMPTY_PROFILE)
+    overview.value = null
     addresses.value = []
     profileHydrated.value = false
     addressesHydrated.value = false
@@ -219,10 +299,13 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
 
   return {
     profile,
+    overview,
     addresses,
     profileLoading,
+    overviewLoading,
     addressesLoading,
     profileSaving,
+    logoUploading,
     addressSaving,
     lastError,
     profileHydrated,
@@ -230,7 +313,9 @@ export const useEnterpriseStore = defineStore('enterprise', () => {
     industryLabel,
     scaleLabel,
     loadProfile,
+    loadOverview,
     saveProfile,
+    uploadLogo,
     loadAddresses,
     createAddress,
     saveAddress,

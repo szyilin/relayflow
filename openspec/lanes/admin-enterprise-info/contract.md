@@ -25,11 +25,12 @@
 
 ```json
 {
-  "code": "ENT20250728001",
+  "code": "RFDEMO7K9X2",
   "name": "RelayFlow 演示企业",
   "industry": "INTERNET_IT",
   "scale": "SIZE_10_49",
   "dataResidency": "中国大陆",
+  "logoFileId": null,
   "contactName": "张经理",
   "contactEmail": "contact@example.com",
   "contactMobile": "13800138000",
@@ -39,11 +40,12 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `code` | string | 企业编号；创建时生成，**只读** |
+| `code` | string | 企业编号；创建时生成（11 位无歧义大写字母数字），**只读** |
 | `name` | string | 企业名称 |
 | `industry` | string \| null | 行业 code（见前端枚举） |
 | `scale` | string \| null | 规模 code |
 | `dataResidency` | string | V1 固定「中国大陆」，只读 |
+| `logoFileId` | string \| null | 企业头像 infra 公开文件 id |
 | `contactName` / `contactEmail` / `contactMobile` / `contactLandline` | string \| null | 联系人 |
 
 ### PUT /admin-api/system/enterprise/profile
@@ -55,6 +57,7 @@
   "name": "RelayFlow 演示企业",
   "industry": "INTERNET_IT",
   "scale": "SIZE_10_49",
+  "logoFileId": "1234567890123456789",
   "contactName": "张经理",
   "contactEmail": "contact@example.com",
   "contactMobile": "13800138000",
@@ -65,7 +68,33 @@
 **Response `data`**：同 GET。
 
 - 请求体携带 `code` 变更时服务端 MUST 忽略或拒绝。
+- `logoFileId` 为空或省略语义：空/空白清除头像；前端保存档案时 MUST 回传当前 `logoFileId` 以免误清。
 - V1 **不实现**企业域名、注销企业。
+
+### GET /admin-api/system/enterprise/overview
+
+鉴权同 profile GET。用于管理端概览卡。
+
+**Response `data`**
+
+```json
+{
+  "code": "RFDEMO7K9X2",
+  "name": "RelayFlow 演示企业",
+  "logoFileId": null,
+  "memberCount": 2,
+  "deptCount": 1,
+  "superAdminCount": 1,
+  "subAdminCount": 0
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `memberCount` | ACTIVE 成员数 |
+| `deptCount` | 未删除部门数 |
+| `superAdminCount` | 绑定 `super_admin` 的去重用户数 |
+| `subAdminCount` | 绑定 CUSTOM 角色的去重用户数 |
 
 ## 企业地址
 

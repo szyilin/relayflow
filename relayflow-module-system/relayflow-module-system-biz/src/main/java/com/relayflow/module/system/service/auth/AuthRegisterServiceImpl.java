@@ -19,6 +19,7 @@ import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantBootstrapService;
+import com.relayflow.module.system.service.tenant.TenantCodeGenerator;
 import com.relayflow.module.system.service.tenant.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
@@ -29,7 +30,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +44,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     private final TenantProperties tenantProperties;
     private final TenantService tenantService;
     private final TenantBootstrapService tenantBootstrapService;
+    private final TenantCodeGenerator tenantCodeGenerator;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     /** Breaks register → ImBotApi → ConversationService → UserApi cycle; do not pile more @Lazy without revisit. */
@@ -141,7 +142,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
 
     private SysTenantDO createTenant(String tenantName, Long ownerUserId, SysUserDO owner) {
         SysTenantDO tenant = new SysTenantDO();
-        tenant.setCode(generateTenantCode());
+        tenant.setCode(tenantCodeGenerator.nextUniqueCode());
         tenant.setName(tenantName);
         tenant.setStatus(0);
         tenant.setOwnerUserId(ownerUserId);
@@ -201,7 +202,4 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         return summary;
     }
 
-    private String generateTenantCode() {
-        return "t_" + UUID.randomUUID().toString().replace("-", "");
-    }
 }

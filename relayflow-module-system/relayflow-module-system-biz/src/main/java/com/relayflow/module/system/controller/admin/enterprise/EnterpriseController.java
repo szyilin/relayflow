@@ -4,6 +4,7 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressSaveReqVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseAddressStatusReqVO;
+import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseOverviewRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseProfileRespVO;
 import com.relayflow.module.system.controller.admin.enterprise.vo.EnterpriseProfileUpdateReqVO;
 import com.relayflow.module.system.service.enterprise.EnterpriseService;
@@ -44,6 +45,12 @@ public class EnterpriseController {
     public CommonResult<EnterpriseProfileRespVO> updateProfile(
             @Valid @RequestBody EnterpriseProfileUpdateReqVO request) {
         return CommonResult.success(enterpriseService.updateProfile(request));
+    }
+
+    @PreAuthorize("hasAuthority('system:enterprise:query')")
+    @GetMapping("/overview")
+    public CommonResult<EnterpriseOverviewRespVO> getOverview() {
+        return CommonResult.success(enterpriseService.getOverview());
     }
 
     @PreAuthorize("hasAuthority('system:enterprise:query')")
