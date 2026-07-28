@@ -99,7 +99,7 @@
 | **admin-llm-provider-v1** | **done** | **ui_ready** | `/admin-api/agent/llm/**` · `/admin/infra/llm` | [contract](../../openspec/lanes/admin-llm-provider/contract.md) | 密钥 AesGcm；OpenAI 兼容；供 modelRef |
 | **agent-module-scaffold** | **done** | n/a | `module-agent` + Spring AI 1.1.8 | [change](../../openspec/changes/agent-module-scaffold/proposal.md) | `[平台]` 已 compile |
 | **agent-runtime-core-v1** | **done** | — | `/app-api/agent/def/**` · `/app-api/agent/session/**` | [contract](../../openspec/lanes/workspace-agent/contract.md) | Spring AI Runtime；Session ≠ IM |
-| **workspace-agent-web** | — | planned | `/app` 智能体壳 | 待起草 lane | 前端优先；Session ≠ messages |
+| **workspace-agent-web** | — | **ui_ready** | `/app/agents` Mock 壳 | [contract](../../openspec/lanes/workspace-agent/contract.md) | 前端优先；Session ≠ messages；integrate 去 Mock |
 | **workspace-agent-integrate** | — | planned | 联调 | — | 去 Mock |
 | **agent-skill-catalog-v1** | planned | — | Skill → Tool → `*-api` | 骨架 | 内置技能 |
 | **im-bot-agent-carrier-v1** | planned | — | Bot 供给 API | 骨架 | Agent 生命周期载体 |

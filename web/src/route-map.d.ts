@@ -171,6 +171,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/app/agents/': RouteRecordInfo<
+      '/app/agents/',
+      '/app/agents',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/app/calendar/': RouteRecordInfo<
       '/app/calendar/',
       '/app/calendar',
@@ -430,6 +437,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/app/index.vue': {
       routes:
         | '/app/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/app/agents/index.vue': {
+      routes:
+        | '/app/agents/'
       views:
         | never
       pathParamNames:

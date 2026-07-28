@@ -28,6 +28,12 @@ const EXTRA_RAIL: Omit<WorkspaceRailItem, 'badge'>[] = [
     to: '/app/tasks'
   },
   {
+    id: 'agents',
+    label: '智能体',
+    icon: 'i-lucide-bot',
+    to: '/app/agents'
+  },
+  {
     id: 'contacts',
     label: '通讯录',
     icon: 'i-lucide-users',
@@ -51,9 +57,9 @@ export function useWorkspaceNav() {
         badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined
       }))
 
-    // Preserve rail order: messages, calendar, meeting, tasks, docs, contacts
+    // Preserve rail order: messages, calendar, meeting, tasks, agents, docs, contacts
     const byId = new Map([...fromProducts, ...EXTRA_RAIL].map(item => [item.id, item]))
-    const order = ['messages', 'calendar', 'meeting', 'tasks', 'docs', 'contacts'] as const
+    const order = ['messages', 'calendar', 'meeting', 'tasks', 'agents', 'docs', 'contacts'] as const
     return order.flatMap((id) => {
       const item = byId.get(id)
       return item ? [item] : []

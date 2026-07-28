@@ -1,26 +1,45 @@
 ## Context
 
-前端优先；对标 aily 壳层（新任务/历史/智能体）。
+前端优先；对标飞书 aily 壳层（新任务 / 智能体 / 历史任务 + 主区对话）。
+契约真源已由 `agent-runtime-core-v1` 定稿：`openspec/lanes/workspace-agent/contract.md`。
 
 ## Goals / Non-Goals
 
-**Goals:** 可演示 UI + contract 草案。
+**Goals**
 
-**Non-Goals:** 真 API、消息列表混入 Session。
+- Rail 入口 `/app/agents`
+- 左栏：新任务、智能体列表/编辑、历史会话
+- 主区：新任务落地 + Session 聊天（Mock）
+- `api/app/agent.ts` 按 contract 预埋；store 临时 Mock
+
+**Non-Goals**
+
+- 调用真 API / Runtime（属 `workspace-agent-integrate`）
+- 会话写入或展示在 `/app/messages`
+- Skill / Bot 推送 / 自动化
 
 ## Decisions
 
-### D1 — 独立路由区
-`/app/agents` 或同等（深化定）；不进 messages。
+### D1 — 路由
 
-### D2 — Mock 仅 store 内
-禁止复活全局 mocks 目录约定。
+`/app/agents`（`pages/app/agents/index.vue`），`layout: workspace`。
+
+### D2 — 导航
+
+`useWorkspaceNav` EXTRA_RAIL：`agents`，顺序在 tasks 与 docs 之间。
+
+### D3 — Mock 仅 store
+
+`stores/agent.ts` 内 `useMock=true`；禁止页面 `import mocks/`。
+
+### D4 — Session ≠ IM
+
+UI 文案与结构明确会话仅在本页；不触碰 IM store。
 
 ## Risks / Trade-offs
 
-[UI 与 API 漂移] → lane contract 为真源
+[Mock 与 API 形状漂移] → 以 lane contract 为真源；integrate 换 store 实现。
 
 ## Open Questions
 
-- 导航放 Rail 何处？
-- 是否一期做自动化入口灰态？
+- 一期不做自动化入口（灰态留给 `agent-automation-v1`）。
