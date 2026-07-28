@@ -58,6 +58,15 @@ relayflow:
     sender-type: local
     allowed-origins: "*"
     heartbeat-ttl-seconds: 60
+  rtc:
+    livekit:
+      # Browser connects here directly (not via Java). Compose maps 7880.
+      url: ${RELAYFLOW_LIVEKIT_URL:ws://127.0.0.1:7880}
+      api-key: ${RELAYFLOW_LIVEKIT_API_KEY:devkey}
+      api-secret: ${RELAYFLOW_LIVEKIT_API_SECRET:secret}
+      # Webhook Authorization: Bearer <secret>; defaults to api-secret when blank
+      webhook-secret: ${RELAYFLOW_LIVEKIT_WEBHOOK_SECRET:}
+      token-ttl-seconds: ${RELAYFLOW_LIVEKIT_TOKEN_TTL_SECONDS:7200}
     token-query-param: token
   task:
     due-remind-window: 24h

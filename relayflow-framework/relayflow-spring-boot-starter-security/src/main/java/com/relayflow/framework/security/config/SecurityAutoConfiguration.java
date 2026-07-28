@@ -64,6 +64,7 @@ public class SecurityAutoConfiguration {
                                 "/admin-api/system/tenant/default",
                                 "/app-api/system/auth/register",
                                 "/app-api/infra/file/public/**",
+                                "/app-api/rtc/webhook",
                                 "/infra/ws"
                         ).permitAll()
                         .anyRequest().authenticated())

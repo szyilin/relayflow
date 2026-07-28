@@ -117,6 +117,21 @@ services:
       retries: 12
       start_period: 50s
 
+  # LiveKit SFU — media plane for video meetings / future IM calls.
+  # Browser connects to ws://localhost:7880 directly; Java only issues join tokens.
+  # Production: configure public IP / TURN (coturn). See docs/dev/rtc-livekit.md
+  livekit:
+    image: livekit/livekit-server:v1.8.4
+    container_name: relayflow-livekit
+    restart: unless-stopped
+    command: ["--dev", "--bind", "0.0.0.0", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
+    ports:
+      - "${LIVEKIT_PORT:-7880}:7880"
+      - "${LIVEKIT_RTC_PORT:-7881}:7881"
+      - "${LIVEKIT_UDP_PORT:-7882}:7882/udp"
+    environment:
+      LIVEKIT_KEYS: "${RELAYFLOW_LIVEKIT_API_KEY:-devkey}: ${RELAYFLOW_LIVEKIT_API_SECRET:-secret}"
+
 volumes:
   postgres_data:
   redis_data:

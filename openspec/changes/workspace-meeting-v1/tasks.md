@@ -22,12 +22,12 @@
 
 ## 3. rtc-media-api（[平台]）
 
-- [ ] 3.1 新建 `relayflow-module-rtc-api` / `rtc-biz`；server 加载；BOM 登记 `io.livekit:livekit-server`
-- [ ] 3.2 Flyway：`rtc_session`；实现 `RtcSessionApi`（ensure/create、issueJoinToken、end、get）+ purpose/owner
-- [ ] 3.3 官方 Server SDK 签发 JWT；配置 `relayflow.rtc.livekit.*`；密钥不下发前端
-- [ ] 3.4 Webhook 验签入口（无用户 JWT）；只更新 `rtc_*`；幂等；不写 `mtg_*`
-- [ ] 3.5 Compose 增加 LiveKit；文档补充 TURN/内网与「媒体不经 Java」
-- [ ] 3.6 `./mvnw -pl relayflow-server -am compile`；本地可起 LiveKit
+- [x] 3.1 新建 `relayflow-module-rtc-api` / `rtc-biz`；server 加载；BOM 登记 `io.livekit:livekit-server`
+- [x] 3.2 Flyway：`rtc_session`；实现 `RtcSessionApi`（ensure/create、issueJoinToken、end、get）+ purpose/owner
+- [x] 3.3 官方 Server SDK 签发 JWT；配置 `relayflow.rtc.livekit.*`；密钥不下发前端
+- [x] 3.4 Webhook 验签入口（无用户 JWT）；只更新 `rtc_*`；幂等；不写 `mtg_*`
+- [x] 3.5 Compose 增加 LiveKit；文档补充 TURN/内网与「媒体不经 Java」
+- [x] 3.6 `./mvnw -pl relayflow-server -am compile`；本地可起 LiveKit
 
 ## 4. meeting-api（含日历跨域 API）
 

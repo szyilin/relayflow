@@ -50,6 +50,7 @@
                 <module>relayflow-module-task</module>
                 <module>relayflow-module-calendar</module>
                 <module>relayflow-module-docs</module>
+                <module>relayflow-module-rtc</module>
                 <module>relayflow-server</module>
                 <module>relayflow-tools</module>
             </modules>
