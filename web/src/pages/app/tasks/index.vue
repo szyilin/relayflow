@@ -6,18 +6,17 @@ import type { TaskListRole } from '../../../api/app/taskList'
 import TaskBoardView from '../../../components/workspace/TaskBoardView.vue'
 import TaskCustomFieldsModal from '../../../components/workspace/TaskCustomFieldsModal.vue'
 import TaskDetailPanel from '../../../components/workspace/TaskDetailPanel.vue'
+import TaskListView from '../../../components/workspace/TaskListView.vue'
 import TaskViewToolbar from '../../../components/workspace/TaskViewToolbar.vue'
-import WorkspaceOwnerChip from '../../../components/workspace/WorkspaceOwnerChip.vue'
 import WsDateTimeInput from '../../../components/workspace/WsDateTimeInput.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 import { useAuthStore } from '../../../stores/auth'
 import { useContactsStore } from '../../../stores/contacts'
-import { isOverdueTask, useTasksStore, type TasksNavView } from '../../../stores/tasks'
+import { useTasksStore, type TasksNavView } from '../../../stores/tasks'
 import {
   partitionByGroupBy
 } from '../../../stores/tasks/groupByLocal'
-import { resolveAssigneeIds } from '../../../stores/tasks/assigneeLocal'
 import { useMineGroupsStore } from '../../../stores/tasks/mineGroupsStore'
 import { useListGroupsStore } from '../../../stores/tasks/listGroupsStore'
 import {
@@ -706,18 +705,6 @@ watch(() => route.query.listId, () => {
   void applyListIdFromRoute()
 })
 
-function formatDue(iso?: string | null) {
-  if (!iso) {
-    return undefined
-  }
-  return new Date(iso).toLocaleString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 function formatActivityTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN', {
     month: 'short',
@@ -725,25 +712,6 @@ function formatActivityTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit'
   })
-}
-
-function subtaskHint(task: { subtaskDoneCount?: number, subtaskTotal?: number }) {
-  const total = task.subtaskTotal ?? 0
-  if (!total) {
-    return null
-  }
-  return `${task.subtaskDoneCount ?? 0}/${total}`
-}
-
-const ASSIGNEE_CHIP_LIMIT = 3
-
-function assigneeChipIds(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
-  return resolveAssigneeIds(task).slice(0, ASSIGNEE_CHIP_LIMIT)
-}
-
-function assigneeOverflowCount(task: { assigneeId?: string | null, assigneeIds?: string[] }) {
-  const total = resolveAssigneeIds(task).length
-  return total > ASSIGNEE_CHIP_LIMIT ? total - ASSIGNEE_CHIP_LIMIT : 0
 }
 
 function overdueBadgeLabel(count: number, capped: boolean): string {
@@ -1426,8 +1394,8 @@ meta:
         </button>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-y-auto p-5">
-        <div v-if="!inListContext && tasksStore.navView === 'activity'">
+      <div class="min-h-0 flex-1 overflow-y-auto">
+        <div v-if="!inListContext && tasksStore.navView === 'activity'" class="p-5">
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>
@@ -1459,113 +1427,27 @@ meta:
           />
         </div>
 
-        <div v-else-if="tab === 'list'">
+        <div v-else-if="tab === 'list'" class="min-h-full">
           <div v-if="tasksStore.loading" class="flex justify-center py-12">
             <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
           </div>
-          <div v-else-if="displayItems.length" class="mx-auto max-w-3xl space-y-4">
-            <section
-              v-for="bucket in displayBuckets"
-              :key="bucket.key"
-              class="space-y-2"
-            >
-              <header
-                v-if="showGroupHeaders"
-                class="flex items-center justify-between px-1 pt-1"
-              >
-                <h2 class="text-sm font-medium text-[var(--ws-text)]">
-                  {{ bucket.label }}
-                </h2>
-                <div class="flex items-center gap-1">
-                  <span class="text-xs text-[var(--ws-text-muted)]">
-                    {{ bucket.items.length }}
-                  </span>
-                  <UButton
-                    v-if="deletableBucketKeys.includes(bucket.key)"
-                    color="neutral"
-                    variant="ghost"
-                    icon="i-lucide-trash-2"
-                    size="xs"
-                    aria-label="删除分组"
-                    @click="handleDeleteBucket(bucket.key)"
-                  />
-                </div>
-              </header>
-              <div
-                v-for="task in bucket.items"
-                :key="task.id"
-                role="button"
-                tabindex="0"
-                class="flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
-                :class="tasksStore.selectedId === task.id
-                  ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
-                  : 'border-[var(--ws-border-subtle)] bg-[var(--ws-panel-bg)] hover:bg-[var(--ws-rail-hover)]/40'"
-                @click="openTask(task.id)"
-                @keydown.enter.prevent="openTask(task.id)"
-              >
-                <UCheckbox
-                  v-if="showTaskActions"
-                  :model-value="task.status === 'DONE'"
-                  @click.stop
-                  @update:model-value="(value: boolean | 'indeterminate') => handleToggle(task.id, value === true)"
-                />
-                <div class="min-w-0 flex-1">
-                  <p
-                    class="font-medium"
-                    :class="task.status === 'DONE' ? 'line-through text-[var(--ws-text-muted)]' : ''"
-                  >
-                    {{ task.title }}
-                  </p>
-                  <p class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-[var(--ws-text-muted)]">
-                    <span
-                      v-if="viewConfigStore.isFieldVisible('dueTime') && formatDue(task.dueTime)"
-                      :class="isOverdueTask(task) ? 'font-medium text-red-600 dark:text-red-400' : ''"
-                    >
-                      {{ isOverdueTask(task) ? '已逾期' : '截止' }} {{ formatDue(task.dueTime) }}
-                    </span>
-                    <span v-if="viewConfigStore.isFieldVisible('status')">
-                      {{ task.status === 'DONE' ? '已完成' : '未完成' }}
-                    </span>
-                    <span
-                      v-if="viewConfigStore.isFieldVisible('assignee') && assigneeChipIds(task).length"
-                      class="inline-flex min-w-0 flex-wrap items-center gap-1"
-                      @click.stop
-                    >
-                      <span class="shrink-0">负责人</span>
-                      <WorkspaceOwnerChip
-                        v-for="uid in assigneeChipIds(task)"
-                        :key="uid"
-                        :user-id="uid"
-                        :display-name="assigneeBucketLabel(uid)"
-                      />
-                      <span
-                        v-if="assigneeOverflowCount(task)"
-                        class="text-[var(--ws-text-muted)]"
-                      >+{{ assigneeOverflowCount(task) }}</span>
-                    </span>
-                    <span v-if="subtaskHint(task)">子任务 {{ subtaskHint(task) }}</span>
-                  </p>
-                </div>
-                <UButton
-                  v-if="showTaskActions"
-                  color="neutral"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  size="xs"
-                  aria-label="删除"
-                  @click.stop="handleDelete(task.id)"
-                />
-              </div>
-              <p
-                v-if="showGroupHeaders && !bucket.items.length"
-                class="px-1 py-2 text-xs text-[var(--ws-text-muted)]"
-              >
-                暂无任务
-              </p>
-            </section>
+          <template v-else-if="displayItems.length">
+            <TaskListView
+              :buckets="displayBuckets"
+              :selected-id="tasksStore.selectedId"
+              :show-group-headers="showGroupHeaders"
+              :show-toggle="showTaskActions"
+              :show-delete="showTaskActions"
+              :deletable-bucket-keys="deletableBucketKeys"
+              :assignee-label="assigneeBucketLabel"
+              @open="openTask"
+              @toggle="({ taskId, done }) => handleToggle(taskId, done)"
+              @delete="handleDelete"
+              @delete-bucket="handleDeleteBucket"
+            />
             <div
               v-if="showListPagination"
-              class="flex items-center justify-between gap-3 pt-3 text-sm text-[var(--ws-text-muted)]"
+              class="flex items-center justify-between gap-3 px-5 py-3 text-sm text-[var(--ws-text-muted)]"
             >
               <span>共 {{ listTotal }} 条</span>
               <UPagination
@@ -1575,29 +1457,32 @@ meta:
                 @update:page="(p: number) => tasksStore.setListPage(p)"
               />
             </div>
-          </div>
+          </template>
           <UEmpty
             v-else
+            class="py-12"
             :icon="!inListContext && tasksStore.navView === 'following' ? 'i-lucide-eye' : 'i-lucide-list-todo'"
             :title="emptyTitle()"
             :description="emptyDescription()"
           />
         </div>
-        <TaskBoardView
-          v-else-if="tab === 'board' && (inListContext || showViewToolbar)"
-          :buckets="displayBuckets"
-          :can-drag="canDragGrouped"
-          :deletable-bucket-keys="deletableBucketKeys"
-          :selected-id="tasksStore.selectedId"
-          :loading="tasksStore.loading"
-          :show-toggle="showTaskActions"
-          @open="openTask"
-          @move="handleGroupMove"
-          @delete-bucket="handleDeleteBucket"
-          @toggle="({ taskId, done }) => handleToggle(taskId, done)"
-        />
+        <div v-else-if="tab === 'board' && (inListContext || showViewToolbar)" class="p-5">
+          <TaskBoardView
+            :buckets="displayBuckets"
+            :can-drag="canDragGrouped"
+            :deletable-bucket-keys="deletableBucketKeys"
+            :selected-id="tasksStore.selectedId"
+            :loading="tasksStore.loading"
+            :show-toggle="showTaskActions"
+            @open="openTask"
+            @move="handleGroupMove"
+            @delete-bucket="handleDeleteBucket"
+            @toggle="({ taskId, done }) => handleToggle(taskId, done)"
+          />
+        </div>
         <UEmpty
           v-else
+          class="py-12"
           icon="i-lucide-kanban-square"
           title="看板视图"
           description="切换到列表或打开有任务的入口"
