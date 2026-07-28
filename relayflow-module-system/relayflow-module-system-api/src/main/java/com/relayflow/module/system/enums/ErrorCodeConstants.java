@@ -54,7 +54,12 @@ public enum ErrorCodeConstants implements ErrorCode {
     ROLE_PERMISSION_EXCEED_PARENT(1_001_005_006, "角色权限不能超过上级角色"),
     ROLE_EXISTS_CHILDREN(1_001_005_007, "存在子角色，无法删除"),
     ROLE_EXISTS_USER(1_001_005_008, "角色已分配用户，无法删除"),
-    ROLE_SYSTEM_UPDATE_FORBIDDEN(1_001_005_009, "系统内置角色不可修改");
+    ROLE_SYSTEM_UPDATE_FORBIDDEN(1_001_005_009, "系统内置角色不可修改"),
+    ENTERPRISE_ADDRESS_NOT_FOUND(1_001_006_001, "企业地址不存在"),
+    ENTERPRISE_ADDRESS_TYPES_INVALID(1_001_006_002, "地址类型无效"),
+    ENTERPRISE_ADDRESS_REGION_INVALID(1_001_006_003, "行政区划无效"),
+    ENTERPRISE_ADDRESS_STATUS_INVALID(1_001_006_004, "地址状态无效"),
+    ENTERPRISE_PROFILE_NAME_REQUIRED(1_001_006_005, "企业名称不能为空");
 
     private final Integer code;
     private final String msg;

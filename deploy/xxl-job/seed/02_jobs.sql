@@ -34,6 +34,7 @@ SET
   executor_block_strategy = 'SERIAL_EXECUTION',
   glue_type = 'BEAN',
   author = 'relayflow',
+  trigger_status = 1,
   update_time = NOW(),
   job_group = g.id
 FROM xxl_job_group g

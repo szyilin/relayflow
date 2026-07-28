@@ -73,7 +73,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
             updateInvitedUser(user, mobile, password, nickname);
         }
 
-        SysTenantDO tenant = createTenant(tenantName, user.getId());
+        SysTenantDO tenant = createTenant(tenantName, user.getId(), user);
         TenantContextHolder.set(tenant.getId());
         createActiveMembership(tenant.getId(), user.getId());
         tenantBootstrapService.bootstrapOwner(tenant.getId(), user.getId());
@@ -139,12 +139,18 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
         }
     }
 
-    private SysTenantDO createTenant(String tenantName, Long ownerUserId) {
+    private SysTenantDO createTenant(String tenantName, Long ownerUserId, SysUserDO owner) {
         SysTenantDO tenant = new SysTenantDO();
         tenant.setCode(generateTenantCode());
         tenant.setName(tenantName);
         tenant.setStatus(0);
         tenant.setOwnerUserId(ownerUserId);
+        // Backfill contact fields available at registration time
+        if (owner != null) {
+            tenant.setContactName(StringUtils.hasText(owner.getNickname()) ? owner.getNickname() : owner.getUsername());
+            tenant.setContactMobile(owner.getMobile());
+            tenant.setContactEmail(owner.getEmail());
+        }
         tenantMapper.insert(tenant);
         return tenant;
     }

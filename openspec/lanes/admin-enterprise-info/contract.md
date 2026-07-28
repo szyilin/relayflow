@@ -1,6 +1,6 @@
 # API 契约：admin-enterprise-info
 
-> **状态**：`-web` 草案（UI + store 临时数据；`-api` 未实现）  
+> **状态**：`-integrate` 完成（前端接真实 API + geo）  
 > **变更**：`admin-enterprise-info-v1`  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)
 
@@ -150,9 +150,9 @@ V1 可选；当前 UI 以启停为主，删除 API 预留。
 ]
 ```
 
-`-web`：store 在 API 失败或无 `infra:geo:query` 时使用内置四级演示数据；**integrate MUST 接真实 geo**。
+Integrate 后前端 MUST 直接调用真实 geo；不再回退本地演示数据。
 
-## curl（`-api` 实现后验收）
+## curl（验收）
 
 ```bash
 TOKEN="<jwt>"

@@ -28,13 +28,13 @@
 
 ## 4. 企业信息 — 后端（-api）
 
-- [ ] 4.1 Flyway：`sys_tenant` 扩档案字段；`sys_tenant_address`；permission 种子；codegen → diff 合入
-- [ ] 4.2 注册创建企业时回填可获得的联系人字段；保证 `code` 更新路径拒绝修改
-- [ ] 4.3 按 contract 实现企业信息 GET/PUT；地址 CRUD/启停；经 `GeoRegionApi` 校验 region
-- [ ] 4.4 `@PreAuthorize` 与超级管理员模板对齐；curl / `.relayflow/api-tests` 验收
+- [x] 4.1 Flyway：`sys_tenant` 扩档案字段；`sys_tenant_address`；permission 种子；codegen → diff 合入
+- [x] 4.2 注册创建企业时回填可获得的联系人字段；保证 `code` 更新路径拒绝修改
+- [x] 4.3 按 contract 实现企业信息 GET/PUT；地址 CRUD/启停；经 `GeoRegionApi` 校验 region
+- [x] 4.4 `@PreAuthorize` 与超级管理员模板对齐；curl / `.relayflow/api-tests` 验收
 
 ## 5. 联调与收尾（-integrate）
 
-- [ ] 5.1 前端去掉该切片临时 Mock；对接真实 API 与 geo 级联
-- [ ] 5.2 端到端：Compose 起 Admin → server 执行器 → 月更 Job 可手动触发；企业信息/地址页可读写
-- [ ] 5.3 `openspec validate admin-enterprise-info-v1 --strict`；看板标记 done；README/AGENTS 如需补充 Job 约定则短更
+- [x] 5.1 前端去掉该切片临时 Mock；对接真实 API 与 geo 级联
+- [x] 5.2 端到端：Compose 起 Admin → server 执行器 → 月更 Job 可手动触发；企业信息/地址页可读写
+- [x] 5.3 `openspec validate admin-enterprise-info-v1 --strict`；看板标记 done；README/AGENTS 如需补充 Job 约定则短更

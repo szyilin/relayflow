@@ -100,7 +100,7 @@
 | **org-invite-channels** | **archived** | **done** | 「+」添加企业成员 · `/app/invite/join` | [contract](../../openspec/lanes/org-invite/contract.md) | `-integrate` 完成；orgInvite store 接 capability/shared/mobile/consume |
 | **workspace-contact-add-external** | **archived** | **ui_ready** | 搜索/发起外部联系人 · 拒绝申请 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-api` 完成（search/request/reject）；`-integrate` 待接 contactAdd |
 | **workspace-member-picker** | planned | **ui_ready** | 共享选人器 · 我管理的群组（IM 聚合）· 邀请入群复用 | [create-hub](../../openspec/lanes/workspace-create-hub/contract.md) · [im-group](../../openspec/lanes/im-group-chat/contract.md) | `-web` 完成；`GET …/group/managed` 草案待 `-api` |
-| **admin-enterprise-info** | planned | **ui_ready** | `/admin-api/system/enterprise/*` · `/admin/system/enterprise` | [contract](../../openspec/lanes/admin-enterprise-info/contract.md) | `-web` 完成；store 内临时数据；geo integrate 接 `infra/geo/children` |
+| **admin-enterprise-info** | **done** | **done** | `/admin-api/system/enterprise/*` · `/admin/system/enterprise` | [contract](../../openspec/lanes/admin-enterprise-info/contract.md) | `-integrate` 完成；档案/地址接真实 API；geo 接 `infra/geo/children` |
 
 ### SUPERSEDED（不再按旧写真源扩写）
 

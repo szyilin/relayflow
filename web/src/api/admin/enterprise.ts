@@ -1,4 +1,4 @@
-/** Admin enterprise profile & addresses — draft contract for -api. */
+/** Admin enterprise profile & addresses — live admin-api. */
 
 import { del, get, post, put } from '../request'
 
@@ -57,15 +57,39 @@ export function updateEnterpriseProfile(payload: EnterpriseProfileUpdate): Promi
 export function listEnterpriseAddresses(
   query?: EnterpriseAddressListQuery
 ): Promise<EnterpriseAddress[]> {
+  const params: Record<string, string> = {}
+  if (query?.keyword?.trim()) {
+    params.keyword = query.keyword.trim()
+  }
+  if (query?.types?.length) {
+    params.types = query.types.join(',')
+  }
+  if (query?.status && query.status !== 'ALL') {
+    params.status = query.status
+  }
   return get<EnterpriseAddress[]>('/admin-api/system/enterprise/address/list', {
-    params: query as Record<string, unknown> | undefined
-  })
+    params
+  }).then(rows => (rows ?? []).map(normalizeAddress))
+}
+
+function normalizeAddress(raw: EnterpriseAddress): EnterpriseAddress {
+  return {
+    ...raw,
+    id: String(raw.id),
+    regionId: String(raw.regionId),
+    types: [...(raw.types ?? [])],
+    detail: raw.detail ?? '',
+    regionPath: raw.regionPath ?? '',
+    status: raw.status,
+    createTime: raw.createTime
+  }
 }
 
 export function createEnterpriseAddress(
   payload: EnterpriseAddressCreate
 ): Promise<EnterpriseAddress> {
   return post<EnterpriseAddress>('/admin-api/system/enterprise/address/create', payload)
+    .then(normalizeAddress)
 }
 
 export function updateEnterpriseAddress(
@@ -73,6 +97,7 @@ export function updateEnterpriseAddress(
   payload: EnterpriseAddressUpdate
 ): Promise<EnterpriseAddress> {
   return put<EnterpriseAddress>(`/admin-api/system/enterprise/address/update?id=${encodeURIComponent(id)}`, payload)
+    .then(normalizeAddress)
 }
 
 export function updateEnterpriseAddressStatus(
@@ -82,7 +107,7 @@ export function updateEnterpriseAddressStatus(
   return put<EnterpriseAddress>(
     `/admin-api/system/enterprise/address/status?id=${encodeURIComponent(id)}`,
     { status }
-  )
+  ).then(normalizeAddress)
 }
 
 export function deleteEnterpriseAddress(id: string): Promise<void> {

@@ -14,6 +14,12 @@
         <result column="name" property="name" />
         <result column="status" property="status" />
         <result column="owner_user_id" property="ownerUserId" />
+        <result column="industry" property="industry" />
+        <result column="scale" property="scale" />
+        <result column="contact_name" property="contactName" />
+        <result column="contact_email" property="contactEmail" />
+        <result column="contact_mobile" property="contactMobile" />
+        <result column="contact_landline" property="contactLandline" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -24,7 +30,7 @@
         updater,
         update_time,
         deleted,
-        code, name, status, owner_user_id
+        code, name, status, owner_user_id, industry, scale, contact_name, contact_email, contact_mobile, contact_landline
     </sql>
 
 </mapper>

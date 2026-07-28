@@ -96,12 +96,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-relayflow}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-relayflow}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-      PARAMS: >-
-        --spring.datasource.url=jdbc:postgresql://postgres:5432/${XXL_JOB_DB_NAME:-xxl_job}
-        --spring.datasource.username=${POSTGRES_USER:-relayflow}
-        --spring.datasource.password=${POSTGRES_PASSWORD:-relayflow}
-        --spring.datasource.driver-class-name=org.postgresql.Driver
-        --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN:-relayflow-dev-xxl-token}
+      # Spring relaxed binding for xxl.job.accessToken (znle entrypoint ignores PARAMS)
+      XXL_JOB_ACCESSTOKEN: ${XXL_JOB_ACCESS_TOKEN:-relayflow-dev-xxl-token}
     volumes:
       - xxl_job_admin_logs:/data/applogs
     depends_on:
@@ -111,6 +107,9 @@ services:
         condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Pass Spring args via CMD ("$@" in entrypoint); do not rely on PARAMS
+    command:
+      - --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN:-relayflow-dev-xxl-token}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/xxl-job-admin/ >/dev/null 2>&1 || exit 1"]
       interval: 15s

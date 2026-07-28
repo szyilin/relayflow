@@ -667,14 +667,6 @@ meta:
                 </template>
               </UTable>
             </UCard>
-
-            <p
-              v-if="enterpriseStore.geoUsesDraft"
-              class="text-xs text-muted"
-            >
-              行政区划级联当前使用本地演示数据；integrate 阶段将对接
-              <code class="text-xs">GET /admin-api/infra/geo/children</code>。
-            </p>
           </div>
         </template>
       </div>

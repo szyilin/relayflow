@@ -21,7 +21,7 @@
 | Admin UI | http://localhost:8090/xxl-job-admin |
 | 账号 / 密码 | `admin` / `123456`（生产务必修改） |
 | 执行器 AppName | `relayflow-server` |
-| accessToken | 与 `.env` 中 `XXL_JOB_ACCESS_TOKEN` 一致 |
+| accessToken | 与 `.env` 中 `XXL_JOB_ACCESS_TOKEN` 一致（Compose 通过 `command --xxl.job.accessToken` + `XXL_JOB_ACCESSTOKEN` 注入；**勿依赖 PARAMS**，znle 入口未消费该变量） |
 | Admin 镜像 | `znle/xxl-job-admin:3.3.2`（**linux/amd64 + linux/arm64**，原生 PG） |
 
 ## 新增官方 Job（必走仓库）
