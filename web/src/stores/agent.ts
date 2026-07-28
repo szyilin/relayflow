@@ -1,15 +1,22 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  createAgentAutomation,
   createAgentDef,
   createAgentSession,
+  deleteAgentAutomation,
   deleteAgentDef,
+  listAgentAutomations,
   listAgentDefs,
   listAgentSessionMessages,
   listAgentSessions,
   listEnabledLlmModels,
+  runAgentAutomationNow,
   sendAgentSessionMessage,
+  updateAgentAutomation,
   updateAgentDef,
+  type AgentAutomation,
+  type AgentAutomationSavePayload,
   type AgentDef,
   type AgentDefSavePayload,
   type AgentSession,
@@ -18,11 +25,12 @@ import {
 } from '../api/app/agent'
 import { ApiError } from '../api/request'
 
-export type AgentPanelMode = 'home' | 'agents' | 'history'
+export type AgentPanelMode = 'home' | 'agents' | 'history' | 'automations'
 
 export const useAgentStore = defineStore('agent', () => {
   const agents = ref<AgentDef[]>([])
   const sessions = ref<AgentSession[]>([])
+  const automations = ref<AgentAutomation[]>([])
   const messagesBySession = ref<Record<string, AgentSessionMessage[]>>({})
   const models = ref<EnabledLlmModel[]>([])
 
@@ -33,6 +41,7 @@ export const useAgentStore = defineStore('agent', () => {
   const loading = ref(false)
   const loadingMessages = ref(false)
   const sending = ref(false)
+  const automationBusy = ref(false)
   const lastError = ref<string | null>(null)
 
   const activeAgent = computed(() =>
@@ -74,11 +83,15 @@ export const useAgentStore = defineStore('agent', () => {
     models.value = await listEnabledLlmModels()
   }
 
+  async function refreshAutomations() {
+    automations.value = await listAgentAutomations()
+  }
+
   async function bootstrap() {
     loading.value = true
     lastError.value = null
     try {
-      await Promise.all([refreshAgents(), refreshSessions(), refreshModels()])
+      await Promise.all([refreshAgents(), refreshSessions(), refreshModels(), refreshAutomations()])
     } catch (error) {
       lastError.value = errorMessage(error, '加载智能体失败，请确认后端已启动')
       throw error
@@ -99,6 +112,11 @@ export const useAgentStore = defineStore('agent', () => {
 
   function openHistory() {
     panelMode.value = 'history'
+  }
+
+  function openAutomations() {
+    panelMode.value = 'automations'
+    activeSessionId.value = null
   }
 
   function selectAgent(agentId: string) {
@@ -218,9 +236,57 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
+  async function saveAutomation(payload: AgentAutomationSavePayload) {
+    automationBusy.value = true
+    lastError.value = null
+    try {
+      if (payload.id) {
+        await updateAgentAutomation(payload)
+      } else {
+        await createAgentAutomation(payload)
+      }
+      await refreshAutomations()
+      panelMode.value = 'automations'
+    } catch (error) {
+      lastError.value = errorMessage(error, '保存自动化失败')
+      throw error
+    } finally {
+      automationBusy.value = false
+    }
+  }
+
+  async function removeAutomation(id: string) {
+    automationBusy.value = true
+    lastError.value = null
+    try {
+      await deleteAgentAutomation(id)
+      await refreshAutomations()
+    } catch (error) {
+      lastError.value = errorMessage(error, '删除自动化失败')
+      throw error
+    } finally {
+      automationBusy.value = false
+    }
+  }
+
+  async function runAutomationNow(id: string) {
+    automationBusy.value = true
+    lastError.value = null
+    try {
+      await runAgentAutomationNow(id)
+      await refreshAutomations()
+    } catch (error) {
+      lastError.value = errorMessage(error, '执行失败')
+      throw error
+    } finally {
+      automationBusy.value = false
+    }
+  }
+
   return {
     agents,
     sessions,
+    automations,
     models,
     panelMode,
     activeSessionId,
@@ -229,6 +295,7 @@ export const useAgentStore = defineStore('agent', () => {
     loading,
     loadingMessages,
     sending,
+    automationBusy,
     lastError,
     activeAgent,
     activeSession,
@@ -237,11 +304,16 @@ export const useAgentStore = defineStore('agent', () => {
     openHome,
     openAgents,
     openHistory,
+    openAutomations,
     selectAgent,
     saveAgent,
     removeAgent,
     startNewTask,
     openSession,
-    sendMessage
+    sendMessage,
+    saveAutomation,
+    removeAutomation,
+    runAutomationNow,
+    refreshAutomations
   }
 })

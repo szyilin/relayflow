@@ -28,7 +28,13 @@ public enum ErrorCodeConstants implements ErrorCode {
     AGENT_SESSION_FORBIDDEN(1_009_003_002, "无权操作该会话"),
     AGENT_SESSION_INVALID(1_009_003_003, "会话参数无效"),
     AGENT_RUNTIME_FAILED(1_009_003_004, "智能体运行失败"),
-    AGENT_MESSAGE_EMPTY(1_009_003_005, "消息内容不能为空");
+    AGENT_MESSAGE_EMPTY(1_009_003_005, "消息内容不能为空"),
+
+    AGENT_AUTOMATION_NOT_FOUND(1_009_004_001, "自动化不存在"),
+    AGENT_AUTOMATION_FORBIDDEN(1_009_004_002, "无权操作该自动化"),
+    AGENT_AUTOMATION_INVALID(1_009_004_003, "自动化参数无效"),
+    AGENT_AUTOMATION_DISABLED(1_009_004_004, "自动化已停用"),
+    AGENT_AUTOMATION_NO_CARRIER(1_009_004_005, "智能体尚未绑定 Carrier Bot");
 
     private final Integer code;
     private final String msg;

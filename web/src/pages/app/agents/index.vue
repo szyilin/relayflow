@@ -17,7 +17,18 @@ const editorForm = reactive({
   modelRef: ''
 })
 
+const autoOpen = ref(false)
+const autoForm = reactive({
+  id: '' as string | undefined,
+  title: '',
+  prompt: '',
+  agentId: '' as string,
+  cronExpr: '0 0 9 * * ?',
+  status: 'active' as 'active' | 'disabled'
+})
+
 const showChat = computed(() => !!agent.activeSessionId)
+const showAutomations = computed(() => agent.panelMode === 'automations' && !agent.activeSessionId)
 
 async function scrollToBottom() {
   await nextTick()
@@ -171,6 +182,69 @@ async function handleOpenSession(sessionId: string) {
   }
 }
 
+function openCreateAutomation() {
+  if (!agent.agents.length) {
+    toast.add({ title: '请先创建智能体', color: 'warning' })
+    agent.openAgents()
+    return
+  }
+  autoForm.id = undefined
+  autoForm.title = ''
+  autoForm.prompt = ''
+  autoForm.agentId = agent.selectedAgentId ?? agent.agents[0]?.id ?? ''
+  autoForm.cronExpr = '0 0 9 * * ?'
+  autoForm.status = 'active'
+  autoOpen.value = true
+}
+
+async function submitAutomation() {
+  if (!autoForm.title.trim() || !autoForm.prompt.trim() || !autoForm.agentId || !autoForm.cronExpr.trim()) {
+    toast.add({ title: '请填写完整自动化信息', color: 'warning' })
+    return
+  }
+  try {
+    await agent.saveAutomation({
+      id: autoForm.id,
+      title: autoForm.title.trim(),
+      prompt: autoForm.prompt.trim(),
+      agentId: autoForm.agentId,
+      cronExpr: autoForm.cronExpr.trim(),
+      status: autoForm.status
+    })
+    autoOpen.value = false
+    toast.add({ title: '自动化已保存', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '保存失败',
+      color: 'error'
+    })
+  }
+}
+
+async function handleRunAutomation(id: string) {
+  try {
+    await agent.runAutomationNow(id)
+    toast.add({ title: '已执行，结果将推送到消息', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '执行失败',
+      color: 'error'
+    })
+  }
+}
+
+async function handleDeleteAutomation(id: string) {
+  try {
+    await agent.removeAutomation(id)
+    toast.add({ title: '已删除', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '删除失败',
+      color: 'error'
+    })
+  }
+}
+
 const modelItems = computed(() =>
   agent.models.map(m => ({
     label: `${m.name}（${m.modelName}）`,
@@ -201,6 +275,17 @@ meta:
           智能体
         </h2>
         <UButton
+          v-if="agent.panelMode === 'automations'"
+          icon="i-lucide-plus"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          @click="openCreateAutomation"
+        >
+          新建
+        </UButton>
+        <UButton
+          v-else
           icon="i-lucide-plus"
           color="neutral"
           variant="ghost"
@@ -238,6 +323,15 @@ meta:
         >
           <UIcon name="i-lucide-history" class="size-4 shrink-0" />
           <span class="text-sm font-medium">历史任务</span>
+        </button>
+        <button
+          type="button"
+          class="workspace-list-item flex w-full items-center gap-2 px-3 py-2 text-left"
+          :data-active="agent.panelMode === 'automations'"
+          @click="agent.openAutomations()"
+        >
+          <UIcon name="i-lucide-zap" class="size-4 shrink-0" />
+          <span class="text-sm font-medium">自动化</span>
         </button>
       </div>
 
@@ -294,6 +388,56 @@ meta:
         </div>
       </div>
 
+      <div v-else-if="agent.panelMode === 'automations'" class="flex-1 overflow-y-auto px-2 py-2">
+        <p class="px-2 pb-2 text-xs text-[var(--ws-text-muted)]">
+          定时跑智能体，结果推送到「消息」（不进 Session）
+        </p>
+        <p
+          v-if="!agent.automations.length"
+          class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
+        >
+          还没有自动化，点击上方「新建」
+        </p>
+        <div v-else class="space-y-0.5">
+          <div
+            v-for="item in agent.automations"
+            :key="item.id"
+            class="group workspace-list-item flex w-full flex-col gap-1 px-3 py-2.5"
+          >
+            <div class="flex items-start gap-2">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium">
+                  {{ item.title }}
+                </div>
+                <p class="mt-0.5 truncate text-xs text-[var(--ws-text-muted)]">
+                  {{ item.agentName || '智能体' }} · {{ item.cronExpr }}
+                </p>
+                <p v-if="item.lastStatus" class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
+                  上次：{{ item.lastStatus }}{{ item.lastError ? ` · ${item.lastError}` : '' }}
+                </p>
+              </div>
+              <div class="flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
+                <UButton
+                  icon="i-lucide-play"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :loading="agent.automationBusy"
+                  @click="handleRunAutomation(item.id)"
+                />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="ghost"
+                  size="xs"
+                  @click="handleDeleteAutomation(item.id)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div v-else class="flex-1 overflow-y-auto px-2 py-2">
         <p
           v-if="!agent.sessions.length"
@@ -321,9 +465,26 @@ meta:
       </div>
     </template>
 
+    <!-- 自动化主区 -->
+    <div
+      v-if="showAutomations"
+      class="flex min-h-0 flex-1 flex-col items-center justify-center px-6"
+    >
+      <UIcon name="i-lucide-zap" class="mb-4 size-10 text-[var(--ui-primary)]" />
+      <h1 class="mb-2 text-xl font-semibold">
+        自动化
+      </h1>
+      <p class="mb-6 max-w-md text-center text-sm text-[var(--ws-text-muted)]">
+        按 Cron 定时运行智能体，结果经 Carrier Bot 推送到「消息」。不会写入智能体 Session。
+      </p>
+      <UButton icon="i-lucide-plus" @click="openCreateAutomation">
+        新建自动化
+      </UButton>
+    </div>
+
     <!-- 新任务落地页 -->
     <div
-      v-if="!showChat"
+      v-else-if="!showChat"
       class="flex min-h-0 flex-1 flex-col"
     >
       <div class="flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-12">
@@ -513,6 +674,48 @@ meta:
             取消
           </UButton>
           <UButton @click="submitEditor">
+            保存
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="autoOpen" title="自动化" description="定时运行智能体并通过消息推送结果">
+      <template #body>
+        <div class="space-y-4">
+          <UFormField label="标题" required>
+            <UInput v-model="autoForm.title" placeholder="例如：每日任务摘要" class="w-full" />
+          </UFormField>
+          <UFormField label="智能体" required>
+            <USelect
+              v-model="autoForm.agentId"
+              :items="agentSelectItems"
+              placeholder="选择智能体"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="任务提示词" required>
+            <UTextarea
+              v-model="autoForm.prompt"
+              :rows="4"
+              class="w-full"
+              placeholder="告诉智能体要做什么…"
+            />
+          </UFormField>
+          <UFormField label="Cron（6 段）" required>
+            <UInput v-model="autoForm.cronExpr" placeholder="0 0 9 * * ?" class="w-full" />
+            <p class="mt-1 text-xs text-[var(--ws-text-muted)]">
+              示例：每天 9:00 → <code>0 0 9 * * ?</code>；每分钟 → <code>0 * * * * ?</code>
+            </p>
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <UButton color="neutral" variant="ghost" @click="autoOpen = false">
+            取消
+          </UButton>
+          <UButton :loading="agent.automationBusy" @click="submitAutomation">
             保存
           </UButton>
         </div>

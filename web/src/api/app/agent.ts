@@ -161,3 +161,73 @@ export interface SkillCatalogItem {
 export function listSkillCatalog(): Promise<SkillCatalogItem[]> {
   return get<SkillCatalogItem[]>('/app-api/agent/skill/catalog').then(rows => rows ?? [])
 }
+
+export interface AgentAutomation {
+  id: string
+  agentId: string
+  agentName?: string | null
+  title: string
+  prompt: string
+  cronExpr: string
+  status: 'active' | 'disabled'
+  targetUserId?: string
+  nextRunAt?: string | null
+  lastRunAt?: string | null
+  lastStatus?: string | null
+  lastError?: string | null
+}
+
+export interface AgentAutomationSavePayload {
+  id?: string
+  title: string
+  prompt: string
+  agentId: string
+  cronExpr: string
+  status?: 'active' | 'disabled'
+  targetUserId?: string
+}
+
+type RawAutomation = Omit<AgentAutomation, 'id' | 'agentId' | 'targetUserId' | 'status'> & {
+  id?: string | number
+  agentId?: string | number
+  targetUserId?: string | number
+  status?: string
+}
+
+function normalizeAutomation(row: RawAutomation): AgentAutomation {
+  return {
+    id: String(row.id),
+    agentId: String(row.agentId),
+    agentName: row.agentName ?? null,
+    title: row.title,
+    prompt: row.prompt,
+    cronExpr: row.cronExpr,
+    status: row.status === 'disabled' ? 'disabled' : 'active',
+    targetUserId: row.targetUserId != null ? String(row.targetUserId) : undefined,
+    nextRunAt: row.nextRunAt ?? null,
+    lastRunAt: row.lastRunAt ?? null,
+    lastStatus: row.lastStatus ?? null,
+    lastError: row.lastError ?? null
+  }
+}
+
+export function listAgentAutomations(): Promise<AgentAutomation[]> {
+  return get<RawAutomation[]>('/app-api/agent/automation/list')
+    .then(rows => (rows ?? []).map(normalizeAutomation))
+}
+
+export function createAgentAutomation(data: AgentAutomationSavePayload): Promise<string> {
+  return post<string | number>('/app-api/agent/automation/create', data).then(id => String(id))
+}
+
+export function updateAgentAutomation(data: AgentAutomationSavePayload): Promise<boolean> {
+  return put<boolean>('/app-api/agent/automation/update', data)
+}
+
+export function deleteAgentAutomation(id: string): Promise<boolean> {
+  return del<boolean>('/app-api/agent/automation/delete', { params: { id } })
+}
+
+export function runAgentAutomationNow(id: string): Promise<boolean> {
+  return post<boolean>('/app-api/agent/automation/run-now', null, { params: { id } })
+}

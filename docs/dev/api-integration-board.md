@@ -103,7 +103,7 @@
 | **workspace-agent-integrate** | — | **done** | 去 Mock 联调 Session/Runtime | [contract](../../openspec/lanes/workspace-agent/contract.md) | Session ≠ messages；非流式 send |
 | **agent-skill-catalog-v1** | **done** | — | SkillRegistry + `task.search`/`task.list_due` | [change](../../openspec/changes/agent-skill-catalog-v1/proposal.md) | Builtin → Tool → `TaskItemApi`；AgentDef.skillIds |
 | **im-bot-agent-carrier-v1** | **done** | — | `ImBotProvisioningApi` + 入站→AgentRuntime | [change](../../openspec/changes/im-bot-agent-carrier-v1/proposal.md) | type=tenant；Session ≠ IM |
-| **agent-automation-v1** | planned | planned | 自动化 + Bot 推送 | 骨架 | 结果只进 IM |
+| **agent-automation-v1** | **done** | **ui_ready** | cron 自动化 + Bot 推送 | [change](../../openspec/changes/agent-automation-v1/proposal.md) | XXL tick；结果只进 IM |
 | **workspace-plus-create-v1** | planned | — | 母 change：Create Hub + 组织邀请 redesign | [母](../../openspec/changes/workspace-plus-create-v1/proposal.md) | 规划真源；实现落子切片 |
 | **workspace-create-hub** | planned | **ui_ready** | Rail「+」· 建群/邀成员/加外部/建文档 | [contract](../../openspec/lanes/workspace-create-hub/contract.md) | `-web` 完成；capability / 邀请渠道 / 外部申请 API 后续 |
 | **org-invite-settings** | **archived** | **done** | `/admin/system/invite-settings` | [contract](../../openspec/lanes/org-invite/contract.md) | `-integrate` 完成；store 接 GET/PUT |
