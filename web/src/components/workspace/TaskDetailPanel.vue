@@ -446,25 +446,30 @@ async function handleAddComment() {
 <template>
   <div class="flex h-full min-h-0 flex-col bg-[var(--ws-panel-bg)]">
     <header class="flex shrink-0 items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-3">
-      <UButton
-        color="primary"
-        size="sm"
-        :variant="task?.status === 'DONE' ? 'soft' : 'solid'"
-        :disabled="!task"
-        @click="handleComplete"
-      >
-        {{ task?.status === 'DONE' ? '重新打开' : '完成任务' }}
-      </UButton>
-      <UButton
-        v-if="task"
-        color="neutral"
-        size="sm"
-        variant="soft"
-        :icon="tasksStore.iAmFollowing ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-        @click="handleToggleFollow"
-      >
-        {{ tasksStore.iAmFollowing ? '取消关注' : '关注' }}
-      </UButton>
+      <template v-if="task?.accessState !== 'DELETED'">
+        <UButton
+          color="primary"
+          size="sm"
+          :variant="task?.status === 'DONE' ? 'soft' : 'solid'"
+          :disabled="!task"
+          @click="handleComplete"
+        >
+          {{ task?.status === 'DONE' ? '重新打开' : '完成任务' }}
+        </UButton>
+        <UButton
+          v-if="task"
+          color="neutral"
+          size="sm"
+          variant="soft"
+          :icon="tasksStore.iAmFollowing ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+          @click="handleToggleFollow"
+        >
+          {{ tasksStore.iAmFollowing ? '取消关注' : '关注' }}
+        </UButton>
+      </template>
+      <p v-else class="text-sm font-medium text-[var(--ws-text)]">
+        任务详情
+      </p>
       <div class="flex-1" />
       <UButton
         color="neutral"
@@ -478,6 +483,27 @@ async function handleAddComment() {
 
     <div v-if="loading" class="flex flex-1 items-center justify-center">
       <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-[var(--ws-text-muted)]" />
+    </div>
+
+    <div
+      v-else-if="task?.accessState === 'DELETED'"
+      class="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
+    >
+      <UIcon name="i-lucide-trash-2" class="size-10 text-[var(--ws-text-muted)]" />
+      <div class="space-y-1">
+        <p class="text-base font-medium text-[var(--ws-text)]">
+          该任务已被删除
+        </p>
+        <p v-if="task.title" class="text-sm text-[var(--ws-text-muted)]">
+          「{{ task.title }}」不再可用
+        </p>
+        <p v-else class="text-sm text-[var(--ws-text-muted)]">
+          消息或记录中的引用仍可能保留，但无法再打开详情
+        </p>
+      </div>
+      <UButton color="neutral" variant="soft" @click="emit('close')">
+        关闭
+      </UButton>
     </div>
 
     <div v-else-if="!task" class="flex flex-1 items-center justify-center p-6 text-sm text-[var(--ws-text-muted)]">

@@ -44,4 +44,11 @@ public class TaskItemRespVO {
     private Integer subtaskDoneCount;
 
     private Integer subtaskTotal;
+
+    /**
+     * Detail access: {@code OK} (default) or {@code DELETED} tombstone.
+     * Soft-deleted tasks return HTTP 200 with this set instead of TASK_NOT_FOUND,
+     * so deep-link callers only navigate and let the detail response decide UX.
+     */
+    private String accessState;
 }

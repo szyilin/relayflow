@@ -16,4 +16,7 @@ public interface TaskItemExtMapper {
             Page<TaskItemDO> page,
             @Param("userId") Long userId,
             @Param("status") String status);
+
+    /** Includes soft-deleted rows (no {@code deleted=0} filter). */
+    TaskItemDO selectByIdIncludeDeleted(@Param("id") Long id);
 }

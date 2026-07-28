@@ -317,11 +317,23 @@ export const useTasksStore = defineStore('tasks', () => {
     }
     detailLoading.value = true
     try {
-      const [detail, subtasks] = await Promise.all([
-        getTaskById(id),
-        getTaskSubtasks(id)
-      ])
-      const merged = recomputeTaskProgress(detail, subtasks)
+      // Detail API decides deleted/ok; callers only navigate + select.
+      const detail = await getTaskById(id)
+      if (detail.accessState === 'DELETED') {
+        selectedDetail.value = detail
+        selectedSubtasks.value = []
+        selectedFollowers.value = []
+        selectedComments.value = []
+        selectedActivities.value = []
+        iAmFollowing.value = false
+        removeTaskFromLocalLists(id)
+        return
+      }
+      const subtasks = await getTaskSubtasks(id)
+      const merged = recomputeTaskProgress(
+        { ...detail, accessState: detail.accessState ?? 'OK' },
+        subtasks
+      )
       selectedDetail.value = merged
       selectedSubtasks.value = subtasks
 
@@ -716,10 +728,18 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
+  /** Drop a ghost row after detail confirms the task is gone (keep selection for tombstone). */
+  function removeTaskFromLocalLists(id: string) {
+    items.value = items.value.filter(t => t.id !== id)
+    followingItems.value = followingItems.value.filter(t => t.id !== id)
+    listItems.value = listItems.value.filter(t => t.id !== id)
+  }
+
   async function removeTask(id: string) {
     saving.value = true
     try {
       await deleteTask(id)
+      removeTaskFromLocalLists(id)
       if (selectedId.value === id) {
         await selectTask(null)
       } else if (selectedId.value) {
@@ -983,6 +1003,7 @@ export const useTasksStore = defineStore('tasks', () => {
     addTask,
     setTaskDone,
     removeTask,
+    removeTaskFromLocalLists,
     saveDetail,
     addSubtask,
     toggleFollow,

@@ -588,6 +588,7 @@ async function openTask(id: string) {
     await tasksStore.selectTask(id)
   } catch {
     toast.add({ title: '无法打开该任务', color: 'error' })
+    await closeDetail()
   }
 }
 

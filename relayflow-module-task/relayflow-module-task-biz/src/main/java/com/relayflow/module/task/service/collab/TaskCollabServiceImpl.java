@@ -238,7 +238,21 @@ public class TaskCollabServiceImpl implements TaskCollabService {
         for (TaskFollowerDO row : follows) {
             ids.add(row.getTaskId());
         }
-        return ids;
+        if (ids.isEmpty()) {
+            return ids;
+        }
+        // Assignee / follower junction rows may outlive soft-deleted tasks.
+        List<TaskItemDO> alive = taskItemMapper.selectList(
+                Wrappers.<TaskItemDO>lambdaQuery()
+                        .in(TaskItemDO::getId, ids)
+                        .select(TaskItemDO::getId));
+        Set<Long> aliveIds = new HashSet<>();
+        for (TaskItemDO row : alive) {
+            if (row.getId() != null) {
+                aliveIds.add(row.getId());
+            }
+        }
+        return aliveIds;
     }
 
     private void fillAssigneeIds(List<TaskItemRespVO> roots) {

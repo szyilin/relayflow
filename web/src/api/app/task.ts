@@ -1,5 +1,12 @@
 import { del, get, post, put } from '../request'
 
+/** Matches backend ErrorCodeConstants.TASK_NOT_FOUND (never existed / unknown id). */
+export const TASK_NOT_FOUND_CODE = 1_004_001_001
+/** Matches backend ErrorCodeConstants.TASK_FORBIDDEN */
+export const TASK_FORBIDDEN_CODE = 1_004_001_002
+
+export type TaskAccessState = 'OK' | 'DELETED'
+
 export type TaskItemStatus = 'TODO' | 'DONE'
 
 export interface TaskItem {
@@ -25,6 +32,8 @@ export interface TaskItem {
   boardRank?: number | null
   subtaskDoneCount?: number
   subtaskTotal?: number
+  /** Detail get: soft-deleted tasks return DELETED tombstone (HTTP 200). */
+  accessState?: TaskAccessState
 }
 
 export interface TaskPageResult {
@@ -89,7 +98,8 @@ function normalizeTaskItem(
     createTime: item.createTime,
     boardRank: item.boardRank ?? null,
     subtaskDoneCount: item.subtaskDoneCount ?? 0,
-    subtaskTotal: item.subtaskTotal ?? 0
+    subtaskTotal: item.subtaskTotal ?? 0,
+    accessState: item.accessState === 'DELETED' ? 'DELETED' : item.accessState === 'OK' ? 'OK' : undefined
   }
 }
 

@@ -5,12 +5,14 @@
     <!--
       Visible union for scope=ALL:
       assignee OR creator OR following OR member of non-archived list that owns the task.
-      Tenant / logic-delete filters are applied by MyBatis-Plus interceptors on task_item.
+      Custom SQL does not get @TableLogic rewriting — must filter t.deleted explicitly.
+      Tenant line may still be applied by interceptor depending on config.
     -->
     <select id="selectVisibleUnionPage" resultType="com.relayflow.module.task.dal.dataobject.TaskItemDO">
         SELECT t.*
         FROM task_item t
         WHERE t.parent_id IS NULL
+          AND t.deleted = 0
         <if test="status != null and status != ''">
             AND t.status = #{status}
         </if>
@@ -42,5 +44,12 @@
             )
           )
         ORDER BY t.create_time DESC
+    </select>
+
+    <select id="selectByIdIncludeDeleted" resultType="com.relayflow.module.task.dal.dataobject.TaskItemDO">
+        SELECT *
+        FROM task_item
+        WHERE id = #{id}
+        LIMIT 1
     </select>
 </mapper>

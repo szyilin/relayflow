@@ -22,6 +22,7 @@ import com.relayflow.module.task.dal.mapper.TaskItemExtMapper;
 import com.relayflow.module.task.dal.mapper.TaskItemMapper;
 import com.relayflow.module.task.enums.ErrorCodeConstants;
 import com.relayflow.module.task.enums.TaskActivityType;
+import com.relayflow.module.task.enums.TaskConstants;
 import com.relayflow.module.task.enums.TaskItemStatus;
 import com.relayflow.module.task.service.access.TaskAccessService;
 import com.relayflow.module.task.service.access.TaskListAccessService;
@@ -206,13 +207,34 @@ public class TaskItemServiceImpl implements TaskItemService {
     @Override
     public TaskItemRespVO getTask(Long id) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
-        TaskItemDO row = taskAccessService.requireAccessible(id, userId);
+        TaskItemDO row = taskItemMapper.selectById(id);
+        if (row == null) {
+            TaskItemDO any = taskItemExtMapper.selectByIdIncludeDeleted(id);
+            if (any != null && any.getDeleted() != null && any.getDeleted() != 0) {
+                return toDeletedTombstone(any);
+            }
+            throw new ServiceException(ErrorCodeConstants.TASK_NOT_FOUND);
+        }
+        if (!taskAccessService.canAccess(row, userId)) {
+            throw new ServiceException(ErrorCodeConstants.TASK_FORBIDDEN);
+        }
         TaskItemRespVO vo = TaskConvert.INSTANCE.toResp(row);
+        vo.setAccessState(TaskConstants.ACCESS_STATE_OK);
         if (row.getParentId() == null) {
             fillSubtaskCounts(List.of(vo));
         }
         fillAssigneeIds(List.of(vo));
         fillListIds(List.of(vo));
+        return vo;
+    }
+
+    private static TaskItemRespVO toDeletedTombstone(TaskItemDO row) {
+        TaskItemRespVO vo = new TaskItemRespVO();
+        vo.setId(row.getId());
+        vo.setTitle(row.getTitle());
+        vo.setStatus(row.getStatus());
+        vo.setCreateTime(row.getCreateTime());
+        vo.setAccessState(TaskConstants.ACCESS_STATE_DELETED);
         return vo;
     }
 
