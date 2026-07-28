@@ -30,7 +30,10 @@ public enum ErrorCodeConstants implements ErrorCode {
     NOTIFY_PAYLOAD_INVALID(2_002_003_005, "通知载荷格式无效"),
     NOTIFY_NOT_FOUND(2_002_003_006, "通知不存在"),
 
-    SEARCH_KEYWORD_REQUIRED(2_002_004_001, "请输入搜索关键词");
+    SEARCH_KEYWORD_REQUIRED(2_002_004_001, "请输入搜索关键词"),
+
+    GEO_SYNC_FAILED(2_002_005_001, "行政区划同步失败"),
+    GEO_REGION_NOT_FOUND(2_002_005_002, "行政区划不存在");
 
     private final Integer code;
     private final String msg;

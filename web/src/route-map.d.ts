@@ -73,6 +73,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/system/enterprise/': RouteRecordInfo<
+      '/admin/system/enterprise/',
+      '/admin/system/enterprise',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/system/invite-settings/': RouteRecordInfo<
       '/admin/system/invite-settings/',
       '/admin/system/invite-settings',
@@ -241,6 +248,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/system/dept/index.vue': {
       routes:
         | '/admin/system/dept/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/system/enterprise/index.vue': {
+      routes:
+        | '/admin/system/enterprise/'
       views:
         | never
       pathParamNames:

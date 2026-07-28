@@ -16,7 +16,10 @@ public class RelayflowTenantLineHandler implements TenantLineHandler {
             "sys_tenant_user",
             "sys_user",
             // Platform-level bot catalog (no tenant_id column)
-            "im_bot"
+            "im_bot",
+            // Platform geo (no tenant_id column)
+            "infra_geo_region",
+            "infra_geo_sync_meta"
     );
 
     private final TenantProperties properties;

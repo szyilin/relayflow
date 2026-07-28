@@ -3,3 +3,10 @@ relayflow:
   tenant:
     enabled: true
     allow-open-register: true
+  # Enable XXL-JOB executor when Admin is up via deploy/compose.yml
+  job:
+    enabled: true
+    executor:
+      # Prefer address (no local DNS resolve). Admin-in-Docker reaches host via host.docker.internal.
+      address: ${RELAYFLOW_JOB_EXECUTOR_ADDRESS:http://host.docker.internal:9999/}
+      ip: ${RELAYFLOW_JOB_EXECUTOR_IP:}

@@ -68,7 +68,7 @@ relayflow/                          # Git 根 = Java Maven 父工程
 与多数开源项目一致：**Docker 只跑依赖，应用在宿主机跑**（HMR、断点、本机代理均可用）。
 
 ```bash
-# 1. 基础设施
+# 1. 基础设施（PostgreSQL / Redis / MinIO / XXL-JOB Admin）
 docker compose -f deploy/compose.yml up -d
 
 # 2. 后端
@@ -81,6 +81,8 @@ cd web && pnpm install && pnpm dev
 浏览器打开 **http://localhost:5173/app/login**（Vite 已将 `/admin-api` 代理到 `:8080`）。
 
 默认开发账号：**`19988888888` / `123456`**（Flyway 种子数据；生产环境请修改密码）。
+
+XXL-JOB 调度中心：**http://localhost:8090/xxl-job-admin**（`admin` / `123456`）。与业务共用 Postgres（独立库 `xxl_job`）；官方定时任务以 [`deploy/xxl-job/seed/`](deploy/xxl-job/seed/) 为准。
 
 ### 租户产品模式（V1 / V2）
 

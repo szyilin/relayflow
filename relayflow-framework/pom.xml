@@ -24,5 +24,6 @@
         <module>relayflow-spring-boot-starter-websocket</module>
         <module>relayflow-spring-boot-starter-oss</module>
         <module>relayflow-spring-boot-starter-tenant</module>
+        <module>relayflow-spring-boot-starter-job</module>
     </modules>
 </project>

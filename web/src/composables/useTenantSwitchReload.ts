@@ -9,6 +9,7 @@ import { useMemberPickerStore } from '../stores/memberPicker'
 import { useDocsStore } from '../stores/docs'
 import { useDocsDriveStore } from '../stores/docsDrive'
 import { useImStore } from '../stores/im'
+import { useEnterpriseStore } from '../stores/enterprise'
 import { useInviteSettingsStore } from '../stores/inviteSettings'
 import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
@@ -27,6 +28,7 @@ export function useTenantSwitchReload() {
   const createHub = useCreateHubStore()
   const contactAdd = useContactAddStore()
   const memberPicker = useMemberPickerStore()
+  const enterprise = useEnterpriseStore()
   const inviteSettings = useInviteSettingsStore()
   const orgInvite = useOrgInviteStore()
   const profile = useProfileStore()
@@ -51,6 +53,7 @@ export function useTenantSwitchReload() {
     createHub.resetForTenantSwitch()
     contactAdd.resetForTenantSwitch()
     memberPicker.resetForTenantSwitch()
+    enterprise.resetForTenantSwitch()
     inviteSettings.resetForTenantSwitch()
     orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()

@@ -1,6 +1,7 @@
-# 开发：仅基础设施（PostgreSQL / Redis / MinIO）。
+# 开发：仅基础设施（PostgreSQL / Redis / MinIO / XXL-JOB Admin）。
 # 后端、前端在宿主机运行，见 README § 开发。
 # 租户模式环境变量见 deploy/.env.example（RELAYFLOW_TENANT_*）；V2 本地默认由 application-dev.yml 启用。
+# XXL-JOB：共用本 Compose 的 Postgres（独立 database xxl_job）；官方任务种子见 deploy/xxl-job/seed/。
 
 services:
   postgres:
@@ -54,7 +55,71 @@ services:
       timeout: 5s
       retries: 5
 
+  # Create xxl_job DB on shared Postgres + apply schema/seeds (idempotent oneshot).
+  xxl-job-db-init:
+    image: postgres:16
+    container_name: relayflow-xxl-job-db-init
+    restart: "no"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-relayflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-relayflow}
+      XXL_JOB_DB_NAME: ${XXL_JOB_DB_NAME:-xxl_job}
+    volumes:
+      - ./xxl-job/init-db.sh:/init-db.sh:ro
+      - ./xxl-job/schema:/xxl-job/schema:ro
+      - ./xxl-job/seed:/xxl-job/seed:ro
+    entrypoint: ["/bin/bash", "/init-db.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Multi-arch (amd64/arm64) Admin with PostgreSQL support. Shares Postgres instance.
+  xxl-job-admin:
+    image: znle/xxl-job-admin:3.3.2
+    container_name: relayflow-xxl-job-admin
+    restart: unless-stopped
+    ports:
+      - "${XXL_JOB_ADMIN_PORT:-8090}:8080"
+    environment:
+      TZ: Asia/Shanghai
+      XXL_JOB_DB_TYPE: postgres
+      XXL_JOB_DB_HOST: postgres
+      XXL_JOB_DB_PORT: "5432"
+      XXL_JOB_DB_NAME: ${XXL_JOB_DB_NAME:-xxl_job}
+      XXL_JOB_DB_USER: ${POSTGRES_USER:-relayflow}
+      XXL_JOB_DB_PWD: ${POSTGRES_PASSWORD:-relayflow}
+      # Explicit Spring datasource (znle sometimes ignores XXL_JOB_DB_* and falls back to 127.0.0.1)
+      SPRING_PROFILES_ACTIVE: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${XXL_JOB_DB_NAME:-xxl_job}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-relayflow}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-relayflow}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      PARAMS: >-
+        --spring.datasource.url=jdbc:postgresql://postgres:5432/${XXL_JOB_DB_NAME:-xxl_job}
+        --spring.datasource.username=${POSTGRES_USER:-relayflow}
+        --spring.datasource.password=${POSTGRES_PASSWORD:-relayflow}
+        --spring.datasource.driver-class-name=org.postgresql.Driver
+        --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN:-relayflow-dev-xxl-token}
+    volumes:
+      - xxl_job_admin_logs:/data/applogs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      xxl-job-db-init:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/xxl-job-admin/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 50s
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  xxl_job_admin_logs:

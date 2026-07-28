@@ -61,3 +61,13 @@ relayflow:
     token-query-param: token
   task:
     due-remind-window: 24h
+  job:
+    enabled: ${RELAYFLOW_JOB_ENABLED:false}
+    admin-addresses: ${RELAYFLOW_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8090/xxl-job-admin}
+    access-token: ${RELAYFLOW_JOB_ACCESS_TOKEN:relayflow-dev-xxl-token}
+    executor:
+      appname: ${RELAYFLOW_JOB_EXECUTOR_APPNAME:relayflow-server}
+      port: ${RELAYFLOW_JOB_EXECUTOR_PORT:9999}
+      ip: ${RELAYFLOW_JOB_EXECUTOR_IP:}
+      log-path: ${RELAYFLOW_JOB_EXECUTOR_LOG_PATH:logs/xxl-job/jobhandler}
+      log-retention-days: 30

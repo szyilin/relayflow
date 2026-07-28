@@ -20,6 +20,7 @@
         <minio.version>8.5.17</minio.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <xxl-job.version>3.3.2</xxl-job.version>
     </properties>
 
     <dependencyManagement>
@@ -92,11 +93,21 @@
                 <artifactId>lombok-mapstruct-binding</artifactId>
                 <version>${lombok-mapstruct-binding.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.xuxueli</groupId>
+                <artifactId>xxl-job-core</artifactId>
+                <version>${xxl-job.version}</version>
+            </dependency>
 
             <!-- Internal modules (versions aligned with root project) -->
             <dependency>
                 <groupId>com.relayflow</groupId>
                 <artifactId>relayflow-spring-boot-starter-web</artifactId>
+                <version>0.1.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.relayflow</groupId>
+                <artifactId>relayflow-spring-boot-starter-job</artifactId>
                 <version>0.1.0-SNAPSHOT</version>
             </dependency>
             <dependency>

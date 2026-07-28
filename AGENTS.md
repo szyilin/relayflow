@@ -122,6 +122,7 @@ Phase 2 微服务脚手架（Gateway、Nacos、`*-server`）**不在 V1 脚手�
 | 产品版本 | **开发期 `0.x`**（当前 `0.1.0-SNAPSHOT`）；**禁止** AI 自行升到 `1.x`；minor/patch 可按进度调整；见 [CONTRIBUTING.md](CONTRIBUTING.md) § 版本号 |
 | Commit | 中文 + Conventional Commits |
 | 跨域调用 | 同步 `*-api` + 异步领域消息；禁止 `*-biz → *-biz` |
+| 定时任务 | XXL-JOB（Admin 独立容器；官方 Job 种子在 `deploy/xxl-job/seed/`；业务写 `@XxlJob` Handler） |
 | 运行时 V1 | 仅 `relayflow-server`（无 Gateway/Nacos） |
 | 前端 | 仅 `web/`，Nuxt UI v4，禁止 React |
 | DO / 基础 Mapper / Mapper.xml | Flyway 真源 + `./scripts/codegen.sh --tables …` → 临时目录 → **diff 合入 `*-biz/src/`（进 Git）**；自定义 SQL 仅 ExtMapper |

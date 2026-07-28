@@ -27,6 +27,12 @@ export function useAdminNav() {
   }]
 
   const systemLinksRaw: AdminNavItem[] = [{
+    label: '企业信息',
+    icon: 'i-lucide-building',
+    to: '/admin/system/enterprise',
+    permission: 'system:enterprise:query',
+    onSelect: closeSidebar
+  }, {
     label: '用户管理',
     icon: 'i-lucide-users',
     to: '/admin/system/user',

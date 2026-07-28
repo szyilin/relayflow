@@ -37,6 +37,8 @@ class RelayflowTenantLineHandlerTest {
         assertTrue(handler.ignoreTable("sys_tenant_user"));
         assertTrue(handler.ignoreTable("sys_user"));
         assertTrue(handler.ignoreTable("im_bot"));
+        assertTrue(handler.ignoreTable("infra_geo_region"));
+        assertTrue(handler.ignoreTable("infra_geo_sync_meta"));
     }
 
     @Test
