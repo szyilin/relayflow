@@ -9,8 +9,6 @@ public class EnterpriseProfileRespVO {
     private String name;
     private String industry;
     private String scale;
-    /** V1 fixed display value. */
-    private String dataResidency;
     /** infra file id as string; null when unset */
     private String logoFileId;
     private String contactName;

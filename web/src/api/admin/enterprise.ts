@@ -11,8 +11,6 @@ export interface EnterpriseProfile {
   name: string
   industry: string | null
   scale: string | null
-  /** Read-only display; V1 fixed to mainland China. */
-  dataResidency: string
   /** infra file id; null when unset */
   logoFileId: string | null
   contactName: string | null
@@ -21,7 +19,7 @@ export interface EnterpriseProfile {
   contactLandline: string | null
 }
 
-export type EnterpriseProfileUpdate = Omit<EnterpriseProfile, 'code' | 'dataResidency'>
+export type EnterpriseProfileUpdate = Omit<EnterpriseProfile, 'code'>
 
 export interface EnterpriseOverview {
   code: string

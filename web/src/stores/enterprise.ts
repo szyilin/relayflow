@@ -58,7 +58,6 @@ const EMPTY_PROFILE: EnterpriseProfile = {
   name: '',
   industry: null,
   scale: null,
-  dataResidency: '中国大陆',
   logoFileId: null,
   contactName: null,
   contactEmail: null,

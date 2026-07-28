@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EnterpriseServiceImpl implements EnterpriseService {
 
-    private static final String DATA_RESIDENCY_CN = "中国大陆";
     private static final String SUPER_ADMIN_CODE = "super_admin";
     private static final Set<String> ADDRESS_TYPES = Set.of("JOB", "INTERVIEW", "STORE");
     private static final Set<String> ADDRESS_STATUSES = Set.of("ENABLED", "DISABLED");
@@ -80,7 +79,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
 
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         SysTenantDO tenant = tenantService.getTenant(tenantId);
-        // code / dataResidency are immutable — never assign from request
+        // code is immutable — never assign from request
         tenant.setName(name);
         tenant.setIndustry(blankToNull(request.getIndustry()));
         tenant.setScale(blankToNull(request.getScale()));
@@ -317,7 +316,6 @@ public class EnterpriseServiceImpl implements EnterpriseService {
         vo.setName(tenant.getName());
         vo.setIndustry(tenant.getIndustry());
         vo.setScale(tenant.getScale());
-        vo.setDataResidency(DATA_RESIDENCY_CN);
         vo.setLogoFileId(tenant.getLogoFileId() == null ? null : String.valueOf(tenant.getLogoFileId()));
         vo.setContactName(tenant.getContactName());
         vo.setContactEmail(tenant.getContactEmail());

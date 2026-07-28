@@ -492,26 +492,13 @@ meta:
                         {{ displayText(enterpriseStore.profile.name) }}
                       </div>
 
-                      <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="space-y-1">
-                          <p class="text-xs text-muted">
-                            企业编号
-                          </p>
-                          <p class="font-mono text-sm text-default">
-                            {{ displayText(enterpriseStore.profile.code) }}
-                          </p>
-                        </div>
-                        <div class="space-y-1">
-                          <p class="text-xs text-muted">
-                            数据驻留地
-                          </p>
-                          <p class="text-sm text-default">
-                            {{ displayText(enterpriseStore.profile.dataResidency) }}
-                          </p>
-                          <p class="text-xs text-muted">
-                            V1 固定中国大陆，不可配置
-                          </p>
-                        </div>
+                      <div class="space-y-1">
+                        <p class="text-xs text-muted">
+                          企业编号
+                        </p>
+                        <p class="font-mono text-sm text-default">
+                          {{ displayText(enterpriseStore.profile.code) }}
+                        </p>
                       </div>
                     </div>
                   </div>
