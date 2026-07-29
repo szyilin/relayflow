@@ -18,6 +18,7 @@ import {
   updateCalendar as apiUpdateCalendar,
   updateCalendarDisplayColor as apiUpdateDisplayColor,
   updateEvent as apiUpdateEvent,
+  fetchOrgPolicy as apiFetchOrgPolicy,
   type CalendarEvent,
   type CalendarEventCreatePayload,
   type CalendarEventDeleteOptions,
@@ -93,6 +94,8 @@ export const useCalendarStore = defineStore('calendar', () => {
   const visibleCalendarIds = ref<string[]>([])
   const loading = ref(false)
   const lastRange = ref<{ from: string, to: string } | null>(null)
+  /** Org policy: members may create OWNED calendars (default true until fetched). */
+  const allowMemberCreateOwnedCalendar = ref(true)
 
   const ownedCalendars = computed(() =>
     calendars.value.filter(c => c.type === 'PRIMARY' || c.type === 'OWNED'))
@@ -121,6 +124,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     visibleCalendarIds.value = []
     loading.value = false
     lastRange.value = null
+    allowMemberCreateOwnedCalendar.value = true
   }
 
   function persistVisible() {
@@ -148,6 +152,15 @@ export const useCalendarStore = defineStore('calendar', () => {
       throw toError(error, '加载日历失败')
     } finally {
       loading.value = false
+    }
+  }
+
+  async function fetchOrgPolicy() {
+    try {
+      const policy = await apiFetchOrgPolicy()
+      allowMemberCreateOwnedCalendar.value = policy.allowMemberCreateOwnedCalendar
+    } catch {
+      // Keep last known / default; create path still enforced server-side.
     }
   }
 
@@ -387,12 +400,14 @@ export const useCalendarStore = defineStore('calendar', () => {
     shares,
     visibleCalendarIds,
     loading,
+    allowMemberCreateOwnedCalendar,
     ownedCalendars,
     sharedCalendars,
     primaryCalendar,
     visibleEvents,
     resetForTenantSwitch,
     fetchCalendars,
+    fetchOrgPolicy,
     fetchShares,
     createShare,
     removeShare,

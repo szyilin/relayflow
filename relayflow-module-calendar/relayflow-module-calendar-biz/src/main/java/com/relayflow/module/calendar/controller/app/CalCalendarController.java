@@ -1,11 +1,14 @@
 package com.relayflow.module.calendar.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
+import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarCreateReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarDisplayColorReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarUpdateReqVO;
+import com.relayflow.module.calendar.controller.app.vo.CalOrgPolicyRespVO;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
+import com.relayflow.module.calendar.service.settings.CalTenantSettingsService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -28,10 +31,20 @@ import java.util.List;
 public class CalCalendarController {
 
     private final CalCalendarService calCalendarService;
+    private final CalTenantSettingsService calTenantSettingsService;
 
     @GetMapping("/list")
     public CommonResult<List<CalCalendarRespVO>> list() {
         return CommonResult.success(calCalendarService.listVisible());
+    }
+
+    /** Org policy visible to members (for UI gates); write path still enforces server-side. */
+    @GetMapping("/org-policy")
+    public CommonResult<CalOrgPolicyRespVO> orgPolicy() {
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        CalOrgPolicyRespVO vo = new CalOrgPolicyRespVO();
+        vo.setAllowMemberCreateOwnedCalendar(calTenantSettingsService.allowMemberCreateOwnedCalendar(tenantId));
+        return CommonResult.success(vo);
     }
 
     @PostMapping("/create")

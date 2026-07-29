@@ -208,8 +208,11 @@ function eventStyle(event: CalendarEvent): Record<string, string> {
 }
 
 async function refreshRange() {
-  await calendarStore.fetchCalendars()
-  await calendarStore.fetchShares()
+  await Promise.all([
+    calendarStore.fetchCalendars(),
+    calendarStore.fetchOrgPolicy(),
+    calendarStore.fetchShares()
+  ])
   await calendarStore.fetchEvents({
     from: formatISO(rangeStart.value),
     to: formatISO(rangeEnd.value)
@@ -697,6 +700,7 @@ meta:
               我管理的
             </p>
             <UButton
+              v-if="calendarStore.allowMemberCreateOwnedCalendar"
               size="xs"
               color="neutral"
               variant="ghost"

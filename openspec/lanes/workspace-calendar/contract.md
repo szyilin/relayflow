@@ -66,6 +66,16 @@
 
 **Response `data`**：`true`
 
+### GET /org-policy
+
+返回当前租户日历组织策略（成员可读），用于工作台 UI 门禁。
+
+```json
+{ "allowMemberCreateOwnedCalendar": true }
+```
+
+`allowMemberCreateOwnedCalendar=false` 时前端应隐藏「添加日历」；`POST /create` 仍以后端强制为准（`1_005_001_005`）。
+
 ### POST /create
 
 ```json
@@ -257,10 +267,13 @@ Query 可选：`editScope`、`instanceStart`（重复实例删单次时）。
 | `1_005_001_002` | 无权操作该日历 |
 | `1_005_001_003` | 主日历不可删除 |
 | `1_005_001_004` | 日历下仍有日程 |
+| `1_005_001_005` | 组织策略禁止创建个人日历 |
 | `1_005_002_001` | 日程不存在 |
 | `1_005_002_002` | 无权操作该日程 |
 | `1_005_002_003` | 日程时间无效 |
 | `1_005_003_001` | 参与人无效 |
+| `1_005_005_001` | 全员日历不存在 |
+| `1_005_005_002` | 全员日历可见范围无效 |
 
 ## curl 示例
 
@@ -276,6 +289,7 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 
 Store：`web/src/stores/calendar.ts` → `api/app/calendar.ts`。
 
-- **Share**：侧栏「我管理的」+「共享给我的」；owned 日历「共享」弹层管理 grantee（READ only）
+- **Share**：侧栏「我管理的」+「我订阅的」（含 READ 共享与 `ALL_STAFF`）；owned 日历「共享」弹层管理 grantee（READ only）
 - **RRULE**：编辑器 none/daily/weekly/monthly + count；编辑/删除重复实例时 `editScope` THIS/ALL
 - **DnD**：日/周 timed 事件 pointer 拖动 + 底边 resize（组织者、非全天）；15 分钟吸附；乐观 + `PUT /reschedule`；月视图不可拖
+- **本机色 / 组织策略**：`PUT /display-color`；`GET /org-policy`（`allowMemberCreateOwnedCalendar`，用于隐藏「添加日历」；写路径仍以后端为准）

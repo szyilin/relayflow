@@ -252,6 +252,15 @@ export async function updateCalendarDisplayColor(payload: {
   })
 }
 
+export async function fetchOrgPolicy(): Promise<{ allowMemberCreateOwnedCalendar: boolean }> {
+  const data = await get<{ allowMemberCreateOwnedCalendar?: boolean }>(
+    '/app-api/calendar/calendar/org-policy'
+  )
+  return {
+    allowMemberCreateOwnedCalendar: data?.allowMemberCreateOwnedCalendar !== false
+  }
+}
+
 export async function deleteCalendar(id: string): Promise<boolean> {
   return del<boolean>('/app-api/calendar/calendar/delete', { params: { id } })
 }

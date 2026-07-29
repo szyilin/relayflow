@@ -58,4 +58,14 @@
 
 ## App 增量（本机色 + 全员可见）
 
-见 [`workspace-calendar/contract.md`](../workspace-calendar/contract.md) `PUT /display-color` 与 list 字段 `defaultColor` / `displayColor` / `effectiveColor` / `type=ALL_STAFF`。
+见 [`workspace-calendar/contract.md`](../workspace-calendar/contract.md) `PUT /display-color`、`GET /org-policy` 与 list 字段 `defaultColor` / `displayColor` / `effectiveColor` / `type=ALL_STAFF`。
+
+### GET /app-api/calendar/calendar/org-policy
+
+成员可读；用于工作台隐藏「添加日历」。
+
+```json
+{ "allowMemberCreateOwnedCalendar": true }
+```
+
+创建 OWNED 仍以后端策略强制为准（错误码 `1_005_001_005`）。
