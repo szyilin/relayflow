@@ -8,8 +8,12 @@ const props = withDefaults(defineProps<{
   activeObjectId?: string | null
   /** Hide page title when embedded under Home tabs */
   embedded?: boolean
+  allowShare?: boolean
+  allowExportMd?: boolean
 }>(), {
-  embedded: false
+  embedded: false,
+  allowShare: true,
+  allowExportMd: true
 })
 
 const emit = defineEmits<{
@@ -58,31 +62,31 @@ function rowActions(item: DocsRecentItem) {
   }>> = []
 
   if (ok) {
-    const primary = [
-      {
+    const primary: Array<{ label: string, icon?: string, onSelect: () => void }> = []
+    if (item.ownedByMe && props.allowShare) {
+      primary.push({
         label: '分享',
         icon: 'i-lucide-share-2',
         onSelect: () => emit('share', item.objectId)
-      },
-      {
-        label: '复制链接',
-        icon: 'i-lucide-link',
-        onSelect: () => emit('copyLink', item.objectId)
-      },
-      {
+      })
+    }
+    primary.push({
+      label: '复制链接',
+      icon: 'i-lucide-link',
+      onSelect: () => emit('copyLink', item.objectId)
+    })
+    if (props.allowExportMd) {
+      primary.push({
         label: '导出 Markdown',
         icon: 'i-lucide-download',
         onSelect: () => emit('exportMd', item.objectId)
-      },
-      {
-        label: item.starred ? '取消星标' : '星标',
-        icon: 'i-lucide-star',
-        onSelect: () => emit('star', item.objectId)
-      }
-    ]
-    if (!item.ownedByMe) {
-      primary.shift()
+      })
     }
+    primary.push({
+      label: item.starred ? '取消星标' : '星标',
+      icon: 'i-lucide-star',
+      onSelect: () => emit('star', item.objectId)
+    })
     groups.push(primary)
   } else {
     groups.push([
