@@ -8,13 +8,48 @@
 
 ### Requirement: 本地基础设施 Compose 编排
 
-`deploy/compose.yml` SHALL 定义 PostgreSQL、Redis、MinIO 服务，供本地开发与自部署使用。
+`deploy/compose.yml` SHALL 定义 PostgreSQL、Redis、MinIO 与 XXL-JOB Admin（及其文档约定的依赖存储）服务，供本地开发与自部署使用。当启用视频会议 / RTC 能力时，Compose SHALL 另提供可自建的 **LiveKit** 服务定义（可用 profile 或文档说明为可选服务），并在文档中说明生产环境通常还需 TURN（如 coturn）与 UDP/TCP 端口规划。V1 MUST NOT 要求付费云 RTC。
 
 #### Scenario: Compose 语法有效
 
 - **WHEN** 开发者执行 `docker compose -f deploy/compose.yml config`
 - **THEN** 配置解析成功且无语法错误
-- **AND** 包含 postgres、redis、minio 三个服务定义
+- **AND** 包含 postgres、redis、minio、以及 xxl-job-admin（或等价服务名）的服务定义
+
+#### Scenario: LiveKit 服务可编排
+
+- **WHEN** 开发者按文档启用 LiveKit 相关 Compose 服务（或默认已包含）
+- **THEN** 配置中存在 LiveKit 服务定义且可与应用配置中的 URL/密钥对齐
+- **AND** 不依赖外部 SaaS 媒体云即可在自托管环境联调
+
+### Requirement: XXL-JOB 种子随仓库分发
+
+仓库 MUST 包含 XXL-JOB 表结构与官方任务种子的版本化文件（路径在 design/README 约定，如 `deploy/xxl-job/`），使自托管者初始化后即可获得默认任务列表。
+
+#### Scenario: 文档可定位种子
+
+- **WHEN** 自托管者阅读部署文档或 `deploy/xxl-job/README.md`
+- **THEN** 能明确得知如何应用 schema 与 seed，以及默认 Admin 访问方式
+- **AND** 官方任务列表不以「到业务代码中搜索注解」为唯一发现途径
+
+### Requirement: Agent Maven module on server classpath
+
+The V1 runtime SHALL include `relayflow-module-agent-api` and `relayflow-module-agent-biz` in the Maven reactor. `relayflow-server` MUST depend on `agent-biz`. Spring AI dependency versions MUST be managed only via the RelayFlow BOM importing `spring-ai-bom` 1.1.x (compatible with Spring Boot 3.4), and MUST NOT require Spring AI 2.x / Boot 4.
+
+#### Scenario: Server compiles with agent-biz
+
+- **WHEN** the agent module scaffold is applied
+- **THEN** `./mvnw -pl relayflow-server -am compile` succeeds with `agent-biz` on the classpath
+- **AND** the BOM declares Spring AI 1.1.x management without requiring `spring.ai.openai.api-key` at application bootstrap for the scaffold alone
+
+### Requirement: Agent package layout placeholder
+
+The `agent-biz` module SHALL reserve Java packages for definition, builder, runtime, skill, session, channel, and llm concerns so later Agent slices place code consistently.
+
+#### Scenario: Placeholder packages exist
+
+- **WHEN** the scaffold change is complete
+- **THEN** `com.relayflow.module.agent` contains documented placeholder packages (or package-info) for the listed concerns
 
 ### 需求：自托管单节点部署
 
@@ -37,6 +72,16 @@
 - 当 应用在有效环境变量下启动
 - 那么 各核心服务仅通过配置的主机名连接
 - 并且 正常运行无需外网请求
+
+### Requirement: RTC 离线与内网说明
+
+部署文档 SHALL 说明：在镜像预加载的前提下，LiveKit 与 RelayFlow 可在无公网环境下于内网互通；若客户端位于对称 NAT / 严格防火墙后，自托管 MUST 规划 TURN，否则可能无法建立媒体连接。
+
+#### Scenario: 内网无 TURN 的限制可知
+
+- **WHEN** 运维阅读部署/RTC 文档
+- **THEN** 文档明确区分「信令可达」与「媒体经 TURN」的差异
+- **AND** 不声称在任意 NAT 下零 TURN 一定可通话
 
 ### 需求：仓库根目录 Maven 模块化布局
 

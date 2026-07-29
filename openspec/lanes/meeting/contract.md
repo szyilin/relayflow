@@ -1,9 +1,9 @@
 # API 契约：meeting
 
-> **状态**：草案（`-web` 起草中）  
-> **起草**：`workspace-meeting-v1` / meeting-hub-web  
+> **状态**：ready / integrate done（看板 `workspace-meeting`）  
+> **起草**：`workspace-meeting-v1`  
 > **对接看板**：[`docs/dev/api-integration-board.md`](../../../docs/dev/api-integration-board.md)  
-> **母 change**：[`openspec/changes/workspace-meeting-v1`](../../changes/workspace-meeting-v1/proposal.md)
+> **母 change**：[`openspec/changes/archive/2026-07-29-workspace-meeting-v1`](../../changes/archive/2026-07-29-workspace-meeting-v1/proposal.md)
 
 ## 背景
 
@@ -131,4 +131,18 @@
 
 ## Mock（-web）
 
-Store 内临时数据撑 UI；join-credentials 可返回假 token（不连真 LiveKit）或本地 LiveKit；**integrate 删除 Mock**。
+Store 内临时数据撑 UI；join-credentials 可返回假 token（不连真 LiveKit）或本地 LiveKit；**integrate 已删除 Mock**。
+
+## 人工 E2E 验收清单（双浏览器 + LiveKit）
+
+前置：`docker compose -f deploy/compose.yml up -d`（含 LiveKit）；`relayflow-server` 与 `pnpm dev` 已起。
+
+| # | 步骤 | 期望 |
+|---|------|------|
+| 1 | 用户 A：`/app/meeting` → 发起即时会议 → 预进房开麦/摄像头 → 进房 | 会中宫格见本地面 |
+| 2 | 用户 B：同租户另一浏览器 → 用会议号加入 → 进房 | 双方互见对方画面；说话者前置排序随发言变化 |
+| 3 | 侧边 DataChannel 聊天互发 | 对方实时可见；刷新后不要求落库 |
+| 4 | 用户 A：Hub 预约会议 → 打开日历 | 事件含会议入口；「加入会议」进预进房 |
+| 5 | Host 结束会议 | 双方退出；历史列表可见 |
+
+> 联调门禁（去 Mock / 日历入口 / DataChannel / build·typecheck）已在 `workspace-meeting-v1` §5.1–5.3、5.5 完成；上表为人工双人验收项。

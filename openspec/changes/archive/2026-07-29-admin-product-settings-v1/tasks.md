@@ -32,4 +32,4 @@
 
 ## 5. 后续（本母 change 不实现，仅登记）
 
-- [ ] 5.1 IM 完成后另立 `admin-docs-product-settings-*` / `admin-calendar-product-settings-*` 详规（本清单勾选表示「已立 change」，非本母 change 编码完成）
+- [x] 5.1 IM 完成后另立 `admin-docs-product-settings-*` / `admin-calendar-product-settings-*` 详规（本清单勾选表示「已立 change」，非本母 change 编码完成）→ 已立 `admin-docs-product-settings-v1`、`admin-calendar-product-settings-v1` 骨架

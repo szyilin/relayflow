@@ -3,9 +3,7 @@
 ## Purpose
 
 云文档域：三大存放容器（我的文档库 / 云盘 / 知识库）边界、文档本体与块模型，工作台 `/app/docs` 我的文档库（Library）与云盘行为，以及对象级分享 / 星标 / 个人最近足迹。知识库能力由后续 change 增量扩展。
-
 ## Requirements
-
 ### Requirement: Docs domain module
 
 The system SHALL provide a `docs` domain with Maven modules `relayflow-module-docs-api` and `relayflow-module-docs-biz`, and persist docs data in tables prefixed with `doc_`.
@@ -805,4 +803,14 @@ After integrate, `/app/docs` Home / Library / Drive IA MUST work against live Ap
 
 - **WHEN** member opens Home recent after integrate
 - **THEN** data comes from App API
+
+### Requirement: Org-level docs product settings reserved
+
+系统 SHALL 在管理端产品设置目录中为 **云文档** 预留组织级设置入口。本版本 MUST 仅提供占位体验，MUST NOT 定义或实现具体云文档组织策略项、策略表或 Admin API。
+
+#### Scenario: Placeholder only
+
+- **WHEN** 管理员从产品设置进入云文档
+- **THEN** 系统展示占位说明（组织级设置后续开放）
+- **AND** MUST NOT 要求 `docs` 域已存在产品设置持久化
 

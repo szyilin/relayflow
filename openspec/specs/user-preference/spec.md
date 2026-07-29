@@ -3,9 +3,7 @@
 ## Purpose
 
 企业内用户工作台偏好持久化：主题、主题色、会话气泡布局等，按 `(tenant_id, user_id)` 隔离，遵循 C 类默认数据惯例。
-
 ## Requirements
-
 ### Requirement: 企业内用户偏好持久化
 
 系统 MUST 按 `(tenant_id, user_id)` 持久化当前成员的工作台偏好。同一全局账号在不同租户下 MUST 允许不同偏好。表 MUST 使用 JSON 文档存储设置，并包含 `schema_version`。
@@ -90,3 +88,24 @@ The workspace global settings panel (opened from the profile/avatar entry) MUST 
 - **WHEN** 前端编译偏好相关代码
 - **THEN** store 使用的 settings 类型与 `api/app/userPreference`（或共享 types）一致
 - **AND** MUST NOT 存在两套字段互相漂移且无编译关联的平行接口定义
+
+### Requirement: Workspace section in user preference
+
+The user preference document MUST include a `settings.workspace` object for per-tenant-member workspace shell UI preferences. Keys MUST be merged with code defaults on GET (C-class). Defaults MUST include `railOrder` (string array) equal to the product default workspace rail order. PUT MUST accept a sanitized `railOrder` array of known rail ids; unknown ids MUST be dropped; an empty or absent array MUST merge to the code default.
+
+#### Scenario: Default workspace settings
+
+- **WHEN** a member has no preference row or no `workspace` keys
+- **THEN** GET preference returns code defaults including `workspace.railOrder` with the product default id sequence
+
+#### Scenario: Save rail order
+
+- **WHEN** a member updates `settings.workspace.railOrder` via PUT preference
+- **THEN** the values persist for `(tenant_id, user_id)`
+- **AND** other settings sections (e.g. `general`, `im`, `calendar`, `task`) remain intact under deep merge rules
+
+#### Scenario: Sanitize unknown rail ids
+
+- **WHEN** PUT includes `railOrder` containing unknown or duplicate ids
+- **THEN** unknown ids are dropped, duplicates collapsed, and missing known ids are filled from code defaults on the effective GET document
+

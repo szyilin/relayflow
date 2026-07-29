@@ -26,7 +26,7 @@
 ## 3. 收尾
 
 - [x] 3.1 在 `docs/dev/api-integration-board.md` 增加 Agent 路线占位行（web/api 状态 planned）
-- [ ] 3.2 母 change 归档前确认：子 change 均已开单；主规格 `agent` 在首次 runtime/integrate 归档时再 sync（母 change 可先保留 delta，或归档时同步骨架）
+- [x] 3.2 母 change 归档前确认：子 change 均已开单；主规格 `agent` 在首次 runtime/integrate 归档时再 sync（母 change 可先保留 delta，或归档时同步骨架）→ 子 change 均已归档（含 runtime/integrate）；`openspec/specs/agent/spec.md` 已存在；母 delta 归档时同步骨架
 
 ## 验证
 

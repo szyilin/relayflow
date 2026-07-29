@@ -132,15 +132,21 @@
 
 ### 需求：租户主数据
 
-系统 SHALL 维护租户（tenant）主数据，作为全局数据隔离边界。
+系统 SHALL 维护租户（tenant）主数据，作为全局数据隔离边界。租户 MUST 在创建时生成唯一 `code`（企业编号），且后续管理端更新 MUST NOT 允许修改 `code`。
 
 #### 场景：默认租户种子
 
 - 当 应用首次执行 Flyway 迁移
 - 那么 创建 `sys_tenant` 表
-- 并且 插入 `id=1`、`code=default` 的默认租户记录
+- 并且 插入 `id=1` 的默认租户记录（企业编号为全局唯一不透明编号；历史 `code=default` 须由迁移改为同风格编号）
 - 并且 默认租户不可被删除
 - 并且 多租户模式下用户注册建企会创建**额外**租户，不替换种子租户
+
+#### 场景：注册创建企业编号
+
+- 当 用户通过开放注册创建新企业
+- 那么 新 `sys_tenant` 带有全局唯一的 `code`
+- 并且 该 `code` 在后续企业信息更新 API 中不可被修改
 
 ### 需求：用户租户关系
 
@@ -154,7 +160,7 @@
 
 ### 需求：业务表租户字段
 
-除租户元数据表外，所有业务表 MUST 包含 `tenant_id` 字段，且不得为空；codegen 生成的 infra/im DO MUST 继承 `TenantBaseDO`。
+除租户元数据表与**明确声明为平台共享参考数据**的表（如行政区划 `infra_geo_*`，无租户隔离）外，所有业务表 MUST 包含 `tenant_id` 字段，且不得为空；codegen 生成的租户隔离 DO MUST 继承 `TenantBaseDO`。
 
 #### 场景：系统模块表
 
@@ -162,11 +168,18 @@
 - 那么 表结构包含 `tenant_id BIGINT NOT NULL`
 - 并且 租户内唯一约束包含 `tenant_id`（如 `UNIQUE(tenant_id, username)`）
 
-#### 场景：基础设施与 IM 模块表
+#### 场景：基础设施与 IM 租户隔离表
 
-- 当 创建 `infra_` 或 `im_` 前缀业务表
+- 当 创建需按租户隔离的 `infra_` 或 `im_` 前缀业务表
 - 那么 表结构包含 `tenant_id BIGINT NOT NULL`
 - 并且 对应 DO 继承 `TenantBaseDO`
+
+#### 场景：平台共享参考表例外
+
+- 当 创建平台级行政区划等共享参考表
+- 那么 表名仍使用域前缀（如 `infra_`）
+- 并且 可不含 `tenant_id`
+- 并且 规格或迁移注释中标明「平台共享、非租户隔离」
 
 ### 需求：租户上下文自动注入
 
@@ -227,16 +240,16 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 ### 需求：基于角色的访问控制
 
-系统应根据用户角色对管理端与用户端 API 实施 RBAC；鉴权链路必须为 `user → user_role → role → role_permission → permission.code`，并结合角色的 `data_scope` 过滤组织数据。
+系统 MUST 根据用户角色对管理端 API 实施 RBAC；鉴权链路 MUST 为 `user → user_role → role → role_permission → permission.code`。具备所需 `permission.code` 的管理员 MUST 对该权限所保护的管理端数据按业务规则全量可见，MUST NOT 再按角色「数据范围」裁切组织数据。员工工作台 `/app-api` 主导航与能力 MUST NOT 依赖本 RBAC 权限码（仍按有效组织成员准入）。
 
 #### 场景：授权访问
 
-- 当 用户拥有某 `permission.code` 对应权限且角色数据范围覆盖目标数据
-- 那么 调用受保护的管理端端点成功
+- 当 用户拥有某 `permission.code` 对应权限
+- 那么 调用受该权限保护的管理端端点成功（在其他业务校验通过的前提下）
 
 #### 场景：禁止访问
 
-- 当 用户不具备所需 `permission.code` 或数据范围不覆盖目标数据
+- 当 用户不具备所需 `permission.code`
 - 那么 系统返回 HTTP 403
 
 ### 需求：RBAC 功能权限
@@ -256,28 +269,15 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 - 并且 菜单可见性基于用户是否拥有关联的 `permission`（可选 `permission_id` 链接）
 - 并且 API 鉴权仅依据 `permission.code`，不依据菜单 ID
 
-### 需求：RBAC 数据范围
-
-系统应在角色上配置数据范围，限制管理员可操作的组织数据边界。
-
-#### 场景：数据范围类型
-
-- 当 配置 `sys_role.data_scope`
-- 那么 至少支持：`ALL`、`DEPT`、`DEPT_AND_CHILD`、`SELF`、`CUSTOM`
-
-#### 场景：自定义部门范围
-
-- 当 `data_scope` 为 `CUSTOM`
-- 那么 通过 `sys_role_dept` 指定可管理的部门 ID 列表
-
-#### 场景：同角色共享范围
-
-- 当 多名用户绑定同一 `sys_role`
-- 那么 这些用户共享该角色的 `data_scope` 与 `sys_role_dept` 配置
-
 ### 需求：角色树与系统预置角色
 
-系统应支持角色父子关系及系统预置角色。
+系统 MUST 支持角色父子关系及系统预置角色；`code` MUST 仅作为系统角色技术锚点（自定义角色 MUST 为 NULL）。
+
+#### 场景：一级角色无需上级
+
+- 当 创建或更新角色且未指定上级（`parent_id` 为空或 `0`）
+- 那么 系统将该角色持久化为一级角色
+- 并且 MUST NOT 因缺少上级而拒绝
 
 #### 场景：子角色权限子集
 
@@ -286,13 +286,19 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 #### 场景：超级管理员预置
 
-- 当 Flyway 执行 system 域种子
+- 当 Flyway 执行 system 域种子或租户引导创建系统角色
 - 那么 存在 `role_type=SYSTEM` 且 `code=super_admin` 的角色
-- 并且 其 `data_scope=ALL` 并绑定 system 域全部预置权限点
+- 并且 该角色绑定 system 域全部预置权限点
+
+#### 场景：自定义角色无 code
+
+- 当 创建 `role_type=CUSTOM` 的角色
+- 那么 持久化的 `code` MUST 为 NULL
+- 并且 管理端 API MUST NOT 要求客户端提交角色编码
 
 ### 需求：组织架构
 
-系统应支持部门（组织树）及用户与部门的隶属关系；部门用于组织归属与数据范围计算，不单独替代 RBAC 功能权限。
+系统 MUST 支持部门（组织树）及用户与部门的隶属关系；部门用于组织归属与通讯录结构，MUST NOT 单独替代 RBAC 功能权限，亦 MUST NOT 再作为角色级「数据范围」计算输入。
 
 #### 场景：部门树
 
@@ -485,22 +491,42 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 
 ### 需求：角色管理 API
 
-系统须提供管理端 API 管理角色、绑定权限点、配置 `data_scope`（CUSTOM 时含 `sys_role_dept`）；各端点须以 `system:role:*` 权限码保护。
+系统 MUST 提供管理端 API 管理管理员角色、绑定权限点、查询/增减角色成员；各端点 MUST 以 `system:role:*`（成员变更可用 `system:role:update`）权限码保护。API MUST NOT 接受或依赖 `dataScope` / `deptIds`（角色部门范围）。创建/更新请求中 `parentId` 可选；自定义角色 MUST NOT 要求 `code`。
 
 #### 场景：创建自定义角色并绑权限
 
-- 当 具备 `system:role:create` 的用户提交含权限 ID 的新角色
-- 那么 持久化 `role_type=CUSTOM` 的角色
+- 当 具备 `system:role:create` 的用户提交含名称与权限 ID、可选上级的新角色
+- 那么 持久化 `role_type=CUSTOM` 且 `code` 为 NULL 的角色
 - 并且 创建 `sys_role_permission` 关联
+
+#### 场景：创建一级角色
+
+- 当 创建请求省略上级或显式传空/`0`
+- 那么 系统创建成功且 `parent_id` 表示一级
 
 #### 场景：系统角色不可删除
 
 - 当 用户尝试删除 `role_type=SYSTEM` 的角色
 - 那么 系统拒绝操作
 
+#### 场景：列出角色成员
+
+- 当 具备 `system:role:query`（或 list）的用户请求某角色的成员列表
+- 那么 系统返回绑定该角色的用户摘要（至少含 userId、展示名）
+
+#### 场景：添加角色成员
+
+- 当 具备更新权限的用户为某角色添加组织内用户
+- 那么 系统写入 `sys_user_role`（幂等）
+
+#### 场景：移除角色成员
+
+- 当 具备更新权限的用户从某角色移除成员
+- 那么 系统删除对应 `sys_user_role`
+
 ### 需求：用户写操作管理端 API
 
-系统须提供管理端 API，支持按手机号邀请成员（管理员不可设置账号密码）、创建用户（含部门与角色分配，保留种子管理员场景）、查询详情、更新基本信息、更新成员状态、更新主部门与角色绑定；用户分页须按调用者有效 data_scope 过滤；分页响应须含 `memberStatus` 与 `mobile`。
+系统 MUST 提供管理端 API，支持按手机号邀请成员（管理员不可设置账号密码）、创建用户（含部门与角色分配，保留种子管理员场景）、查询详情、更新基本信息、更新成员状态、更新主部门与角色绑定；用户分页在调用者具备 `system:user:list` 时 MUST 返回当前租户成员（可按显式 `deptId` 等筛选），MUST NOT 再按角色 data_scope 过滤；分页响应 MUST 含 `memberStatus` 与 `mobile`。
 
 #### 场景：按手机号邀请成员
 
@@ -541,16 +567,15 @@ Redis 缓存 key MUST 包含租户维度，防止跨租户数据混读。
 - 当 管理员更新用户主部门时传入 null 或缺失 `deptId`
 - 那么 系统拒绝该请求
 
-#### 场景：用户分页按 data_scope 过滤
+#### 场景：用户分页全量（有 list 权限）
 
-- 当 具备 `system:user:list` 且 data_scope 非 ALL 的用户请求用户分页 API
-- 那么 返回用户须限制在其有效数据范围内（SELF 与允许 deptIds 并集，或 ALL 时全量）
+- 当 具备 `system:user:list` 的用户请求用户分页 API且未携带缩小范围的筛选
+- 那么 返回当前租户成员分页结果，MUST NOT 因调用者角色缺少历史 data_scope=ALL 而缩小结果集
 
 #### 场景：用户分页按部门过滤
 
 - 当 管理员请求 `GET /admin-api/system/user/page` 并携带 query `deptId`
 - 那么 响应列表仅含主部门（`sys_user_dept.primary_flag = 1`）等于 `deptId` 的用户
-- 并且 结果仍受调用者 data_scope 规则约束
 
 ### 需求：工作台组织目录 API
 
@@ -719,3 +744,57 @@ The system SHALL expose `GET /app-api/system/member/search` for authenticated wo
 - **WHEN** an authenticated user requests `GET /app-api/system/member/search?keyword=李&limit=5`
 - **THEN** the system returns up to 5 matching active tenant members
 - **AND** does not require `sys_permission` codes beyond valid membership
+
+### 需求：企业编号全局唯一不透明标识
+
+系统 MUST 在创建租户时生成全局唯一的企业编号（`sys_tenant.code`）：11 位大写字母与数字（排除易混字符 `0/O/1/I`），创建后不可更新。种子租户 MUST NOT 再使用可读单词 `default` 作为运行时编号；既有 `code=default` 行 MUST 由迁移改为同风格唯一编号。
+
+#### 场景：新租户获得不透明编号
+
+- 当 用户注册并创建新企业
+- 那么 持久化的 `sys_tenant.code` 匹配 `^[A-HJ-NP-Z2-9]{11}$` 且全库唯一
+
+#### 场景：种子 default 编号已迁移
+
+- 当 应用执行含企业编号迁移的 Flyway
+- 那么 不再存在未删除且 `code='default'` 的租户行
+
+#### 场景：档案更新不可改编号
+
+- 当 客户端在更新企业档案请求中携带 `code`
+- 那么 服务端忽略或拒绝变更，库中编号保持不变
+
+### 需求：企业 Logo 头像
+
+系统 MUST 在 `sys_tenant` 持久化可选 `logo_file_id`（infra 文件 id）。`GET/PUT /admin-api/system/enterprise/profile` MUST 暴露 `logoFileId`（string | null）。具备 `system:enterprise:update` 的管理员 MUST 能通过上传公开文件并更新 profile 更换企业头像。概览与企业信息页 MUST 使用同一字段展示。
+
+#### 场景：上传并展示企业头像
+
+- 当 管理员上传企业头像并成功更新 profile
+- 那么 后续 GET profile / overview 返回同一 `logoFileId`
+- 并且 管理端企业信息与概览展示对应公开文件 URL
+
+#### 场景：无头像时使用占位
+
+- 当 `logoFileId` 为空
+- 那么 UI 以企业名称首字（或默认字）作为头像占位
+
+### 需求：租户企业档案扩展字段
+
+系统 SHALL 支持在租户主数据上维护企业管理档案扩展字段（行业、规模、联系人姓名/邮箱/手机/座机等），供管理端企业信息页读写。MUST NOT 在本版本实现企业域名或注销企业状态机。
+
+#### 场景：更新档案不影响编号
+
+- 当 管理员更新行业、规模或联系人字段
+- 那么 变更持久化到当前租户
+- 并且 `code` 保持原值
+
+### 需求：租户企业地址
+
+系统 SHALL 为每个租户维护企业地址列表，支持类型多选（职位地址、面试地址、门店地址）、关联平台行政区划节点、详细地址文本与启用/停用状态。
+
+#### 场景：地址归属当前租户
+
+- 当 管理员在当前租户下创建地址
+- 那么 记录带有当前 `tenant_id`
+- 并且 其他租户的管理员不可读写该记录
