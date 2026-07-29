@@ -48,7 +48,7 @@ web/src/
 | 选人器 | `WorkspaceMemberPicker`：三源；`excludeUserIds` 隐藏已选/已在群；「我管理的群组」=`stores/memberPicker`（IM 会话+members 聚合，非 seed） |
 | 邀请入群 | `ImInviteMembersModal` **必须**内嵌同一 picker，并传入当前群 `excludeUserIds` |
 | 添加企业成员 UI | `WorkspaceOrgInviteModal` 四 Tab（QR/链接/码/手机号）；`stores/orgInvite` → `/app-api/system/org-invite/*`；加入页 `/app/invite/join` |
-| 添加外部联系人 | `WorkspaceAddExternalContactModal`；`-web` 精确手机/邮箱可临时结果 |
+| 添加外部联系人 | `WorkspaceAddExternalContactModal`；`contactAdd` → `search-account` / `POST request` |
 | 创建文档 | 跳转 `/app/docs` + `docs.createPage()` |
 | 状态 | `stores/createHub.ts`（`canInvite` 读 orgInvite capability）；契约 [`workspace-create-hub`](../../openspec/lanes/workspace-create-hub/contract.md) · [`org-invite`](../../openspec/lanes/org-invite/contract.md) · [`im-group-chat` managed](../../openspec/lanes/im-group-chat/contract.md) |
 
@@ -136,8 +136,8 @@ web/src/
 | Panel | 飞书式**分类导航**（图标）：组织内联系人、外部联系人、新的联系人、星标联系人、我的群组；**不做**邮箱联系人 |
 | 组织内 | 主区：部门面包屑 + 子部门行（「下级」）+ 直属成员；数据仍走 `dept/tree` · `list-by-dept`；页内不设搜索（统一走 Rail ⌘K） |
 | 外部 | 按显示名首字母分组；顶栏「添加」打开 `WorkspaceAddExternalContactModal`（与 Create Hub 共用）；数据 `GET …/external/list` |
-| 新的联系人 | 好友申请列表；「同意」走 accept API；「拒绝」`-web` 本地 `rejected`（`-api` 后接 reject） |
-| 添加外部流 | 确切手机号/邮箱搜索 → 添加 → `contactAdd` outgoing 草稿；契约见 enrich「发起添加」章 |
+| 新的联系人 | 好友申请列表；「同意」/`accept`、「拒绝」/`reject` API |
+| 添加外部流 | 确切手机号/邮箱搜索 → `POST request`；契约见 enrich「发起添加」章 |
 | 星标 | 星标列表 + 取消星标（`GET/PUT …/contact/starred/*`）；**设为星标**入口在 peer 名片封面右上角「⋯」菜单 |
 | 我的群组 | IM 会话 `type=group`；点击进 `/app/messages`；无临时群占位 |
 | 点人 | `WorkspaceBusinessCard`（peer；点自己则 self）；消息 → 单聊 |

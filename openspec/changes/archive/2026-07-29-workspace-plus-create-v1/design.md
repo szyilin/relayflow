@@ -255,10 +255,10 @@ Flyway 建议序（落地时顺延）：`V0.1.0.41__org_invite_settings.sql`、`
 4. 前端：管理端设置页 → Hub → 四渠道 → 外部添加 → 选人器
 5. **回滚**：关闭 `invite_mode=OFF`；DB 回滚须同意；保留 `sys_tenant_user` 不删
 
-## Open Questions
+## Open Questions（已锁定）
 
-1. **共享 LINK/QR 是否限制加入人数？** 建议 V1 不限制，靠 OFF/重置。
-2. **非管理员审批的管理端入口**：独立「待审批邀请」页 vs 用户列表筛选项？建议独立轻量页挂邀请设置旁。
-3. **邀请码长度与字符集**：建议 6 位数字或 Crockford Base32 8 位。
-4. **`POST user/invite` 是否长期保留？** 建议保留为兼容别名 ≥1 个次要版本。
-5. **「我管理的群组」若当前无 owner 字段**：是否用「我创建的群」近似？实现前查 `im_group` / member role 后在子 change 拍板。
+1. **共享 LINK/QR 是否限制加入人数？** **决议**：V1 不限制，靠 `OFF` / 重置。
+2. **非管理员审批的管理端入口**：独立轻量「待审批」页挂邀请设置旁（可后续补 UI；状态机已支持）。
+3. **邀请码长度与字符集**：**决议**：短码可读字母数字（实现为约 6 位，如 `YAVYAU`）。
+4. **`POST user/invite` 是否长期保留？** **决议**：保留为兼容别名（已委托 org-invite）。
+5. **「我管理的群组」**： **决议**：V1 用 IM 会话 + members 角色过滤（owner/admin）；专用 `GET …/group/managed` 可选延后。

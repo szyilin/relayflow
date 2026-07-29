@@ -7,6 +7,7 @@ import {
   listContactRequests,
   listExternalContacts,
   listStarredContacts,
+  rejectContactRequest,
   updateContactStarred,
   type ContactItem,
   type ContactRequestItem,
@@ -273,25 +274,15 @@ export const useContactsStore = defineStore('contacts', () => {
     }
   }
 
-  /**
-   * Reject pending request（`-web` 本地改状态；`-api` 就绪后改调 rejectContactRequest）.
-   */
   async function rejectRequest(requestId: string) {
     lastError.value = null
-    const row = contactRequests.value.find(item => item.id === requestId)
-    if (!row) {
-      lastError.value = '申请不存在'
-      throw new Error(lastError.value)
+    try {
+      await rejectContactRequest(requestId)
+      await fetchRequests()
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '拒绝申请失败'
+      throw error
     }
-    if (row.status !== 'pending') {
-      lastError.value = '仅待处理申请可拒绝'
-      throw new Error(lastError.value)
-    }
-    contactRequests.value = contactRequests.value.map(item =>
-      item.id === requestId
-        ? { ...item, status: 'rejected' as const }
-        : item
-    )
   }
 
   async function unstarContact(userId: string) {

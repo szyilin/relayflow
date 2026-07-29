@@ -158,7 +158,7 @@ export function updateContactStarred(userId: string, starred: boolean): Promise<
   return put<boolean>(`/app-api/system/contact/starred/${userId}`, { starred })
 }
 
-/** Account hit from exact mobile/email search（`-api` 后接真接口）. */
+/** Account hit from exact mobile/email search. */
 export interface ContactAccountSearchHit {
   userId: string
   displayName: string
@@ -172,25 +172,44 @@ export interface CreateContactRequestPayload {
   message?: string
 }
 
-/**
- * Reserved for workspace-contact-add-external-api.
- * Exact match: pass either `mobile` or `email`.
- */
-export async function searchContactAccounts(_query: {
+type RawContactAccountSearchHit = Omit<ContactAccountSearchHit, 'userId' | 'alreadyAdded'> & {
+  userId: number | string
+  alreadyAdded?: boolean
+}
+
+function normalizeSearchHit(item: RawContactAccountSearchHit): ContactAccountSearchHit {
+  return {
+    userId: String(item.userId),
+    displayName: item.displayName ?? '',
+    orgLabel: item.orgLabel ?? '',
+    avatarText: item.avatarText || (item.displayName?.slice(0, 1) || '?'),
+    alreadyAdded: item.alreadyAdded === true
+  }
+}
+
+/** Exact match: pass either `mobile` or `email`. */
+export function searchContactAccounts(query: {
   mobile?: string
   email?: string
 }): Promise<ContactAccountSearchHit[]> {
-  throw new Error('contact search-account API not ready; use contactAdd store')
+  return get<RawContactAccountSearchHit[]>('/app-api/system/contact/search-account', {
+    params: {
+      mobile: query.mobile || undefined,
+      email: query.email || undefined
+    }
+  }).then(list => (list ?? []).map(normalizeSearchHit))
 }
 
-export async function createContactRequest(
-  _payload: CreateContactRequestPayload
+export function createContactRequest(
+  payload: CreateContactRequestPayload
 ): Promise<ContactRequestItem> {
-  throw new Error('contact request create API not ready; use contactAdd store')
+  return post<RawContactRequestItem>('/app-api/system/contact/request', {
+    targetUserId: payload.targetUserId,
+    message: payload.message?.trim() || undefined
+  }).then(normalizeRequest)
 }
 
-/** Reserved — `-api` 实现后 contacts.rejectRequest 改为调用本函数. */
-export async function rejectContactRequest(requestId: string): Promise<ContactRequestItem> {
+export function rejectContactRequest(requestId: string): Promise<ContactRequestItem> {
   return post<RawContactRequestItem>(`/app-api/system/contact/request/${requestId}/reject`)
     .then(normalizeRequest)
 }

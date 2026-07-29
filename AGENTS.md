@@ -95,7 +95,7 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：**智能体平台**（母 change [`agent-platform-foundation`](openspec/changes/agent-platform-foundation/proposal.md) + 架构 [`docs/dev/agent-architecture-draft.md`](docs/dev/agent-architecture-draft.md)）。子 change 骨架已开单：`admin-llm-provider-v1` → `agent-module-scaffold` → **`agent-runtime-core-v1`（亮点）** → `workspace-agent-web` → `workspace-agent-integrate` → `agent-skill-catalog-v1` → `im-bot-agent-carrier-v1` → `agent-automation-v1`。实现前先深化对应子 change 的 design/specs/tasks；勿在一个 OpenSpec 内吞全栈；勿从 archive 未勾任务续做。
+**下一优先**：**智能体平台**（母 change [`agent-platform-foundation`](openspec/changes/agent-platform-foundation/proposal.md) + 架构 [`docs/dev/agent-architecture-draft.md`](docs/dev/agent-architecture-draft.md)）。Create Hub / 组织邀请母 change [`workspace-plus-create-v1`](openspec/changes/archive/2026-07-29-workspace-plus-create-v1/proposal.md) 已归档。子 change 骨架已开单：`admin-llm-provider-v1` → `agent-module-scaffold` → **`agent-runtime-core-v1`（亮点）** → `workspace-agent-web` → `workspace-agent-integrate` → `agent-skill-catalog-v1` → `im-bot-agent-carrier-v1` → `agent-automation-v1`。实现前先深化对应子 change 的 design/specs/tasks；勿在一个 OpenSpec 内吞全栈；勿从 archive 未勾任务续做。
 
 脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
 

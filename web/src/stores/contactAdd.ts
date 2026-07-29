@@ -1,6 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { ContactAccountSearchHit } from '../api/app/contacts'
+import {
+  createContactRequest,
+  searchContactAccounts,
+  type ContactAccountSearchHit
+} from '../api/app/contacts'
+import { ApiError } from '../api/request'
 import { useContactsStore } from './contacts'
 
 export type { ContactAccountSearchHit }
@@ -16,8 +21,7 @@ export interface OutgoingContactRequest {
 }
 
 /**
- * Add-external-contact flow for `-web`.
- * Search/create are local drafts until contact-add-external-api.
+ * Add-external-contact flow — search / create against app-api.
  */
 export const useContactAddStore = defineStore('contactAdd', () => {
   const lastHits = ref<ContactAccountSearchHit[]>([])
@@ -46,47 +50,28 @@ export const useContactAddStore = defineStore('contactAdd', () => {
     )
   }
 
-  /** Local exact-match demo results（integrate 删除）. */
-  function buildDraftHits(query: string): ContactAccountSearchHit[] {
-    const parsed = isExactQuery(query)
-    if (!parsed) {
-      return []
-    }
-    const suffix = parsed.mobile?.slice(-6) ?? parsed.email?.split('@')[0]?.slice(0, 6) ?? '000000'
-    const candidates: ContactAccountSearchHit[] = [
-      {
-        userId: `draft-ext-${suffix}-a`,
-        displayName: '样依琳',
-        orgLabel: '合作方演示企业',
-        avatarText: '样',
-        alreadyAdded: false
-      },
-      {
-        userId: `draft-ext-${suffix}-b`,
-        displayName: `用户 ${suffix}`,
-        orgLabel: '另一组织',
-        avatarText: '用',
-        alreadyAdded: false
-      }
-    ]
-    return candidates.map(item => ({
-      ...item,
-      alreadyAdded: isAlreadyRelated(item.userId)
-    }))
-  }
-
   async function search(query: string): Promise<ContactAccountSearchHit[]> {
     searching.value = true
     lastError.value = null
     try {
-      if (!isExactQuery(query)) {
+      const parsed = isExactQuery(query)
+      if (!parsed) {
         lastHits.value = []
         lastError.value = '请输入确切的 11 位手机号或邮箱'
         return []
       }
-      // Prefer API when ready; `-web` uses draft hits.
-      lastHits.value = buildDraftHits(query)
+      const hits = await searchContactAccounts(parsed)
+      lastHits.value = hits.map(item => ({
+        ...item,
+        alreadyAdded: item.alreadyAdded || isAlreadyRelated(item.userId)
+      }))
       return lastHits.value
+    } catch (error) {
+      lastHits.value = []
+      lastError.value = error instanceof ApiError
+        ? error.message
+        : (error instanceof Error ? error.message : '搜索失败')
+      throw error
     } finally {
       searching.value = false
     }
@@ -98,24 +83,34 @@ export const useContactAddStore = defineStore('contactAdd', () => {
       lastError.value = '已添加或已有待处理申请'
       throw new Error(lastError.value)
     }
-    outgoing.value = [
-      {
-        id: `out_${Date.now()}`,
+    try {
+      const created = await createContactRequest({
         targetUserId: hit.userId,
-        displayName: hit.displayName,
-        orgLabel: hit.orgLabel,
-        avatarText: hit.avatarText,
-        createdAt: new Date().toISOString(),
-        status: 'pending'
-      },
-      ...outgoing.value
-    ]
-    lastHits.value = lastHits.value.map(item =>
-      item.userId === hit.userId
-        ? { ...item, alreadyAdded: true }
-        : item
-    )
-    void message
+        message
+      })
+      outgoing.value = [
+        {
+          id: created.id,
+          targetUserId: hit.userId,
+          displayName: hit.displayName,
+          orgLabel: hit.orgLabel,
+          avatarText: hit.avatarText,
+          createdAt: created.createTime ?? new Date().toISOString(),
+          status: 'pending'
+        },
+        ...outgoing.value
+      ]
+      lastHits.value = lastHits.value.map(item =>
+        item.userId === hit.userId
+          ? { ...item, alreadyAdded: true }
+          : item
+      )
+    } catch (error) {
+      lastError.value = error instanceof ApiError
+        ? error.message
+        : (error instanceof Error ? error.message : '发起申请失败')
+      throw error
+    }
   }
 
   function resetForTenantSwitch() {

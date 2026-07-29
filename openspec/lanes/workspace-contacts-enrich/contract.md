@@ -132,7 +132,7 @@ curl -s -X PUT "http://localhost:8080/app-api/system/contact/starred/<userId>" \
 
 ## 发起添加 / 拒绝（已实现 · `workspace-contact-add-external-api`）
 
-> 前端 integrate：`contactAdd` store 接下列端点；拒绝走 `reject`。
+> 前端已接（`workspace-contact-add-external-integrate`）：`contactAdd` → search/create；`contacts.rejectRequest` → reject。
 
 ### GET /app-api/system/contact/search-account
 
@@ -194,7 +194,7 @@ curl -s -X POST "http://localhost:8080/app-api/system/contact/request/<id>/rejec
 | 分类导航 | `stores/contacts.ts` `category` | 本地 |
 | 组织内 | 同上 + `deptPath` | 既有 dept/user API |
 | 外部 / 申请 / 星标 | 同上 | `GET/POST/PUT /app-api/system/contact/*`（integrate 后无 store seed） |
-| 添加外部 | `stores/contactAdd` + Hub/通讯录入口 | `-api` 已实现；`-integrate` 接 search + create + reject |
+| 添加外部 | `stores/contactAdd` + Hub/通讯录入口 | `search-account` / `POST request` / `reject`（integrate 完成） |
 | 我的群组 | `stores/im` conversations | IM list（`type=group`） |
 
 ## V1 不在范围
