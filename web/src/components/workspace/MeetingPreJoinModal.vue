@@ -102,9 +102,11 @@ watch(() => props.open, (open) => {
 
 onUnmounted(stopPreview)
 
-function onConfirm() {
+async function onConfirm() {
   // Release preview tracks before entering room so mic/cam aren't double-held.
+  // Await a microtask so Chrome finishes stopping the device before room getUserMedia.
   stopPreview()
+  await Promise.resolve()
   emit('confirm', {
     audio: audioEnabled.value,
     video: videoEnabled.value,

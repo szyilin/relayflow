@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MeetingParticipantTile from '../../../../components/workspace/MeetingParticipantTile.vue'
 import { useRtcRoom } from '../../../../composables/rtc'
@@ -22,6 +22,8 @@ const {
   phase,
   error,
   participants,
+  micEnabled,
+  camEnabled,
   connect,
   disconnect,
   setMicEnabled,
@@ -30,28 +32,34 @@ const {
   onChat
 } = useRtcRoom()
 
-const micOn = ref(wantAudio.value)
-const camOn = ref(wantVideo.value)
 const chatOpen = ref(true)
 const chatInput = ref('')
 const chatMessages = ref<{ id: string, from: string, text: string }[]>([])
 const title = ref('视频会议')
 const meetingCode = ref('')
+const joining = ref(false)
 const statusHint = computed(() => {
   if (error.value) return error.value
   if (phase.value === 'connecting') return '信令连接中…'
   if (phase.value === 'publishing') return '正在开启设备…'
-  if (connecting.value) return '连接中…'
+  if (connecting.value || joining.value) return '连接中…'
   return ''
 })
 let offChat: (() => void) | undefined
 let leftReported = false
+let joinGen = 0
 
 const tiles = computed(() => participants.value)
 
-onMounted(async () => {
+async function joinRoom() {
+  const gen = ++joinGen
+  joining.value = true
+  leftReported = false
   try {
     const cred = await meetingStore.getJoinCredentials(meetingId.value)
+    if (gen !== joinGen) {
+      return
+    }
     title.value = cred.title
     meetingCode.value = cred.meetingCode
     if (!cred.livekitUrl || !cred.token) {
@@ -63,8 +71,10 @@ onMounted(async () => {
       audio: wantAudio.value,
       video: wantVideo.value
     })
-    micOn.value = wantAudio.value
-    camOn.value = wantVideo.value
+    if (gen !== joinGen) {
+      return
+    }
+    offChat?.()
     offChat = onChat((msg) => {
       chatMessages.value.push({
         id: `${Date.now()}-${Math.random()}`,
@@ -73,12 +83,19 @@ onMounted(async () => {
       })
     })
   } catch (e) {
+    if (gen !== joinGen) {
+      return
+    }
     toast.add({
       title: e instanceof Error ? e.message : '进入会议失败',
       color: 'error'
     })
+  } finally {
+    if (gen === joinGen) {
+      joining.value = false
+    }
   }
-})
+}
 
 async function reportLeave() {
   if (leftReported) {
@@ -93,33 +110,63 @@ async function reportLeave() {
   }
 }
 
-onUnmounted(async () => {
+function onPageLeave() {
+  // Explicit leave only when the tab is really going away — not on Vue remount / HMR.
+  void disconnect()
+  void reportLeave()
+}
+
+onMounted(() => {
+  window.addEventListener('pagehide', onPageLeave)
+  window.addEventListener('beforeunload', onPageLeave)
+  void joinRoom()
+})
+
+onUnmounted(() => {
+  joinGen += 1
+  window.removeEventListener('pagehide', onPageLeave)
+  window.removeEventListener('beforeunload', onPageLeave)
   offChat?.()
-  await disconnect()
-  await reportLeave()
+  offChat = undefined
+  // Tear down media on remount, but do NOT call leaveMeeting here —
+  // Vue HMR / brief remounts were racing leave↔rejoin and ending sessions.
+  void disconnect()
+})
+
+watch(meetingId, (next, prev) => {
+  if (next && next !== prev) {
+    void joinRoom()
+  }
 })
 
 async function hangup() {
+  joinGen += 1
   await disconnect()
   await reportLeave()
   await router.push('/app/meeting')
 }
 
 async function toggleMic() {
-  micOn.value = !micOn.value
+  const next = !micEnabled.value
   try {
-    await setMicEnabled(micOn.value)
-  } catch {
-    micOn.value = !micOn.value
+    await setMicEnabled(next)
+  } catch (e) {
+    toast.add({
+      title: e instanceof Error ? e.message : '麦克风切换失败',
+      color: 'error'
+    })
   }
 }
 
 async function toggleCam() {
-  camOn.value = !camOn.value
+  const next = !camEnabled.value
   try {
-    await setCameraEnabled(camOn.value)
-  } catch {
-    camOn.value = !camOn.value
+    await setCameraEnabled(next)
+  } catch (e) {
+    toast.add({
+      title: e instanceof Error ? e.message : '摄像头切换失败',
+      color: 'error'
+    })
   }
 }
 
@@ -220,15 +267,17 @@ async function onSendChat() {
 
     <footer class="flex items-center justify-center gap-3 border-t border-white/10 px-4 py-3">
       <UButton
-        :color="micOn ? 'neutral' : 'error'"
-        :variant="micOn ? 'soft' : 'solid'"
-        :icon="micOn ? 'i-lucide-mic' : 'i-lucide-mic-off'"
+        :color="micEnabled ? 'neutral' : 'error'"
+        :variant="micEnabled ? 'soft' : 'solid'"
+        :icon="micEnabled ? 'i-lucide-mic' : 'i-lucide-mic-off'"
+        :disabled="phase === 'connecting' || joining"
         @click="toggleMic"
       />
       <UButton
-        :color="camOn ? 'neutral' : 'error'"
-        :variant="camOn ? 'soft' : 'solid'"
-        :icon="camOn ? 'i-lucide-video' : 'i-lucide-video-off'"
+        :color="camEnabled ? 'neutral' : 'error'"
+        :variant="camEnabled ? 'soft' : 'solid'"
+        :icon="camEnabled ? 'i-lucide-video' : 'i-lucide-video-off'"
+        :disabled="phase === 'connecting' || joining"
         @click="toggleCam"
       />
       <UButton color="error" icon="i-lucide-phone-off" @click="hangup">

@@ -11,6 +11,31 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const audioRef = ref<HTMLAudioElement | null>(null)
 let attachedVideo: LocalTrack | RemoteTrack | null = null
 let attachedAudio: LocalTrack | RemoteTrack | null = null
+let mediaMuteHandler: (() => void) | null = null
+
+function clearMediaMuteHandler() {
+  if (!mediaMuteHandler || !attachedVideo?.mediaStreamTrack) {
+    mediaMuteHandler = null
+    return
+  }
+  attachedVideo.mediaStreamTrack.removeEventListener('mute', mediaMuteHandler)
+  attachedVideo.mediaStreamTrack.removeEventListener('unmute', mediaMuteHandler)
+  mediaMuteHandler = null
+}
+
+function bindMediaMuteHandler(track: LocalTrack | RemoteTrack) {
+  clearMediaMuteHandler()
+  const media = track.mediaStreamTrack
+  if (!media) {
+    return
+  }
+  // Browser may fire transient mute during device startup; force a re-sync attach.
+  mediaMuteHandler = () => {
+    void syncMedia()
+  }
+  media.addEventListener('mute', mediaMuteHandler)
+  media.addEventListener('unmute', mediaMuteHandler)
+}
 
 function attachVideo() {
   const el = videoRef.value
@@ -19,9 +44,14 @@ function attachVideo() {
     return
   }
   if (track === attachedVideo && el.srcObject) {
+    // Ensure playback after transient browser mute/unmute.
+    if (el.paused) {
+      void el.play().catch(() => {})
+    }
     return
   }
   if (attachedVideo && attachedVideo !== track) {
+    clearMediaMuteHandler()
     try {
       attachedVideo.detach(el)
     } catch {
@@ -32,6 +62,7 @@ function attachVideo() {
   if (track && typeof track.attach === 'function') {
     track.attach(el)
     attachedVideo = track
+    bindMediaMuteHandler(track)
     void el.play().catch(() => {})
   }
 }
@@ -47,6 +78,9 @@ function attachAudio() {
     return
   }
   if (track === attachedAudio && el.srcObject) {
+    if (el.paused) {
+      void el.play().catch(() => {})
+    }
     return
   }
   if (attachedAudio && attachedAudio !== track) {
@@ -65,6 +99,7 @@ function attachAudio() {
 }
 
 function detachAll() {
+  clearMediaMuteHandler()
   const videoEl = videoRef.value
   const audioEl = audioRef.value
   if (attachedVideo && videoEl) {
@@ -92,7 +127,12 @@ async function syncMedia() {
 }
 
 watch(
-  () => [props.participant.videoTrack, props.participant.audioTrack, props.participant.hasVideo] as const,
+  () => [
+    props.participant.videoTrack,
+    props.participant.audioTrack,
+    props.participant.hasVideo,
+    props.participant.isMuted
+  ] as const,
   () => {
     void syncMedia()
   },

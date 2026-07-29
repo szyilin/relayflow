@@ -7,6 +7,7 @@ import {
   Room,
   RoomEvent,
   Track,
+  VideoPresets,
   type LocalTrack,
   type Participant,
   type RemoteTrack,
@@ -33,6 +34,27 @@ export interface RtcTileParticipant {
   audioTrack?: RemoteTrack | LocalTrack | null
 }
 
+const DEVICE_ENABLE_TIMEOUT_MS = 12_000
+const SIGNAL_CONNECT_TIMEOUT_MS = 12_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label}超时（${Math.round(ms / 1000)}s）`))
+    }, ms)
+    promise.then(
+      (v) => {
+        window.clearTimeout(timer)
+        resolve(v)
+      },
+      (e) => {
+        window.clearTimeout(timer)
+        reject(e)
+      }
+    )
+  })
+}
+
 export function useRtcRoom() {
   const room: ShallowRef<Room | null> = shallowRef(null)
   const connected = ref(false)
@@ -41,7 +63,11 @@ export function useRtcRoom() {
   const error = ref<string | null>(null)
   const activeSpeakerIds = ref<string[]>([])
   const revision = ref(0)
+  const micEnabled = ref(false)
+  const camEnabled = ref(false)
   let speakerBumpTimer: ReturnType<typeof setTimeout> | null = null
+  /** Monotonic id so a remount / rapid re-connect cannot finish on a stale attempt. */
+  let connectGen = 0
 
   const participants = computed(() => {
     revision.value
@@ -50,6 +76,18 @@ export function useRtcRoom() {
 
   function bump() {
     revision.value += 1
+    syncDeviceFlags()
+  }
+
+  function syncDeviceFlags() {
+    const local = room.value?.localParticipant
+    if (!local) {
+      micEnabled.value = false
+      camEnabled.value = false
+      return
+    }
+    micEnabled.value = local.isMicrophoneEnabled
+    camEnabled.value = local.isCameraEnabled
   }
 
   /** Speaking updates are high-frequency; coalesce to reduce tile churn. */
@@ -80,7 +118,11 @@ export function useRtcRoom() {
       .on(RoomEvent.ParticipantDisconnected, () => bump())
       .on(RoomEvent.Disconnected, () => {
         connected.value = false
-        phase.value = 'idle'
+        micEnabled.value = false
+        camEnabled.value = false
+        if (phase.value !== 'error') {
+          phase.value = 'idle'
+        }
         bump()
       })
   }
@@ -93,56 +135,103 @@ export function useRtcRoom() {
       phase.value = 'error'
       throw new Error('入会凭证不完整')
     }
+    const gen = ++connectGen
     connecting.value = true
     phase.value = 'connecting'
+    // Optimistic UI: reflect join intent immediately (footer), tiles catch up via tracks.
+    micEnabled.value = opts.audio !== false
+    camEnabled.value = opts.video === true
     try {
-      await disconnect()
+      await disconnect({ preservePhase: true, skipGenBump: true })
+      if (gen !== connectGen) {
+        return
+      }
+
       const r = new Room({
-        // Local preview is unreliable with dynacast when alone (no subscribers).
-        adaptiveStream: true,
+        // adaptiveStream pauses remote video by element visibility; leave off for
+        // predictable local preview when alone. dynacast similarly hurts solo publish.
+        adaptiveStream: false,
         dynacast: false,
-        disconnectOnPageLeave: true,
+        // Avoid freeze/pagehide tearing down media during Mac Chrome backgrounding.
+        disconnectOnPageLeave: false,
         stopLocalTrackOnUnpublish: true
       })
       bindRoomEvents(r)
 
-      await Promise.race([
+      await withTimeout(
         r.connect(opts.url, opts.token),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error('连接超时，请检查 LiveKit 是否启动或网络/防火墙')), 20_000)
-        })
-      ])
+        SIGNAL_CONNECT_TIMEOUT_MS,
+        '信令连接'
+      )
+      if (gen !== connectGen) {
+        await r.disconnect(true)
+        return
+      }
+
       room.value = r
       connected.value = true
       phase.value = 'publishing'
       bump()
 
+      // Publish devices with a hard timeout so we never stick on「正在开启设备…」.
+      // Failures are soft: room stays connected; user can retry via toolbar.
       const pubTasks: Promise<unknown>[] = []
       if (opts.audio !== false) {
-        pubTasks.push(r.localParticipant.setMicrophoneEnabled(true).catch((e) => {
-          console.warn('enable microphone failed', e)
-        }))
+        pubTasks.push(
+          withTimeout(
+            r.localParticipant.setMicrophoneEnabled(true),
+            DEVICE_ENABLE_TIMEOUT_MS,
+            '开启麦克风'
+          ).catch((e) => {
+            console.warn('enable microphone failed', e)
+            micEnabled.value = false
+          })
+        )
+      } else {
+        micEnabled.value = false
       }
       if (opts.video === true) {
-        pubTasks.push(r.localParticipant.setCameraEnabled(true).catch((e) => {
-          console.warn('enable camera failed', e)
-        }))
+        pubTasks.push(
+          withTimeout(
+            r.localParticipant.setCameraEnabled(true, {
+              resolution: VideoPresets.h360.resolution
+            }),
+            DEVICE_ENABLE_TIMEOUT_MS,
+            '开启摄像头'
+          ).catch((e) => {
+            console.warn('enable camera failed', e)
+            camEnabled.value = false
+          })
+        )
+      } else {
+        camEnabled.value = false
       }
       await Promise.all(pubTasks)
+      if (gen !== connectGen) {
+        return
+      }
       phase.value = 'connected'
       bump()
     } catch (e) {
+      if (gen !== connectGen) {
+        return
+      }
       error.value = e instanceof Error ? e.message : '连接会议失败'
       connected.value = false
       phase.value = 'error'
-      await disconnect()
+      await disconnect({ skipGenBump: true })
       throw e
     } finally {
-      connecting.value = false
+      if (gen === connectGen) {
+        connecting.value = false
+      }
     }
   }
 
-  async function disconnect() {
+  async function disconnect(opts?: { preservePhase?: boolean, skipGenBump?: boolean }) {
+    if (!opts?.skipGenBump) {
+      connectGen += 1
+    }
     if (speakerBumpTimer != null) {
       clearTimeout(speakerBumpTimer)
       speakerBumpTimer = null
@@ -150,18 +239,20 @@ export function useRtcRoom() {
     const r = room.value
     room.value = null
     connected.value = false
+    micEnabled.value = false
+    camEnabled.value = false
     activeSpeakerIds.value = []
-    if (phase.value !== 'error') {
+    if (!opts?.preservePhase && phase.value !== 'error') {
       phase.value = 'idle'
     }
     if (r) {
+      // Do not await setMicrophone/CameraEnabled(false) — that can hang on device locks
+      // and delayed the previous reconnect storm. Room.disconnect(stopTracks=true) stops them.
       try {
-        await r.localParticipant.setMicrophoneEnabled(false).catch(() => {})
-        await r.localParticipant.setCameraEnabled(false).catch(() => {})
+        await r.disconnect(true)
       } catch {
         // ignore
       }
-      await r.disconnect(true)
     }
     bump()
   }
@@ -171,8 +262,19 @@ export function useRtcRoom() {
     if (!r) {
       return
     }
-    await r.localParticipant.setMicrophoneEnabled(enabled)
-    bump()
+    micEnabled.value = enabled
+    try {
+      await withTimeout(
+        r.localParticipant.setMicrophoneEnabled(enabled),
+        DEVICE_ENABLE_TIMEOUT_MS,
+        enabled ? '开启麦克风' : '关闭麦克风'
+      )
+    } catch (e) {
+      micEnabled.value = r.localParticipant.isMicrophoneEnabled
+      throw e
+    } finally {
+      bump()
+    }
   }
 
   async function setCameraEnabled(enabled: boolean) {
@@ -180,8 +282,22 @@ export function useRtcRoom() {
     if (!r) {
       return
     }
-    await r.localParticipant.setCameraEnabled(enabled)
-    bump()
+    camEnabled.value = enabled
+    try {
+      await withTimeout(
+        r.localParticipant.setCameraEnabled(
+          enabled,
+          enabled ? { resolution: VideoPresets.h360.resolution } : undefined
+        ),
+        DEVICE_ENABLE_TIMEOUT_MS,
+        enabled ? '开启摄像头' : '关闭摄像头'
+      )
+    } catch (e) {
+      camEnabled.value = r.localParticipant.isCameraEnabled
+      throw e
+    } finally {
+      bump()
+    }
   }
 
   async function sendChat(text: string) {
@@ -228,6 +344,8 @@ export function useRtcRoom() {
     error,
     participants,
     activeSpeakerIds,
+    micEnabled,
+    camEnabled,
     connect,
     disconnect,
     setMicEnabled,
@@ -235,6 +353,17 @@ export function useRtcRoom() {
     sendChat,
     onChat
   }
+}
+
+function trackIsLive(track: LocalTrack | RemoteTrack | null | undefined): boolean {
+  if (!track) {
+    return false
+  }
+  const media = track.mediaStreamTrack
+  if (!media) {
+    return !!track
+  }
+  return media.readyState === 'live'
 }
 
 function collectTiles(room: Room | null, speakingIds: string[]): RtcTileParticipant[] {
@@ -255,18 +384,36 @@ function collectTiles(room: Room | null, speakingIds: string[]): RtcTileParticip
       if (pub.kind === Track.Kind.Video && pub.source === Track.Source.Camera && pub.track) {
         // Keep track reference even while muted so the <video> attach is not torn down.
         videoTrack = pub.track as RemoteTrack | LocalTrack
-        hasVideo = !pub.isMuted
+        // Local: show as long as the MediaStreamTrack is live (browser may briefly
+        // flip publication muted during device startup). Remote: respect mute.
+        if (isLocal) {
+          hasVideo = trackIsLive(videoTrack) && !pub.isMuted
+          // If track is live but pub still reports muted during startup, still show.
+          if (trackIsLive(videoTrack) && p.isCameraEnabled) {
+            hasVideo = true
+          }
+        } else {
+          hasVideo = !pub.isMuted && trackIsLive(videoTrack)
+        }
       } else if (pub.kind === Track.Kind.Video && pub.track && !videoTrack) {
         videoTrack = pub.track as RemoteTrack | LocalTrack
-        hasVideo = !pub.isMuted
+        hasVideo = !pub.isMuted && trackIsLive(videoTrack)
       }
       if (pub.kind === Track.Kind.Audio && pub.source === Track.Source.Microphone) {
-        isMuted = pub.isMuted || !pub.track
         if (pub.track) {
           audioTrack = pub.track as RemoteTrack | LocalTrack
         }
+        isMuted = pub.isMuted || !pub.track
       }
     })
+
+    // Prefer LiveKit's aggregate flags when publications are mid-flight.
+    if (isLocal) {
+      isMuted = !p.isMicrophoneEnabled
+      if (p.isCameraEnabled && videoTrack && trackIsLive(videoTrack)) {
+        hasVideo = true
+      }
+    }
 
     tiles.push({
       identity: p.identity,
