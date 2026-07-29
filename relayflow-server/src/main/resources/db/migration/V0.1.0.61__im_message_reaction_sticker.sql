@@ -75,7 +75,7 @@ CREATE INDEX idx_im_sticker_pack
     WHERE deleted = 0;
 
 COMMENT ON TABLE im_sticker_pack IS 'IM sticker pack catalog (system/tenant)';
-COMMENT ON TABLE im_sticker IS 'Sticker item; file_id optional when emoji glyph is used'; V1 seed';
+COMMENT ON TABLE im_sticker IS 'Sticker item - file_id optional when emoji glyph is used (V1 seed)';
 
 INSERT INTO im_sticker_pack (id, code, name, scope, sort, status, create_time, update_time)
 VALUES (910001, 'system_default', '系统表情', 'system', 0, 1, NOW(), NOW());

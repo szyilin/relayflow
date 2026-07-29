@@ -29,6 +29,7 @@ export interface ContentBlock {
   /** Present when type=sticker. */
   stickerId?: string
   packId?: string
+  userStickerId?: string
   /** Web mock / fallback glyph when image URL missing. */
   emoji?: string
 }
@@ -209,6 +210,14 @@ export interface StickerPackItem {
   name: string
   scope: 'system' | 'tenant'
   stickers: StickerItem[]
+}
+
+export interface UserStickerItem {
+  id: string
+  fileId: string
+  name?: string
+  downloadUrl?: string
+  sort?: number
 }
 
 export interface MessageItem {
@@ -424,6 +433,43 @@ export function getStickerPacks(): Promise<StickerPackItem[]> {
         emoji: sticker.emoji
       }))
     })))
+}
+
+type RawUserStickerItem = Omit<UserStickerItem, 'id' | 'fileId'> & {
+  id: number | string
+  fileId: number | string
+}
+
+function normalizeUserSticker(item: RawUserStickerItem): UserStickerItem {
+  return {
+    id: String(item.id),
+    fileId: String(item.fileId),
+    name: item.name,
+    downloadUrl: item.downloadUrl,
+    sort: item.sort
+  }
+}
+
+export function getMyStickers(): Promise<UserStickerItem[]> {
+  return get<RawUserStickerItem[]>('/app-api/im/sticker/mine').then(list =>
+    (list ?? []).map(normalizeUserSticker))
+}
+
+export function addMySticker(payload: { fileId: string, name?: string }): Promise<UserStickerItem> {
+  return post<RawUserStickerItem>('/app-api/im/sticker/mine', payload).then(normalizeUserSticker)
+}
+
+export function addMyStickerFromMessage(messageId: string): Promise<UserStickerItem> {
+  return post<RawUserStickerItem>('/app-api/im/sticker/mine/from-message', { messageId })
+    .then(normalizeUserSticker)
+}
+
+export function reorderMyStickers(ids: string[]): Promise<void> {
+  return put<void>('/app-api/im/sticker/mine/reorder', { ids })
+}
+
+export function deleteMyStickers(ids: string[]): Promise<void> {
+  return post<void>('/app-api/im/sticker/mine/delete', { ids })
 }
 
 export function markConversationRead(conversationId: string, readSeq: number): Promise<void> {

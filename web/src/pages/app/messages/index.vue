@@ -74,7 +74,9 @@ let highlightTimer: ReturnType<typeof setTimeout> | null = null
 const forwardPickerOpen = ref(false)
 const forwardSourceMessageId = ref<string | null>(null)
 const stickerPickerOpen = ref(false)
+const stickerFileInputRef = ref<HTMLInputElement | null>(null)
 const reactionPickerMsgId = ref<string | null>(null)
+const reactionPickerAnchor = ref<{ x: number, y: number } | null>(null)
 const mentionPickerOpen = ref(false)
 const mentionQuery = ref('')
 const mentionActiveIndex = ref(0)
@@ -764,7 +766,13 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
   actions.push({
     label: '回应',
     icon: 'i-lucide-smile-plus',
-    onSelect: () => { openReactionQuickBar(msg.id) }
+    onSelect: () => {
+      if (contextMenu.value.open) {
+        openReactionQuickBar(msg.id, contextMenu.value.x, contextMenu.value.y)
+      } else {
+        openReactionQuickBar(msg.id)
+      }
+    }
   })
   actions.push({
     label: '引用',
@@ -776,6 +784,13 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
       label: '转发',
       icon: 'i-lucide-forward',
       onSelect: () => { openForwardPicker(msg) }
+    })
+  }
+  if (im.isStickerMessage(msg) && stickerHasCollectableFile(msg)) {
+    actions.push({
+      label: '添加到表情',
+      icon: 'i-lucide-heart',
+      onSelect: () => { void handleCollectSticker(msg) }
     })
   }
   if (im.isFileMessage(msg) && fileDownloadUrl(msg)) {
@@ -802,7 +817,9 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
   return actions
 }
 
-function openReactionQuickBar(messageId: string) {
+function openReactionQuickBar(messageId: string, x?: number, y?: number) {
+  const hasAnchor = x != null && y != null && (x > 0 || y > 0)
+  reactionPickerAnchor.value = hasAnchor ? { x: x!, y: y! } : null
   reactionPickerMsgId.value = messageId
 }
 
@@ -832,9 +849,43 @@ async function handleForwardSelect(targetConversationId: string) {
   }
 }
 
-async function handleStickerSelect(sticker: { id: string }) {
+function stickerHasCollectableFile(msg: MessageItem): boolean {
+  const block = im.stickerBlockFromContent(msg.content)
+  return Boolean(block?.fileId || block?.downloadUrl)
+}
+
+async function handleCollectSticker(msg: MessageItem) {
   try {
-    await im.sendSticker(sticker.id)
+    await im.collectStickerFromMessage(msg.id)
+    toast.add({ title: '已添加到表情', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '添加失败',
+      color: 'error'
+    })
+  }
+}
+
+function insertEmojiIntoDraft(emoji: string) {
+  const input = draftInputRef.value
+  const cursor = input?.selectionStart ?? draft.value.length
+  const before = draft.value.slice(0, cursor)
+  const after = draft.value.slice(cursor)
+  draft.value = `${before}${emoji}${after}`
+  const nextPos = before.length + emoji.length
+  void nextTick(() => {
+    const el = draftInputRef.value
+    if (!el) {
+      return
+    }
+    el.focus()
+    el.setSelectionRange(nextPos, nextPos)
+  })
+}
+
+async function handleSendCustomSticker(sticker: { id: string }) {
+  try {
+    await im.sendUserSticker(sticker.id)
     focusDraftInput()
   } catch (error) {
     toast.add({
@@ -844,10 +895,55 @@ async function handleStickerSelect(sticker: { id: string }) {
   }
 }
 
+async function handleAddCustomSticker() {
+  stickerFileInputRef.value?.click()
+}
+
+async function handleStickerFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+  try {
+    await im.uploadMySticker(file)
+    toast.add({ title: '已添加自定义表情', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '上传失败',
+      color: 'error'
+    })
+  }
+}
+
+async function handleDeleteCustomStickers(ids: string[]) {
+  try {
+    await im.removeMyStickers(ids)
+    toast.add({ title: '已删除', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '删除失败',
+      color: 'error'
+    })
+  }
+}
+
+async function handleReorderCustomStickers(ids: string[]) {
+  try {
+    await im.reorderStickers(ids)
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '排序失败',
+      color: 'error'
+    })
+  }
+}
+
 async function openStickerPicker() {
   stickerPickerOpen.value = !stickerPickerOpen.value
-  if (stickerPickerOpen.value && im.stickerPacks.length === 0) {
-    await im.fetchStickerPacks()
+  if (stickerPickerOpen.value) {
+    await im.fetchMyStickers()
   }
 }
 
@@ -1508,12 +1604,12 @@ meta:
                     </template>
                     <template v-else-if="im.isStickerMessage(item.message)">
                       <div class="flex items-center justify-center py-1 text-5xl leading-none">
-                        <img
+                        <ImAuthenticatedImage
                           v-if="im.stickerBlockFromContent(item.message.content)?.downloadUrl"
-                          :src="im.stickerBlockFromContent(item.message.content)!.downloadUrl"
+                          :src="im.stickerBlockFromContent(item.message.content)!.downloadUrl!"
                           :alt="im.stickerBlockFromContent(item.message.content)?.text || '表情'"
                           class="max-h-28 max-w-28 object-contain"
-                        >
+                        />
                         <span v-else>
                           {{ im.stickerBlockFromContent(item.message.content)?.emoji
                             || im.stickerBlockFromContent(item.message.content)?.text
@@ -1594,8 +1690,14 @@ meta:
                   :class="isOwnMessage(item.message.senderId) ? 'justify-end' : ''"
                   :reactions="item.message.reactions"
                   :force-open="reactionPickerMsgId === item.message.id"
+                  :anchor="reactionPickerMsgId === item.message.id ? reactionPickerAnchor : null"
                   @toggle="emoji => im.toggleReaction(item.message.id, emoji)"
-                  @update:force-open="val => { if (!val && reactionPickerMsgId === item.message.id) reactionPickerMsgId = null }"
+                  @update:force-open="val => {
+                    if (!val && reactionPickerMsgId === item.message.id) {
+                      reactionPickerMsgId = null
+                      reactionPickerAnchor = null
+                    }
+                  }"
                 />
                 <div
                   v-if="item.isGroupEnd || messageStatusSuffix(item.message) || item.message.edited"
@@ -1666,6 +1768,13 @@ meta:
           class="hidden"
           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
           @change="handleFileSelected"
+        >
+        <input
+          ref="stickerFileInputRef"
+          type="file"
+          class="hidden"
+          accept="image/*,image/gif,.gif,.png,.jpg,.jpeg,.webp"
+          @change="handleStickerFileChange"
         >
         <div class="workspace-input-bar relative flex flex-col gap-2 px-3 py-2.5">
           <ImMentionPicker
@@ -1744,21 +1853,27 @@ meta:
             />
             <div class="relative mb-0.5">
               <UButton
-                icon="i-lucide-sticker"
+                icon="i-lucide-smile"
                 color="neutral"
                 variant="ghost"
                 square
                 size="sm"
                 :disabled="im.sending"
-                aria-label="表情包"
-                title="表情包"
+                aria-label="表情"
+                title="表情"
                 @click="openStickerPicker"
               />
               <ImStickerPicker
                 :open="stickerPickerOpen"
-                :packs="im.stickerPacks"
+                :user-id="im.currentUserId()"
+                :custom-stickers="im.myStickers"
+                :uploading="im.uploadingSticker"
                 @update:open="stickerPickerOpen = $event"
-                @select="handleStickerSelect"
+                @insert-emoji="insertEmojiIntoDraft"
+                @send-custom="handleSendCustomSticker"
+                @add-custom="handleAddCustomSticker"
+                @delete-custom="handleDeleteCustomStickers"
+                @reorder-custom="handleReorderCustomStickers"
               />
             </div>
             <textarea

@@ -76,7 +76,13 @@ public class ImContentHelper {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
         }
         ContentBlockVO sticker = firstStickerBlock(content);
-        if (sticker == null || sticker.getStickerId() == null) {
+        if (sticker == null) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+        boolean hasCatalog = sticker.getStickerId() != null;
+        boolean hasUser = sticker.getUserStickerId() != null;
+        boolean hasFile = StringUtils.hasText(sticker.getFileId());
+        if (!hasCatalog && !hasUser && !hasFile) {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
         }
     }

@@ -40,9 +40,11 @@ public class ContentBlockVO {
     /** Bot code when mentioning a bot (preferred lookup key with subjectId). */
     private String botCode;
 
-    /** Present when {@code type=sticker}. */
+    /** Present when {@code type=sticker} from system pack. */
     private Long stickerId;
     private Long packId;
+    /** Present when {@code type=sticker} from user custom stickers. */
+    private Long userStickerId;
     /** Glyph fallback when sticker has no file. */
     private String emoji;
 }

@@ -122,8 +122,10 @@ function canContinueMessageGroup(
  * 规则（对齐飞书）：
  * - 同发送者、同日、间隔不足 5 分钟 → 连续成组（紧凑气泡，组末显示 HH:mm）
  * - 跨日 → 居中日期分隔（昨天 / M月D日…），组末仍显示时钟
- * - 同日间隔 ≥ 5 分钟 → 居中 HH:mm 作为该段开始时间
+ * - 今天内间隔 ≥ 5 分钟 → 居中 HH:mm 作为该段开始时间
+ * - 非今天同日间隔 → 不插 HH:mm（避免「23:19」出现在「昨天」上方造成「像今天」的误读；组末时钟足够）
  * - 会话首条若为今天 → 不额外插时间头（组末时钟即可）
+ * - 系统消息不打断日期语义：同日后段不得重复插「昨天」等日期头
  */
 export function buildMessageTimeline(
   messages: MessageViewItem[],
@@ -151,33 +153,28 @@ export function buildMessageTimeline(
 
     if (!continuesPrev) {
       const currAt = new Date(message.createTime)
-      if (!prev || isSystem(prev)) {
-        // 会话首条，或系统消息之后的新段
-        const dayDiff = calendarDayDiff(currAt, new Date())
+      const dayDiff = calendarDayDiff(currAt, new Date())
+
+      if (!prev) {
+        // 会话首条：非今天用日期分隔；今天靠组末时钟
         if (dayDiff !== 0) {
           showTimeHeader = true
           timeHeader = formatMessageTimeHeader(message.createTime, 'day')
-        } else if (prev && isSystem(prev)) {
-          const prevAt = new Date(prev.createTime)
-          if (!isSameCalendarDay(prevAt, currAt)
-            || currAt.getTime() - prevAt.getTime() >= MESSAGE_GROUP_GAP_MS) {
-            showTimeHeader = true
-            timeHeader = !isSameCalendarDay(prevAt, currAt)
-              ? formatMessageTimeHeader(message.createTime, 'day')
-              : formatMessageTimeHeader(message.createTime, 'time')
-          }
         }
-        // 今天会话首条：不插时间头，组末时钟足够
       } else {
         const prevAt = new Date(prev.createTime)
         if (!isSameCalendarDay(prevAt, currAt)) {
           showTimeHeader = true
           timeHeader = formatMessageTimeHeader(message.createTime, 'day')
-        } else if (currAt.getTime() - prevAt.getTime() >= MESSAGE_GROUP_GAP_MS) {
+        } else if (
+          dayDiff === 0
+          && currAt.getTime() - prevAt.getTime() >= MESSAGE_GROUP_GAP_MS
+        ) {
+          // 仅今天同日大间隔插 HH:mm；历史日不插，避免与下方「昨天」等日期头语义冲突
           showTimeHeader = true
           timeHeader = formatMessageTimeHeader(message.createTime, 'time')
         }
-        // 仅发送者切换且未跨间隔：无时间头，靠分组间距区分
+        // 仅发送者切换 / 系统消息后同日续段：无时间头，靠分组间距区分
       }
     }
 

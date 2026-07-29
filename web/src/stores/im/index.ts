@@ -13,8 +13,13 @@ import {
   getGroupMembers,
   getImEffectiveSettings,
   getMessageList,
+  getMyStickers,
   getReadStatus,
   getStickerPacks,
+  addMySticker,
+  addMyStickerFromMessage,
+  deleteMyStickers,
+  reorderMyStickers,
   joinPublicGroup as joinPublicGroupRequest,
   leaveGroup as leaveGroupRequest,
   markConversationRead,
@@ -34,7 +39,8 @@ import {
   type MessageItem,
   type MessageReactionAgg,
   type PublicGroupSearchItem,
-  type StickerPackItem
+  type StickerPackItem,
+  type UserStickerItem
 } from '../../api/app/im'
 import { ApiError } from '../../api/request'
 import { uploadPrivateFile } from '../../api/app/file'
@@ -135,6 +141,8 @@ export const useImStore = defineStore('im', () => {
     enterUnreadCount.value = 0
     firstUnreadSeq.value = null
     reportedReadSeq.value = 0
+    stickerPacks.value = []
+    myStickers.value = []
   }
 
   function clearLocalUnread(conversationId: string) {
@@ -862,6 +870,8 @@ export const useImStore = defineStore('im', () => {
   }
 
   const stickerPacks = ref<StickerPackItem[]>([])
+  const myStickers = ref<UserStickerItem[]>([])
+  const uploadingSticker = ref(false)
 
   async function fetchStickerPacks() {
     try {
@@ -875,6 +885,51 @@ export const useImStore = defineStore('im', () => {
 
   function listStickerPacks(): StickerPackItem[] {
     return stickerPacks.value
+  }
+
+  async function fetchMyStickers() {
+    try {
+      myStickers.value = await getMyStickers()
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '加载自定义表情失败'
+      myStickers.value = []
+    }
+    return myStickers.value
+  }
+
+  async function uploadMySticker(file: File) {
+    const mime = (file.type || '').toLowerCase()
+    if (!mime.startsWith('image/')) {
+      throw new Error('仅支持图片或动图')
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error('表情文件不能超过 2MB')
+    }
+    uploadingSticker.value = true
+    try {
+      const fileId = await uploadPrivateFile(file)
+      const item = await addMySticker({ fileId, name: file.name })
+      await fetchMyStickers()
+      return item
+    } finally {
+      uploadingSticker.value = false
+    }
+  }
+
+  async function collectStickerFromMessage(messageId: string) {
+    const item = await addMyStickerFromMessage(messageId)
+    await fetchMyStickers()
+    return item
+  }
+
+  async function removeMyStickers(ids: string[]) {
+    await deleteMyStickers(ids)
+    await fetchMyStickers()
+  }
+
+  async function reorderStickers(ids: string[]) {
+    await reorderMyStickers(ids)
+    await fetchMyStickers()
   }
 
   async function toggleReaction(messageId: string, emoji: string) {
@@ -984,10 +1039,72 @@ export const useImStore = defineStore('im', () => {
             type: 'sticker',
             stickerId,
             packId: sticker?.packId,
-            fileId: sticker?.downloadUrl ? undefined : undefined,
             downloadUrl: sticker?.downloadUrl,
             emoji: sticker?.emoji,
             text: sticker?.emoji
+          }]
+        },
+        clientMsgId: result.clientMsgId,
+        seq: result.seq,
+        createTime: result.createTime,
+        localStatus: 'sent',
+        reactions: []
+      }
+      const exists = messages.value.some(item => item.id === msg.id || item.clientMsgId === clientMsgId)
+      if (!exists) {
+        replaceActiveMessages(prev => [...prev, msg])
+      } else {
+        replaceActiveMessages(prev => prev.map(item =>
+          item.clientMsgId === clientMsgId || item.id === msg.id ? { ...item, ...msg } : item))
+      }
+      putMessageCache(conversationId, messages.value)
+      const conv = conversations.value.find(item => item.id === conversationId)
+      if (conv) {
+        conv.lastMsgPreview = '[表情]'
+        conv.lastMsgAt = msg.createTime
+      }
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '发送表情失败'
+      throw error
+    } finally {
+      sending.value = false
+    }
+  }
+
+  async function sendUserSticker(userStickerId: string) {
+    const conversationId = activeConversationId.value
+    if (!conversationId || conversationId.startsWith('pending-')) {
+      throw new Error('请先选择会话')
+    }
+    sending.value = true
+    lastError.value = null
+    const clientMsgId = crypto.randomUUID()
+    const sticker = myStickers.value.find(item => item.id === userStickerId)
+    try {
+      const result = await sendMessage({
+        conversationId,
+        clientMsgId,
+        type: 'sticker',
+        content: {
+          version: 1,
+          blocks: [{ type: 'sticker', userStickerId }]
+        }
+      })
+      const msg: MessageViewItem = {
+        id: result.id,
+        conversationId: result.conversationId,
+        senderId: currentUserId(),
+        senderNickname: '我',
+        senderType: 'user',
+        type: 'sticker',
+        content: {
+          version: 1,
+          blocks: [{
+            type: 'sticker',
+            userStickerId,
+            fileId: sticker?.fileId,
+            downloadUrl: sticker?.downloadUrl,
+            text: sticker?.name
           }]
         },
         clientMsgId: result.clientMsgId,
@@ -1068,8 +1185,16 @@ export const useImStore = defineStore('im', () => {
     sendText,
     sendFileMessage,
     stickerPacks,
+    myStickers,
+    uploadingSticker,
     fetchStickerPacks,
     listStickerPacks,
+    fetchMyStickers,
+    uploadMySticker,
+    collectStickerFromMessage,
+    removeMyStickers,
+    reorderStickers,
+    sendUserSticker,
     toggleReaction,
     applyReactionUpdated,
     forwardMessage,

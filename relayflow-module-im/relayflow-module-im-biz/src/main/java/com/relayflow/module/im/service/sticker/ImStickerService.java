@@ -8,6 +8,7 @@ import com.relayflow.module.im.controller.app.vo.StickerItemRespVO;
 import com.relayflow.module.im.controller.app.vo.StickerPackRespVO;
 import com.relayflow.module.im.dal.dataobject.ImStickerDO;
 import com.relayflow.module.im.dal.dataobject.ImStickerPackDO;
+import com.relayflow.module.im.dal.dataobject.ImUserStickerDO;
 import com.relayflow.module.im.dal.mapper.ImStickerMapper;
 import com.relayflow.module.im.dal.mapper.ImStickerPackMapper;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
@@ -27,6 +28,7 @@ public class ImStickerService {
 
     private final ImStickerPackMapper stickerPackMapper;
     private final ImStickerMapper stickerMapper;
+    private final ImUserStickerService userStickerService;
 
     public List<StickerPackRespVO> listVisiblePacks() {
         List<ImStickerPackDO> packs = stickerPackMapper.selectList(
@@ -68,25 +70,37 @@ public class ImStickerService {
     }
 
     /**
-     * Rewrites sticker send content with authoritative packId / fileId / emoji from catalog.
+     * Rewrites sticker send content from system catalog or user custom stickers.
      */
     public MessageContentVO resolveSendContent(MessageContentVO content, ImContentHelper contentHelper) {
         ContentBlockVO input = contentHelper.firstStickerBlock(content);
-        if (input == null || input.getStickerId() == null) {
+        if (input == null) {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
         }
-        ImStickerDO sticker = requireVisibleSticker(input.getStickerId());
         ContentBlockVO block = new ContentBlockVO();
         block.setType(ImContentHelper.BLOCK_TYPE_STICKER);
-        block.setStickerId(sticker.getId());
-        block.setPackId(sticker.getPackId());
-        if (sticker.getFileId() != null) {
-            block.setFileId(String.valueOf(sticker.getFileId()));
-            block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + sticker.getFileId());
-        }
-        if (StringUtils.hasText(sticker.getEmoji())) {
-            block.setEmoji(sticker.getEmoji());
-            block.setText(sticker.getEmoji());
+        if (input.getUserStickerId() != null) {
+            ImUserStickerDO userSticker = userStickerService.requireOwned(input.getUserStickerId());
+            block.setUserStickerId(userSticker.getId());
+            block.setFileId(String.valueOf(userSticker.getFileId()));
+            block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + userSticker.getFileId());
+            if (StringUtils.hasText(userSticker.getName())) {
+                block.setText(userSticker.getName());
+            }
+        } else if (input.getStickerId() != null) {
+            ImStickerDO sticker = requireVisibleSticker(input.getStickerId());
+            block.setStickerId(sticker.getId());
+            block.setPackId(sticker.getPackId());
+            if (sticker.getFileId() != null) {
+                block.setFileId(String.valueOf(sticker.getFileId()));
+                block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + sticker.getFileId());
+            }
+            if (StringUtils.hasText(sticker.getEmoji())) {
+                block.setEmoji(sticker.getEmoji());
+                block.setText(sticker.getEmoji());
+            }
+        } else {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
         }
         MessageContentVO resolved = new MessageContentVO();
         resolved.setVersion(1);
