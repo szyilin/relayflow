@@ -9,4 +9,6 @@ public class MemberSearchRespDTO {
     private String nickname;
     private String deptName;
     private Long deptId;
+    /** Tenant membership avatar (infra file id as string), nullable */
+    private String avatarFileId;
 }

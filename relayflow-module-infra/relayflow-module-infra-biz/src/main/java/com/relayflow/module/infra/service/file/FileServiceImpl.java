@@ -27,6 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +47,29 @@ public class FileServiceImpl implements FileService {
     @Override
     public FileRespDTO getFile(Long fileId) {
         return FileConvert.INSTANCE.toDto(requireFile(fileId));
+    }
+
+    @Override
+    public Map<Long, FileRespDTO> getFiles(Collection<Long> fileIds) {
+        if (fileIds == null || fileIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = fileIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Long tenantId = resolveTenantId();
+        List<InfraFileDO> rows = fileMapper.selectList(Wrappers.<InfraFileDO>lambdaQuery()
+                .eq(InfraFileDO::getTenantId, tenantId)
+                .in(InfraFileDO::getId, ids));
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, FileRespDTO> map = new HashMap<>(rows.size());
+        for (InfraFileDO row : rows) {
+            map.put(row.getId(), FileConvert.INSTANCE.toDto(row));
+        }
+        return map;
     }
 
     @Override

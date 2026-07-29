@@ -50,6 +50,10 @@ public class DocObjectDO extends TenantBaseDO {
     @TableField("storage_file_id")
     private Long storageFileId;
 
+    /** Mirrored infra file size for FILE objects; null for RICH_DOC / not backfilled. */
+    @TableField("size_bytes")
+    private Long sizeBytes;
+
     /** ACTIVE | DELETED | PURGED */
     @TableField("lifecycle")
     private String lifecycle;

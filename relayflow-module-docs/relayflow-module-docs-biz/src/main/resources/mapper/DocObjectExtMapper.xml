@@ -5,7 +5,7 @@
     <!-- Admin list: never SELECT body; include soft-deleted via raw SQL (no @TableLogic). -->
     <sql id="AdminObjectColumns">
         id, tenant_id, type, title, body_format, content_version,
-        owner_user_id, last_opened_at, storage_file_id, lifecycle, deleted_at,
+        owner_user_id, last_opened_at, storage_file_id, size_bytes, lifecycle, deleted_at,
         creator, create_time, updater, update_time, deleted
     </sql>
 
@@ -80,9 +80,8 @@
     <select id="sumActiveFileUsageByOwners"
             resultType="com.relayflow.module.docs.dal.dataobject.DocOwnerStorageUsageRow">
         SELECT o.owner_user_id AS ownerUserId,
-               COALESCE(SUM(f.size), 0) AS usedBytes
+               COALESCE(SUM(o.size_bytes), 0) AS usedBytes
         FROM doc_object o
-        INNER JOIN infra_file f ON f.id = o.storage_file_id AND f.deleted = 0
         WHERE o.tenant_id = #{tenantId}
           AND o.deleted = 0
           AND o.type = 'FILE'
@@ -95,14 +94,39 @@
     </select>
 
     <select id="sumActiveFileUsageForOwner" resultType="long">
-        SELECT COALESCE(SUM(f.size), 0)
+        SELECT COALESCE(SUM(o.size_bytes), 0)
         FROM doc_object o
-        INNER JOIN infra_file f ON f.id = o.storage_file_id AND f.deleted = 0
         WHERE o.tenant_id = #{tenantId}
           AND o.deleted = 0
           AND o.type = 'FILE'
           AND o.lifecycle = 'ACTIVE'
           AND o.owner_user_id = #{ownerUserId}
     </select>
+
+    <select id="selectFilesNeedingSizeBackfill" resultType="com.relayflow.module.docs.dal.dataobject.DocObjectDO">
+        SELECT
+        <include refid="AdminObjectColumns"/>
+        FROM doc_object
+        WHERE tenant_id = #{tenantId}
+          AND deleted = 0
+          AND type = 'FILE'
+          AND storage_file_id IS NOT NULL
+          AND size_bytes IS NULL
+          <if test="afterId != null">
+            AND id &gt; #{afterId}
+          </if>
+        ORDER BY id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateSizeBytes">
+        UPDATE doc_object
+        SET size_bytes = #{sizeBytes},
+            updater = #{updater},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+    </update>
 
 </mapper>

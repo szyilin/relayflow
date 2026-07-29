@@ -63,6 +63,26 @@ const docsNavItems = computed<NavigationMenuItem[]>(() => [
 
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 space-y-1">
+          <nav
+            class="flex flex-wrap items-center gap-1.5 text-sm text-muted"
+            aria-label="面包屑"
+          >
+            <RouterLink
+              to="/admin/products"
+              class="inline-flex items-center gap-1 rounded-md transition-colors hover:text-highlighted"
+            >
+              <UIcon
+                name="i-lucide-arrow-left"
+                class="size-3.5 shrink-0"
+              />
+              产品设置
+            </RouterLink>
+            <span
+              class="text-muted/50"
+              aria-hidden="true"
+            >/</span>
+            <span class="text-default">云文档</span>
+          </nav>
           <h1 class="text-xl font-semibold text-highlighted">
             {{ props.title }}
           </h1>

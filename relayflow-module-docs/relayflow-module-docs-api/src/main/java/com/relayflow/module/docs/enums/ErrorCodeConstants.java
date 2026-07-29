@@ -27,7 +27,9 @@ public enum ErrorCodeConstants implements ErrorCode {
     DOC_FILE_LIFECYCLE_INVALID(1_006_001_017, "文档生命周期状态不允许该操作"),
     DOC_FILE_RESTORE_EXPIRED(1_006_001_018, "已超过 90 天恢复窗口"),
     DOC_FILE_OWNER_INVALID(1_006_001_019, "新所有者不是本企业有效成员"),
-    DOC_STORAGE_QUOTA_EXCEEDED(1_006_001_020, "云文档存储空间已满");
+    DOC_STORAGE_QUOTA_EXCEEDED(1_006_001_020, "云文档存储空间已满"),
+    DOC_STORAGE_QUOTA_RULES_LIMIT(1_006_001_021, "存储白名单最多 20 条"),
+    DOC_STORAGE_QUOTA_DEPT_INVALID(1_006_001_022, "部门不存在或不属于当前企业");
 
     private final Integer code;
     private final String msg;

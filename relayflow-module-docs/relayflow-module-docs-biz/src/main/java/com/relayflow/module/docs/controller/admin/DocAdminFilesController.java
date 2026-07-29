@@ -58,4 +58,10 @@ public class DocAdminFilesController {
         docAdminFilesService.purge(request);
         return CommonResult.success(true);
     }
+
+    @PreAuthorize("hasAuthority('docs:files:query')")
+    @PostMapping("/backfill-sizes")
+    public CommonResult<Integer> backfillSizes() {
+        return CommonResult.success(docAdminFilesService.backfillSizeBytes());
+    }
 }

@@ -17,6 +17,10 @@ public class DocStorageUsagePageRespVO {
     public static class DocStorageUsageItemRespVO {
         private Long userId;
         private String displayName;
+        /** Primary department name, nullable */
+        private String deptName;
+        /** Tenant avatar file id (string), nullable — frontend resolves URL */
+        private String avatarUrl;
         private Long usedBytes;
         /** null = unlimited */
         private Long quotaBytes;

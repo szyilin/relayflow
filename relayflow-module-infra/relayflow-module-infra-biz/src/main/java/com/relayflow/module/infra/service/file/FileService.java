@@ -10,9 +10,14 @@ import com.relayflow.module.infra.dal.dataobject.InfraFileUploadSessionDO;
 import com.relayflow.framework.oss.core.model.StorageObjectMeta;
 import com.relayflow.framework.oss.core.model.StorageProviderConfig;
 
+import java.util.Collection;
+import java.util.Map;
+
 public interface FileService {
 
     FileRespDTO getFile(Long fileId);
+
+    Map<Long, FileRespDTO> getFiles(Collection<Long> fileIds);
 
     PageResult<FileListItemRespVO> getFilePage(FilePageReqVO request);
 

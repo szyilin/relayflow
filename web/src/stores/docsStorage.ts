@@ -5,6 +5,7 @@ import {
   getDocsStorageUsage,
   updateDocsStorageQuota,
   type DocsStorageQuota,
+  type DocsStorageQuotaDeptRule,
   type DocsStorageQuotaUserRule,
   type DocsStorageUsageItem,
   type DocsStorageUsagePageQuery
@@ -23,7 +24,8 @@ export const useDocsStorageStore = defineStore('docsStorage', () => {
 
   const quota = ref<DocsStorageQuota>({
     defaultQuotaBytes: null,
-    userRules: []
+    userRules: [],
+    deptRules: []
   })
   const quotaLoading = ref(false)
 
@@ -37,7 +39,7 @@ export const useDocsStorageStore = defineStore('docsStorage', () => {
     list.value = []
     total.value = 0
     lastError.value = null
-    quota.value = { defaultQuotaBytes: null, userRules: [] }
+    quota.value = { defaultQuotaBytes: null, userRules: [], deptRules: [] }
     query.value = { pageNo: 1, pageSize: pageSize.value, keyword: '' }
   }
 
@@ -91,6 +93,10 @@ export const useDocsStorageStore = defineStore('docsStorage', () => {
         defaultQuotaBytes: next.defaultQuotaBytes,
         userRules: next.userRules.map((rule): DocsStorageQuotaUserRule => ({
           userId: rule.userId,
+          quotaBytes: rule.quotaBytes
+        })),
+        deptRules: (next.deptRules ?? []).map((rule): DocsStorageQuotaDeptRule => ({
+          deptId: rule.deptId,
           quotaBytes: rule.quotaBytes
         }))
       }

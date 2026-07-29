@@ -74,7 +74,9 @@ public class MemberUserApiImpl implements MemberUserApi {
                         .and(wrapper -> {
                             wrapper.like(SysUserDO::getNickname, trimmed)
                                     .or()
-                                    .like(SysUserDO::getUsername, trimmed);
+                                    .like(SysUserDO::getUsername, trimmed)
+                                    .or()
+                                    .like(SysUserDO::getEmail, trimmed);
                             if (normalizedMobile != null) {
                                 wrapper.or().like(SysUserDO::getMobile, normalizedMobile);
                             }
@@ -96,11 +98,12 @@ public class MemberUserApiImpl implements MemberUserApi {
         List<Long> userIds = new ArrayList<>(matchedUsers.keySet()).subList(0, Math.min(safeLimit, matchedUsers.size()));
         Map<Long, String> deptNames = loadPrimaryDeptNames(tenantId, userIds);
         Map<Long, Long> deptIds = loadPrimaryDeptIds(tenantId, userIds);
+        Map<Long, String> avatars = loadAvatars(tenantId, userIds);
 
         return userIds.stream()
                 .map(matchedUsers::get)
                 .filter(Objects::nonNull)
-                .map(user -> toDto(user, deptNames.get(user.getId()), deptIds.get(user.getId())))
+                .map(user -> toDto(user, deptNames.get(user.getId()), deptIds.get(user.getId()), avatars.get(user.getId())))
                 .toList();
     }
 
@@ -122,8 +125,9 @@ public class MemberUserApiImpl implements MemberUserApi {
         List<Long> userIds = users.stream().map(SysUserDO::getId).toList();
         Map<Long, String> deptNames = loadPrimaryDeptNames(tenantId, userIds);
         Map<Long, Long> deptIds = loadPrimaryDeptIds(tenantId, userIds);
+        Map<Long, String> avatars = loadAvatars(tenantId, userIds);
         return users.stream()
-                .map(user -> toDto(user, deptNames.get(user.getId()), deptIds.get(user.getId())))
+                .map(user -> toDto(user, deptNames.get(user.getId()), deptIds.get(user.getId()), avatars.get(user.getId())))
                 .toList();
     }
 
@@ -143,6 +147,14 @@ public class MemberUserApiImpl implements MemberUserApi {
         applyKeyword(query, keyword.trim());
         Long count = userMapper.selectCount(query);
         return count == null ? 0L : count;
+    }
+
+    @Override
+    public Long getPrimaryDeptId(Long tenantId, Long userId) {
+        if (tenantId == null || userId == null) {
+            return null;
+        }
+        return loadPrimaryDeptIds(tenantId, List.of(userId)).get(userId);
     }
 
     private List<Long> listActiveUserIds(Long tenantId) {
@@ -175,7 +187,9 @@ public class MemberUserApiImpl implements MemberUserApi {
         query.and(wrapper -> {
             wrapper.like(SysUserDO::getNickname, trimmed)
                     .or()
-                    .like(SysUserDO::getUsername, trimmed);
+                    .like(SysUserDO::getUsername, trimmed)
+                    .or()
+                    .like(SysUserDO::getEmail, trimmed);
             if (normalizedMobile != null) {
                 wrapper.or().like(SysUserDO::getMobile, normalizedMobile);
             }
@@ -185,13 +199,30 @@ public class MemberUserApiImpl implements MemberUserApi {
         });
     }
 
-    private MemberSearchRespDTO toDto(SysUserDO user, String deptName, Long deptId) {
+    private MemberSearchRespDTO toDto(SysUserDO user, String deptName, Long deptId, String avatarFileId) {
         MemberSearchRespDTO dto = new MemberSearchRespDTO();
         dto.setUserId(user.getId());
         dto.setNickname(StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername());
         dto.setDeptName(deptName);
         dto.setDeptId(deptId);
+        dto.setAvatarFileId(StringUtils.hasText(avatarFileId) ? avatarFileId.trim() : null);
         return dto;
+    }
+
+    private Map<Long, String> loadAvatars(Long tenantId, List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Long, String> map = new LinkedHashMap<>();
+        for (SysTenantUserDO row : tenantUserMapper.selectList(
+                Wrappers.<SysTenantUserDO>lambdaQuery()
+                        .eq(SysTenantUserDO::getTenantId, tenantId)
+                        .in(SysTenantUserDO::getUserId, userIds))) {
+            if (row.getUserId() != null && StringUtils.hasText(row.getAvatar())) {
+                map.putIfAbsent(row.getUserId(), row.getAvatar().trim());
+            }
+        }
+        return map;
     }
 
     private Map<Long, String> loadPrimaryDeptNames(Long tenantId, List<Long> userIds) {

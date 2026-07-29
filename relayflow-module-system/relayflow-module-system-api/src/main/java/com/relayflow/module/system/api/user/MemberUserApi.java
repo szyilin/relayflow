@@ -14,4 +14,7 @@ public interface MemberUserApi {
     List<MemberSearchRespDTO> pageActiveMembers(Long tenantId, String keyword, int offset, int limit);
 
     long countActiveMembers(Long tenantId, String keyword);
+
+    /** Primary department id for the member in tenant; null if none. */
+    Long getPrimaryDeptId(Long tenantId, Long userId);
 }

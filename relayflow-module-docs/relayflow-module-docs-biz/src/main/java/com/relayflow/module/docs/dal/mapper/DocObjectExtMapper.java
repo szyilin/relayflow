@@ -52,7 +52,7 @@ public interface DocObjectExtMapper {
             @Param("updateTime") OffsetDateTime updateTime);
 
     /**
-     * Sum ACTIVE FILE sizes (infra_file.size) for owners. Includes only non-deleted objects.
+     * Sum ACTIVE FILE sizes ({@code doc_object.size_bytes}) for owners.
      */
     List<DocOwnerStorageUsageRow> sumActiveFileUsageByOwners(
             @Param("tenantId") Long tenantId,
@@ -61,4 +61,16 @@ public interface DocObjectExtMapper {
     Long sumActiveFileUsageForOwner(
             @Param("tenantId") Long tenantId,
             @Param("ownerUserId") Long ownerUserId);
+
+    List<DocObjectDO> selectFilesNeedingSizeBackfill(
+            @Param("tenantId") Long tenantId,
+            @Param("afterId") Long afterId,
+            @Param("limit") int limit);
+
+    int updateSizeBytes(
+            @Param("tenantId") Long tenantId,
+            @Param("id") Long id,
+            @Param("sizeBytes") Long sizeBytes,
+            @Param("updater") Long updater,
+            @Param("updateTime") OffsetDateTime updateTime);
 }

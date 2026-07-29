@@ -17,4 +17,7 @@ public interface DocAdminFilesService {
     void restore(DocAdminRestoreReqVO request);
 
     void purge(DocAdminObjectIdsReqVO request);
+
+    /** Backfill denormalized FILE size_bytes; returns updated row count. */
+    int backfillSizeBytes();
 }

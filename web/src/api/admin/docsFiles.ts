@@ -87,6 +87,11 @@ export function purgeDocsAdminFiles(payload: DocsObjectIdsReq): Promise<boolean>
   return post<boolean>('/admin-api/docs/files/purge', payload)
 }
 
+/** Backfill denormalized FILE size_bytes; returns updated row count. */
+export function backfillDocsFileSizes(): Promise<number> {
+  return post<number>('/admin-api/docs/files/backfill-sizes', {})
+}
+
 export function docsWorkspaceLink(objectId: string): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}/app/docs?docId=${objectId}`

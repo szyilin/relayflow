@@ -216,6 +216,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         object.setContentVersion(0);
         object.setOwnerUserId(userId);
         object.setStorageFileId(file.getId());
+        object.setSizeBytes(fileSize);
         object.setLifecycle(DocConstants.LIFECYCLE_ACTIVE);
         object.setCreator(userId);
         object.setCreateTime(now);

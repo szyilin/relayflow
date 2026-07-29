@@ -6,6 +6,9 @@ import com.relayflow.module.infra.service.file.FileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class FileApiImpl implements FileApi {
@@ -15,6 +18,11 @@ public class FileApiImpl implements FileApi {
     @Override
     public FileRespDTO getFile(Long fileId) {
         return fileService.getFile(fileId);
+    }
+
+    @Override
+    public Map<Long, FileRespDTO> getFiles(Collection<Long> fileIds) {
+        return fileService.getFiles(fileIds);
     }
 
     @Override

@@ -4,6 +4,10 @@ import { useRoute } from 'vue-router'
 import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../../components/admin/AdminNavbar.vue'
 import AdminDocsProductShell from '../../../../../components/admin/products/AdminDocsProductShell.vue'
+import AdminMemberSearchField, {
+  type AdminMemberSelection
+} from '../../../../../components/admin/AdminMemberSearchField.vue'
+import WorkspaceOwnerChip from '../../../../../components/workspace/WorkspaceOwnerChip.vue'
 import { usePermission } from '../../../../../composables/usePermission'
 import {
   docsWorkspaceLink,
@@ -32,7 +36,7 @@ const canPurge = computed(() =>
   hasPermission('docs:files:purge') || hasPermission('docs:product-settings:update') || hasPermission('im:product-settings:update'))
 
 const keywordInput = ref('')
-const ownerUserIdInput = ref('')
+const ownerFilter = ref<AdminMemberSelection | null>(null)
 
 const typeOptions: Array<{ label: string, value: string }> = [
   { label: '全部类型', value: '' },
@@ -55,13 +59,11 @@ const deleteOpen = ref(false)
 const purgeOpen = ref(false)
 const actionIds = ref<string[]>([])
 
-const transferForm = reactive({
-  newOwnerUserId: ''
-})
+const transferOwner = ref<AdminMemberSelection | null>(null)
 const restoreForm = reactive({
-  useNewOwner: false,
-  newOwnerUserId: ''
+  useNewOwner: false
 })
+const restoreOwner = ref<AdminMemberSelection | null>(null)
 
 const allSelected = computed({
   get: () => store.list.length > 0 && store.selectedIds.length === store.list.length,
@@ -144,7 +146,7 @@ async function loadPage(page = 1) {
       keyword: keywordInput.value.trim(),
       type: (typeFilter.value.value || '') as DocsFileType | '',
       lifecycle: (lifecycleFilter.value.value || '') as DocsFileLifecycle | '',
-      ownerUserId: ownerUserIdInput.value.trim()
+      ownerUserId: ownerFilter.value?.userId?.trim() || ''
     })
   } catch {
     // lastError already set on store
@@ -175,7 +177,7 @@ function openTransfer(ids?: string[]) {
     toast.add({ title: '仅可转移状态为「正常」的文件', color: 'warning' })
     return
   }
-  transferForm.newOwnerUserId = ''
+  transferOwner.value = null
   transferOpen.value = true
 }
 
@@ -202,7 +204,7 @@ function openRestore(ids?: string[]) {
     return
   }
   restoreForm.useNewOwner = false
-  restoreForm.newOwnerUserId = ''
+  restoreOwner.value = null
   restoreOpen.value = true
 }
 
@@ -216,14 +218,14 @@ function openPurge(ids?: string[]) {
 }
 
 async function confirmTransfer() {
-  if (!transferForm.newOwnerUserId.trim()) {
-    toast.add({ title: '请填写新所有者用户 ID', color: 'warning' })
+  if (!transferOwner.value?.userId) {
+    toast.add({ title: '请选择新所有者', color: 'warning' })
     return
   }
   try {
     await store.transferOwner(
       actionIds.value,
-      transferForm.newOwnerUserId.trim()
+      transferOwner.value.userId
     )
     transferOpen.value = false
     toast.add({ title: '已转移所有者', color: 'success' })
@@ -244,9 +246,9 @@ async function confirmDelete() {
 
 async function confirmRestore() {
   try {
-    const newId = restoreForm.useNewOwner ? restoreForm.newOwnerUserId.trim() : null
+    const newId = restoreForm.useNewOwner ? restoreOwner.value?.userId ?? null : null
     if (restoreForm.useNewOwner && !newId) {
-      toast.add({ title: '请填写新所有者用户 ID', color: 'warning' })
+      toast.add({ title: '请选择新所有者', color: 'warning' })
       return
     }
     await store.restore(actionIds.value, newId)
@@ -274,20 +276,32 @@ watch(lifecycleFilter, () => {
   store.setLifecycleFilter((lifecycleFilter.value.value || '') as DocsFileLifecycle | '')
 })
 
-onMounted(() => {
-  const fromQuery = typeof route.query.ownerUserId === 'string' ? route.query.ownerUserId.trim() : ''
-  if (fromQuery) {
-    ownerUserIdInput.value = fromQuery
+function applyOwnerQuery(raw: unknown) {
+  const next = typeof raw === 'string' ? raw.trim() : ''
+  if (!next) {
+    if (ownerFilter.value) {
+      ownerFilter.value = null
+    }
+    return
   }
+  if (ownerFilter.value?.userId === next) {
+    return
+  }
+  ownerFilter.value = {
+    userId: next,
+    displayName: ownerFilter.value?.userId === next
+      ? ownerFilter.value.displayName
+      : next
+  }
+}
+
+onMounted(() => {
+  applyOwnerQuery(route.query.ownerUserId)
   void loadPage(1)
 })
 
 watch(() => route.query.ownerUserId, (value) => {
-  const next = typeof value === 'string' ? value.trim() : ''
-  if (next === ownerUserIdInput.value.trim()) {
-    return
-  }
-  ownerUserIdInput.value = next
+  applyOwnerQuery(value)
   void loadPage(1)
 })
 </script>
@@ -355,16 +369,11 @@ meta:
                   :items="lifecycleOptions"
                 />
               </UFormField>
-              <UFormField
-                label="所有者用户 ID"
-                class="w-44"
-              >
-                <UInput
-                  v-model="ownerUserIdInput"
-                  placeholder="可选"
-                  @keyup.enter="handleSearch"
-                />
-              </UFormField>
+              <AdminMemberSearchField
+                v-model="ownerFilter"
+                label="所有者"
+                class="w-56"
+              />
               <UButton
                 color="primary"
                 :loading="store.loading"
@@ -429,27 +438,18 @@ meta:
                 />
               </template>
               <template #title-cell="{ row }">
-                <div class="min-w-0">
-                  <p class="truncate font-medium">
-                    {{ row.original.title }}
-                  </p>
-                  <p class="truncate text-xs text-muted">
-                    ID {{ row.original.objectId }}
-                  </p>
-                </div>
+                <p class="truncate font-medium">
+                  {{ row.original.title }}
+                </p>
               </template>
               <template #type-cell="{ row }">
                 {{ typeLabel(row.original.type) }}
               </template>
               <template #ownerDisplayName-cell="{ row }">
-                <div class="min-w-0">
-                  <p class="truncate">
-                    {{ row.original.ownerDisplayName }}
-                  </p>
-                  <p class="truncate text-xs text-muted">
-                    {{ row.original.ownerUserId }}
-                  </p>
-                </div>
+                <WorkspaceOwnerChip
+                  :user-id="String(row.original.ownerUserId)"
+                  :display-name="row.original.ownerDisplayName"
+                />
               </template>
               <template #lifecycle-cell="{ row }">
                 <div class="flex flex-col gap-0.5">
@@ -548,9 +548,11 @@ meta:
               <p class="text-sm text-muted">
                 将 {{ actionIds.length }} 个对象转移给新所有者（仅正常状态）。
               </p>
-              <UFormField label="新所有者用户 ID">
-                <UInput v-model="transferForm.newOwnerUserId" />
-              </UFormField>
+              <AdminMemberSearchField
+                v-model="transferOwner"
+                label="新所有者"
+                placeholder="姓名、邮箱或手机号"
+              />
               <div class="flex justify-end gap-2">
                 <UButton
                   color="neutral"
@@ -611,9 +613,11 @@ meta:
                 恢复到新所有者
               </label>
               <template v-if="restoreForm.useNewOwner">
-                <UFormField label="新所有者用户 ID">
-                  <UInput v-model="restoreForm.newOwnerUserId" />
-                </UFormField>
+                <AdminMemberSearchField
+                  v-model="restoreOwner"
+                  label="新所有者"
+                  placeholder="姓名、邮箱或手机号"
+                />
               </template>
               <div class="flex justify-end gap-2">
                 <UButton

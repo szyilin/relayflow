@@ -4,17 +4,21 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.docs.controller.admin.vo.DocStorageQuotaRespVO;
+import com.relayflow.module.docs.controller.admin.vo.DocStorageQuotaRespVO.DocStorageQuotaDeptRuleRespVO;
 import com.relayflow.module.docs.controller.admin.vo.DocStorageQuotaRespVO.DocStorageQuotaUserRuleRespVO;
 import com.relayflow.module.docs.controller.admin.vo.DocStorageUsagePageReqVO;
 import com.relayflow.module.docs.controller.admin.vo.DocStorageUsagePageRespVO;
 import com.relayflow.module.docs.controller.admin.vo.DocStorageUsagePageRespVO.DocStorageUsageItemRespVO;
 import com.relayflow.module.docs.dal.dataobject.DocOwnerStorageUsageRow;
+import com.relayflow.module.docs.dal.dataobject.DocStorageQuotaDeptRuleDO;
 import com.relayflow.module.docs.dal.dataobject.DocStorageQuotaUserRuleDO;
 import com.relayflow.module.docs.dal.dataobject.DocTenantSettingsDO;
 import com.relayflow.module.docs.dal.mapper.DocObjectExtMapper;
+import com.relayflow.module.docs.dal.mapper.DocStorageQuotaDeptRuleMapper;
 import com.relayflow.module.docs.dal.mapper.DocStorageQuotaUserRuleMapper;
 import com.relayflow.module.docs.dal.mapper.DocTenantSettingsMapper;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
+import com.relayflow.module.system.api.dept.DeptApi;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.MemberUserApi;
 import com.relayflow.module.system.api.user.UserApi;
@@ -41,12 +45,16 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
 
+    private static final int MAX_USER_WHITELIST_RULES = 20;
+
     private final DocTenantSettingsMapper tenantSettingsMapper;
     private final DocStorageQuotaUserRuleMapper userRuleMapper;
+    private final DocStorageQuotaDeptRuleMapper deptRuleMapper;
     private final DocObjectExtMapper docObjectExtMapper;
     private final MemberUserApi memberUserApi;
     private final TenantMemberApi tenantMemberApi;
     private final UserApi userApi;
+    private final DeptApi deptApi;
 
     @Override
     public DocStorageUsagePageRespVO pageUsage(DocStorageUsagePageReqVO request) {
@@ -62,6 +70,9 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
 
         Long defaultQuota = resolveDefaultQuota(tenantId);
         Map<Long, Long> userRules = loadUserRuleMap(tenantId);
+        Set<Long> userRuleIds = userRules.keySet();
+        Map<Long, Long> deptRules = loadDeptRuleMap(tenantId);
+        Set<Long> deptRuleIds = deptRules.keySet();
         Map<Long, Long> usedByOwner = loadUsageMap(tenantId, members.stream().map(MemberSearchRespDTO::getUserId).toList());
 
         List<DocStorageUsageItemRespVO> list = new ArrayList<>(members.size());
@@ -70,9 +81,19 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
             DocStorageUsageItemRespVO item = new DocStorageUsageItemRespVO();
             item.setUserId(userId);
             item.setDisplayName(member.getNickname());
+            item.setDeptName(member.getDeptName());
+            item.setAvatarUrl(member.getAvatarFileId());
             long used = usedByOwner.getOrDefault(userId, 0L);
             item.setUsedBytes(used);
-            Long quota = resolveEffectiveQuota(defaultQuota, userRules.get(userId), userRules.containsKey(userId));
+            Long primaryDeptId = member.getDeptId();
+            boolean hasUserRule = userRuleIds.contains(userId);
+            boolean hasDeptRule = primaryDeptId != null && deptRuleIds.contains(primaryDeptId);
+            Long quota = resolveEffectiveQuota(
+                    defaultQuota,
+                    userRules.get(userId),
+                    hasUserRule,
+                    primaryDeptId == null ? null : deptRules.get(primaryDeptId),
+                    hasDeptRule);
             item.setQuotaBytes(quota);
             item.setUsageRatio(quota == null || quota <= 0 ? null : (double) used / (double) quota);
             list.add(item);
@@ -91,19 +112,8 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         DocStorageQuotaRespVO resp = new DocStorageQuotaRespVO();
         resp.setDefaultQuotaBytes(resolveDefaultQuota(tenantId));
-        List<DocStorageQuotaUserRuleDO> rules = userRuleMapper.selectList(
-                Wrappers.<DocStorageQuotaUserRuleDO>lambdaQuery()
-                        .eq(DocStorageQuotaUserRuleDO::getTenantId, tenantId)
-                        .orderByAsc(DocStorageQuotaUserRuleDO::getId));
-        List<DocStorageQuotaUserRuleRespVO> ruleVos = new ArrayList<>(rules.size());
-        for (DocStorageQuotaUserRuleDO rule : rules) {
-            DocStorageQuotaUserRuleRespVO vo = new DocStorageQuotaUserRuleRespVO();
-            vo.setUserId(rule.getUserId());
-            vo.setQuotaBytes(rule.getQuotaBytes());
-            vo.setDisplayName(resolveNickname(rule.getUserId()));
-            ruleVos.add(vo);
-        }
-        resp.setUserRules(ruleVos);
+        resp.setUserRules(loadUserRuleVos(tenantId));
+        resp.setDeptRules(loadDeptRuleVos(tenantId));
         return resp;
     }
 
@@ -118,9 +128,73 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
             throw new ServiceException(ErrorCodeConstants.DOC_FILE_OWNER_INVALID);
         }
 
-        List<DocStorageQuotaUserRuleRespVO> incoming =
-                request.getUserRules() == null ? List.of() : request.getUserRules();
+        LinkedHashMap<Long, Long> nextUserRules = parseUserRules(request.getUserRules());
+        LinkedHashMap<Long, Long> nextDeptRules = parseDeptRules(tenantId, request.getDeptRules());
+
+        if (nextUserRules.size() > MAX_USER_WHITELIST_RULES) {
+            throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_QUOTA_RULES_LIMIT);
+        }
+        if (!nextUserRules.isEmpty()) {
+            Set<Long> active = tenantMemberApi.filterActiveMemberUserIds(tenantId, nextUserRules.keySet());
+            if (active.size() != nextUserRules.size()) {
+                throw new ServiceException(ErrorCodeConstants.DOC_FILE_OWNER_INVALID);
+            }
+        }
+
+        upsertDefaultQuota(tenantId, operatorId, now, request.getDefaultQuotaBytes());
+        replaceUserRules(tenantId, operatorId, now, nextUserRules);
+        replaceDeptRules(tenantId, operatorId, now, nextDeptRules);
+        return getQuota();
+    }
+
+    @Override
+    public Long resolveEffectiveQuotaBytes(Long tenantId, Long userId) {
+        Long defaultQuota = resolveDefaultQuota(tenantId);
+        DocStorageQuotaUserRuleDO userRule = userRuleMapper.selectOne(
+                Wrappers.<DocStorageQuotaUserRuleDO>lambdaQuery()
+                        .eq(DocStorageQuotaUserRuleDO::getTenantId, tenantId)
+                        .eq(DocStorageQuotaUserRuleDO::getUserId, userId)
+                        .last("LIMIT 1"));
+        if (userRule != null) {
+            return userRule.getQuotaBytes();
+        }
+        Long primaryDeptId = memberUserApi.getPrimaryDeptId(tenantId, userId);
+        if (primaryDeptId != null) {
+            DocStorageQuotaDeptRuleDO deptRule = deptRuleMapper.selectOne(
+                    Wrappers.<DocStorageQuotaDeptRuleDO>lambdaQuery()
+                            .eq(DocStorageQuotaDeptRuleDO::getTenantId, tenantId)
+                            .eq(DocStorageQuotaDeptRuleDO::getDeptId, primaryDeptId)
+                            .last("LIMIT 1"));
+            if (deptRule != null) {
+                return deptRule.getQuotaBytes();
+            }
+        }
+        return defaultQuota;
+    }
+
+    @Override
+    public long sumUsedBytes(Long tenantId, Long userId) {
+        Long sum = docObjectExtMapper.sumActiveFileUsageForOwner(tenantId, userId);
+        return sum == null ? 0L : sum;
+    }
+
+    @Override
+    public void requireWithinQuota(Long tenantId, Long userId, long additionalBytes) {
+        Long quota = resolveEffectiveQuotaBytes(tenantId, userId);
+        if (quota == null) {
+            return;
+        }
+        long used = sumUsedBytes(tenantId, userId);
+        if (used + Math.max(0L, additionalBytes) > quota) {
+            throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_QUOTA_EXCEEDED);
+        }
+    }
+
+    private LinkedHashMap<Long, Long> parseUserRules(List<DocStorageQuotaUserRuleRespVO> incoming) {
         LinkedHashMap<Long, Long> nextRules = new LinkedHashMap<>();
+        if (incoming == null) {
+            return nextRules;
+        }
         for (DocStorageQuotaUserRuleRespVO rule : incoming) {
             if (rule.getUserId() == null) {
                 continue;
@@ -130,15 +204,30 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
             }
             nextRules.put(rule.getUserId(), rule.getQuotaBytes());
         }
-        if (!nextRules.isEmpty()) {
-            Set<Long> active = tenantMemberApi.filterActiveMemberUserIds(tenantId, nextRules.keySet());
-            if (active.size() != nextRules.size()) {
+        return nextRules;
+    }
+
+    private LinkedHashMap<Long, Long> parseDeptRules(Long tenantId, List<DocStorageQuotaDeptRuleRespVO> incoming) {
+        LinkedHashMap<Long, Long> nextRules = new LinkedHashMap<>();
+        if (incoming == null) {
+            return nextRules;
+        }
+        for (DocStorageQuotaDeptRuleRespVO rule : incoming) {
+            if (rule.getDeptId() == null) {
+                continue;
+            }
+            if (rule.getQuotaBytes() != null && rule.getQuotaBytes() < 0) {
                 throw new ServiceException(ErrorCodeConstants.DOC_FILE_OWNER_INVALID);
             }
+            if (!deptApi.existsInTenant(tenantId, rule.getDeptId())) {
+                throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_QUOTA_DEPT_INVALID);
+            }
+            nextRules.put(rule.getDeptId(), rule.getQuotaBytes());
         }
+        return nextRules;
+    }
 
-        upsertDefaultQuota(tenantId, operatorId, now, request.getDefaultQuotaBytes());
-
+    private void replaceUserRules(Long tenantId, Long operatorId, OffsetDateTime now, LinkedHashMap<Long, Long> nextRules) {
         List<DocStorageQuotaUserRuleDO> existing = userRuleMapper.selectList(
                 Wrappers.<DocStorageQuotaUserRuleDO>lambdaQuery()
                         .eq(DocStorageQuotaUserRuleDO::getTenantId, tenantId));
@@ -146,7 +235,6 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
         for (DocStorageQuotaUserRuleDO row : existing) {
             existingByUser.put(row.getUserId(), row);
         }
-
         Set<Long> keep = new HashSet<>(nextRules.keySet());
         for (DocStorageQuotaUserRuleDO row : existing) {
             if (!keep.contains(row.getUserId())) {
@@ -175,36 +263,76 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
                                 .set(DocStorageQuotaUserRuleDO::getUpdateTime, now));
             }
         }
-        return getQuota();
     }
 
-    @Override
-    public Long resolveEffectiveQuotaBytes(Long tenantId, Long userId) {
-        Long defaultQuota = resolveDefaultQuota(tenantId);
-        DocStorageQuotaUserRuleDO rule = userRuleMapper.selectOne(
+    private void replaceDeptRules(Long tenantId, Long operatorId, OffsetDateTime now, LinkedHashMap<Long, Long> nextRules) {
+        List<DocStorageQuotaDeptRuleDO> existing = deptRuleMapper.selectList(
+                Wrappers.<DocStorageQuotaDeptRuleDO>lambdaQuery()
+                        .eq(DocStorageQuotaDeptRuleDO::getTenantId, tenantId));
+        Map<Long, DocStorageQuotaDeptRuleDO> existingByDept = new HashMap<>();
+        for (DocStorageQuotaDeptRuleDO row : existing) {
+            existingByDept.put(row.getDeptId(), row);
+        }
+        Set<Long> keep = new HashSet<>(nextRules.keySet());
+        for (DocStorageQuotaDeptRuleDO row : existing) {
+            if (!keep.contains(row.getDeptId())) {
+                deptRuleMapper.physicalDeleteById(tenantId, row.getId());
+            }
+        }
+        for (Map.Entry<Long, Long> entry : nextRules.entrySet()) {
+            DocStorageQuotaDeptRuleDO row = existingByDept.get(entry.getKey());
+            if (row == null) {
+                row = new DocStorageQuotaDeptRuleDO();
+                row.setTenantId(tenantId);
+                row.setDeptId(entry.getKey());
+                row.setQuotaBytes(entry.getValue());
+                row.setCreator(operatorId);
+                row.setCreateTime(now);
+                row.setUpdater(operatorId);
+                row.setUpdateTime(now);
+                deptRuleMapper.insert(row);
+            } else {
+                deptRuleMapper.update(
+                        null,
+                        Wrappers.<DocStorageQuotaDeptRuleDO>lambdaUpdate()
+                                .eq(DocStorageQuotaDeptRuleDO::getId, row.getId())
+                                .set(DocStorageQuotaDeptRuleDO::getQuotaBytes, entry.getValue())
+                                .set(DocStorageQuotaDeptRuleDO::getUpdater, operatorId)
+                                .set(DocStorageQuotaDeptRuleDO::getUpdateTime, now));
+            }
+        }
+    }
+
+    private List<DocStorageQuotaUserRuleRespVO> loadUserRuleVos(Long tenantId) {
+        List<DocStorageQuotaUserRuleDO> rules = userRuleMapper.selectList(
                 Wrappers.<DocStorageQuotaUserRuleDO>lambdaQuery()
                         .eq(DocStorageQuotaUserRuleDO::getTenantId, tenantId)
-                        .eq(DocStorageQuotaUserRuleDO::getUserId, userId)
-                        .last("LIMIT 1"));
-        return resolveEffectiveQuota(defaultQuota, rule == null ? null : rule.getQuotaBytes(), rule != null);
+                        .orderByAsc(DocStorageQuotaUserRuleDO::getId));
+        List<DocStorageQuotaUserRuleRespVO> ruleVos = new ArrayList<>(rules.size());
+        for (DocStorageQuotaUserRuleDO rule : rules) {
+            DocStorageQuotaUserRuleRespVO vo = new DocStorageQuotaUserRuleRespVO();
+            vo.setUserId(rule.getUserId());
+            vo.setQuotaBytes(rule.getQuotaBytes());
+            vo.setDisplayName(resolveNickname(rule.getUserId()));
+            ruleVos.add(vo);
+        }
+        return ruleVos;
     }
 
-    @Override
-    public long sumUsedBytes(Long tenantId, Long userId) {
-        Long sum = docObjectExtMapper.sumActiveFileUsageForOwner(tenantId, userId);
-        return sum == null ? 0L : sum;
-    }
-
-    @Override
-    public void requireWithinQuota(Long tenantId, Long userId, long additionalBytes) {
-        Long quota = resolveEffectiveQuotaBytes(tenantId, userId);
-        if (quota == null) {
-            return;
+    private List<DocStorageQuotaDeptRuleRespVO> loadDeptRuleVos(Long tenantId) {
+        List<DocStorageQuotaDeptRuleDO> rules = deptRuleMapper.selectList(
+                Wrappers.<DocStorageQuotaDeptRuleDO>lambdaQuery()
+                        .eq(DocStorageQuotaDeptRuleDO::getTenantId, tenantId)
+                        .orderByAsc(DocStorageQuotaDeptRuleDO::getId));
+        List<DocStorageQuotaDeptRuleRespVO> ruleVos = new ArrayList<>(rules.size());
+        for (DocStorageQuotaDeptRuleDO rule : rules) {
+            DocStorageQuotaDeptRuleRespVO vo = new DocStorageQuotaDeptRuleRespVO();
+            vo.setDeptId(rule.getDeptId());
+            vo.setQuotaBytes(rule.getQuotaBytes());
+            vo.setDeptName(deptApi.getDeptName(tenantId, rule.getDeptId()));
+            ruleVos.add(vo);
         }
-        long used = sumUsedBytes(tenantId, userId);
-        if (used + Math.max(0L, additionalBytes) > quota) {
-            throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_QUOTA_EXCEEDED);
-        }
+        return ruleVos;
     }
 
     private void upsertDefaultQuota(Long tenantId, Long operatorId, OffsetDateTime now, Long defaultQuotaBytes) {
@@ -238,11 +366,19 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
     }
 
     /**
-     * @param hasUserRule whether a user rule row exists (quota may still be null = unlimited)
+     * Priority: member whitelist &gt; primary-dept rule &gt; tenant default &gt; unlimited.
      */
-    private static Long resolveEffectiveQuota(Long defaultQuota, Long userRuleQuota, boolean hasUserRule) {
+    private static Long resolveEffectiveQuota(
+            Long defaultQuota,
+            Long userRuleQuota,
+            boolean hasUserRule,
+            Long deptRuleQuota,
+            boolean hasDeptRule) {
         if (hasUserRule) {
             return userRuleQuota;
+        }
+        if (hasDeptRule) {
+            return deptRuleQuota;
         }
         return defaultQuota;
     }
@@ -253,6 +389,16 @@ public class DocStorageQuotaServiceImpl implements DocStorageQuotaService {
                 Wrappers.<DocStorageQuotaUserRuleDO>lambdaQuery()
                         .eq(DocStorageQuotaUserRuleDO::getTenantId, tenantId))) {
             map.put(rule.getUserId(), rule.getQuotaBytes());
+        }
+        return map;
+    }
+
+    private Map<Long, Long> loadDeptRuleMap(Long tenantId) {
+        Map<Long, Long> map = new HashMap<>();
+        for (DocStorageQuotaDeptRuleDO rule : deptRuleMapper.selectList(
+                Wrappers.<DocStorageQuotaDeptRuleDO>lambdaQuery()
+                        .eq(DocStorageQuotaDeptRuleDO::getTenantId, tenantId))) {
+            map.put(rule.getDeptId(), rule.getQuotaBytes());
         }
         return map;
     }

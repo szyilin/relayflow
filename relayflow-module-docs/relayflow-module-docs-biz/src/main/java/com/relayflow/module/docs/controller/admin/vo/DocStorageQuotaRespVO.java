@@ -17,12 +17,25 @@ public class DocStorageQuotaRespVO {
     @NotNull
     private List<DocStorageQuotaUserRuleRespVO> userRules = new ArrayList<>();
 
+    @Valid
+    @NotNull
+    private List<DocStorageQuotaDeptRuleRespVO> deptRules = new ArrayList<>();
+
     @Data
     public static class DocStorageQuotaUserRuleRespVO {
         @NotNull
         private Long userId;
         private String displayName;
         /** null = unlimited for this user */
+        private Long quotaBytes;
+    }
+
+    @Data
+    public static class DocStorageQuotaDeptRuleRespVO {
+        @NotNull
+        private Long deptId;
+        private String deptName;
+        /** null = unlimited for members whose primary dept matches */
         private Long quotaBytes;
     }
 }

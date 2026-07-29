@@ -129,6 +129,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/products/docs/storage/quota/': RouteRecordInfo<
+      '/admin/products/docs/storage/quota/',
+      '/admin/products/docs/storage/quota',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/products/im/': RouteRecordInfo<
       '/admin/products/im/',
       '/admin/products/im',
@@ -424,6 +431,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/products/docs/storage/index.vue': {
       routes:
         | '/admin/products/docs/storage/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/docs/storage/quota/index.vue': {
+      routes:
+        | '/admin/products/docs/storage/quota/'
       views:
         | never
       pathParamNames:

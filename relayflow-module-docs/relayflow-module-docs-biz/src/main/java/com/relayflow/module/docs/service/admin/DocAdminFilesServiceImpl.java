@@ -80,7 +80,6 @@ public class DocAdminFilesServiceImpl implements DocAdminFilesService {
                         tenantId, keyword, type, lifecycle, request.getOwnerUserId(), offset, pageSize);
 
         Map<Long, String> nicknames = resolveNicknames(rows);
-        Map<Long, Long> sizes = resolveFileSizes(rows);
 
         OffsetDateTime now = OffsetDateTime.now();
         List<DocAdminFileItemRespVO> list = new ArrayList<>(rows.size());
@@ -95,7 +94,7 @@ public class DocAdminFilesServiceImpl implements DocAdminFilesService {
                     row.getOwnerUserId(),
                     row.getOwnerUserId() == null ? "" : String.valueOf(row.getOwnerUserId())));
             item.setUpdatedAt(row.getUpdateTime());
-            item.setSizeBytes(sizes.get(row.getId()));
+            item.setSizeBytes(row.getSizeBytes());
             item.setDeletedAt(row.getDeletedAt());
             item.setDaysUntilPurge(computeDaysUntilPurge(row, now));
             list.add(item);
@@ -367,23 +366,48 @@ public class DocAdminFilesServiceImpl implements DocAdminFilesService {
         return String.valueOf(userId);
     }
 
-    private Map<Long, Long> resolveFileSizes(List<DocObjectDO> rows) {
-        Map<Long, Long> sizes = new HashMap<>();
-        for (DocObjectDO row : rows) {
-            if (!DocConstants.OBJECT_TYPE_FILE.equals(row.getType()) || row.getStorageFileId() == null) {
-                continue;
+    /**
+     * Backfill {@code size_bytes} for FILE objects via FileApi (batch). Idempotent for already-filled rows.
+     *
+     * @return number of rows updated
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int backfillSizeBytes() {
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        Long operatorId = SecurityFrameworkUtils.requireLoginUserId();
+        OffsetDateTime now = OffsetDateTime.now();
+        int updated = 0;
+        final int batchSize = 200;
+        Long afterId = null;
+        while (true) {
+            List<DocObjectDO> batch = docObjectExtMapper.selectFilesNeedingSizeBackfill(tenantId, afterId, batchSize);
+            if (batch == null || batch.isEmpty()) {
+                break;
             }
-            try {
-                FileRespDTO file = fileApi.getFile(row.getStorageFileId());
-                if (file != null && file.getSize() != null) {
-                    sizes.put(row.getId(), file.getSize());
+            afterId = batch.get(batch.size() - 1).getId();
+            List<Long> fileIds = batch.stream()
+                    .map(DocObjectDO::getStorageFileId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            Map<Long, FileRespDTO> files = fileApi.getFiles(fileIds);
+            for (DocObjectDO row : batch) {
+                FileRespDTO file = files.get(row.getStorageFileId());
+                if (file == null || file.getSize() == null) {
+                    continue;
                 }
-            } catch (Exception ex) {
-                log.warn("Resolve file size failed (best-effort): objectId={} fileId={}",
-                        row.getId(), row.getStorageFileId(), ex);
+                int n = docObjectExtMapper.updateSizeBytes(
+                        tenantId, row.getId(), file.getSize(), operatorId, now);
+                if (n > 0) {
+                    updated += n;
+                }
+            }
+            if (batch.size() < batchSize) {
+                break;
             }
         }
-        return sizes;
+        return updated;
     }
 
     private static Integer computeDaysUntilPurge(DocObjectDO row, OffsetDateTime now) {
