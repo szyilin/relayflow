@@ -66,4 +66,11 @@ public class ImBotDO extends BaseDO {
      */
     @TableField("owner_user_id")
     private Long ownerUserId;
+
+    /**
+     * Group Bot Runtime reply mention policy: {@code trigger} | {@code none}.
+     * See {@link com.relayflow.module.im.enums.ImBotGroupReplyMentionMode}.
+     */
+    @TableField("group_reply_mention_mode")
+    private String groupReplyMentionMode;
 }

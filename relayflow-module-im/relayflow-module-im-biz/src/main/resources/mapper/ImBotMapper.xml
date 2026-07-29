@@ -21,6 +21,8 @@
         <result column="capabilities_json" property="capabilitiesJson" />
         <result column="status" property="status" />
         <result column="owner_agent_id" property="ownerAgentId" />
+        <result column="owner_user_id" property="ownerUserId" />
+        <result column="group_reply_mention_mode" property="groupReplyMentionMode" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -31,7 +33,7 @@
         updater,
         update_time,
         deleted,
-        code, name, description, avatar_file_id, scope, type, enable_policy, handler_kind, capabilities_json, status, owner_agent_id
+        code, name, description, avatar_file_id, scope, type, enable_policy, handler_kind, capabilities_json, status, owner_agent_id, owner_user_id, group_reply_mention_mode
     </sql>
 
 </mapper>

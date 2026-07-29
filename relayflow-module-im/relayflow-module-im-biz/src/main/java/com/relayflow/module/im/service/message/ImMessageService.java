@@ -29,6 +29,10 @@ public interface ImMessageService {
     /**
      * Persist a Bot Runtime reply in an existing conversation ({@code sender_type=bot})
      * and push {@code message.new} to User members only.
+     *
+     * @param mentionUserId when non-null, platform prepends a structured user {@code mention} block
+     *                      (group reply @trigger); agents MUST NOT decide this
      */
-    void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text);
+    void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text,
+                      Long mentionUserId);
 }

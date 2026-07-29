@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
+import ImMediaLightbox from '../../../components/im/ImMediaLightbox.vue'
+import ImMessageContextMenu from '../../../components/im/ImMessageContextMenu.vue'
+import type { ImMessageMenuAction } from '../../../components/im/ImMessageContextMenu.vue'
 import WorkspaceCreateGroupModal from '../../../components/workspace/WorkspaceCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
 import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
@@ -29,7 +32,7 @@ const toast = useToast()
 const draft = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const draftInputRef = ref<HTMLInputElement | null>(null)
+const draftInputRef = ref<HTMLTextAreaElement | null>(null)
 const createGroupOpen = ref(false)
 const publicGroupSearchOpen = ref(false)
 const publicGroupKeyword = ref('')
@@ -49,6 +52,22 @@ const editMessageSubmitting = ref(false)
 const removingBotCode = ref<string | null>(null)
 const pendingMentions = ref<GroupMemberItem[]>([])
 const pendingReplyTo = ref<MessageItem | null>(null)
+const contextMenu = ref<{ open: boolean, x: number, y: number, items: ImMessageMenuAction[] }>({
+  open: false,
+  x: 0,
+  y: 0,
+  items: []
+})
+const mediaLightbox = ref<{
+  open: boolean
+  kind: 'image' | 'pdf' | null
+  src?: string
+  title?: string
+  downloadUrl?: string
+  filename?: string
+}>({ open: false, kind: null })
+const highlightMsgId = ref<string | null>(null)
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
 const mentionPickerOpen = ref(false)
 const mentionQuery = ref('')
 const mentionActiveIndex = ref(0)
@@ -484,6 +503,12 @@ async function handleSelect(conversationId: string) {
   await selectConversationWithRoute(conversationId)
 }
 
+function focusDraftInput() {
+  nextTick(() => {
+    draftInputRef.value?.focus()
+  })
+}
+
 async function handleSend() {
   const text = draft.value
   if ((!text.trim() && pendingMentions.value.length === 0) || im.sending) {
@@ -504,6 +529,8 @@ async function handleSend() {
     draft.value = text
     pendingMentions.value = mentions
     pendingReplyTo.value = replyTo
+  } finally {
+    focusDraftInput()
   }
 }
 
@@ -590,6 +617,7 @@ function handleKeydown(event: KeyboardEvent) {
       return
     }
   }
+  // Enter sends; Shift+Enter inserts newline (textarea default).
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     void handleSend()
@@ -633,6 +661,8 @@ watch(() => im.activeConversationId, (conversationId, prevId) => {
   }
   pendingMentions.value = []
   pendingReplyTo.value = null
+  closeMessageContextMenu()
+  closeMediaLightbox()
   closeMentionPicker()
   if (conversationId) {
     void im.ensureEffectiveSettings().catch(() => {})
@@ -704,30 +734,100 @@ function canEditMessage(msg: MessageItem): boolean {
   return hoursSince(msg.createTime) <= settings.editWithinHours
 }
 
-function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
-  const items: DropdownMenuItem[] = []
-  if (!msg.recalled) {
-    items.push({
-      label: '引用',
-      icon: 'i-lucide-reply',
-      onSelect: () => { setPendingReply(msg) }
+function messagePlainText(msg: MessageItem): string {
+  if (im.isFileMessage(msg)) {
+    return fileName(msg)
+  }
+  return im.textFromContent(msg.content) || im.messagePreviewFromContent(msg.type, msg.content)
+}
+
+function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
+  if (msg.type === 'system' || msg.recalled) {
+    return []
+  }
+  const actions: ImMessageMenuAction[] = []
+  const copyText = messagePlainText(msg).trim()
+  if (copyText) {
+    actions.push({
+      label: '复制',
+      icon: 'i-lucide-copy',
+      onSelect: () => { void copyMessageText(msg) }
+    })
+  }
+  actions.push({
+    label: '引用',
+    icon: 'i-lucide-reply',
+    onSelect: () => { setPendingReply(msg) }
+  })
+  if (im.isFileMessage(msg) && fileDownloadUrl(msg)) {
+    actions.push({
+      label: '下载',
+      icon: 'i-lucide-download',
+      onSelect: () => { void handleFileDownload(msg) }
     })
   }
   if (canRecallMessage(msg)) {
-    items.push({
+    actions.push({
       label: '撤回',
       icon: 'i-lucide-undo-2',
       onSelect: () => { void handleRecallMessage(msg.id) }
     })
   }
   if (canEditMessage(msg)) {
-    items.push({
+    actions.push({
       label: '编辑',
       icon: 'i-lucide-pencil',
       onSelect: () => { openEditMessage(msg) }
     })
   }
-  return items.length > 0 ? [items] : []
+  return actions
+}
+
+function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
+  const actions = buildMessageActions(msg)
+  if (actions.length === 0) {
+    return []
+  }
+  return [actions.map(action => ({
+    label: action.label,
+    icon: action.icon,
+    onSelect: action.onSelect
+  }))]
+}
+
+function hasMessageActions(msg: MessageItem) {
+  return buildMessageActions(msg).length > 0
+}
+
+function openMessageContextMenu(event: MouseEvent, msg: MessageItem) {
+  const items = buildMessageActions(msg)
+  if (items.length === 0) {
+    return
+  }
+  event.preventDefault()
+  contextMenu.value = {
+    open: true,
+    x: event.clientX,
+    y: event.clientY,
+    items
+  }
+}
+
+function closeMessageContextMenu() {
+  contextMenu.value = { ...contextMenu.value, open: false, items: [] }
+}
+
+async function copyMessageText(msg: MessageItem) {
+  const text = messagePlainText(msg)
+  if (!text) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.add({ title: '已复制', color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败', color: 'error' })
+  }
 }
 
 function setPendingReply(msg: MessageItem) {
@@ -735,7 +835,7 @@ function setPendingReply(msg: MessageItem) {
     return
   }
   pendingReplyTo.value = msg
-  nextTick(() => draftInputRef.value?.focus())
+  focusDraftInput()
 }
 
 function clearPendingReply() {
@@ -747,8 +847,30 @@ function replyPreviewText(msg: MessageItem): string {
   return preview.length > 80 ? `${preview.slice(0, 80)}…` : preview
 }
 
-function hasMessageActions(msg: MessageItem) {
-  return messageActionItems(msg).length > 0
+function jumpToQuotedMessage(replyTo: { messageId: string }) {
+  const targetId = replyTo.messageId
+  if (!targetId) {
+    return
+  }
+  const exists = im.messages.some(item => item.id === targetId)
+  if (!exists) {
+    toast.add({ title: '原消息不在当前列表', color: 'neutral' })
+    return
+  }
+  const el = messageListRef.value?.querySelector(`[data-msg-id="${CSS.escape(targetId)}"]`) as HTMLElement | null
+  if (!el) {
+    toast.add({ title: '原消息不在当前列表', color: 'neutral' })
+    return
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  highlightMsgId.value = targetId
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+  }
+  highlightTimer = setTimeout(() => {
+    highlightMsgId.value = null
+    highlightTimer = null
+  }, 1600)
 }
 
 async function handleRecallMessage(messageId: string) {
@@ -956,6 +1078,64 @@ function fileName(msg: { content: import('../../../api/app/im').MessageContent }
   return im.fileBlockFromContent(msg.content)?.filename ?? '附件'
 }
 
+function isPdfMessage(msg: Pick<MessageItem, 'content'>) {
+  const block = im.fileBlockFromContent(msg.content)
+  if (!block) {
+    return false
+  }
+  if (block.mimeType === 'application/pdf') {
+    return true
+  }
+  return (block.filename ?? '').toLowerCase().endsWith('.pdf')
+}
+
+function openMediaLightbox(kind: 'image' | 'pdf', msg: Pick<MessageItem, 'content'>) {
+  const url = fileDownloadUrl(msg)
+  if (!url) {
+    return
+  }
+  mediaLightbox.value = {
+    open: true,
+    kind,
+    src: url,
+    title: fileName(msg),
+    downloadUrl: url,
+    filename: fileName(msg)
+  }
+}
+
+function closeMediaLightbox() {
+  mediaLightbox.value = { open: false, kind: null }
+}
+
+async function downloadLightboxMedia() {
+  const { downloadUrl, filename } = mediaLightbox.value
+  if (!downloadUrl) {
+    return
+  }
+  try {
+    await downloadAuthenticatedFile(downloadUrl, filename ?? '附件')
+    toast.add({ title: '开始下载', color: 'success' })
+  } catch {
+    toast.add({ title: '下载失败', color: 'error' })
+  }
+}
+
+async function openFileAttachment(msg: MessageItem) {
+  if (!fileDownloadUrl(msg)) {
+    return
+  }
+  if (im.isImageMessage(msg)) {
+    openMediaLightbox('image', msg)
+    return
+  }
+  if (isPdfMessage(msg)) {
+    openMediaLightbox('pdf', msg)
+    return
+  }
+  await handleFileDownload(msg)
+}
+
 async function handleFileDownload(msg: { content: import('../../../api/app/im').MessageContent }) {
   const block = im.fileBlockFromContent(msg.content)
   if (!block?.downloadUrl) {
@@ -963,7 +1143,9 @@ async function handleFileDownload(msg: { content: import('../../../api/app/im').
   }
   try {
     await downloadAuthenticatedFile(block.downloadUrl, block.filename ?? '附件')
+    toast.add({ title: '开始下载', color: 'success' })
   } catch {
+    toast.add({ title: '附件下载失败', color: 'error' })
     im.lastError = '附件下载失败'
   }
 }
@@ -1185,11 +1367,13 @@ meta:
 
             <div
               v-else
+              :data-msg-id="item.message.id"
               :data-msg-seq="item.message.seq"
               class="ws-msg-row group flex"
               :class="[
                 messageRowJustify(item.message.senderId),
-                item.isGroupEnd ? 'mb-3' : 'mb-0.5'
+                item.isGroupEnd ? 'mb-3' : 'mb-0.5',
+                highlightMsgId === item.message.id ? 'ws-msg-row--highlight' : ''
               ]"
             >
               <div class="relative max-w-[75%]">
@@ -1210,6 +1394,7 @@ meta:
                             ? 'ws-msg-bubble--group-end'
                             : 'ws-msg-bubble--group-mid')
                     ]"
+                    @contextmenu="openMessageContextMenu($event, item.message)"
                   >
                     <p
                       v-if="showSenderNickname(item.message, item.isGroupStart)"
@@ -1218,12 +1403,14 @@ meta:
                     >
                       {{ item.message.senderNickname }}
                     </p>
-                    <div
+                    <button
                       v-if="!item.message.recalled && item.message.replyTo"
-                      class="mb-1.5 rounded-md px-2 py-1 text-xs"
+                      type="button"
+                      class="mb-1.5 w-full rounded-md px-2 py-1 text-left text-xs transition-colors"
                       :class="isOwnMessage(item.message.senderId)
-                        ? 'bg-black/15 text-primary-foreground/90'
-                        : 'bg-black/5 text-[var(--ws-text-muted)]'"
+                        ? 'bg-black/15 text-primary-foreground/90 hover:bg-black/25'
+                        : 'bg-black/5 text-[var(--ws-text-muted)] hover:bg-black/10'"
+                      @click.stop="jumpToQuotedMessage(item.message.replyTo!)"
                     >
                       <p class="truncate font-medium">
                         {{ item.message.replyTo.senderNickname || '消息' }}
@@ -1231,7 +1418,7 @@ meta:
                       <p class="line-clamp-2 break-words opacity-90">
                         {{ item.message.replyTo.preview || '…' }}
                       </p>
-                    </div>
+                    </button>
                     <template v-if="item.message.recalled">
                       <p class="text-sm">
                         消息已撤回
@@ -1242,16 +1429,24 @@ meta:
                         v-if="im.isImageMessage(item.message) && fileDownloadUrl(item.message)"
                         :src="fileDownloadUrl(item.message)"
                         :alt="fileName(item.message)"
+                        @preview="openMediaLightbox('image', item.message)"
                       />
                       <button
                         v-else-if="fileDownloadUrl(item.message)"
                         type="button"
                         class="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 hover:underline"
                         :class="isOwnMessage(item.message.senderId) ? 'text-primary-foreground' : 'text-[var(--ws-text)]'"
-                        @click="handleFileDownload(item.message)"
+                        @click.stop="openFileAttachment(item.message)"
                       >
-                        <UIcon name="i-lucide-file" class="size-5 shrink-0" />
+                        <UIcon
+                          :name="isPdfMessage(item.message) ? 'i-lucide-file-text' : 'i-lucide-file'"
+                          class="size-5 shrink-0"
+                        />
                         <span class="truncate">{{ fileName(item.message) }}</span>
+                        <span
+                          v-if="isPdfMessage(item.message)"
+                          class="shrink-0 text-[10px] opacity-70"
+                        >预览</span>
                       </button>
                       <p v-else class="whitespace-pre-wrap break-words">
                         {{ im.messagePreviewFromContent(item.message.type, item.message.content) }}
@@ -1290,7 +1485,8 @@ meta:
                       size="xs"
                       icon="i-lucide-ellipsis"
                       square
-                      class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                      class="shrink-0 opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+                      title="更多操作"
                       @click.stop
                     />
                   </UDropdownMenu>
@@ -1415,7 +1611,7 @@ meta:
               {{ member.nickname }}
             </UButton>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-end gap-2">
             <UButton
               v-if="isGroupActive"
               icon="i-lucide-at-sign"
@@ -1423,6 +1619,7 @@ meta:
               variant="ghost"
               square
               size="sm"
+              class="mb-0.5"
               :disabled="im.sending || mentionableMembers.length === 0"
               aria-label="提及成员"
               title="提及成员"
@@ -1434,16 +1631,17 @@ meta:
               variant="ghost"
               square
               size="sm"
+              class="mb-0.5"
               :disabled="im.sending"
               aria-label="发送附件"
               @click="openFilePicker"
             />
-            <input
+            <textarea
               ref="draftInputRef"
               v-model="draft"
-              class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
-              :placeholder="isGroupActive ? '发送消息，输入 @ 提及成员' : '发送消息，Enter 发送'"
-              :disabled="im.sending"
+              rows="1"
+              class="max-h-32 min-h-9 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
+              :placeholder="isGroupActive ? '发送消息，Enter 发送，Shift+Enter 换行，@ 提及' : '发送消息，Enter 发送，Shift+Enter 换行'"
               @keydown="handleKeydown"
               @input="handleDraftInput"
               @compositionstart="handleCompositionStart"
@@ -1452,12 +1650,13 @@ meta:
               @click="handleDraftClick"
               @keyup="handleDraftInput"
               @blur="handleDraftBlur"
-            >
+            />
             <UButton
               icon="i-lucide-send"
               color="primary"
               square
               size="sm"
+              class="mb-0.5"
               :loading="im.sending"
               :disabled="!draft.trim() && pendingMentions.length === 0"
               @click="handleSend"
@@ -1700,5 +1899,22 @@ meta:
     v-if="active && isGroupActive"
     v-model:open="addGroupBotOpen"
     :conversation-id="active.id"
+  />
+
+  <ImMessageContextMenu
+    :open="contextMenu.open"
+    :x="contextMenu.x"
+    :y="contextMenu.y"
+    :items="contextMenu.items"
+    @close="closeMessageContextMenu"
+  />
+
+  <ImMediaLightbox
+    :open="mediaLightbox.open"
+    :kind="mediaLightbox.kind"
+    :src="mediaLightbox.src"
+    :title="mediaLightbox.title"
+    @update:open="val => { if (!val) closeMediaLightbox() }"
+    @download="downloadLightboxMedia"
   />
 </template>

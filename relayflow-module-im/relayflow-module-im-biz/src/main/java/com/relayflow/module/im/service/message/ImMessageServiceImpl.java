@@ -164,7 +164,8 @@ public class ImMessageServiceImpl implements ImMessageService {
 
     @Override
     @Transactional
-    public void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text) {
+    public void sendBotReply(Long tenantId, Long conversationId, Long botId, String botName, String text,
+                             Long mentionUserId) {
         if (botId == null || !StringUtils.hasText(text)) {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
         }
@@ -172,10 +173,29 @@ public class ImMessageServiceImpl implements ImMessageService {
 
         MessageContentVO content = new MessageContentVO();
         content.setVersion(1);
+        List<ContentBlockVO> blocks = new ArrayList<>();
+        if (mentionUserId != null) {
+            ContentBlockVO mention = new ContentBlockVO();
+            mention.setType(ImContentHelper.BLOCK_TYPE_MENTION);
+            mention.setSubjectType(ImContentHelper.MENTION_SUBJECT_USER);
+            mention.setSubjectId(mentionUserId);
+            String nickname = "用户";
+            UserBasicDTO user = userApi.getUserBasic(mentionUserId);
+            if (user != null && StringUtils.hasText(user.getNickname())) {
+                nickname = user.getNickname().trim();
+            }
+            mention.setText("@" + nickname);
+            blocks.add(mention);
+            ContentBlockVO spacer = new ContentBlockVO();
+            spacer.setType("text");
+            spacer.setText(" ");
+            blocks.add(spacer);
+        }
         ContentBlockVO block = new ContentBlockVO();
         block.setType("text");
         block.setText(text.trim());
-        content.setBlocks(List.of(block));
+        blocks.add(block);
+        content.setBlocks(blocks);
 
         long nextSeq = nextSeq(tenantId, conversationId);
         String contentJson = contentHelper.toJson(content);

@@ -7,6 +7,10 @@ const props = defineProps<{
   alt?: string
 }>()
 
+defineEmits<{
+  preview: []
+}>()
+
 const resolvedSrc = ref<string>()
 let revokeUrl: string | undefined
 
@@ -48,6 +52,7 @@ onUnmounted(cleanup)
     v-if="resolvedSrc"
     :src="resolvedSrc"
     :alt="alt"
-    class="max-h-48 max-w-full rounded-lg object-contain"
+    class="max-h-48 max-w-full cursor-zoom-in rounded-lg object-contain"
+    @click.stop="$emit('preview')"
   >
 </template>

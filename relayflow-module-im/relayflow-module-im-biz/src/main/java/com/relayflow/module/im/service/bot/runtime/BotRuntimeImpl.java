@@ -3,7 +3,13 @@ package com.relayflow.module.im.service.bot.runtime;
 import com.relayflow.module.agent.api.carrier.AgentCarrierInboundApi;
 import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotTypingCommand;
+import com.relayflow.module.im.dal.dataobject.ImBotDO;
+import com.relayflow.module.im.dal.dataobject.ImConversationDO;
+import com.relayflow.module.im.dal.mapper.ImBotMapper;
+import com.relayflow.module.im.dal.mapper.ImConversationMapper;
+import com.relayflow.module.im.enums.ImBotGroupReplyMentionMode;
 import com.relayflow.module.im.enums.ImBotHandlerKind;
+import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.service.bot.ImBotService;
 import com.relayflow.module.im.service.bot.ingress.CarrierInboundContextAssembler;
 import com.relayflow.module.im.service.message.ImMessageService;
@@ -22,17 +28,23 @@ public class BotRuntimeImpl implements BotRuntime {
     private final ImBotService imBotService;
     private final CarrierInboundContextAssembler carrierInboundContextAssembler;
     private final ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi;
+    private final ImBotMapper botMapper;
+    private final ImConversationMapper conversationMapper;
 
     public BotRuntimeImpl(BotPlatformHandlerRegistry platformHandlerRegistry,
                           @Lazy ImMessageService messageService,
                           ImBotService imBotService,
                           CarrierInboundContextAssembler carrierInboundContextAssembler,
-                          ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi) {
+                          ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi,
+                          ImBotMapper botMapper,
+                          ImConversationMapper conversationMapper) {
         this.platformHandlerRegistry = platformHandlerRegistry;
         this.messageService = messageService;
         this.imBotService = imBotService;
         this.carrierInboundContextAssembler = carrierInboundContextAssembler;
         this.agentCarrierInboundApi = agentCarrierInboundApi;
+        this.botMapper = botMapper;
+        this.conversationMapper = conversationMapper;
     }
 
     @Override
@@ -136,6 +148,32 @@ public class BotRuntimeImpl implements BotRuntime {
                 context.getConversationId(),
                 context.getBotId(),
                 context.getBotName(),
-                reply.getText());
+                reply.getText(),
+                resolveGroupReplyMentionUserId(context));
+    }
+
+    /**
+     * Platform policy: group interactive replies @ the trigger user unless bot opts out ({@code none}).
+     * Agents never decide this.
+     */
+    Long resolveGroupReplyMentionUserId(BotInboundContext context) {
+        if (context == null || context.getTriggerUserId() == null || context.getConversationId() == null) {
+            return null;
+        }
+        ImConversationDO conversation = conversationMapper.selectById(context.getConversationId());
+        if (conversation == null || !ImConversationType.GROUP.equals(conversation.getType())) {
+            return null;
+        }
+        String mode = ImBotGroupReplyMentionMode.TRIGGER;
+        if (context.getBotId() != null) {
+            ImBotDO bot = botMapper.selectById(context.getBotId());
+            if (bot != null && StringUtils.hasText(bot.getGroupReplyMentionMode())) {
+                mode = bot.getGroupReplyMentionMode().trim();
+            }
+        }
+        if (ImBotGroupReplyMentionMode.NONE.equalsIgnoreCase(mode)) {
+            return null;
+        }
+        return context.getTriggerUserId();
     }
 }
