@@ -11,6 +11,7 @@ import {
   updateDriveItem,
   type DocsDriveListing
 } from '../api/app/docs-drive'
+import { getDocsEffectiveSettings } from '../api/app/docs'
 import { uploadPrivateFile } from '../api/app/file'
 import { ApiError } from '../api/request'
 
@@ -105,6 +106,17 @@ export const useDocsDriveStore = defineStore('docsDrive', () => {
   }
 
   async function registerUploadedFile(file: File) {
+    try {
+      const settings = await getDocsEffectiveSettings()
+      if (!settings.driveUploadEnabled) {
+        throw new Error('企业已禁止上传云盘文件')
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message === '企业已禁止上传云盘文件') {
+        throw e
+      }
+      // effective 拉取失败时交给后端强制
+    }
     const fileId = await uploadPrivateFile(file)
     const item = await registerDriveFile({
       folderId: currentFolderId.value,

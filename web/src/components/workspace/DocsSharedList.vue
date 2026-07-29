@@ -7,8 +7,10 @@ const props = withDefaults(defineProps<{
   items: DocsSharedWithMeItem[]
   activeObjectId?: string | null
   embedded?: boolean
+  allowExportMd?: boolean
 }>(), {
-  embedded: false
+  embedded: false,
+  allowExportMd: true
 })
 
 const emit = defineEmits<{
@@ -36,24 +38,27 @@ function formatTime(value?: string | null) {
 }
 
 function rowActions(item: DocsSharedWithMeItem) {
+  const primary: Array<{ label: string, icon?: string, onSelect: () => void }> = [
+    {
+      label: '复制链接',
+      icon: 'i-lucide-link',
+      onSelect: () => emit('copyLink', item.objectId)
+    },
+    {
+      label: item.starred ? '取消星标' : '星标',
+      icon: 'i-lucide-star',
+      onSelect: () => emit('star', item.objectId)
+    }
+  ]
+  if (props.allowExportMd) {
+    primary.push({
+      label: '导出 Markdown',
+      icon: 'i-lucide-download',
+      onSelect: () => emit('exportMd', item.objectId)
+    })
+  }
   return [
-    [
-      {
-        label: '复制链接',
-        icon: 'i-lucide-link',
-        onSelect: () => emit('copyLink', item.objectId)
-      },
-      {
-        label: item.starred ? '取消星标' : '星标',
-        icon: 'i-lucide-star',
-        onSelect: () => emit('star', item.objectId)
-      },
-      {
-        label: '导出 Markdown',
-        icon: 'i-lucide-download',
-        onSelect: () => emit('exportMd', item.objectId)
-      }
-    ],
+    primary,
     [
       {
         label: '离开分享',

@@ -12,7 +12,7 @@ const toast = useToast()
 const { hasPermission } = usePermission()
 const settingsStore = useDocsProductSettingsStore()
 
-/** Prefer docs:* ; fall back to im:* until re-login picks up B-api permission seeds. */
+/** Prefer docs:* ; fall back to im:* until re-login picks up seeded docs permission codes. */
 const canQuery = computed(() =>
   hasPermission('docs:product-settings:query') || hasPermission('im:product-settings:query'))
 const canUpdate = computed(() =>
@@ -38,10 +38,7 @@ async function save() {
     await settingsStore.save(cloneDocsProductSettings(form))
     applyFromStore()
     toast.add({
-      title: settingsStore.usingLocalDraft ? '已保存到本地草稿' : '已保存',
-      description: settingsStore.usingLocalDraft
-        ? 'Admin API 就绪后将写入服务端'
-        : undefined,
+      title: '已保存',
       color: 'success'
     })
   } catch (error) {
@@ -57,8 +54,16 @@ async function loadPage() {
   if (!canQuery.value) {
     return
   }
-  await settingsStore.load()
-  applyFromStore()
+  try {
+    await settingsStore.load()
+    applyFromStore()
+  } catch (error) {
+    toast.add({
+      title: '加载失败',
+      description: error instanceof Error ? error.message : '请确认后端已启动并重新登录',
+      color: 'error'
+    })
+  }
 }
 
 watch(() => form.memberShareEnabled, () => { dirty.value = true })
@@ -88,7 +93,7 @@ meta:
           color="warning"
           variant="subtle"
           title="无权限"
-          description="需要 docs:product-settings:query 权限。权限种子将在 B-api 波次写入；开发期可用超级管理员全量权限验证。"
+          description="需要 docs:product-settings:query。若刚跑完迁移，请重新登录以刷新权限。"
         />
 
         <AdminDocsProductShell
@@ -97,13 +102,6 @@ meta:
           description="组织级云文档策略天花板。关闭后工作台对应写路径将被拒绝；已有分享授权仍可读，直至撤销。"
         >
           <template #actions>
-            <UBadge
-              v-if="settingsStore.usingLocalDraft"
-              color="warning"
-              variant="subtle"
-            >
-              本地草稿
-            </UBadge>
             <UButton
               color="neutral"
               variant="ghost"

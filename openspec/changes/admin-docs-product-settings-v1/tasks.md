@@ -42,7 +42,7 @@
 
 ### B-integrate
 
-- [ ] B.10 去 Mock；看板；联调开关关闭时 API/UI 一致
+- [x] B.10 去 Mock；看板；联调开关关闭时 API/UI 一致
 
 ---
 
@@ -50,9 +50,9 @@
 
 ### A1-web
 
-- [ ] A1.1 文件列表：列、类型/生命周期/所有者筛、标题搜索、分页（Mock）
-- [ ] A1.2 动作：转移所有者、删除、恢复、销毁、复制链接
-- [ ] A1.3 `pnpm build` + `pnpm typecheck`；路径：`/admin/products/docs/files`
+- [x] A1.1 文件列表：列、类型/生命周期/所有者筛、标题搜索、分页（Mock）
+- [x] A1.2 动作：转移所有者、删除、恢复、销毁、复制链接
+- [x] A1.3 `pnpm build` + `pnpm typecheck`；路径：`/admin/products/docs/files`
 
 ### A1-api
 

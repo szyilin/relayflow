@@ -7,8 +7,12 @@ const props = withDefaults(defineProps<{
   items: DocsStarredItem[]
   activeObjectId?: string | null
   embedded?: boolean
+  allowShare?: boolean
+  allowExportMd?: boolean
 }>(), {
-  embedded: false
+  embedded: false,
+  allowShare: true,
+  allowExportMd: true
 })
 
 const emit = defineEmits<{
@@ -21,24 +25,26 @@ const emit = defineEmits<{
 
 function rowActions(item: DocsStarredItem) {
   const owned = item.locationLabel === '我的文档库' || item.locationLabel === '云盘'
-  const primary = [
+  const primary: Array<{ label: string, icon?: string, onSelect: () => void }> = [
     {
       label: '复制链接',
       icon: 'i-lucide-link',
       onSelect: () => emit('copyLink', item.objectId)
-    },
-    {
+    }
+  ]
+  if (props.allowExportMd) {
+    primary.push({
       label: '导出 Markdown',
       icon: 'i-lucide-download',
       onSelect: () => emit('exportMd', item.objectId)
-    },
-    {
-      label: '取消星标',
-      icon: 'i-lucide-star',
-      onSelect: () => emit('unstar', item.objectId)
-    }
-  ]
-  if (owned) {
+    })
+  }
+  primary.push({
+    label: '取消星标',
+    icon: 'i-lucide-star',
+    onSelect: () => emit('unstar', item.objectId)
+  })
+  if (owned && props.allowShare) {
     primary.unshift({
       label: '分享',
       icon: 'i-lucide-share-2',

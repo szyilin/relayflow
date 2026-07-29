@@ -90,16 +90,18 @@ const docMoreItems = computed(() => {
           void copyDocLink(objectId)
         }
       }
-    },
-    {
+    }
+  ]
+  if (docs.markdownExportEnabled) {
+    primary.push({
       label: '导出 Markdown',
       icon: 'i-lucide-download',
       onSelect: () => {
         void onExportMd()
       }
-    }
-  ]
-  if (owned && objectId) {
+    })
+  }
+  if (owned && objectId && docs.memberShareEnabled) {
     primary.unshift({
       label: '分享',
       icon: 'i-lucide-share-2',
@@ -435,6 +437,11 @@ async function copyDocLink(objectId: string) {
 }
 
 async function openShare(objectId: string) {
+  await docs.ensureEffectiveSettings()
+  if (!docs.memberShareEnabled) {
+    toast.add({ title: '企业已禁止成员分享文档', color: 'warning' })
+    return
+  }
   shareObjectId.value = objectId
   const node = docs.findNodeByObjectId(objectId)
   const recent = docs.recentItems.find(i => i.objectId === objectId)
@@ -669,24 +676,29 @@ async function confirmMoveToDrive() {
 }
 
 function nodeActions(node: DocsLibraryNode) {
+  const primary: Array<{ label: string, icon?: string, onSelect: () => void }> = [
+    { label: '新建子文档', icon: 'i-lucide-file-plus', onSelect: () => void onCreate(node.nodeId) },
+    { label: '重命名', icon: 'i-lucide-pencil', onSelect: () => openRename(node) },
+    { label: '移动到…', icon: 'i-lucide-folder-input', onSelect: () => openMove(node) },
+    { label: '移动到云盘', icon: 'i-lucide-hard-drive', onSelect: () => void openMoveToDrive(node) }
+  ]
+  if (docs.memberShareEnabled) {
+    primary.push({ label: '分享', icon: 'i-lucide-share-2', onSelect: () => void openShare(node.objectId) })
+  }
+  primary.push({
+    label: docs.isStarred(node.objectId) ? '取消星标' : '星标',
+    icon: 'i-lucide-star',
+    onSelect: () => void onToggleStar(node.objectId)
+  })
+  if (docs.markdownExportEnabled) {
+    primary.push({
+      label: '导出 Markdown',
+      icon: 'i-lucide-download',
+      onSelect: () => void onExportMdFor(node.objectId)
+    })
+  }
   return [
-    [
-      { label: '新建子文档', icon: 'i-lucide-file-plus', onSelect: () => void onCreate(node.nodeId) },
-      { label: '重命名', icon: 'i-lucide-pencil', onSelect: () => openRename(node) },
-      { label: '移动到…', icon: 'i-lucide-folder-input', onSelect: () => openMove(node) },
-      { label: '移动到云盘', icon: 'i-lucide-hard-drive', onSelect: () => void openMoveToDrive(node) },
-      { label: '分享', icon: 'i-lucide-share-2', onSelect: () => void openShare(node.objectId) },
-      {
-        label: docs.isStarred(node.objectId) ? '取消星标' : '星标',
-        icon: 'i-lucide-star',
-        onSelect: () => void onToggleStar(node.objectId)
-      },
-      {
-        label: '导出 Markdown',
-        icon: 'i-lucide-download',
-        onSelect: () => void onExportMdFor(node.objectId)
-      }
-    ],
+    primary,
     [
       { label: '删除', icon: 'i-lucide-trash-2', color: 'error' as const, onSelect: () => void onDelete(node) }
     ]
@@ -861,6 +873,8 @@ meta:
           embedded
           :items="docs.recentItems"
           :active-object-id="docs.activeObjectId"
+          :allow-share="docs.memberShareEnabled"
+          :allow-export-md="docs.markdownExportEnabled"
           @open="onOpen"
           @remove="(id) => void onRemoveRecent(id)"
           @delete-owned="onDeleteOwnedFromRecent"
@@ -874,6 +888,7 @@ meta:
           embedded
           :items="docs.sharedItems"
           :active-object-id="docs.activeObjectId"
+          :allow-export-md="docs.markdownExportEnabled"
           @open="onOpen"
           @leave="(id) => void onLeaveShare(id)"
           @star="(id) => void onToggleStar(id)"
@@ -885,6 +900,8 @@ meta:
           embedded
           :items="docs.starredItems"
           :active-object-id="docs.activeObjectId"
+          :allow-share="docs.memberShareEnabled"
+          :allow-export-md="docs.markdownExportEnabled"
           @open="onOpen"
           @unstar="(id) => void onToggleStar(id)"
           @share="(id) => void openShare(id)"

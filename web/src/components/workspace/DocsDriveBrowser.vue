@@ -44,6 +44,11 @@ const libraryParentTreeItems = computed(() =>
 
 onMounted(async () => {
   try {
+    await docs.ensureEffectiveSettings()
+  } catch {
+    // defaults apply
+  }
+  try {
     await drive.loadListing(drive.currentFolderId)
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '加载云盘失败', color: 'error' })
@@ -66,6 +71,10 @@ async function confirmCreateFolder() {
 }
 
 function triggerUpload() {
+  if (!docs.driveUploadEnabled) {
+    toast.add({ title: '企业已禁止上传云盘文件', color: 'warning' })
+    return
+  }
   fileInputRef.value?.click()
 }
 
@@ -306,6 +315,7 @@ defineExpose({
         icon="i-lucide-upload"
         label="上传"
         :loading="drive.loading"
+        :disabled="!docs.driveUploadEnabled"
         @click="triggerUpload"
       />
       <input
