@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import WorkspaceMemberPicker, {
   type PickerMember
 } from './WorkspaceMemberPicker.vue'
+import WorkspaceModalBody from './WorkspaceModalBody.vue'
 import { useDeptStore } from '../../stores/dept'
 import { useImStore } from '../../stores/im'
 import type { GroupMemberCandidate } from '../../stores/im'
@@ -112,84 +113,96 @@ async function handleSubmit() {
     :ui="{ content: 'max-w-3xl w-[min(860px,94vw)]' }"
   >
     <template #body>
-      <form
-        class="space-y-4"
-        @submit.prevent="handleSubmit"
+      <WorkspaceModalBody
+        min-height-class="min-h-[28rem]"
+        max-height-class="max-h-[min(72vh,40rem)]"
       >
-        <UFormField label="群类型">
-          <div class="space-y-2">
-            <label
-              v-for="opt in groupKindOptions"
-              :key="opt.value"
-              class="flex cursor-pointer gap-3 rounded-lg border border-[var(--ws-border-subtle)] p-3"
-              :class="groupKind === opt.value ? 'border-primary bg-primary/5' : ''"
-            >
-              <input
-                v-model="groupKind"
-                type="radio"
-                class="mt-1"
-                :value="opt.value"
+        <form
+          id="workspace-create-group-form"
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
+        >
+          <UFormField label="群类型">
+            <div class="space-y-2">
+              <label
+                v-for="opt in groupKindOptions"
+                :key="opt.value"
+                class="flex cursor-pointer gap-3 rounded-lg border border-[var(--ws-border-subtle)] p-3"
+                :class="groupKind === opt.value ? 'border-primary bg-primary/5' : ''"
               >
-              <span>
-                <span class="block text-sm font-medium text-[var(--ws-text)]">{{ opt.label }}</span>
-                <span class="mt-0.5 block text-xs text-[var(--ws-text-muted)]">{{ opt.description }}</span>
-              </span>
-            </label>
+                <input
+                  v-model="groupKind"
+                  type="radio"
+                  class="mt-1"
+                  :value="opt.value"
+                >
+                <span>
+                  <span class="block text-sm font-medium text-[var(--ws-text)]">{{ opt.label }}</span>
+                  <span class="mt-0.5 block text-xs text-[var(--ws-text-muted)]">{{ opt.description }}</span>
+                </span>
+              </label>
+            </div>
+          </UFormField>
+
+          <!-- Reserve dept field height so NORMAL ↔ DEPT does not resize the shell -->
+          <div class="min-h-[4.75rem]">
+            <UFormField
+              v-if="isDeptGroup"
+              label="部门"
+            >
+              <USelectMenu
+                v-model="deptId"
+                :items="deptOptions"
+                value-key="value"
+                placeholder="选择部门"
+                :loading="deptStore.loading"
+                class="w-full"
+              />
+            </UFormField>
           </div>
-        </UFormField>
 
-        <UFormField
-          v-if="isDeptGroup"
-          label="部门"
-        >
-          <USelectMenu
-            v-model="deptId"
-            :items="deptOptions"
-            value-key="value"
-            placeholder="选择部门"
-            :loading="deptStore.loading"
-            class="w-full"
-          />
-        </UFormField>
+          <UFormField label="群名称">
+            <UInput
+              v-model="name"
+              placeholder="输入群名称"
+              maxlength="128"
+            />
+          </UFormField>
 
-        <UFormField label="群名称">
-          <UInput
-            v-model="name"
-            placeholder="输入群名称"
-            maxlength="128"
-          />
-        </UFormField>
+          <UFormField :label="isDeptGroup ? '额外成员（可选）' : '选择成员'">
+            <WorkspaceMemberPicker
+              ref="pickerRef"
+              v-model="selected"
+            />
+          </UFormField>
 
-        <UFormField :label="isDeptGroup ? '额外成员（可选）' : '选择成员'">
-          <WorkspaceMemberPicker
-            ref="pickerRef"
-            v-model="selected"
-          />
-        </UFormField>
-
-        <p
-          v-if="errorMessage"
-          class="text-sm text-error"
-        >
-          {{ errorMessage }}
-        </p>
-
-        <div class="flex justify-end gap-2 pt-1">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            @click="open = false"
+          <p
+            v-if="errorMessage"
+            class="text-sm text-error"
           >
-            取消
-          </UButton>
-          <UButton
-            type="submit"
-            :loading="submitting"
-          >
-            创建
-          </UButton>
-        </div>
-      </form>
+            {{ errorMessage }}
+          </p>
+        </form>
+      </WorkspaceModalBody>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="open = false"
+        >
+          取消
+        </UButton>
+        <UButton
+          type="submit"
+          form="workspace-create-group-form"
+          :loading="submitting"
+        >
+          创建
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>

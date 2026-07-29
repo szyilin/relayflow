@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import WorkspaceMemberPicker, {
   type PickerMember
 } from './WorkspaceMemberPicker.vue'
+import WorkspaceModalBody from './WorkspaceModalBody.vue'
 import { useImStore } from '../../stores/im'
 import type { GroupMemberCandidate } from '../../stores/im'
 
@@ -73,39 +74,48 @@ async function handleSubmit() {
     :ui="{ content: 'max-w-3xl w-[min(860px,94vw)]' }"
   >
     <template #body>
-      <form
-        class="space-y-4"
-        @submit.prevent="handleSubmit"
+      <WorkspaceModalBody
+        min-height-class="min-h-[22rem]"
+        max-height-class="max-h-[min(70vh,36rem)]"
       >
-        <WorkspaceMemberPicker
-          ref="pickerRef"
-          v-model="selected"
-          :exclude-user-ids="excludeUserIds"
-        />
-
-        <p
-          v-if="errorMessage"
-          class="text-sm text-error"
+        <form
+          id="im-invite-members-form"
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
         >
-          {{ errorMessage }}
-        </p>
+          <WorkspaceMemberPicker
+            ref="pickerRef"
+            v-model="selected"
+            :exclude-user-ids="excludeUserIds"
+          />
 
-        <div class="flex justify-end gap-2 pt-2">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            @click="open = false"
+          <p
+            v-if="errorMessage"
+            class="text-sm text-error"
           >
-            取消
-          </UButton>
-          <UButton
-            type="submit"
-            :loading="submitting"
-          >
-            邀请
-          </UButton>
-        </div>
-      </form>
+            {{ errorMessage }}
+          </p>
+        </form>
+      </WorkspaceModalBody>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="open = false"
+        >
+          取消
+        </UButton>
+        <UButton
+          type="submit"
+          form="im-invite-members-form"
+          :loading="submitting"
+        >
+          邀请
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>

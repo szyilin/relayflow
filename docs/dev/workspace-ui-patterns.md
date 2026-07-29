@@ -35,6 +35,7 @@ web/src/
 | 右栏 | 可选 `#aside`（默认关闭；消息/通讯录不展示「活跃状态」） |
 | 主题 | **不**浮在壳层右上角；从资料名片 → **设置窗**切换 |
 | 设置窗 | `WorkspaceSettingsPanel`：宽 UModal；左栏分类 + 右栏「通用」 |
+| 弹窗稳定 | 内容增减时外壳勿上下跳：`WorkspaceModalBody`（`max-h` + 内滚 + `min-h`）；操作按钮优先放 `UModal` `#footer`；切换态（loading/empty/列表）共用相近 min-height |
 
 ## Create Hub（「+」创建）
 

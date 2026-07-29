@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import WorkspaceModalBody from './WorkspaceModalBody.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useContactsStore } from '../../stores/contacts'
 import { useImStore } from '../../stores/im'
@@ -99,71 +100,107 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="新建群聊">
+  <UModal
+    v-model:open="open"
+    title="新建群聊"
+  >
     <template #body>
-      <form class="space-y-4" @submit.prevent="handleSubmit">
-        <UFormField label="群名称">
-          <UInput v-model="name" placeholder="例如：产品讨论组" maxlength="128" />
-        </UFormField>
-
-        <UFormField label="邀请成员">
-          <UInput
-            v-model="keyword"
-            placeholder="搜索姓名或部门"
-            icon="i-lucide-search"
-          />
-        </UFormField>
-
-        <div v-if="contacts.loadingMembers" class="space-y-2">
-          <USkeleton v-for="i in 4" :key="i" class="h-10 w-full" />
-        </div>
-
-        <div
-          v-else-if="candidateMembers.length"
-          class="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-[var(--ws-border-subtle)] p-2"
+      <WorkspaceModalBody min-height-class="min-h-[18rem]">
+        <form
+          id="im-create-group-form"
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
         >
-          <label
-            v-for="member in candidateMembers"
-            :key="member.id"
-            class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
-          >
-            <UCheckbox
-              :model-value="selectedIds.includes(member.id)"
-              @update:model-value="toggleMember(member.id, $event === true)"
+          <UFormField label="群名称">
+            <UInput
+              v-model="name"
+              placeholder="例如：产品讨论组"
+              maxlength="128"
             />
-            <UAvatar :text="member.avatarText" size="sm" />
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">
-                {{ member.nickname }}
-              </p>
-              <p class="truncate text-xs text-[var(--ws-text-muted)]">
-                {{ member.deptName }}
-              </p>
-            </div>
-          </label>
-        </div>
+          </UFormField>
 
-        <UEmpty
-          v-else
-          icon="i-lucide-users"
-          title="暂无可邀请成员"
-          description="请确认组织内已有其他成员"
-          class="py-6"
-        />
+          <UFormField label="邀请成员">
+            <UInput
+              v-model="keyword"
+              placeholder="搜索姓名或部门"
+              icon="i-lucide-search"
+            />
+          </UFormField>
 
-        <p v-if="errorMessage" class="text-sm text-error">
-          {{ errorMessage }}
-        </p>
+          <div
+            v-if="contacts.loadingMembers"
+            class="min-h-56 space-y-2"
+          >
+            <USkeleton
+              v-for="i in 4"
+              :key="i"
+              class="h-10 w-full"
+            />
+          </div>
 
-        <div class="flex justify-end gap-2 pt-2">
-          <UButton color="neutral" variant="ghost" @click="open = false">
-            取消
-          </UButton>
-          <UButton type="submit" :loading="submitting">
-            创建
-          </UButton>
-        </div>
-      </form>
+          <div
+            v-else-if="candidateMembers.length"
+            class="min-h-56 space-y-1 overflow-y-auto rounded-lg border border-[var(--ws-border-subtle)] p-2"
+          >
+            <label
+              v-for="member in candidateMembers"
+              :key="member.id"
+              class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
+            >
+              <UCheckbox
+                :model-value="selectedIds.includes(member.id)"
+                @update:model-value="toggleMember(member.id, $event === true)"
+              />
+              <UAvatar
+                :text="member.avatarText"
+                size="sm"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium">
+                  {{ member.nickname }}
+                </p>
+                <p class="truncate text-xs text-[var(--ws-text-muted)]">
+                  {{ member.deptName }}
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <UEmpty
+            v-else
+            icon="i-lucide-users"
+            title="暂无可邀请成员"
+            description="请确认组织内已有其他成员"
+            class="flex min-h-56 items-center justify-center py-6"
+          />
+
+          <p
+            v-if="errorMessage"
+            class="text-sm text-error"
+          >
+            {{ errorMessage }}
+          </p>
+        </form>
+      </WorkspaceModalBody>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="open = false"
+        >
+          取消
+        </UButton>
+        <UButton
+          type="submit"
+          form="im-create-group-form"
+          :loading="submitting"
+        >
+          创建
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>
