@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { MessageReactionAgg } from '../../api/app/im'
 
 const QUICK_EMOJIS = ['👍', '❤️', '😄', '🎉', '👀', '🙏'] as const
@@ -10,6 +10,8 @@ const props = defineProps<{
   reactions?: MessageReactionAgg[]
   disabled?: boolean
   forceOpen?: boolean
+  /** Align add-button / chips to the end (own messages) */
+  alignEnd?: boolean
   /** When force-open from context menu, position near this point */
   anchor?: { x: number, y: number } | null
 }>()
@@ -24,6 +26,10 @@ const panelReady = ref(false)
 const triggerRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 const panelStyle = ref<Record<string, string>>({})
+
+const chips = computed(() => props.reactions ?? [])
+const hasChips = computed(() => chips.value.length > 0)
+const showTrigger = computed(() => !props.disabled)
 
 watch(() => props.forceOpen, (open) => {
   if (open) {
@@ -56,7 +62,6 @@ function positionPanel() {
 
   let anchorX: number
   let anchorY: number
-  let preferAbove = true
 
   if (props.forceOpen && props.anchor) {
     anchorX = props.anchor.x
@@ -65,13 +70,12 @@ function positionPanel() {
     const tr = triggerRef.value.getBoundingClientRect()
     anchorX = tr.left + tr.width / 2
     anchorY = tr.top
-    preferAbove = true
   } else {
     anchorX = vw / 2
     anchorY = vh / 2
   }
 
-  let top = preferAbove ? anchorY - ph - GAP : anchorY + GAP
+  let top = anchorY - ph - GAP
   if (top < VIEWPORT_PAD) {
     top = anchorY + GAP
   }
@@ -79,7 +83,6 @@ function positionPanel() {
     top = Math.max(VIEWPORT_PAD, vh - ph - VIEWPORT_PAD)
   }
 
-  // Center horizontally on anchor, then clamp
   let left = anchorX - pw / 2
   if (left < VIEWPORT_PAD) {
     left = VIEWPORT_PAD
@@ -166,9 +169,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mt-1 flex flex-wrap items-center gap-1">
+  <!-- Existing reaction chips: only take layout space when present -->
+  <div
+    v-if="hasChips"
+    class="mt-1 flex flex-wrap items-center gap-1 px-1"
+    :class="alignEnd ? 'justify-end' : 'justify-start'"
+  >
     <button
-      v-for="item in (reactions ?? [])"
+      v-for="item in chips"
       :key="item.emoji"
       type="button"
       class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-xs transition-colors"
@@ -181,44 +189,50 @@ onUnmounted(() => {
       <span>{{ item.emoji }}</span>
       <span class="tabular-nums text-[10px] opacity-70">{{ item.count }}</span>
     </button>
+  </div>
 
+  <!--
+    Add trigger: out of flow, pinned beside the message meta/time row.
+    Hidden until hover / open so it never reserves a blank row.
+  -->
+  <button
+    v-if="showTrigger"
+    ref="triggerRef"
+    type="button"
+    class="absolute bottom-0 z-[5] inline-flex size-5 items-center justify-center rounded-full border border-dashed border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] text-[var(--ws-text-muted)] shadow-sm transition-opacity"
+    :class="[
+      alignEnd ? 'right-0 translate-x-full pl-1' : 'left-0 -translate-x-full pr-1',
+      moreOpen || forceOpen
+        ? 'opacity-100'
+        : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100'
+    ]"
+    title="表情回应"
+    aria-label="表情回应"
+    @click.stop="toggleMore"
+  >
+    <UIcon
+      name="i-lucide-smile-plus"
+      class="size-3"
+    />
+  </button>
+
+  <Teleport to="body">
     <div
-      v-if="!disabled"
-      class="relative"
+      v-if="moreOpen"
+      ref="panelRef"
+      class="flex gap-0.5 rounded-md border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] p-1 shadow-md"
+      :style="{ ...panelStyle, visibility: panelReady ? 'visible' : 'hidden' }"
+      @click.stop
     >
       <button
-        ref="triggerRef"
+        v-for="emoji in QUICK_EMOJIS"
+        :key="emoji"
         type="button"
-        class="inline-flex size-6 items-center justify-center rounded-full border border-dashed border-[var(--ws-border-subtle)] text-[var(--ws-text-muted)] transition-opacity"
-        :class="moreOpen || forceOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-        title="表情回应"
-        aria-label="表情回应"
-        @click.stop="toggleMore"
+        class="size-7 rounded text-base hover:bg-[var(--ws-input-bar-bg)]"
+        @click="onQuick(emoji)"
       >
-        <UIcon
-          name="i-lucide-smile-plus"
-          class="size-3.5"
-        />
+        {{ emoji }}
       </button>
-      <Teleport to="body">
-        <div
-          v-if="moreOpen"
-          ref="panelRef"
-          class="flex gap-0.5 rounded-md border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] p-1 shadow-md"
-          :style="{ ...panelStyle, visibility: panelReady ? 'visible' : 'hidden' }"
-          @click.stop
-        >
-          <button
-            v-for="emoji in QUICK_EMOJIS"
-            :key="emoji"
-            type="button"
-            class="size-7 rounded text-base hover:bg-[var(--ws-input-bar-bg)]"
-            @click="onQuick(emoji)"
-          >
-            {{ emoji }}
-          </button>
-        </div>
-      </Teleport>
     </div>
-  </div>
+  </Teleport>
 </template>

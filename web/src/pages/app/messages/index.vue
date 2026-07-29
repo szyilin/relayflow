@@ -1686,9 +1686,8 @@ meta:
                 </div>
                 <ImMessageReactionBar
                   v-if="!item.message.recalled && item.message.type !== 'system'"
-                  class="px-1"
-                  :class="isOwnMessage(item.message.senderId) ? 'justify-end' : ''"
                   :reactions="item.message.reactions"
+                  :align-end="isOwnMessage(item.message.senderId)"
                   :force-open="reactionPickerMsgId === item.message.id"
                   :anchor="reactionPickerMsgId === item.message.id ? reactionPickerAnchor : null"
                   @toggle="emoji => im.toggleReaction(item.message.id, emoji)"
