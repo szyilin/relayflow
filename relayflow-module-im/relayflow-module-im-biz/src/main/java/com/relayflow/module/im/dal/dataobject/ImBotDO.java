@@ -60,4 +60,10 @@ public class ImBotDO extends BaseDO {
      */
     @TableField("owner_agent_id")
     private Long ownerAgentId;
+
+    /**
+     * Agent owner user id for carrier bots; null for system bots.
+     */
+    @TableField("owner_user_id")
+    private Long ownerUserId;
 }

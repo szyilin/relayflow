@@ -4,6 +4,7 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.module.im.controller.app.vo.GroupBotMembershipReqVO;
 import com.relayflow.module.im.dal.dataobject.ImBotDO;
+import com.relayflow.module.im.dal.dataobject.ImBotTenantEnablementDO;
 import com.relayflow.module.im.dal.dataobject.ImConversationMemberDO;
 import com.relayflow.module.im.dal.dataobject.ImGroupDO;
 import com.relayflow.module.im.dal.mapper.ImBotMapper;
@@ -49,6 +50,7 @@ class ImGroupServiceBotMembershipTest {
     private static final long MEMBER_ID = 20L;
     private static final long CONVERSATION_ID = 301L;
     private static final long BOT_ID = 900003L;
+    private static final long AGENT_ID = 7001L;
 
     @Mock
     private ImConversationMapper conversationMapper;
@@ -94,7 +96,7 @@ class ImGroupServiceBotMembershipTest {
 
         GroupBotMembershipReqVO request = new GroupBotMembershipReqVO();
         request.setConversationId(CONVERSATION_ID);
-        request.setBotCode("task-bot");
+        request.setBotCode("agent-carrier-7001");
 
         ServiceException ex = assertThrows(ServiceException.class, () -> groupService.addBot(request));
         assertEquals(ErrorCodeConstants.GROUP_OWNER_REQUIRED.getCode(), ex.getCode());
@@ -102,18 +104,45 @@ class ImGroupServiceBotMembershipTest {
     }
 
     @Test
+    void addBot_rejectsSystemDeliveryBot() {
+        loginAs(OWNER_ID);
+        stubGroup();
+        ImConversationMemberDO owner = userMembership(OWNER_ID, ImMemberRole.OWNER);
+        when(conversationMemberMapper.selectOne(any())).thenReturn(owner);
+        when(botMapper.selectOne(any())).thenReturn(systemBot());
+
+        GroupBotMembershipReqVO request = new GroupBotMembershipReqVO();
+        request.setConversationId(CONVERSATION_ID);
+        request.setBotCode("task-bot");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> groupService.addBot(request));
+        assertEquals(ErrorCodeConstants.BOT_NOT_EMBEDDABLE.getCode(), ex.getCode());
+        verify(conversationMemberMapper, never()).insert(any(ImConversationMemberDO.class));
+    }
+
+    @Test
+    void addBot_rejectsCarrierOwnedByOtherUser() {
+        loginAs(OWNER_ID);
+        stubGroup();
+        ImConversationMemberDO owner = userMembership(OWNER_ID, ImMemberRole.OWNER);
+        when(conversationMemberMapper.selectOne(any())).thenReturn(owner);
+        when(botMapper.selectOne(any())).thenReturn(carrierBot(MEMBER_ID));
+
+        GroupBotMembershipReqVO request = new GroupBotMembershipReqVO();
+        request.setConversationId(CONVERSATION_ID);
+        request.setBotCode("agent-carrier-7001");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> groupService.addBot(request));
+        assertEquals(ErrorCodeConstants.BOT_OWNER_REQUIRED.getCode(), ex.getCode());
+    }
+
+    @Test
     void addBot_idempotentWhenAlreadyMember() {
         loginAs(OWNER_ID);
         stubGroup();
-        stubMembershipRole(OWNER_ID, ImMemberRole.OWNER);
-        when(botMapper.selectOne(any())).thenReturn(systemBot());
-        when(conversationMemberMapper.selectOne(any())).thenAnswer(invocation -> {
-            // first call: owner membership already stubbed above via thenReturn sequence —
-            // re-stub carefully
-            return null;
-        });
+        when(botMapper.selectOne(any())).thenReturn(carrierBot(OWNER_ID));
+        stubTenantEnabled();
 
-        // owner check uses selectOne; bot membership also uses selectOne — use consecutive returns
         ImConversationMemberDO owner = userMembership(OWNER_ID, ImMemberRole.OWNER);
         ImConversationMemberDO existingBot = botMembership();
         when(conversationMemberMapper.selectOne(any()))
@@ -122,7 +151,7 @@ class ImGroupServiceBotMembershipTest {
 
         GroupBotMembershipReqVO request = new GroupBotMembershipReqVO();
         request.setConversationId(CONVERSATION_ID);
-        request.setBotCode("task-bot");
+        request.setBotCode("agent-carrier-7001");
 
         assertTrue(!groupService.addBot(request).isAdded());
         verify(conversationMemberMapper, never()).insert(any(ImConversationMemberDO.class));
@@ -137,15 +166,16 @@ class ImGroupServiceBotMembershipTest {
         when(conversationMemberMapper.selectOne(any()))
                 .thenReturn(owner)
                 .thenReturn(null);
-        when(botMapper.selectOne(any())).thenReturn(systemBot());
+        when(botMapper.selectOne(any())).thenReturn(carrierBot(OWNER_ID));
+        stubTenantEnabled();
 
         GroupBotMembershipReqVO request = new GroupBotMembershipReqVO();
         request.setConversationId(CONVERSATION_ID);
-        request.setBotCode("task-bot");
+        request.setBotCode("agent-carrier-7001");
 
         assertTrue(groupService.addBot(request).isAdded());
         verify(conversationMemberMapper).insert(any(ImConversationMemberDO.class));
-        verify(messageService).sendSystemMessage(TENANT_ID, CONVERSATION_ID, "任务助手 加入了群聊");
+        verify(messageService).sendSystemMessage(TENANT_ID, CONVERSATION_ID, "系统智能体 加入了群聊");
     }
 
     private void loginAs(Long userId) {
@@ -171,6 +201,14 @@ class ImGroupServiceBotMembershipTest {
 
     private void stubMembershipRole(Long userId, String role) {
         when(conversationMemberMapper.selectOne(any())).thenReturn(userMembership(userId, role));
+    }
+
+    private void stubTenantEnabled() {
+        ImBotTenantEnablementDO enablement = new ImBotTenantEnablementDO();
+        enablement.setTenantId(TENANT_ID);
+        enablement.setBotId(BOT_ID);
+        enablement.setEnabled(1);
+        when(tenantEnablementMapper.selectOne(any())).thenReturn(enablement);
     }
 
     private ImConversationMemberDO userMembership(Long userId, String role) {
@@ -202,6 +240,18 @@ class ImGroupServiceBotMembershipTest {
         bot.setName("任务助手");
         bot.setType(ImBotType.SYSTEM);
         bot.setStatus(1);
+        return bot;
+    }
+
+    private ImBotDO carrierBot(Long ownerUserId) {
+        ImBotDO bot = new ImBotDO();
+        bot.setId(BOT_ID);
+        bot.setCode("agent-carrier-7001");
+        bot.setName("系统智能体");
+        bot.setType(ImBotType.TENANT);
+        bot.setStatus(1);
+        bot.setOwnerAgentId(AGENT_ID);
+        bot.setOwnerUserId(ownerUserId);
         return bot;
     }
 }

@@ -63,6 +63,9 @@ public class ImBotProvisioningServiceImpl {
                 bot.setStatus(BOT_STATUS_ENABLED);
                 bot.setType(ImBotType.TENANT);
                 bot.setHandlerKind(ImBotHandlerKind.PLATFORM);
+                if (command.getOwnerUserId() != null) {
+                    bot.setOwnerUserId(command.getOwnerUserId());
+                }
                 botMapper.updateById(bot);
             }
             ensureTenantEnablement(tenantId, bot.getId());
@@ -130,6 +133,7 @@ public class ImBotProvisioningServiceImpl {
         bot.setHandlerKind(ImBotHandlerKind.PLATFORM);
         bot.setStatus(BOT_STATUS_ENABLED);
         bot.setOwnerAgentId(command.getAgentId());
+        bot.setOwnerUserId(command.getOwnerUserId());
         try {
             botMapper.insert(bot);
         } catch (DuplicateKeyException ex) {
@@ -145,6 +149,9 @@ public class ImBotProvisioningServiceImpl {
             applyProfile(raced, command.getName(), command.getDescription(), command.getAvatarFileId());
             raced.setStatus(BOT_STATUS_ENABLED);
             raced.setOwnerAgentId(command.getAgentId());
+            if (command.getOwnerUserId() != null) {
+                raced.setOwnerUserId(command.getOwnerUserId());
+            }
             raced.setType(ImBotType.TENANT);
             raced.setHandlerKind(ImBotHandlerKind.PLATFORM);
             botMapper.updateById(raced);

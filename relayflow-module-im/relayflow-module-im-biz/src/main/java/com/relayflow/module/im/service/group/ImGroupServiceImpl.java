@@ -263,14 +263,15 @@ public class ImGroupServiceImpl implements ImGroupService {
         conversationService.requireMembership(tenantId, conversationId, userId);
 
         Set<Long> memberBotIds = loadMemberBotIds(tenantId, conversationId);
-        List<ImBotDO> systemBots = botMapper.selectList(
+        List<ImBotDO> embeddableBots = botMapper.selectList(
                 Wrappers.<ImBotDO>lambdaQuery()
                         .eq(ImBotDO::getStatus, BOT_STATUS_ENABLED)
-                        .eq(ImBotDO::getType, ImBotType.SYSTEM)
+                        .isNotNull(ImBotDO::getOwnerAgentId)
+                        .eq(ImBotDO::getOwnerUserId, userId)
                         .orderByAsc(ImBotDO::getId));
 
         List<GroupBotCatalogItemRespVO> items = new ArrayList<>();
-        for (ImBotDO bot : systemBots) {
+        for (ImBotDO bot : embeddableBots) {
             GroupBotCatalogItemRespVO item = new GroupBotCatalogItemRespVO();
             item.setBotId(bot.getId());
             item.setBotCode(bot.getCode());
@@ -292,6 +293,7 @@ public class ImGroupServiceImpl implements ImGroupService {
         requireOwner(tenantId, group.getConversationId(), userId);
 
         ImBotDO bot = requireActiveBot(request.getBotCode());
+        requireEmbeddableByCaller(userId, bot);
         requireReachable(tenantId, userId, bot);
 
         GroupBotAddRespVO response = new GroupBotAddRespVO();
@@ -632,6 +634,15 @@ public class ImGroupServiceImpl implements ImGroupService {
             throw new ServiceException(ErrorCodeConstants.BOT_NOT_FOUND);
         }
         return bot;
+    }
+
+    private void requireEmbeddableByCaller(Long userId, ImBotDO bot) {
+        if (bot.getOwnerAgentId() == null) {
+            throw new ServiceException(ErrorCodeConstants.BOT_NOT_EMBEDDABLE);
+        }
+        if (!Objects.equals(bot.getOwnerUserId(), userId)) {
+            throw new ServiceException(ErrorCodeConstants.BOT_OWNER_REQUIRED);
+        }
     }
 
     private void requireReachable(Long tenantId, Long userId, ImBotDO bot) {
