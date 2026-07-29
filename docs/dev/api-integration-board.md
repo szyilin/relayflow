@@ -101,8 +101,9 @@
 | **agent-runtime-core-v1** | **done** | — | `/app-api/agent/def/**` · `/app-api/agent/session/**` | [contract](../../openspec/lanes/workspace-agent/contract.md) | Spring AI Runtime；Session ≠ IM |
 | **workspace-agent-web** | — | **done** | `/app/agents` 壳 | [contract](../../openspec/lanes/workspace-agent/contract.md) | Mock 已由 integrate 替换 |
 | **workspace-agent-integrate** | — | **done** | 去 Mock 联调 Session/Runtime | [contract](../../openspec/lanes/workspace-agent/contract.md) | Session ≠ messages；非流式 send |
-| **workspace-agent-chat-ui-web** | planned | **ui_ready** | `/app/agents` Nuxt UI Chat · parts · Mock stream | [contract](../../openspec/lanes/workspace-agent-chat/contract.md) | 前端优先；后续 `-stream-api` / `-integrate` |
-| **workspace-agent-chat-stream-api** | **done** | — | `POST .../send/stream` SSE · `parts_json` | [contract](../../openspec/lanes/workspace-agent-chat/contract.md) | 保留同步 `/send`；integrate 去 Mock |
+| **workspace-agent-chat-ui-web** | planned | **done** | `/app/agents` Nuxt UI Chat · parts | [contract](../../openspec/lanes/workspace-agent-chat/contract.md) | Mock 已由 integrate 替换 |
+| **workspace-agent-chat-stream-api** | **done** | — | `POST .../send/stream` SSE · `parts_json` | [contract](../../openspec/lanes/workspace-agent-chat/contract.md) | 保留同步 `/send` |
+| **workspace-agent-chat-integrate** | **done** | **done** | 去 Mock · 主路径 SSE | [contract](../../openspec/lanes/workspace-agent-chat/contract.md) | curl：`POST /app-api/agent/session/send/stream` Accept `text/event-stream` |
 | **agent-skill-catalog-v1** | **done** | — | SkillRegistry + `task.search`/`task.list_due` | [change](../../openspec/changes/agent-skill-catalog-v1/proposal.md) | Builtin → Tool → `TaskItemApi`；AgentDef.skillIds |
 | **im-bot-agent-carrier-v1** | **done** | — | `ImBotProvisioningApi` + 入站→AgentRuntime | [change](../../openspec/changes/im-bot-agent-carrier-v1/proposal.md) | type=tenant；Session ≠ IM |
 | **agent-automation-v1** | **done** | **ui_ready** | cron 自动化 + Bot 推送 | [change](../../openspec/changes/agent-automation-v1/proposal.md) | XXL tick；结果只进 IM |

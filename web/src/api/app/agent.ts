@@ -1,4 +1,5 @@
-import { del, get, post, put } from '../request'
+import { ApiError, del, get, post, put } from '../request'
+import { getAccessToken } from '../../utils/session-storage'
 
 export interface AgentDef {
   id: string
@@ -173,6 +174,172 @@ export function sendAgentSessionMessage(sessionId: string, content: string): Pro
     userMessage: normalizeMessage(res.userMessage),
     assistantMessage: normalizeMessage(res.assistantMessage)
   }))
+}
+
+/** SSE event shapes from POST /app-api/agent/session/send/stream (lane contract). */
+export type AgentChatStreamEvent =
+  | {
+      type: 'message.user' | 'message.assistant'
+      id: string
+      role: string
+      seq: number
+      content: string
+      parts?: AgentMessagePart[]
+    }
+  | { type: 'reasoning-delta'; text?: string }
+  | { type: 'reasoning-end' }
+  | { type: 'tool-start'; toolCallId?: string; toolName: string; input?: string }
+  | { type: 'tool-result'; toolCallId?: string; toolName: string; output?: string }
+  | { type: 'text-delta'; text?: string }
+  | { type: 'done' }
+  | { type: 'error'; message?: string; code?: number }
+
+function apiBaseUrl(): string {
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
+}
+
+function resolveApiUrl(path: string): string {
+  const base = apiBaseUrl()
+  if (!base) {
+    return path
+  }
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function parseSseDataPayload(raw: string): unknown {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return null
+  }
+  try {
+    const once = JSON.parse(trimmed) as unknown
+    // Spring may JSON-encode a string body → double-encoded object
+    if (typeof once === 'string') {
+      try {
+        return JSON.parse(once) as unknown
+      } catch {
+        return once
+      }
+    }
+    return once
+  } catch {
+    return null
+  }
+}
+
+function coerceStreamEvent(payload: unknown): AgentChatStreamEvent | null {
+  if (!payload || typeof payload !== 'object' || !('type' in payload)) {
+    return null
+  }
+  const row = payload as Record<string, unknown>
+  const type = String(row.type)
+  if (type === 'message.user' || type === 'message.assistant') {
+    return {
+      type,
+      id: String(row.id ?? ''),
+      role: String(row.role ?? ''),
+      seq: Number(row.seq) || 0,
+      content: String(row.content ?? ''),
+      parts: Array.isArray(row.parts) ? (row.parts as AgentMessagePart[]) : undefined
+    }
+  }
+  if (type === 'reasoning-delta' || type === 'text-delta') {
+    return { type, text: row.text != null ? String(row.text) : '' }
+  }
+  if (type === 'reasoning-end' || type === 'done') {
+    return { type }
+  }
+  if (type === 'tool-start') {
+    return {
+      type,
+      toolCallId: row.toolCallId != null ? String(row.toolCallId) : undefined,
+      toolName: String(row.toolName ?? 'tool'),
+      input: row.input != null ? String(row.input) : undefined
+    }
+  }
+  if (type === 'tool-result') {
+    return {
+      type,
+      toolCallId: row.toolCallId != null ? String(row.toolCallId) : undefined,
+      toolName: String(row.toolName ?? 'tool'),
+      output: row.output != null ? String(row.output) : ''
+    }
+  }
+  if (type === 'error') {
+    return {
+      type,
+      message: row.message != null ? String(row.message) : '流式发送失败',
+      code: typeof row.code === 'number' ? row.code : undefined
+    }
+  }
+  return null
+}
+
+export async function sendAgentSessionMessageStream(
+  sessionId: string,
+  content: string,
+  options: {
+    onEvent: (event: AgentChatStreamEvent) => void
+    signal?: AbortSignal
+  }
+): Promise<void> {
+  const token = getAccessToken()
+  const response = await fetch(resolveApiUrl('/app-api/agent/session/send/stream'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ sessionId, content }),
+    signal: options.signal
+  })
+
+  if (!response.ok) {
+    let message = `流式发送失败（HTTP ${response.status}）`
+    try {
+      const body = await response.json() as { msg?: string; message?: string }
+      message = body.msg || body.message || message
+    } catch {
+      // ignore
+    }
+    throw new ApiError(response.status, message)
+  }
+
+  if (!response.body) {
+    throw new ApiError(0, '流式响应为空')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+    buffer += decoder.decode(value, { stream: true })
+    buffer = buffer.replace(/\r\n/g, '\n')
+
+    let sep: number
+    while ((sep = buffer.indexOf('\n\n')) >= 0) {
+      const chunk = buffer.slice(0, sep)
+      buffer = buffer.slice(sep + 2)
+      const dataLines = chunk
+        .split('\n')
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart())
+      if (!dataLines.length) {
+        continue
+      }
+      const payload = parseSseDataPayload(dataLines.join('\n'))
+      const event = coerceStreamEvent(payload)
+      if (event) {
+        options.onEvent(event)
+      }
+    }
+  }
 }
 
 export function listEnabledLlmModels(): Promise<EnabledLlmModel[]> {

@@ -13,11 +13,12 @@ import {
   listAgentSessions,
   listEnabledLlmModels,
   runAgentAutomationNow,
-  sendAgentSessionMessage,
+  sendAgentSessionMessageStream,
   updateAgentAutomation,
   updateAgentDef,
   type AgentAutomation,
   type AgentAutomationSavePayload,
+  type AgentChatStreamEvent,
   type AgentDef,
   type AgentDefSavePayload,
   type AgentMessagePart,
@@ -26,19 +27,11 @@ import {
   type EnabledLlmModel
 } from '../api/app/agent'
 import { ApiError } from '../api/request'
-import {
-  runMockAgentPreamble,
-  runMockAgentTextStream,
-  type MockAgentStreamEvent
-} from '../composables/mockAgentStream'
 
 export type AgentPanelMode = 'home' | 'agents' | 'history' | 'automations'
 
 /** Matches Nuxt UI / AI SDK chat status. */
 export type AgentStreamStatus = 'ready' | 'submitted' | 'streaming' | 'error'
-
-/** Temporary: remove in workspace-agent-chat-integrate. */
-const USE_MOCK_AGENT_STREAM = true
 
 let tempIdSeq = 0
 function nextTempId(prefix: string) {
@@ -112,16 +105,19 @@ export const useAgentStore = defineStore('agent', () => {
     patchSessionMessages(sessionId, next)
   }
 
-  function applyStreamEvent(sessionId: string, assistantId: string, event: MockAgentStreamEvent) {
+  function applyStreamEvent(sessionId: string, assistantId: string, event: AgentChatStreamEvent) {
+    if (event.type === 'message.user' || event.type === 'message.assistant' || event.type === 'error') {
+      return
+    }
     updateAssistantParts(sessionId, assistantId, (parts) => {
       if (event.type === 'reasoning-delta') {
         const last = parts[parts.length - 1]
         if (last?.type === 'reasoning') {
-          last.text += event.text
+          last.text += event.text ?? ''
           last.state = 'streaming'
           return parts
         }
-        parts.push({ type: 'reasoning', text: event.text, state: 'streaming' })
+        parts.push({ type: 'reasoning', text: event.text ?? '', state: 'streaming' })
         return parts
       }
       if (event.type === 'reasoning-end') {
@@ -168,11 +164,11 @@ export const useAgentStore = defineStore('agent', () => {
       if (event.type === 'text-delta') {
         const last = parts[parts.length - 1]
         if (last?.type === 'text') {
-          last.text += event.text
+          last.text += event.text ?? ''
           last.state = 'streaming'
           return parts
         }
-        parts.push({ type: 'text', text: event.text, state: 'streaming' })
+        parts.push({ type: 'text', text: event.text ?? '', state: 'streaming' })
         return parts
       }
       if (event.type === 'done') {
@@ -187,6 +183,14 @@ export const useAgentStore = defineStore('agent', () => {
       }
       return parts
     })
+  }
+
+  function replaceMessageById(sessionId: string, fromId: string, next: AgentSessionMessage) {
+    const list = messagesBySession.value[sessionId] ?? []
+    patchSessionMessages(
+      sessionId,
+      list.map(msg => (msg.id === fromId ? next : msg))
+    )
   }
 
   async function refreshAgents() {
@@ -362,6 +366,8 @@ export const useAgentStore = defineStore('agent', () => {
 
     const userId = nextTempId('user')
     const assistantId = nextTempId('assistant')
+    let liveUserId = userId
+    let liveAssistantId = assistantId
     const prev = messagesBySession.value[sessionId] ?? []
     const userMessage: AgentSessionMessage = {
       id: userId,
@@ -384,104 +390,88 @@ export const useAgentStore = defineStore('agent', () => {
     streamError.value = null
     lastError.value = null
 
-    const onEvent = (event: MockAgentStreamEvent) => {
-      if (signal.aborted) {
-        return
-      }
-      if (streamStatus.value === 'submitted') {
-        streamStatus.value = 'streaming'
-      }
-      applyStreamEvent(sessionId!, assistantId, event)
-    }
-
+    let endedWithError = false
     try {
-      if (!USE_MOCK_AGENT_STREAM) {
-        const result = await sendAgentSessionMessage(sessionId, text)
-        patchSessionMessages(sessionId, [
-          ...prev,
-          { ...result.userMessage, parts: ensureMessageParts(result.userMessage) },
-          { ...result.assistantMessage, parts: ensureMessageParts(result.assistantMessage) }
-        ])
-        streamStatus.value = 'ready'
-        await refreshSessions()
-        return
-      }
+      await sendAgentSessionMessageStream(sessionId, text, {
+        signal,
+        onEvent: (event) => {
+          if (signal.aborted) {
+            return
+          }
+          if (streamStatus.value === 'submitted') {
+            streamStatus.value = 'streaming'
+          }
 
-      streamStatus.value = 'streaming'
-      const syncPromise = sendAgentSessionMessage(sessionId, text).catch((error: unknown) => {
-        throw error
+          if (event.type === 'message.user') {
+            const normalized = ensureMessageParts({
+              id: event.id,
+              role: 'user',
+              content: event.content,
+              seq: event.seq,
+              parts: event.parts
+            })
+            replaceMessageById(sessionId!, liveUserId, {
+              id: event.id,
+              role: 'user',
+              content: event.content,
+              seq: event.seq,
+              parts: normalized
+            })
+            liveUserId = event.id
+            return
+          }
+
+          if (event.type === 'message.assistant') {
+            const normalized = ensureMessageParts({
+              id: event.id,
+              role: 'assistant',
+              content: event.content,
+              seq: event.seq,
+              parts: event.parts
+            }).map((p) => {
+              if (p.type === 'tool') {
+                return { ...p, state: 'done' as const }
+              }
+              if (p.type === 'text' || p.type === 'reasoning') {
+                return { ...p, state: 'done' as const }
+              }
+              return p
+            })
+            replaceMessageById(sessionId!, liveAssistantId, {
+              id: event.id,
+              role: 'assistant',
+              content: event.content,
+              seq: event.seq,
+              parts: normalized
+            })
+            liveAssistantId = event.id
+            return
+          }
+
+          if (event.type === 'error') {
+            endedWithError = true
+            streamStatus.value = 'error'
+            streamError.value = new Error(event.message || '流式发送失败')
+            lastError.value = event.message || '流式发送失败'
+            return
+          }
+
+          if (event.type === 'done') {
+            streamStatus.value = 'ready'
+            return
+          }
+
+          applyStreamEvent(sessionId!, liveAssistantId, event)
+        }
       })
 
-      try {
-        await runMockAgentPreamble(onEvent, signal)
-      } catch (error) {
-        if ((error as Error)?.name === 'AbortError') {
-          return
-        }
-        throw error
-      }
-
-      let result
-      try {
-        result = await syncPromise
-      } catch (error) {
-        // Backend unavailable: keep preamble, stream offline markdown text
-        if (signal.aborted) {
-          return
-        }
-        const offlineMd = [
-          '## 离线演示回复',
-          '',
-          `你说：**${text}**`,
-          '',
-          '真实 `POST /send` 暂不可用；以下为 Mock Markdown。',
-          '',
-          '接入 `send/stream` 后将改为真实 SSE。'
-        ].join('\n')
-        await runMockAgentTextStream(offlineMd, onEvent, signal)
+      if (signal.aborted) {
         streamStatus.value = 'ready'
-        lastError.value = errorMessage(error, '发送失败（已展示 Mock 回复）')
         return
       }
-
-      if (signal.aborted) {
-        return
+      if (!endedWithError) {
+        streamStatus.value = 'ready'
       }
-
-      const finalText = result.assistantMessage.content || '（空回复）'
-      await runMockAgentTextStream(finalText, onEvent, signal)
-
-      if (signal.aborted) {
-        return
-      }
-
-      const list = messagesBySession.value[sessionId] ?? []
-      const streamedAssistant = list.find(m => m.id === assistantId)
-      const mergedParts = streamedAssistant?.parts?.length
-        ? streamedAssistant.parts.map((p) => {
-            if (p.type === 'text') {
-              return { ...p, text: finalText, state: 'done' as const }
-            }
-            if (p.type === 'reasoning') {
-              return { ...p, state: 'done' as const }
-            }
-            if (p.type === 'tool') {
-              return { ...p, state: 'done' as const }
-            }
-            return p
-          })
-        : ensureMessageParts(result.assistantMessage)
-
-      patchSessionMessages(sessionId, [
-        ...prev,
-        { ...result.userMessage, parts: ensureMessageParts(result.userMessage) },
-        {
-          ...result.assistantMessage,
-          content: finalText,
-          parts: mergedParts
-        }
-      ])
-      streamStatus.value = 'ready'
       await refreshSessions()
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
