@@ -16,6 +16,7 @@ import {
   respondEvent as apiRespondEvent,
   rescheduleEvent as apiRescheduleEvent,
   updateCalendar as apiUpdateCalendar,
+  updateCalendarDisplayColor as apiUpdateDisplayColor,
   updateEvent as apiUpdateEvent,
   type CalendarEvent,
   type CalendarEventCreatePayload,
@@ -95,8 +96,9 @@ export const useCalendarStore = defineStore('calendar', () => {
 
   const ownedCalendars = computed(() =>
     calendars.value.filter(c => c.type === 'PRIMARY' || c.type === 'OWNED'))
+  /** READ-shared + all-staff (subscribed) */
   const sharedCalendars = computed(() =>
-    calendars.value.filter(c => c.type === 'SHARED'))
+    calendars.value.filter(c => c.type === 'SHARED' || c.type === 'ALL_STAFF'))
   const primaryCalendar = computed(() => calendars.value.find(c => c.type === 'PRIMARY') ?? null)
 
   const visibleEvents = computed(() => {
@@ -238,6 +240,17 @@ export const useCalendarStore = defineStore('calendar', () => {
       return true
     } catch (error) {
       throw toError(error, '更新日历失败')
+    }
+  }
+
+  async function updateDisplayColor(id: string, displayColor: string | null) {
+    try {
+      await apiUpdateDisplayColor({ id, displayColor })
+      await fetchCalendars()
+      await refreshLastRange()
+      return true
+    } catch (error) {
+      throw toError(error, '更新显示颜色失败')
     }
   }
 
@@ -389,6 +402,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     toggleCalendarVisible,
     createCalendar,
     updateCalendar,
+    updateDisplayColor,
     removeCalendar,
     createEvent,
     updateEvent,

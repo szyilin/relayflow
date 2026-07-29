@@ -162,12 +162,15 @@ web/src/
 
 | 项 | 规范 |
 |----|------|
-| Shell | `#panel`：迷你月历 +「我管理的」勾选/色/共享按钮 +「共享给我的」图层 + 添加日历 + **「我的任务」虚拟图层**（非 `cal_calendar`；可勾选） |
+| Shell | `#panel`：迷你月历 +「我管理的」勾选/有效色 +「我订阅的」图层 + 添加日历 + **「我的任务」虚拟图层**（非 `cal_calendar`；可勾选） |
+| 行菜单 | 每行 `···`：仅显示此日历 / 分享（所有者）/ 修改颜色（**本机色**）/ 日历设置 / 删除（OWNED） |
+| 日历设置 | `CalendarSettingsModal`：所有者改名称·描述·默认色并管理共享；订阅者名称/描述只读，改本机色；可恢复默认色 |
 | Main | 顶栏（今天/翻页/日周月/创建日程）+ 自研网格；当前时间红线（日/周）；日/周可拖拽改期/拉边（组织者，**仅日程**）；任务投影与日程视觉可区分 |
 | 弹层 | `CalendarEventEditor`：参与人、重复（RRULE）、编辑范围 THIS/ALL；组织者可删；**点击任务投影不打开本弹层** |
 | 任务投影 | 图层开启时并行拉 `GET /app-api/task/item/due-range`；仅本人未完成（`TODO`）+ 有 `due_time`；点击 → `/app/tasks?taskId=`；**不写** `cal_event` |
-| 共享 | `/app-api/calendar/share/*`；侧栏弹层增删 READ 共享 |
-| 设置 | 全局设置窗「日历」分类 → `settings.calendar`（含 `showTaskLayer` 默认 true；非页内设置真源） |
+| 共享 | `/app-api/calendar/share/*`；`···` 分享或设置内「管理共享」弹层增删 READ |
+| 本机色 | `PUT /app-api/calendar/calendar/display-color`；list 含 `defaultColor` / `displayColor` / `effectiveColor`；事件 `calendarColor` 为有效色 |
+| 设置 | 全局设置窗「日历」分类 → `settings.calendar`（含 `showTaskLayer` 默认 true；非页内设置真源；**不含**按日历本机色） |
 | 数据 | `stores/calendar` → `api/app/calendar`；任务投影 → `api/app/task` due-range（无常驻 Mock） |
 | 深链 | `?eventId=` / `?date=`；任务 → `/app/tasks?taskId=` |
 | 契约 | [`workspace-calendar/contract.md`](../../openspec/lanes/workspace-calendar/contract.md)；投影增量见 [`task-calendar-projection`](../../openspec/changes/task-calendar-projection/proposal.md)（`-web` 起草 lane contract） |

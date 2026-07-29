@@ -99,11 +99,18 @@ const isOrganizer = computed(() =>
 const isRecurringEdit = computed(() =>
   props.mode === 'edit' && Boolean(props.event?.recurring || props.event?.rrule))
 
-const calendarItems = computed(() =>
-  calendarStore.ownedCalendars.map(c => ({
-    label: c.name,
-    value: c.id
-  })))
+const calendarItems = computed(() => {
+  const uid = auth.userId
+  return calendarStore.calendars
+    .filter(c =>
+      c.type === 'PRIMARY'
+      || c.type === 'OWNED'
+      || (c.type === 'ALL_STAFF' && uid != null && c.ownerUserId === uid))
+    .map(c => ({
+      label: c.name,
+      value: c.id
+    }))
+})
 
 const recurrenceItems = [
   { label: '不重复', value: 'none' },

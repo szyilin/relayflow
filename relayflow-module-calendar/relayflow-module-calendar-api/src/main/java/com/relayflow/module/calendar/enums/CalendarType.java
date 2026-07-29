@@ -7,6 +7,8 @@ public enum CalendarType {
 
     PRIMARY,
     OWNED,
+    /** Stored: admin-created all-staff calendar. */
+    ALL_STAFF,
     /** Response-only: calendar shared to current user (not stored on cal_calendar.type). */
     SHARED
 }

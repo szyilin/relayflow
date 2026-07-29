@@ -2,6 +2,7 @@ package com.relayflow.module.calendar.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarCreateReqVO;
+import com.relayflow.module.calendar.controller.app.vo.CalCalendarDisplayColorReqVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarRespVO;
 import com.relayflow.module.calendar.controller.app.vo.CalCalendarUpdateReqVO;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
@@ -47,6 +48,12 @@ public class CalCalendarController {
     @DeleteMapping("/delete")
     public CommonResult<Boolean> delete(@RequestParam @NotNull Long id) {
         calCalendarService.delete(id);
+        return CommonResult.success(true);
+    }
+
+    @PutMapping("/display-color")
+    public CommonResult<Boolean> updateDisplayColor(@Valid @RequestBody CalCalendarDisplayColorReqVO request) {
+        calCalendarService.updateDisplayColor(request.getId(), request.getDisplayColor());
         return CommonResult.success(true);
     }
 }

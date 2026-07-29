@@ -87,6 +87,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/products/calendar/all-staff/': RouteRecordInfo<
+      '/admin/products/calendar/all-staff/',
+      '/admin/products/calendar/all-staff',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/calendar/org/': RouteRecordInfo<
+      '/admin/products/calendar/org/',
+      '/admin/products/calendar/org',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/products/docs/': RouteRecordInfo<
       '/admin/products/docs/',
       '/admin/products/docs',
@@ -341,6 +355,22 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/products/calendar/index.vue': {
       routes:
         | '/admin/products/calendar/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/calendar/all-staff/index.vue': {
+      routes:
+        | '/admin/products/calendar/all-staff/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/calendar/org/index.vue': {
+      routes:
+        | '/admin/products/calendar/org/'
       views:
         | never
       pathParamNames:

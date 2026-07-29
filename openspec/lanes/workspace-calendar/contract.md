@@ -47,9 +47,24 @@
 
 | 字段 | 说明 |
 |------|------|
-| `type` | `PRIMARY` \| `OWNED` \| `SHARED` |
-| `ownerUserId` | 所有者 userId（SHARED 时） |
-| `permission` | `READ`（仅 type=SHARED） |
+| `type` | `PRIMARY` \| `OWNED` \| `SHARED` \| `ALL_STAFF`（全员日历切片后） |
+| `ownerUserId` | 所有者 userId（SHARED / ALL_STAFF 时） |
+| `permission` | `READ`（仅订阅类日历） |
+| `color` / `defaultColor` | 日历实体默认色 |
+| `displayColor` | 当前用户本机覆盖色；无覆盖为 `null` |
+| `effectiveColor` | `displayColor ?? defaultColor`（侧栏点与网格着色优先用此字段） |
+
+### PUT /display-color
+
+本机显示色覆盖；**不**修改 `cal_calendar.color`。对自有 / READ 共享 / 全员订阅可见的日历均可调用。
+
+```json
+{ "id": "9002", "displayColor": "#F59E0B" }
+```
+
+`displayColor` 为 `null` 或空字符串时清除覆盖，回退默认色。
+
+**Response `data`**：`true`
 
 ### POST /create
 
@@ -60,6 +75,8 @@
 **Response `data`**：新建日历 id（string/number）
 
 ### PUT /update
+
+所有者更新默认元数据（名称 / **默认色** / 描述）。订阅者调用会被拒绝。
 
 ```json
 { "id": "9002", "name": "项目排期", "color": "#EC4899", "description": "备注" }

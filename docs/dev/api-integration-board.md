@@ -117,7 +117,8 @@
 | **workspace-contact-add-external** | **archived** | **done** | 搜索/发起外部联系人 · 拒绝申请 | [contract](../../openspec/lanes/workspace-contacts-enrich/contract.md) | `-integrate` 完成；contactAdd / reject 接 API |
 | **workspace-member-picker** | **archived** | **done** | 共享选人器 · 我管理的群组（IM 聚合）· 邀请入群复用 | [create-hub](../../openspec/lanes/workspace-create-hub/contract.md) · [im-group](../../openspec/lanes/im-group-chat/contract.md) | `-web` 完成；V1 前端聚合；`GET …/group/managed` 可选延后 |
 | **admin-enterprise-info** | **done** | **done** | `/admin-api/system/enterprise/*` · `/admin/system/enterprise` | [contract](../../openspec/lanes/admin-enterprise-info/contract.md) | `-integrate` 完成；档案/地址接真实 API；geo 接 `infra/geo/children` |
-| **admin-product-settings** | **ready** | **done** | `/admin-api/im/product-settings*` · `/admin/products/**` · app 公开群/撤回编辑 | [contract](../../openspec/lanes/admin-product-settings/contract.md) | 母 change 主能力已交付；docs/calendar 仍占位；详规另立 |
+| **admin-product-settings** | **ready** | **done** | `/admin-api/im/product-settings*` · `/admin/products/**` · app 公开群/撤回编辑 | [contract](../../openspec/lanes/admin-product-settings/contract.md) | 母 change 主能力已交付；docs 仍占位；日历见下行 |
+| **admin-calendar-product-settings** | **ready** | **done** | `/admin-api/calendar/product-settings*` · `/admin/products/calendar/**` · 本机色 / 全员日历 | [contract](../../openspec/lanes/admin-calendar-product-settings/contract.md) | `admin-calendar-product-settings-v1`；本机色 App API 见 workspace-calendar contract |
 | **workspace-meeting** | **ready** | **done** | `/app-api/meeting/*` · `/app/meeting` · rtc `RtcSessionApi` · `CalEventApi` | [contract](../../openspec/lanes/meeting/contract.md) | 母 [workspace-meeting-v1](../../openspec/changes/workspace-meeting-v1/proposal.md)；去 Mock；join-credentials + LiveKit；日历「加入会议」 |
 
 ### SUPERSEDED（不再按旧写真源扩写）

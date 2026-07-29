@@ -24,6 +24,10 @@ public interface CalCalendarConvert {
     @Mapping(target = "ownerUserId", source = "calendar.ownerUserId")
     CalCalendarRespVO toSharedResp(CalCalendarDO calendar, String permission);
 
+    @Mapping(target = "type", expression = "java(com.relayflow.module.calendar.enums.CalendarType.ALL_STAFF.name())")
+    @Mapping(target = "permission", constant = "READ")
+    CalCalendarRespVO toAllStaffResp(CalCalendarDO calendar);
+
     @Named("defaultRead")
     default String defaultRead(String permission) {
         return StringUtils.hasText(permission) ? permission : "READ";

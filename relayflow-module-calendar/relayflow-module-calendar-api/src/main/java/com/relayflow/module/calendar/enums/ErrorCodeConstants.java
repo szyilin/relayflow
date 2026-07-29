@@ -21,7 +21,10 @@ public enum ErrorCodeConstants implements ErrorCode {
     SHARE_NOT_FOUND(1_005_004_001, "共享记录不存在"),
     SHARE_FORBIDDEN(1_005_004_002, "无权操作该共享"),
     SHARE_GRANTEE_INVALID(1_005_004_003, "共享对象无效"),
-    SHARE_SELF_FORBIDDEN(1_005_004_004, "不能共享给自己");
+    SHARE_SELF_FORBIDDEN(1_005_004_004, "不能共享给自己"),
+    OWNED_CALENDAR_CREATE_FORBIDDEN(1_005_001_005, "组织策略禁止创建个人日历"),
+    ALL_STAFF_NOT_FOUND(1_005_005_001, "全员日历不存在"),
+    ALL_STAFF_SCOPE_INVALID(1_005_005_002, "全员日历可见范围无效");
 
     private final Integer code;
     private final String msg;

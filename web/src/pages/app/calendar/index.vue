@@ -20,6 +20,7 @@ import {
 } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import CalendarEventEditor from '../../../components/workspace/CalendarEventEditor.vue'
+import CalendarSettingsModal from '../../../components/workspace/CalendarSettingsModal.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import type { CalendarEvent, CalendarItem } from '../../../api/app/calendar'
 import { eventKey } from '../../../api/app/calendar'
@@ -77,6 +78,9 @@ const shareModalOpen = ref(false)
 const shareCalendar = ref<CalendarItem | null>(null)
 const shareMemberKeyword = ref('')
 const shareSubmitting = ref(false)
+
+const settingsModalOpen = ref(false)
+const settingsCalendar = ref<CalendarItem | null>(null)
 
 const weekStartsOn = computed(() =>
   (preference.calendar.weekStartsOn === 1 ? 1 : 0) as 0 | 1)
@@ -340,6 +344,99 @@ async function openShareModal(cal: CalendarItem) {
       color: 'error'
     })
   }
+}
+
+function openSettingsModal(cal: CalendarItem) {
+  settingsCalendar.value = cal
+  settingsModalOpen.value = true
+}
+
+function soleShowCalendar(cal: CalendarItem) {
+  const keep = cal.id
+  for (const id of [...calendarStore.visibleCalendarIds]) {
+    if (id !== keep) {
+      calendarStore.toggleCalendarVisible(id, false)
+    }
+  }
+  if (!calendarStore.visibleCalendarIds.includes(keep)) {
+    calendarStore.toggleCalendarVisible(keep, true)
+  }
+  toast.add({ title: `仅显示「${cal.name}」`, color: 'success' })
+}
+
+async function setDisplayColorQuick(cal: CalendarItem, color: string) {
+  try {
+    await calendarStore.updateDisplayColor(cal.id, color)
+    toast.add({ title: '已更新显示颜色', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '更新颜色失败',
+      color: 'error'
+    })
+  }
+}
+
+function calendarDotColor(cal: CalendarItem): string {
+  return cal.effectiveColor || cal.displayColor || cal.defaultColor || cal.color
+}
+
+function isOwnedCalendar(cal: CalendarItem): boolean {
+  return cal.type === 'PRIMARY' || cal.type === 'OWNED'
+}
+
+function calendarRowMenuItems(cal: CalendarItem) {
+  const colorChildren = calendarStore.DEFAULT_COLORS.map(color => ({
+    label: color,
+    icon: 'i-lucide-circle',
+    onSelect: () => {
+      void setDisplayColorQuick(cal, color)
+    }
+  }))
+  const items: Array<{
+    label: string
+    icon?: string
+    color?: string
+    children?: typeof colorChildren
+    onSelect?: () => void
+  }> = [
+    {
+      label: '仅显示此日历',
+      icon: 'i-lucide-eye',
+      onSelect: () => soleShowCalendar(cal)
+    }
+  ]
+  if (isOwnedCalendar(cal)) {
+    items.push({
+      label: '分享',
+      icon: 'i-lucide-share-2',
+      onSelect: () => {
+        void openShareModal(cal)
+      }
+    })
+  }
+  items.push(
+    {
+      label: '修改颜色',
+      icon: 'i-lucide-palette',
+      children: colorChildren
+    },
+    {
+      label: '日历设置',
+      icon: 'i-lucide-settings',
+      onSelect: () => openSettingsModal(cal)
+    }
+  )
+  if (cal.type === 'OWNED') {
+    items.push({
+      label: '删除日历',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => {
+        void removeOwnedCalendar(cal.id)
+      }
+    })
+  }
+  return [items]
 }
 
 async function addShareGrantee(userId: string) {
@@ -621,39 +718,31 @@ meta:
               />
               <span
                 class="size-2.5 shrink-0 rounded-full"
-                :style="{ backgroundColor: cal.color }"
+                :style="{ backgroundColor: calendarDotColor(cal) }"
               />
               <span class="min-w-0 flex-1 truncate text-sm">{{ cal.name }}</span>
-              <UButton
-                icon="i-lucide-share-2"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                class="opacity-0 group-hover:opacity-100"
-                title="共享"
-                @click="openShareModal(cal)"
-              />
-              <UButton
-                v-if="cal.type !== 'PRIMARY'"
-                icon="i-lucide-trash-2"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                class="opacity-0 group-hover:opacity-100"
-                @click="removeOwnedCalendar(cal.id)"
-              />
+              <UDropdownMenu :items="calendarRowMenuItems(cal) as never">
+                <UButton
+                  icon="i-lucide-ellipsis"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  class="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                  aria-label="更多"
+                />
+              </UDropdownMenu>
             </li>
           </ul>
 
           <div v-if="calendarStore.sharedCalendars.length" class="mt-4">
             <p class="mb-2 text-xs font-medium text-[var(--ws-text-muted)]">
-              共享给我的
+              我订阅的
             </p>
             <ul class="space-y-1">
               <li
                 v-for="cal in calendarStore.sharedCalendars"
                 :key="cal.id"
-                class="flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]"
+                class="group flex items-center gap-2 rounded-lg px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]"
               >
                 <UCheckbox
                   :model-value="calendarStore.visibleCalendarIds.includes(cal.id)"
@@ -661,9 +750,19 @@ meta:
                 />
                 <span
                   class="size-2.5 shrink-0 rounded-full"
-                  :style="{ backgroundColor: cal.color }"
+                  :style="{ backgroundColor: calendarDotColor(cal) }"
                 />
                 <span class="min-w-0 flex-1 truncate text-sm">{{ cal.name }}</span>
+                <UDropdownMenu :items="calendarRowMenuItems(cal) as never">
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    class="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                    aria-label="更多"
+                  />
+                </UDropdownMenu>
               </li>
             </ul>
           </div>
@@ -951,6 +1050,12 @@ meta:
       :initial-video-meeting-kind="createInitialVideoMeetingKind"
       @saved="refreshRange"
       @deleted="refreshRange"
+    />
+
+    <CalendarSettingsModal
+      v-model:open="settingsModalOpen"
+      :calendar="settingsCalendar"
+      @share="(cal) => { settingsModalOpen = false; void openShareModal(cal) }"
     />
 
     <UModal

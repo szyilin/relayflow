@@ -4,10 +4,17 @@ import { usePermission } from './usePermission'
 
 export type AdminNavItem = NavigationMenuItem & {
   permission?: string
+  /** OR: visible if any listed permission is granted */
+  permissions?: string[]
 }
 
 function filterNavItems(items: AdminNavItem[], hasPermission: (code: string) => boolean): NavigationMenuItem[] {
-  return items.filter(item => !item.permission || hasPermission(item.permission))
+  return items.filter((item) => {
+    if (item.permissions?.length) {
+      return item.permissions.some(code => hasPermission(code))
+    }
+    return !item.permission || hasPermission(item.permission)
+  })
 }
 
 export function useAdminNav() {
@@ -56,7 +63,11 @@ export function useAdminNav() {
     label: '产品设置',
     icon: 'i-lucide-boxes',
     to: '/admin/products',
-    permission: 'im:product-settings:query',
+    permissions: [
+      'im:product-settings:query',
+      'calendar:product-settings:query',
+      'docs:product-settings:query'
+    ],
     onSelect: closeSidebar
   }]
 

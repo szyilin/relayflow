@@ -45,9 +45,9 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     icon: 'i-lucide-calendar',
     workspacePath: '/app/calendar',
     workspaceRailId: 'calendar',
-    adminSettingsPath: '/admin/products/calendar',
-    adminStatus: 'placeholder',
-    description: '组织级日历设置（即将开放）'
+    adminSettingsPath: '/admin/products/calendar/org',
+    adminStatus: 'enabled',
+    description: '组织策略与全员日历'
   },
   {
     id: 'meeting',

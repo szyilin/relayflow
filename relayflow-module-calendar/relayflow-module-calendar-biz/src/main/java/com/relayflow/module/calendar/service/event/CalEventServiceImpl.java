@@ -22,8 +22,10 @@ import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
 import com.relayflow.module.calendar.enums.CalendarVideoMeetingKind;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
+import com.relayflow.module.calendar.service.allstaff.CalAllStaffService;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
 import com.relayflow.module.calendar.service.notify.CalendarBotNotifyService;
+import com.relayflow.module.calendar.service.pref.CalCalendarUserPrefService;
 import com.relayflow.module.calendar.service.rrule.RecurrenceExpander;
 import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
@@ -60,6 +62,8 @@ public class CalEventServiceImpl implements CalEventService {
     private final CalCalendarMapper calCalendarMapper;
     private final CalCalendarService calCalendarService;
     private final CalCalendarShareService calCalendarShareService;
+    private final CalCalendarUserPrefService calCalendarUserPrefService;
+    private final CalAllStaffService calAllStaffService;
     private final TenantMemberApi tenantMemberApi;
     private final UserApi userApi;
     private final CalendarBotNotifyService calendarBotNotifyService;
@@ -76,9 +80,11 @@ public class CalEventServiceImpl implements CalEventService {
 
         Set<Long> ownedIds = ownedCalendarIds(userId);
         Set<Long> sharedReadIds = calCalendarShareService.sharedReadCalendarIds(userId);
+        Set<Long> allStaffIds = calAllStaffService.visibleCalendarIds(userId);
 
         Set<Long> readableCalendarIds = new LinkedHashSet<>(ownedIds);
         readableCalendarIds.addAll(sharedReadIds);
+        readableCalendarIds.addAll(allStaffIds);
 
         Set<Long> calendarQueryIds = readableCalendarIds;
         if (calendarIdsFilter != null && !calendarIdsFilter.isEmpty()) {
@@ -119,6 +125,7 @@ public class CalEventServiceImpl implements CalEventService {
 
         List<CalEventDO> masters = new ArrayList<>(mastersById.values());
         Map<Long, CalCalendarDO> calendarMap = loadCalendars(masters);
+        Map<Long, String> displayColors = calCalendarUserPrefService.displayColors(userId, calendarMap.keySet());
         Map<Long, List<CalAttendeeDO>> attendeesByEvent = loadAttendees(masters);
         Map<Long, List<CalEventExceptionDO>> exceptionsByMaster = recurrenceSupport.loadExceptions(mastersById.keySet());
 
@@ -127,8 +134,8 @@ public class CalEventServiceImpl implements CalEventService {
             List<CalEventRecurrenceSupport.ExpandedInstance> instances = recurrenceSupport.expandMaster(
                     master, from, to, exceptionsByMaster.getOrDefault(master.getId(), List.of()));
             for (CalEventRecurrenceSupport.ExpandedInstance instance : instances) {
-                result.add(toResp(master, instance, userId, ownedIds, sharedReadIds,
-                        calendarMap, attendeesByEvent));
+                result.add(toResp(master, instance, userId, ownedIds, sharedReadIds, allStaffIds,
+                        calendarMap, displayColors, attendeesByEvent));
             }
             calendarBotNotifyService.pushRemindIfDue(master, userId);
         }
@@ -143,10 +150,12 @@ public class CalEventServiceImpl implements CalEventService {
         CalEventDO event = requireVisibleEvent(id, userId);
         Set<Long> ownedIds = ownedCalendarIds(userId);
         Set<Long> sharedReadIds = calCalendarShareService.sharedReadCalendarIds(userId);
+        Set<Long> allStaffIds = calAllStaffService.visibleCalendarIds(userId);
         Map<Long, CalCalendarDO> calendarMap = loadCalendars(List.of(event));
+        Map<Long, String> displayColors = calCalendarUserPrefService.displayColors(userId, calendarMap.keySet());
         Map<Long, List<CalAttendeeDO>> attendeesByEvent = loadAttendees(List.of(event));
         CalEventRecurrenceSupport.ExpandedInstance instance = new CalEventRecurrenceSupport.ExpandedInstance(event.getStartTime(), event.getEndTime(), null);
-        return toResp(event, instance, userId, ownedIds, sharedReadIds, calendarMap, attendeesByEvent);
+        return toResp(event, instance, userId, ownedIds, sharedReadIds, allStaffIds, calendarMap, displayColors, attendeesByEvent);
     }
 
     @Override
@@ -620,6 +629,9 @@ public class CalEventServiceImpl implements CalEventService {
         if (sharedRead.contains(event.getCalendarId())) {
             return event;
         }
+        if (calAllStaffService.isVisibleToUser(event.getCalendarId(), userId)) {
+            return event;
+        }
         Long count = calAttendeeMapper.selectCount(
                 Wrappers.<CalAttendeeDO>lambdaQuery()
                         .eq(CalAttendeeDO::getEventId, id)
@@ -631,8 +643,9 @@ public class CalEventServiceImpl implements CalEventService {
     }
 
     private CalEventRespVO toResp(CalEventDO master, CalEventRecurrenceSupport.ExpandedInstance instance, Long viewerId,
-                                  Set<Long> ownedCalendarIds, Set<Long> sharedReadCalendarIds,
+                                  Set<Long> ownedCalendarIds, Set<Long> sharedReadCalendarIds, Set<Long> allStaffCalendarIds,
                                   Map<Long, CalCalendarDO> calendarMap,
+                                  Map<Long, String> displayColors,
                                   Map<Long, List<CalAttendeeDO>> attendeesByEvent) {
         CalCalendarDO calendar = calendarMap.get(master.getCalendarId());
         CalEventExceptionDO ex = instance.exception();
@@ -640,7 +653,9 @@ public class CalEventServiceImpl implements CalEventService {
         CalEventRespVO vo = new CalEventRespVO();
         vo.setId(master.getId());
         vo.setCalendarId(master.getCalendarId());
-        vo.setCalendarColor(calendar != null ? calendar.getColor() : "#3B82F6");
+        String defaultColor = calendar != null ? calendar.getColor() : "#3B82F6";
+        String display = displayColors != null ? displayColors.get(master.getCalendarId()) : null;
+        vo.setCalendarColor(StringUtils.hasText(display) ? display : defaultColor);
         vo.setCalendarName(calendar != null ? calendar.getName() : "");
         vo.setTitle(ex != null && StringUtils.hasText(ex.getOverrideTitle())
                 ? ex.getOverrideTitle() : master.getTitle());
@@ -660,7 +675,8 @@ public class CalEventServiceImpl implements CalEventService {
         vo.setAllDayRemindTime(master.getAllDayRemindTime());
         vo.setStatus(master.getStatus());
         boolean owned = ownedCalendarIds.contains(master.getCalendarId());
-        boolean sharedRead = sharedReadCalendarIds.contains(master.getCalendarId());
+        boolean sharedRead = sharedReadCalendarIds.contains(master.getCalendarId())
+                || (allStaffCalendarIds != null && allStaffCalendarIds.contains(master.getCalendarId()));
         vo.setInvitedOnly(!owned && !sharedRead);
         vo.setViewerRole(Objects.equals(master.getOrganizerId(), viewerId)
                 ? CalendarAttendeeRole.ORGANIZER.name()

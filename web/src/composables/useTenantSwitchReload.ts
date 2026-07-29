@@ -12,6 +12,7 @@ import { useImStore } from '../stores/im'
 import { useEnterpriseStore } from '../stores/enterprise'
 import { useInviteSettingsStore } from '../stores/inviteSettings'
 import { useImProductSettingsStore } from '../stores/imProductSettings'
+import { useCalProductSettingsStore } from '../stores/calProductSettings'
 import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
 import { useTasksStore } from '../stores/tasks'
@@ -33,6 +34,7 @@ export function useTenantSwitchReload() {
   const enterprise = useEnterpriseStore()
   const inviteSettings = useInviteSettingsStore()
   const imProductSettings = useImProductSettingsStore()
+  const calProductSettings = useCalProductSettingsStore()
   const orgInvite = useOrgInviteStore()
   const profile = useProfileStore()
   const tasks = useTasksStore()
@@ -60,6 +62,7 @@ export function useTenantSwitchReload() {
     enterprise.resetForTenantSwitch()
     inviteSettings.resetForTenantSwitch()
     imProductSettings.resetForTenantSwitch()
+    calProductSettings.resetForTenantSwitch()
     orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
     calendar.resetForTenantSwitch()

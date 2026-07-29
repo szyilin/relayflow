@@ -20,6 +20,9 @@ public interface CalCalendarService {
 
     void delete(Long id);
 
+    /** Personal display color override; null/blank clears. */
+    void updateDisplayColor(Long calendarId, String displayColor);
+
     /** Ensure PRIMARY exists for current user; returns DO. */
     CalCalendarDO ensurePrimary(Long tenantId, Long userId);
 

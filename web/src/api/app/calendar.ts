@@ -1,6 +1,6 @@
 import { del, get, post, put } from '../request'
 
-export type CalendarType = 'PRIMARY' | 'OWNED' | 'SHARED'
+export type CalendarType = 'PRIMARY' | 'OWNED' | 'SHARED' | 'ALL_STAFF'
 export type CalendarPermission = 'READ'
 export type CalendarShareDirection = 'OUTGOING' | 'INCOMING'
 export type CalendarEventStatus = 'CONFIRMED' | 'CANCELLED'
@@ -12,11 +12,18 @@ export type CalendarVideoMeetingKind = 'NONE' | 'RELAYFLOW' | 'EXTERNAL'
 export interface CalendarItem {
   id: string
   name: string
+  /** Default entity color (cal_calendar.color) */
   color: string
   description?: string | null
   type: CalendarType
   ownerUserId?: string
   permission?: CalendarPermission
+  /** Same as color; explicit for clients */
+  defaultColor?: string
+  /** Personal override; null/undefined = none */
+  displayColor?: string | null
+  /** displayColor ?? defaultColor */
+  effectiveColor?: string
 }
 
 export interface CalendarShare {
@@ -106,15 +113,27 @@ function asId(value: string | number | undefined): string {
   return String(value ?? '')
 }
 
-function normalizeCalendar(item: CalendarItem & { id?: string | number, ownerUserId?: string | number }): CalendarItem {
+function normalizeCalendar(item: CalendarItem & {
+  id?: string | number
+  ownerUserId?: string | number
+  defaultColor?: string | null
+  displayColor?: string | null
+  effectiveColor?: string | null
+}): CalendarItem {
+  const defaultColor = item.defaultColor || item.color
+  const displayColor = item.displayColor ?? null
+  const effectiveColor = item.effectiveColor || displayColor || defaultColor
   return {
     id: asId(item.id),
     name: item.name,
-    color: item.color,
+    color: defaultColor,
     description: item.description ?? null,
     type: item.type,
     ownerUserId: item.ownerUserId != null ? asId(item.ownerUserId) : undefined,
-    permission: item.permission
+    permission: item.permission,
+    defaultColor,
+    displayColor,
+    effectiveColor
   }
 }
 
@@ -220,6 +239,17 @@ export async function updateCalendar(payload: {
   description?: string | null
 }): Promise<boolean> {
   return put<boolean>('/app-api/calendar/calendar/update', payload)
+}
+
+/** Personal display color; null/blank clears override. */
+export async function updateCalendarDisplayColor(payload: {
+  id: string
+  displayColor?: string | null
+}): Promise<boolean> {
+  return put<boolean>('/app-api/calendar/calendar/display-color', {
+    id: payload.id,
+    displayColor: payload.displayColor ?? null
+  })
 }
 
 export async function deleteCalendar(id: string): Promise<boolean> {

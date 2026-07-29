@@ -6,7 +6,11 @@ import { usePermission } from '../../../composables/usePermission'
 import { ADMIN_PRODUCT_CATALOG } from '../../../products/registry'
 
 const { hasPermission } = usePermission()
-const canQuery = computed(() => hasPermission('im:product-settings:query'))
+/** OR：具备任一产品设置读权限即可进入目录（与 useAdminNav 侧栏一致）。 */
+const canQuery = computed(() =>
+  hasPermission('im:product-settings:query')
+  || hasPermission('calendar:product-settings:query')
+)
 </script>
 
 <route lang="yaml">
@@ -32,7 +36,7 @@ meta:
           color="warning"
           variant="subtle"
           title="无权限"
-          description="需要 im:product-settings:query 权限才能查看产品设置。"
+          description="需要 im:product-settings:query 或 calendar:product-settings:query 才能查看产品设置。"
         />
 
         <div

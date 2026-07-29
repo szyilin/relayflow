@@ -14,6 +14,9 @@ import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
 import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
+import com.relayflow.module.calendar.service.allstaff.CalAllStaffService;
+import com.relayflow.module.calendar.service.pref.CalCalendarUserPrefService;
+import com.relayflow.module.calendar.service.settings.CalTenantSettingsService;
 import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -41,20 +44,26 @@ public class CalCalendarServiceImpl implements CalCalendarService {
     private final CalEventMapper calEventMapper;
     /** Avoid construct cycle with CalCalendarShareService → CalCalendarService. */
     private final ObjectProvider<CalCalendarShareService> calCalendarShareService;
+    private final ObjectProvider<CalCalendarUserPrefService> calCalendarUserPrefService;
+    private final ObjectProvider<CalAllStaffService> calAllStaffService;
+    private final ObjectProvider<CalTenantSettingsService> calTenantSettingsService;
 
     @Override
     public List<CalCalendarRespVO> listMine() {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         ensurePrimary(tenantId, userId);
-        return calCalendarMapper.selectList(
+        List<CalCalendarRespVO> owned = calCalendarMapper.selectList(
                         Wrappers.<CalCalendarDO>lambdaQuery()
                                 .eq(CalCalendarDO::getOwnerUserId, userId)
+                                .in(CalCalendarDO::getType, CalendarType.PRIMARY.name(), CalendarType.OWNED.name())
                                 .orderByAsc(CalCalendarDO::getType)
                                 .orderByAsc(CalCalendarDO::getCreateTime))
                 .stream()
                 .map(CalCalendarConvert.INSTANCE::toResp)
                 .toList();
+        applyDisplayColors(userId, owned);
+        return owned;
     }
 
     @Override
@@ -65,23 +74,52 @@ public class CalCalendarServiceImpl implements CalCalendarService {
         Map<Long, String> permissions = shareService.sharedCalendarPermissions(userId);
         List<CalCalendarDO> sharedCalendars = shareService.loadSharedCalendars(userId);
 
-        Set<Long> ownedIds = owned.stream()
+        Set<Long> seen = owned.stream()
                 .map(CalCalendarRespVO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         List<CalCalendarRespVO> result = new ArrayList<>(owned);
         for (CalCalendarDO calendar : sharedCalendars) {
-            if (!ownedIds.contains(calendar.getId())) {
+            if (calendar != null && seen.add(calendar.getId())) {
                 result.add(CalCalendarConvert.INSTANCE.toSharedResp(calendar, permissions.get(calendar.getId())));
             }
         }
+        for (CalCalendarDO calendar : calAllStaffService.getObject().loadVisibleCalendars(userId)) {
+            if (calendar != null && seen.add(calendar.getId())) {
+                result.add(CalCalendarConvert.INSTANCE.toAllStaffResp(calendar));
+            }
+        }
+        applyDisplayColors(userId, result);
         return result;
+    }
+
+    private void applyDisplayColors(Long userId, List<CalCalendarRespVO> calendars) {
+        if (calendars.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = calendars.stream()
+                .map(CalCalendarRespVO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, String> displayColors = calCalendarUserPrefService.getObject().displayColors(userId, ids);
+        for (CalCalendarRespVO vo : calendars) {
+            String defaultColor = vo.getColor() != null ? vo.getColor() : DEFAULT_PRIMARY_COLOR;
+            vo.setDefaultColor(defaultColor);
+            String display = displayColors.get(vo.getId());
+            vo.setDisplayColor(display);
+            vo.setEffectiveColor(StringUtils.hasText(display) ? display : defaultColor);
+            // Keep color as default for backward-compatible clients; UI prefers effectiveColor.
+            vo.setColor(defaultColor);
+        }
     }
 
     @Override
     public Long create(CalCalendarCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        if (!calTenantSettingsService.getObject().allowMemberCreateOwnedCalendar(tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.OWNED_CALENDAR_CREATE_FORBIDDEN);
+        }
         ensurePrimary(tenantId, userId);
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -104,6 +142,9 @@ public class CalCalendarServiceImpl implements CalCalendarService {
     public void update(CalCalendarUpdateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         CalCalendarDO row = requireOwnedCalendar(request.getId(), userId);
+        if (CalendarType.ALL_STAFF.name().equals(row.getType())) {
+            throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+        }
         row.setName(request.getName().trim());
         row.setColor(request.getColor().trim());
         row.setDescription(blankToNull(request.getDescription()));
@@ -119,6 +160,9 @@ public class CalCalendarServiceImpl implements CalCalendarService {
         if (CalendarType.PRIMARY.name().equals(row.getType())) {
             throw new ServiceException(ErrorCodeConstants.PRIMARY_CALENDAR_DELETE_FORBIDDEN);
         }
+        if (CalendarType.ALL_STAFF.name().equals(row.getType())) {
+            throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+        }
         Long activeEvents = calEventMapper.selectCount(
                 Wrappers.<CalEventDO>lambdaQuery()
                         .eq(CalEventDO::getCalendarId, id)
@@ -127,6 +171,11 @@ public class CalCalendarServiceImpl implements CalCalendarService {
             throw new ServiceException(ErrorCodeConstants.CALENDAR_NOT_EMPTY);
         }
         calCalendarMapper.deleteById(id);
+    }
+
+    @Override
+    public void updateDisplayColor(Long calendarId, String displayColor) {
+        calCalendarUserPrefService.getObject().updateDisplayColor(calendarId, displayColor);
     }
 
     @Override
