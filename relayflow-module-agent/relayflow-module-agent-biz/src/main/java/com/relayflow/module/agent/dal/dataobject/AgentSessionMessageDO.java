@@ -31,6 +31,10 @@ public class AgentSessionMessageDO extends TenantBaseDO {
     @TableField("content")
     private String content;
 
+    /** JSON array of parts; null for legacy rows. */
+    @TableField("parts_json")
+    private String partsJson;
+
     @TableField("seq")
     private Integer seq;
 }

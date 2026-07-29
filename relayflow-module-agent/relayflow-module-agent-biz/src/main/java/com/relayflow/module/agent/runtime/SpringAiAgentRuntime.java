@@ -13,9 +13,11 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Spring AI OpenAI-compatible runtime. Builds ChatClient per turn from tenant connection (no yml API key).
@@ -32,29 +34,7 @@ public class SpringAiAgentRuntime implements AgentRuntime {
             throw new ServiceException(ErrorCodeConstants.AGENT_MESSAGE_EMPTY);
         }
         try {
-            ResolvedLlmConnection connection = llmConnectionResolver.requireEnabled(command.getModelRef());
-            OpenAiApi openAiApi = OpenAiApi.builder()
-                    .baseUrl(toOpenAiBaseUrl(connection.getBaseUrl()))
-                    .apiKey(connection.getApiKey())
-                    .build();
-            OpenAiChatModel chatModel = OpenAiChatModel.builder()
-                    .openAiApi(openAiApi)
-                    .defaultOptions(OpenAiChatOptions.builder()
-                            .model(connection.getModelName())
-                            .build())
-                    .build();
-            ChatClient chatClient = ChatClient.create(chatModel);
-
-            List<Message> history = command.getHistory() == null ? List.of() : command.getHistory();
-            List<ToolCallback> tools = command.getTools() == null ? List.of() : command.getTools();
-
-            var spec = chatClient.prompt()
-                    .system(command.getSystemPrompt() == null ? "" : command.getSystemPrompt())
-                    .messages(new ArrayList<>(history))
-                    .user(command.getUserMessage().trim());
-            if (!tools.isEmpty()) {
-                spec = spec.toolCallbacks(tools);
-            }
+            ChatClient.ChatClientRequestSpec spec = buildPrompt(command);
             String content = spec.call().content();
             if (!StringUtils.hasText(content)) {
                 content = "";
@@ -66,6 +46,69 @@ public class SpringAiAgentRuntime implements AgentRuntime {
             throw new ServiceException(ErrorCodeConstants.AGENT_RUNTIME_FAILED.getCode(),
                     "智能体运行失败：" + ex.getMessage());
         }
+    }
+
+    @Override
+    public String stream(AgentRunCommand command, AgentStreamListener listener, AtomicBoolean cancelFlag) {
+        if (command == null || !StringUtils.hasText(command.getUserMessage())) {
+            throw new ServiceException(ErrorCodeConstants.AGENT_MESSAGE_EMPTY);
+        }
+        AgentStreamListener safeListener = listener == null ? e -> {
+        } : listener;
+        AtomicBoolean cancel = cancelFlag == null ? new AtomicBoolean(false) : cancelFlag;
+        StringBuilder fullText = new StringBuilder();
+        try {
+            ChatClient.ChatClientRequestSpec spec = buildPrompt(command);
+            Flux<String> contentFlux = spec.stream().content();
+            contentFlux
+                    .takeWhile(chunk -> !cancel.get())
+                    .doOnNext(chunk -> {
+                        if (chunk == null || chunk.isEmpty() || cancel.get()) {
+                            return;
+                        }
+                        fullText.append(chunk);
+                        safeListener.onEvent(AgentStreamEvent.textDelta(chunk));
+                    })
+                    .blockLast();
+            if (!cancel.get()) {
+                safeListener.onEvent(AgentStreamEvent.done());
+            }
+            return fullText.toString();
+        } catch (ServiceException ex) {
+            safeListener.onEvent(AgentStreamEvent.error(ex.getMessage(), ex.getCode()));
+            throw ex;
+        } catch (Exception ex) {
+            String msg = "智能体运行失败：" + ex.getMessage();
+            safeListener.onEvent(AgentStreamEvent.error(msg, ErrorCodeConstants.AGENT_RUNTIME_FAILED.getCode()));
+            throw new ServiceException(ErrorCodeConstants.AGENT_RUNTIME_FAILED.getCode(), msg);
+        }
+    }
+
+    private ChatClient.ChatClientRequestSpec buildPrompt(AgentRunCommand command) {
+        ResolvedLlmConnection connection = llmConnectionResolver.requireEnabled(command.getModelRef());
+        OpenAiApi openAiApi = OpenAiApi.builder()
+                .baseUrl(toOpenAiBaseUrl(connection.getBaseUrl()))
+                .apiKey(connection.getApiKey())
+                .build();
+        OpenAiChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(OpenAiChatOptions.builder()
+                        .model(connection.getModelName())
+                        .build())
+                .build();
+        ChatClient chatClient = ChatClient.create(chatModel);
+
+        List<Message> history = command.getHistory() == null ? List.of() : command.getHistory();
+        List<ToolCallback> tools = command.getTools() == null ? List.of() : command.getTools();
+
+        var spec = chatClient.prompt()
+                .system(command.getSystemPrompt() == null ? "" : command.getSystemPrompt())
+                .messages(new ArrayList<>(history))
+                .user(command.getUserMessage().trim());
+        if (!tools.isEmpty()) {
+            spec = spec.toolCallbacks(tools);
+        }
+        return spec;
     }
 
     /**
