@@ -11,8 +11,10 @@
     "typecheck": "pnpm ensure:dts && vue-tsc -p ./tsconfig.app.json"
   },
   "dependencies": {
+    "@ai-sdk/vue": "^4.0.38",
+    "@comark/vue": "^0.5.1",
     "@internationalized/date": "^3.12.2",
-    "@nuxt/ui": "^4.9.0",
+    "@nuxt/ui": "^4.10.0",
     "@tanstack/table-core": "^8.21.3",
     "@tiptap/core": "3.28.0",
     "@tiptap/extension-placeholder": "^3.28.0",
@@ -22,6 +24,7 @@
     "@tiptap/starter-kit": "^3.28.0",
     "@tiptap/vue-3": "^3.28.0",
     "@vueuse/core": "^14.3.0",
+    "ai": "^7.0.38",
     "axios": "^1.18.1",
     "date-fns": "^4.4.0",
     "livekit-client": "^2.21.0",

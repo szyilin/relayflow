@@ -76,6 +76,8 @@ export default defineConfig({
     vueLayouts(),
     vue(),
     ui({
+      // Nuxt UI Chat + Comark prose typography
+      prose: true,
       ui: {
         colors: {
           primary: 'teal',

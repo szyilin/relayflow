@@ -30,11 +30,32 @@ export interface AgentSession {
   status: string
 }
 
+/** Aligns with Nuxt UI Chat / AI SDK UIMessage parts (subset). */
+export type AgentMessagePart =
+  | { type: 'text'; text: string; state?: 'streaming' | 'done' }
+  | { type: 'reasoning'; text: string; state?: 'streaming' | 'done' }
+  | {
+      type: 'tool'
+      toolName: string
+      state: 'running' | 'done'
+      input?: string
+      output?: string
+    }
+
 export interface AgentSessionMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   seq: number
+  parts: AgentMessagePart[]
+}
+
+export function ensureMessageParts(message: Omit<AgentSessionMessage, 'parts'> & { parts?: AgentMessagePart[] }): AgentMessagePart[] {
+  if (Array.isArray(message.parts) && message.parts.length > 0) {
+    return message.parts
+  }
+  const text = message.content ?? ''
+  return text ? [{ type: 'text', text, state: 'done' }] : []
 }
 
 export interface AgentSessionSendResult {
@@ -60,9 +81,10 @@ type RawSession = Omit<AgentSession, 'id' | 'agentId'> & {
   agentId?: string | number
 }
 
-type RawMessage = Omit<AgentSessionMessage, 'id' | 'role'> & {
+type RawMessage = Omit<AgentSessionMessage, 'id' | 'role' | 'parts'> & {
   id?: string | number
   role?: string
+  parts?: AgentMessagePart[]
 }
 
 function normalizeDef(row: RawAgentDef): AgentDef {
@@ -91,12 +113,18 @@ function normalizeSession(row: RawSession): AgentSession {
 }
 
 function normalizeMessage(row: RawMessage): AgentSessionMessage {
-  const role = row.role === 'assistant' || row.role === 'system' ? row.role : 'user'
-  return {
+  const role: AgentSessionMessage['role'] =
+    row.role === 'assistant' || row.role === 'system' ? row.role : 'user'
+  const content = row.content ?? ''
+  const base: Omit<AgentSessionMessage, 'parts'> = {
     id: String(row.id),
     role,
-    content: row.content ?? '',
+    content,
     seq: Number(row.seq) || 0
+  }
+  return {
+    ...base,
+    parts: ensureMessageParts({ ...base, parts: row.parts })
   }
 }
 

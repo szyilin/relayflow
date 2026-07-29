@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import AgentChatPanel from '../../../components/workspace/agent/AgentChatPanel.vue'
 import { useAgentStore } from '../../../stores/agent'
 
 const agent = useAgentStore()
 const toast = useToast()
-const messageListRef = ref<HTMLElement | null>(null)
 
 const editorOpen = ref(false)
 const editorMode = ref<'create' | 'edit'>('create')
@@ -29,21 +29,6 @@ const autoForm = reactive({
 
 const showChat = computed(() => !!agent.activeSessionId)
 const showAutomations = computed(() => agent.panelMode === 'automations' && !agent.activeSessionId)
-
-async function scrollToBottom() {
-  await nextTick()
-  const el = messageListRef.value
-  if (el) {
-    el.scrollTop = el.scrollHeight
-  }
-}
-
-watch(
-  () => agent.activeMessages.length,
-  () => {
-    void scrollToBottom()
-  }
-)
 
 onMounted(async () => {
   try {
@@ -154,7 +139,6 @@ async function handleSend() {
   }
   try {
     await agent.sendMessage(text)
-    await scrollToBottom()
   } catch (error) {
     toast.add({
       title: error instanceof Error ? error.message : '发送失败',
@@ -495,7 +479,7 @@ meta:
           让智能体帮你做点什么
         </h1>
         <p class="mb-8 max-w-md text-center text-sm text-[var(--ws-text-muted)]">
-          会话仅在本页，不会出现在「消息」里。回复由 Spring AI Runtime 实时生成。
+          会话仅在本页，不会出现在「消息」里。发送后进入对话区，可见流式回复、Thinking、工具调用与 Markdown。
         </p>
         <UAlert
           v-if="agent.lastError"
@@ -524,16 +508,20 @@ meta:
           />
         </div>
 
-        <div class="w-full max-w-xl rounded-2xl border border-[var(--ws-border)] bg-[var(--ws-input-bar-bg)] p-3">
-          <textarea
-            v-model="agent.draft"
-            rows="3"
-            class="w-full resize-none bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
+        <div class="w-full max-w-xl space-y-2">
+          <UChatPrompt
+            :model-value="agent.draft"
+            variant="subtle"
             placeholder="描述你想完成的事…"
-            @keydown.meta.enter.prevent="handleHomeSend"
-            @keydown.ctrl.enter.prevent="handleHomeSend"
-          />
-          <div class="mt-2 flex items-center justify-between">
+            @update:model-value="agent.draft = $event"
+            @submit="handleHomeSend"
+          >
+            <UChatPromptSubmit
+              :status="agent.streamStatus"
+              @stop="agent.stopStreaming()"
+            />
+          </UChatPrompt>
+          <div class="flex justify-start">
             <UButton
               color="neutral"
               variant="ghost"
@@ -542,14 +530,6 @@ meta:
               @click="agent.openAgents()"
             >
               管理智能体
-            </UButton>
-            <UButton
-              icon="i-lucide-arrow-up"
-              :loading="agent.sending"
-              :disabled="!agent.draft.trim()"
-              @click="handleHomeSend"
-            >
-              发送
             </UButton>
           </div>
         </div>
@@ -581,60 +561,16 @@ meta:
         </UButton>
       </header>
 
-      <div
-        ref="messageListRef"
-        class="flex-1 space-y-4 overflow-y-auto px-5 py-4"
-      >
-        <div v-if="agent.loadingMessages" class="space-y-3 py-4">
-          <USkeleton v-for="i in 3" :key="i" class="h-16 w-2/3" />
-        </div>
-        <template v-else>
-          <div
-            v-for="msg in agent.activeMessages"
-            :key="msg.id"
-            class="flex"
-            :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
-          >
-            <div
-              class="max-w-[min(36rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap"
-              :class="msg.role === 'user'
-                ? 'bg-[var(--ui-primary)] text-white'
-                : 'bg-[var(--ws-input-bar-bg)] text-[var(--ws-text)]'"
-            >
-              {{ msg.content }}
-            </div>
-          </div>
-          <p
-            v-if="!agent.activeMessages.length"
-            class="py-12 text-center text-sm text-[var(--ws-text-muted)]"
-          >
-            发送第一条消息开始对话
-          </p>
-        </template>
-      </div>
-
-      <div class="border-t border-[var(--ws-border-subtle)] p-4">
-        <div class="rounded-2xl border border-[var(--ws-border)] bg-[var(--ws-input-bar-bg)] p-3">
-          <textarea
-            v-model="agent.draft"
-            rows="2"
-            class="w-full resize-none bg-transparent text-sm outline-none placeholder:text-[var(--ws-text-muted)]"
-            placeholder="继续输入…"
-            @keydown.meta.enter.prevent="handleSend"
-            @keydown.ctrl.enter.prevent="handleSend"
-          />
-          <div class="mt-2 flex justify-end">
-            <UButton
-              icon="i-lucide-arrow-up"
-              :loading="agent.sending"
-              :disabled="!agent.draft.trim()"
-              @click="handleSend"
-            >
-              发送
-            </UButton>
-          </div>
-        </div>
-      </div>
+      <AgentChatPanel
+        :messages="agent.activeMessages"
+        :status="agent.streamStatus"
+        :draft="agent.draft"
+        :loading-messages="agent.loadingMessages"
+        :error="agent.streamError"
+        @update:draft="agent.draft = $event"
+        @submit="handleSend"
+        @stop="agent.stopStreaming()"
+      />
     </div>
 
     <UModal v-model:open="editorOpen" title="智能体" description="定义名称、人设与模型引用">
