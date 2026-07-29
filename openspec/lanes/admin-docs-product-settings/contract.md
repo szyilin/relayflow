@@ -131,7 +131,7 @@ Query：`pageNo`、`pageSize`、`keyword`（标题）、`type`=`RICH_DOC|FILE`�
 
 ### GET `/admin-api/docs/storage-usage`
 
-Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机）。
+Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机/邮箱）。
 
 ```json
 {
@@ -139,6 +139,8 @@ Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机）。
     {
       "userId": "100",
       "displayName": "管理员",
+      "deptName": "研发",
+      "avatarUrl": "12345",
       "usedBytes": 1048576,
       "quotaBytes": 1073741824,
       "usageRatio": 0.001
@@ -150,7 +152,8 @@ Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机）。
 }
 ```
 
-`quotaBytes` / `usageRatio` 为 `null` 表示不限制。已用 = 该成员 ACTIVE `FILE` → `infra_file.size` 之和。
+`quotaBytes` / `usageRatio` 为 `null` 表示不限制。已用 = 该成员 ACTIVE `FILE` 的 `doc_object.size_bytes` 之和（禁止 JOIN `infra_file`）。
+`avatarUrl` 为租户成员头像 file id（前端拼公开 URL）；`deptName` 为主部门名。
 
 ### GET/PUT `/admin-api/docs/storage-quota`
 
@@ -163,7 +166,7 @@ Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机）。
 }
 ```
 
-生效上限：用户规则 > 租户默认 > 不限制。PUT 全量替换用户规则列表。
+生效上限：用户规则 > 租户默认 > 不限制。PUT 全量替换用户规则列表。**白名单最多 20 条**，超限 `DOC_STORAGE_QUOTA_RULES_LIMIT`。UI 编辑单位为 **GB**，API 仍存 bytes。
 
 触顶：云盘 `registerFile` 超限 → `DOC_STORAGE_QUOTA_EXCEEDED`。
 
@@ -173,7 +176,8 @@ Query：`pageNo`、`pageSize`、`keyword`（姓名/用户名/手机）。
 |------|------|
 | `/admin/products/docs/permissions` | B |
 | `/admin/products/docs/files` | A1；支持 `?ownerUserId=` |
-| `/admin/products/docs/storage` | A2 |
+| `/admin/products/docs/storage` | 存储用量详情 |
+| `/admin/products/docs/storage/quota` | 存储上限管理（成员 / 部门已交付；上限提示 Tab 占位；用户组后置） |
 
 ### curl 草案（A1）
 
@@ -196,3 +200,52 @@ curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/j
   -d '{"defaultQuotaBytes":1073741824,"userRules":[]}' \
   http://localhost:8080/admin-api/docs/storage-quota
 ```
+
+---
+
+## Optimize v1（`admin-docs-files-storage-optimize-v1`）
+
+> 对齐飞书：身份用 `WorkspaceOwnerChip`；计量落 `doc_object.size_bytes`；上限管理分波。
+
+### W1 — 计量 + 文件/用量身份 UX
+
+| 项 | 约定 |
+|----|------|
+| `doc_object.size_bytes` | FILE 注册时写入；RICH_DOC 为 null；用量 `SUM(size_bytes)`；**禁止** docs Mapper JOIN `infra_file` |
+| Admin files `sizeBytes` | 读 `size_bytes`；热路径禁止逐行 `FileApi.getFile` |
+| `POST /admin-api/docs/files/backfill-sizes` | `docs:files:query`；经 `FileApi.getFiles` 回填历史 null |
+| `FileApi.getFiles(ids)` | infra-api 批量 |
+| 成员搜索 keyword | 姓名 / 用户名 / 手机 / **邮箱**（`MemberUserApi`） |
+| UI | 文件页：无标题下 objectId；所有者/新主用选人 + `WorkspaceOwnerChip`；用量页成员列 chip；搜索占位含邮箱 |
+
+### W2 — 飞书式上限页（大纲）
+
+| 路径 | 说明 |
+|------|------|
+| `/admin/products/docs/storage` | 用量详情 |
+| `/admin/products/docs/storage/quota` | 上限管理（成员 Tab：租户默认 GB + 白名单 ≤20） |
+
+`GET/PUT /admin-api/docs/storage-quota` 保持 bytes；UI 用 GB。usage 增补 `avatarUrl` / `deptName`（可选）。
+
+### W3 — 部门规则（大纲）
+
+- 表 `doc_storage_quota_dept_rule`（`UNIQUE(tenant_id, dept_id)`）；PUT 带 `deptRules[]`
+- 生效：成员白名单 > **主部门**规则 > 租户默认 > 不限制
+- 无主部门则跳过部门规则
+- `deptRules` 全量替换；非法部门 → `DOC_STORAGE_QUOTA_DEPT_INVALID`
+
+```json
+{
+  "defaultQuotaBytes": 10737418240,
+  "userRules": [],
+  "deptRules": [
+    { "deptId": "200", "deptName": "研发", "quotaBytes": 5368709120 }
+  ]
+}
+```
+
+### W4 — 上限提示占位与收口
+
+- 「上限提示设置」Tab：前端占位说明（阈值/文案/渠道后续版本）；**不**新增 API / 表。
+- 用户组白名单：明确后置（飞书优先级含用户组；本版仅成员 + 主部门）。
+- 看板：`admin-docs-file-ops` / `admin-docs-storage-quota` 注明 optimize-v1。
