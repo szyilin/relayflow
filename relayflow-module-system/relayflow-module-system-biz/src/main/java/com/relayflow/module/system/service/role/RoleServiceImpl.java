@@ -96,7 +96,7 @@ public class RoleServiceImpl implements RoleService {
         Long tenantId = resolveTenantId();
         SysRoleDO role = requireRole(id, tenantId);
         RoleRespVO vo = RoleConvert.INSTANCE.toVo(role);
-        vo.setPermissionIds(loadPermissionIds(id, tenantId));
+        vo.setPermissionIds(resolveEffectivePermissionIds(vo, loadPermissionIds(id, tenantId), tenantId));
         vo.setPermissionSummary(buildPermissionSummary(vo.getPermissionIds(), tenantId));
         vo.setAdmins(listMembers(id));
         return vo;
@@ -247,11 +247,36 @@ public class RoleServiceImpl implements RoleService {
         Map<Long, List<Long>> permissionIdsByRole = loadPermissionIdsByRoles(roleIds, tenantId);
         Map<Long, List<RoleAdminSimpleVO>> adminsByRole = loadAdmins(roleIds, tenantId, PAGE_ADMIN_PREVIEW_LIMIT);
         for (RoleRespVO vo : list) {
-            List<Long> permissionIds = permissionIdsByRole.getOrDefault(vo.getId(), List.of());
+            List<Long> permissionIds = resolveEffectivePermissionIds(
+                    vo, permissionIdsByRole.getOrDefault(vo.getId(), List.of()), tenantId);
             vo.setPermissionIds(permissionIds);
             vo.setPermissionSummary(buildPermissionSummary(permissionIds, tenantId));
             vo.setAdmins(adminsByRole.getOrDefault(vo.getId(), List.of()));
         }
+    }
+
+    /**
+     * Builtin {@code super_admin} is not edited via role-permission rows; display and auth
+     * treat it as owning every permission defined for the tenant.
+     */
+    private List<Long> resolveEffectivePermissionIds(RoleRespVO vo, List<Long> boundIds, Long tenantId) {
+        if (isBuiltinSuperAdmin(vo.getRoleType(), vo.getCode())) {
+            return loadAllPermissionIds(tenantId);
+        }
+        return boundIds;
+    }
+
+    private List<Long> loadAllPermissionIds(Long tenantId) {
+        return permissionMapper.selectList(Wrappers.<SysPermissionDO>lambdaQuery()
+                        .eq(SysPermissionDO::getTenantId, tenantId)
+                        .orderByAsc(SysPermissionDO::getId))
+                .stream()
+                .map(SysPermissionDO::getId)
+                .toList();
+    }
+
+    private static boolean isBuiltinSuperAdmin(RoleType roleType, String code) {
+        return RoleType.SYSTEM == roleType && RoleType.SUPER_ADMIN_CODE.equals(code);
     }
 
     private Map<Long, List<Long>> loadPermissionIdsByRoles(List<Long> roleIds, Long tenantId) {

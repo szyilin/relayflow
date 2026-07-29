@@ -45,14 +45,14 @@ RelayFlow 面向企业协作：**同一账号**登录后，根据是否具备**�
 
 ### 2.2 管理身份（能否进管理后台）
 
-**管理身份（`isAdmin`）** 定义：在当前租户下，用户至少绑定一个 **管理角色**（`sys_user_role` → `sys_role`），且该角色通过 `sys_role_permission` **至少关联一个** `sys_permission`（即具备至少一项后台管理能力）。
+**管理身份（`isAdmin`）** 定义：在当前租户下，用户至少绑定一个 **管理角色**（`sys_user_role` → `sys_role`），且该角色通过 `sys_role_permission` **至少关联一个** `sys_permission`（即具备至少一项后台管理能力）。例外：内置 `super_admin`（`role_type=SYSTEM`）在鉴权时视为拥有当前租户全部 permission，即使 `sys_role_permission` 未全量同步。
 
 | 情况 | `isAdmin` |
 |------|-----------|
 | 未绑定任何角色 | 否 |
 | 绑定了角色但角色零 permission | 否 |
 | 绑定了角色且角色有 ≥1 个 permission | 是 |
-| `super_admin` 等预置全权限角色 | 是 |
+| `super_admin`（SYSTEM） | 是（运行时展开为租户内全部 permission） |
 
 **说明：**
 
@@ -98,6 +98,7 @@ V2 在 §2.1–§2.3 语义不变的前提下，增加**企业（tenant）维度
 
 - 菜单/导航按 `permission.code` 过滤；无 permission 的 API 返回 HTTP 403。
 - 多角色 permission **并集**。
+- **内置超级管理员**：`code=super_admin` 且 `role_type=SYSTEM` 时，`PermissionService` 直接加载该租户全部 `sys_permission`，一劳永逸；角色列表「权限范围」展示亦按此展开。自定义角色仍只吃 `sys_role_permission`。SYSTEM 角色不可在 UI 编辑权限（无「编辑」），与此机制配套。
 - **禁止**用管理面 RBAC 的 permission 去限制 `/app/**` 路由或员工工作台菜单（除非未来单独 spec 的客户端策略层）。
 
 ---

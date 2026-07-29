@@ -17,6 +17,7 @@ import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.tenant.TenantService;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final ObjectProvider<TokenRevocationStore> tokenRevocationStore;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     @Override
     public AuthLoginRespVO login(AuthLoginReqVO request) {
@@ -122,6 +124,9 @@ public class AuthServiceImpl implements AuthService {
 
     private AuthLoginRespVO issueToken(SysUserDO user, Long tenantId) {
         TenantContextHolder.set(tenantId);
+        // Drop stale Redis permission snapshot so login always sees current role resolution
+        // (e.g. builtin super_admin expands to newly seeded permissions).
+        permissionCacheEvictor.evictUser(tenantId, user.getId());
         String accessToken = jwtTokenService.createAccessToken(
                 user.getId(), user.getUsername(), tenantId, ADMIN_USER_TYPE);
 

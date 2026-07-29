@@ -13,6 +13,7 @@ import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
+import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.tenant.TenantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,8 @@ class AuthServiceImplTest {
     private JwtTokenService jwtTokenService;
     @Mock
     private ObjectProvider<com.relayflow.framework.security.core.TokenRevocationStore> tokenRevocationStore;
+    @Mock
+    private PermissionCacheEvictor permissionCacheEvictor;
 
     @InjectMocks
     private AuthServiceImpl authService;

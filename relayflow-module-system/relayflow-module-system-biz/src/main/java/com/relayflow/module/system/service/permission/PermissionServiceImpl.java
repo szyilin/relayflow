@@ -21,6 +21,7 @@ import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
+import com.relayflow.module.system.enums.RoleType;
 import com.relayflow.module.system.service.permission.dto.RoleSimpleDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,12 @@ public class PermissionServiceImpl implements PermissionService {
         if (roles.isEmpty()) {
             return Collections.emptySet();
         }
+        // Built-in super_admin always owns every permission currently defined for the tenant.
+        // New Flyway seeds only need to INSERT sys_permission (and copy to new tenants);
+        // do not re-bind sys_role_permission for role 100 / each org's super_admin.
+        if (roles.stream().anyMatch(PermissionServiceImpl::isBuiltinSuperAdmin)) {
+            return loadAllPermissionCodes(tenantId);
+        }
         Set<Long> roleIds = roles.stream().map(SysRoleDO::getId).collect(Collectors.toSet());
         List<SysRolePermissionDO> rolePermissions = rolePermissionMapper.selectList(
                 Wrappers.<SysRolePermissionDO>lambdaQuery()
@@ -75,6 +82,24 @@ public class PermissionServiceImpl implements PermissionService {
                 .map(SysPermissionDO::getCode)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<String> loadAllPermissionCodes(Long tenantId) {
+        List<SysPermissionDO> permissions = permissionMapper.selectList(
+                Wrappers.<SysPermissionDO>lambdaQuery()
+                        .eq(SysPermissionDO::getTenantId, tenantId)
+                        .orderByAsc(SysPermissionDO::getSort)
+                        .orderByAsc(SysPermissionDO::getId));
+        return permissions.stream()
+                .map(SysPermissionDO::getCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static boolean isBuiltinSuperAdmin(SysRoleDO role) {
+        return role != null
+                && RoleType.SYSTEM == role.getRoleType()
+                && RoleType.SUPER_ADMIN_CODE.equals(role.getCode());
     }
 
     @Override

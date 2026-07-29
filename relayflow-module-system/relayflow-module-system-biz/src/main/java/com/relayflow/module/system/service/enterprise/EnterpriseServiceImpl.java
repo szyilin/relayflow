@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EnterpriseServiceImpl implements EnterpriseService {
 
-    private static final String SUPER_ADMIN_CODE = "super_admin";
     private static final Set<String> ADDRESS_TYPES = Set.of("JOB", "INTERVIEW", "STORE");
     private static final Set<String> ADDRESS_STATUSES = Set.of("ENABLED", "DISABLED");
 
@@ -106,7 +105,7 @@ public class EnterpriseServiceImpl implements EnterpriseService {
                 .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE)));
         vo.setDeptCount(deptMapper.selectCount(Wrappers.<SysDeptDO>lambdaQuery()
                 .eq(SysDeptDO::getTenantId, tenantId)));
-        vo.setSuperAdminCount(countUsersByRoleCodes(tenantId, Set.of(SUPER_ADMIN_CODE)));
+        vo.setSuperAdminCount(countUsersByRoleCodes(tenantId, Set.of(RoleType.SUPER_ADMIN_CODE)));
         vo.setSubAdminCount(countUsersByRoleType(tenantId, RoleType.CUSTOM));
         return vo;
     }

@@ -143,7 +143,7 @@ Spring Bean（`Controller`、`Service`、`ApiImpl`、`Filter`、Starter 内组�
 - **适用范围**：`/admin/**`、`/admin-api/**`；**不**用于限制 `/app/**` 产品面准入或主导航
 - 权限字符串：`{module}:{resource}:{action}`，如 `system:user:query`
 - V1 粒度：菜单 + 按钮级 API 权限
-- 内置超级管理员角色可拥有 `*:*:*` 或等价 bypass（仅默认租户）
+- 内置 `super_admin`（`role_type=SYSTEM`）：鉴权时**运行时展开为当前租户全部** `sys_permission.code`，不依赖维护 `sys_role_permission` 全量绑定；新增权限只需插入 `sys_permission`（及新租户模板复制），无需再给各组织超级管理员补绑
 - 管理身份判定见 [`product-permission-model.md`](product-permission-model.md) §2.2
 
 ### 登录安全

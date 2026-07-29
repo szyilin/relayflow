@@ -32,8 +32,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TenantBootstrapServiceImpl implements TenantBootstrapService {
 
-    private static final String SUPER_ADMIN_CODE = "super_admin";
-
     private final SysTenantMapper tenantMapper;
     private final SysPermissionMapper permissionMapper;
     private final SysRoleMapper roleMapper;
@@ -84,7 +82,7 @@ public class TenantBootstrapServiceImpl implements TenantBootstrapService {
     private Long ensureSuperAdminRole(Long tenantId) {
         SysRoleDO existing = roleMapper.selectOne(Wrappers.<SysRoleDO>lambdaQuery()
                 .eq(SysRoleDO::getTenantId, tenantId)
-                .eq(SysRoleDO::getCode, SUPER_ADMIN_CODE)
+                .eq(SysRoleDO::getCode, RoleType.SUPER_ADMIN_CODE)
                 .last("LIMIT 1"));
         if (existing != null) {
             return existing.getId();
@@ -96,7 +94,7 @@ public class TenantBootstrapServiceImpl implements TenantBootstrapService {
         role.setTenantId(tenantId);
         role.setParentId(0L);
         role.setName("超级管理员");
-        role.setCode(SUPER_ADMIN_CODE);
+        role.setCode(RoleType.SUPER_ADMIN_CODE);
         role.setRoleType(RoleType.SYSTEM);
         role.setCanDelegate(1);
         role.setSort(0);
