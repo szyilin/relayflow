@@ -6,7 +6,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -23,6 +26,12 @@ public class UserPreferenceDefaults {
     private static final Set<String> BUBBLE_LAYOUTS = Set.of("left", "split");
     private static final Set<String> THEME_COLORS = Set.of(
             "teal", "green", "cyan", "blue", "emerald", "sky");
+
+    /** Product default workspace left-rail order (must match web DEFAULT_RAIL_ORDER). */
+    public static final List<String> DEFAULT_RAIL_ORDER = List.of(
+            "messages", "calendar", "meeting", "tasks", "agents", "docs", "contacts");
+
+    private static final Set<String> KNOWN_RAIL_IDS = new LinkedHashSet<>(DEFAULT_RAIL_ORDER);
 
     private final ObjectMapper objectMapper;
 
@@ -46,11 +55,15 @@ public class UserPreferenceDefaults {
         // Feishu-like: remind 30 minutes before due by default on create
         task.put("defaultRemindBeforeMinutes", 30);
 
+        Map<String, Object> workspace = new LinkedHashMap<>();
+        workspace.put("railOrder", new ArrayList<>(DEFAULT_RAIL_ORDER));
+
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("general", general);
         root.put("im", im);
         root.put("calendar", calendar);
         root.put("task", task);
+        root.put("workspace", workspace);
         return root;
     }
 
@@ -60,7 +73,32 @@ public class UserPreferenceDefaults {
             ObjectNode patch = objectMapper.valueToTree(storedOrNull);
             mergeObjectNodes(base, patch);
         }
-        return objectMapper.convertValue(base, new TypeReference<>() {});
+        Map<String, Object> merged = objectMapper.convertValue(base, new TypeReference<>() {});
+        normalizeWorkspaceRailOrder(merged);
+        return merged;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void normalizeWorkspaceRailOrder(Map<String, Object> settings) {
+        Object workspaceObj = settings.get("workspace");
+        if (!(workspaceObj instanceof Map<?, ?> workspaceMapRaw)) {
+            Map<String, Object> workspace = new LinkedHashMap<>();
+            workspace.put("railOrder", new ArrayList<>(DEFAULT_RAIL_ORDER));
+            settings.put("workspace", workspace);
+            return;
+        }
+        Map<String, Object> workspace = (Map<String, Object>) workspaceMapRaw;
+        Object railOrderObj = workspace.get("railOrder");
+        List<String> preferred = new ArrayList<>();
+        if (railOrderObj instanceof List<?> list) {
+            for (Object item : list) {
+                if (item != null) {
+                    preferred.add(String.valueOf(item));
+                }
+            }
+        }
+        workspace.put("railOrder", resolveRailOrder(preferred));
+        settings.put("workspace", workspace);
     }
 
     public Map<String, Object> parseSettingsJson(String json) {
@@ -242,8 +280,56 @@ public class UserPreferenceDefaults {
             }
         }
 
+        Object workspaceObj = input.get("workspace");
+        if (workspaceObj instanceof Map<?, ?> workspaceMap) {
+            Map<String, Object> workspace = new LinkedHashMap<>();
+            Object railOrderObj = workspaceMap.get("railOrder");
+            if (railOrderObj != null) {
+                if (!(railOrderObj instanceof List<?> railList)) {
+                    errorOut.append("workspace.railOrder 非法");
+                    return null;
+                }
+                List<String> preferred = new ArrayList<>();
+                for (Object item : railList) {
+                    if (item == null) {
+                        continue;
+                    }
+                    preferred.add(String.valueOf(item));
+                }
+                workspace.put("railOrder", resolveRailOrder(preferred));
+            }
+            if (!workspace.isEmpty()) {
+                result.put("workspace", workspace);
+            }
+        }
+
         // Persist full effective document after merge with defaults (stable GET shape).
         return merge(result);
+    }
+
+    /**
+     * Keep known ids in preferred relative order; append missing defaults; drop unknown/dupes.
+     */
+    static List<String> resolveRailOrder(List<String> preferred) {
+        List<String> out = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        if (preferred != null) {
+            for (String id : preferred) {
+                if (id == null || id.isBlank()) {
+                    continue;
+                }
+                String trimmed = id.trim();
+                if (KNOWN_RAIL_IDS.contains(trimmed) && seen.add(trimmed)) {
+                    out.add(trimmed);
+                }
+            }
+        }
+        for (String id : DEFAULT_RAIL_ORDER) {
+            if (seen.add(id)) {
+                out.add(id);
+            }
+        }
+        return out;
     }
 
     private void mergeObjectNodes(ObjectNode target, ObjectNode patch) {

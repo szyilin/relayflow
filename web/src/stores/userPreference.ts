@@ -7,14 +7,17 @@ import {
   type ChatBubbleLayout,
   type TaskPreferenceSettings,
   type ThemeMode,
-  type UserPreferenceSettings
+  type UserPreferenceSettings,
+  type WorkspacePreferenceSettings
 } from '../api/app/userPreference'
+import { DEFAULT_RAIL_ORDER, resolveRailOrder } from '../composables/workspaceRailOrder'
 import { useAdminColorMode } from '../composables/useAdminColorMode'
 import { useAuthStore } from './auth'
 
 export type { ThemeMode, ChatBubbleLayout, UserPreferenceSettings }
 export type CalendarPreference = CalendarPreferenceSettings
 export type TaskPreference = TaskPreferenceSettings
+export type WorkspacePreference = WorkspacePreferenceSettings
 
 export const USER_PREFERENCE_SCHEMA_VERSION = 1
 
@@ -36,6 +39,9 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
   },
   task: {
     defaultRemindBeforeMinutes: 30
+  },
+  workspace: {
+    railOrder: [...DEFAULT_RAIL_ORDER]
   }
 }
 
@@ -45,6 +51,15 @@ function cacheKey(tenantId: string, userId: string) {
   return `relayflow-user-preference-v2:${tenantId}:${userId}`
 }
 
+function normalizeWorkspace(
+  patch: Partial<WorkspacePreferenceSettings> | null | undefined
+): WorkspacePreferenceSettings {
+  const available = [...DEFAULT_RAIL_ORDER]
+  return {
+    railOrder: resolveRailOrder(patch?.railOrder, available)
+  }
+}
+
 function deepMergeSettings(
   base: UserPreferenceSettings,
   patch: {
@@ -52,6 +67,7 @@ function deepMergeSettings(
     im?: Partial<UserPreferenceSettings['im']>
     calendar?: Partial<UserPreferenceSettings['calendar']>
     task?: Partial<UserPreferenceSettings['task']>
+    workspace?: Partial<UserPreferenceSettings['workspace']>
   } | null | undefined
 ): UserPreferenceSettings {
   return {
@@ -70,7 +86,11 @@ function deepMergeSettings(
     task: {
       ...base.task,
       ...(patch?.task ?? {})
-    }
+    },
+    workspace: normalizeWorkspace({
+      ...base.workspace,
+      ...(patch?.workspace ?? {})
+    })
   }
 }
 
@@ -107,6 +127,8 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
   const chatBubbleLayout = computed(() => settings.value.im.chatBubbleLayout)
   const calendar = computed(() => settings.value.calendar)
   const task = computed(() => settings.value.task)
+  const workspace = computed(() => settings.value.workspace)
+  const railOrder = computed(() => settings.value.workspace.railOrder)
 
   function authScope(): { tenantId: string, userId: string } | null {
     const auth = useAuthStore()
@@ -243,6 +265,24 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     return syncToServer()
   }
 
+  async function setRailOrder(order: string[]): Promise<boolean> {
+    const previous = settings.value.workspace.railOrder
+    settings.value = {
+      ...settings.value,
+      workspace: normalizeWorkspace({ railOrder: order })
+    }
+    persistCache()
+    const ok = await syncToServer()
+    if (!ok) {
+      settings.value = {
+        ...settings.value,
+        workspace: normalizeWorkspace({ railOrder: previous })
+      }
+      persistCache()
+    }
+    return ok
+  }
+
   function replaceSettings(next: UserPreferenceSettings, version = USER_PREFERENCE_SCHEMA_VERSION) {
     settings.value = deepMergeSettings(DEFAULT_USER_PREFERENCE, next)
     schemaVersion.value = version
@@ -261,6 +301,8 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     chatBubbleLayout,
     calendar,
     task,
+    workspace,
+    railOrder,
     resetForTenantSwitch,
     fetchFromServer,
     applyAppearance,
@@ -269,6 +311,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     setChatBubbleLayout,
     patchCalendar,
     patchTask,
+    setRailOrder,
     replaceSettings
   }
 })

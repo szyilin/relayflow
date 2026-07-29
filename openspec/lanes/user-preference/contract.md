@@ -41,6 +41,7 @@
 | `settings.general.themeMode` | `light` \| `dark` \| `auto` |
 | `settings.general.themeColor` | 如 `teal`、`blue`（与前端 primary 色板一致） |
 | `settings.im.chatBubbleLayout` | `left`（全部左对齐）\| `split`（己方右、对方左） |
+| `settings.workspace.railOrder` | string[]：工作台左侧导航 id 顺序；默认 `["messages","calendar","meeting","tasks","agents","docs","contacts"]`；未知 id 丢弃，缺漏按默认补齐 |
 
 **行为**：
 

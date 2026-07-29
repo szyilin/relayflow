@@ -17,6 +17,11 @@ export interface TaskPreferenceSettings {
   defaultRemindBeforeMinutes: number
 }
 
+export interface WorkspacePreferenceSettings {
+  /** Ordered workspace left-rail entry ids */
+  railOrder: string[]
+}
+
 /** Canonical full settings shape (store + UI). */
 export interface UserPreferenceSettings {
   general: {
@@ -28,6 +33,7 @@ export interface UserPreferenceSettings {
   }
   calendar: CalendarPreferenceSettings
   task: TaskPreferenceSettings
+  workspace: WorkspacePreferenceSettings
 }
 
 /** API may return partial nested objects; client merges with defaults. */
@@ -38,6 +44,7 @@ export interface UserPreferenceResp {
     im?: Partial<UserPreferenceSettings['im']>
     calendar?: Partial<CalendarPreferenceSettings>
     task?: Partial<TaskPreferenceSettings>
+    workspace?: Partial<WorkspacePreferenceSettings>
   }
 }
 

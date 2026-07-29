@@ -2,7 +2,9 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { PRODUCT_REGISTRY } from '../products/registry'
+import { resolveRailOrder } from './workspaceRailOrder'
 import { useImStore } from '../stores/im'
+import { useUserPreferenceStore } from '../stores/userPreference'
 
 export interface WorkspaceRailItem {
   id: string
@@ -44,7 +46,9 @@ const EXTRA_RAIL: Omit<WorkspaceRailItem, 'badge'>[] = [
 export function useWorkspaceNav() {
   const route = useRoute()
   const imStore = useImStore()
+  const preferenceStore = useUserPreferenceStore()
   const { totalUnreadCount } = storeToRefs(imStore)
+  const { railOrder } = storeToRefs(preferenceStore)
 
   const railItems = computed<WorkspaceRailItem[]>(() => {
     const fromProducts: WorkspaceRailItem[] = PRODUCT_REGISTRY
@@ -57,9 +61,9 @@ export function useWorkspaceNav() {
         badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined
       }))
 
-    // Preserve rail order: messages, calendar, meeting, tasks, agents, docs, contacts
     const byId = new Map([...fromProducts, ...EXTRA_RAIL].map(item => [item.id, item]))
-    const order = ['messages', 'calendar', 'meeting', 'tasks', 'agents', 'docs', 'contacts'] as const
+    const availableIds = [...byId.keys()]
+    const order = resolveRailOrder(railOrder.value, availableIds)
     return order.flatMap((id) => {
       const item = byId.get(id)
       return item ? [item] : []
