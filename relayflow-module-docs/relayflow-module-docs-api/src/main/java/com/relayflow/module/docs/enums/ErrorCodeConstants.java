@@ -23,7 +23,11 @@ public enum ErrorCodeConstants implements ErrorCode {
     DOC_GRANTEE_INVALID(1_006_001_013, "被分享人不是本企业有效成员"),
     DOC_MEMBER_SHARE_DISABLED(1_006_001_014, "企业已禁止成员分享文档"),
     DOC_MARKDOWN_EXPORT_DISABLED(1_006_001_015, "企业已禁止导出 Markdown"),
-    DOC_DRIVE_UPLOAD_DISABLED(1_006_001_016, "企业已禁止上传云盘文件");
+    DOC_DRIVE_UPLOAD_DISABLED(1_006_001_016, "企业已禁止上传云盘文件"),
+    DOC_FILE_LIFECYCLE_INVALID(1_006_001_017, "文档生命周期状态不允许该操作"),
+    DOC_FILE_RESTORE_EXPIRED(1_006_001_018, "已超过 90 天恢复窗口"),
+    DOC_FILE_OWNER_INVALID(1_006_001_019, "新所有者不是本企业有效成员"),
+    DOC_STORAGE_QUOTA_EXCEEDED(1_006_001_020, "云文档存储空间已满");
 
     private final Integer code;
     private final String msg;

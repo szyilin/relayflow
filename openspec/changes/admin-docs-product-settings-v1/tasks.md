@@ -56,16 +56,16 @@
 
 ### A1-api
 
-- [ ] A1.4 Flyway：`lifecycle` / `deleted_at`（及必要索引）；Admin 查询绕过逻辑删
-- [ ] A1.5 `GET /admin-api/docs/files`
-- [ ] A1.6 `POST .../transfer-owner`（迁到新主根，contract 写死）
-- [ ] A1.7 `POST .../delete` / `restore`（90d）/ `purge`
-- [ ] A1.8 禁止 Admin API 返回 body 内容
-- [ ] A1.9 `mvn compile`
+- [x] A1.4 Flyway：`lifecycle` / `deleted_at`（及必要索引）；Admin 查询绕过逻辑删
+- [x] A1.5 `GET /admin-api/docs/files`
+- [x] A1.6 `POST .../transfer-owner`（迁到新主根，contract 写死）
+- [x] A1.7 `POST .../delete` / `restore`（90d）/ `purge`
+- [x] A1.8 禁止 Admin API 返回 body 内容
+- [x] A1.9 `mvn compile`
 
 ### A1-integrate
 
-- [ ] A1.10 去 Mock；与工作台软删/最近 tombstone 对齐验收
+- [x] A1.10 去 Mock；与工作台软删/最近 tombstone 对齐验收
 
 ---
 
@@ -73,20 +73,20 @@
 
 ### A2-web
 
-- [ ] A2.1 用量列表 + 默认上限/用户覆盖表单（Mock）
-- [ ] A2.2 「查看云文档」→ `/files?ownerUserId=`
-- [ ] A2.3 `pnpm build` + `pnpm typecheck`；路径：`/admin/products/docs/storage`
+- [x] A2.1 用量列表 + 默认上限/用户覆盖表单（Mock）
+- [x] A2.2 「查看云文档」→ `/files?ownerUserId=`
+- [x] A2.3 `pnpm build` + `pnpm typecheck`；路径：`/admin/products/docs/storage`
 
 ### A2-api
 
-- [ ] A2.4 Flyway：`storage_quota_default_bytes` + `doc_storage_quota_user_rule`
-- [ ] A2.5 `GET /admin-api/docs/storage-usage`；`GET/PUT .../storage-quota`
-- [ ] A2.6 计量：ACTIVE `FILE` → `infra_file.size`；触顶 `DOC_STORAGE_QUOTA_EXCEEDED`
-- [ ] A2.7 `mvn compile`
+- [x] A2.4 Flyway：`storage_quota_default_bytes` + `doc_storage_quota_user_rule`
+- [x] A2.5 `GET /admin-api/docs/storage-usage`；`GET/PUT .../storage-quota`
+- [x] A2.6 计量：ACTIVE `FILE` → `infra_file.size`；触顶 `DOC_STORAGE_QUOTA_EXCEEDED`
+- [x] A2.7 `mvn compile`
 
 ### A2-integrate
 
-- [ ] A2.8 去 Mock；上传触顶与列表用量联调
+- [x] A2.8 去 Mock；上传触顶与列表用量联调
 
 ---
 

@@ -29,6 +29,10 @@ public class DocTenantSettingsDO {
     @TableField("drive_upload_enabled")
     private Boolean driveUploadEnabled;
 
+    /** null = unlimited */
+    @TableField("storage_quota_default_bytes")
+    private Long storageQuotaDefaultBytes;
+
     private Long creator;
 
     private OffsetDateTime createTime;

@@ -7,4 +7,11 @@ import java.util.List;
 public interface MemberUserApi {
 
     List<MemberSearchRespDTO> searchMembers(Long tenantId, String keyword, int limit);
+
+    /**
+     * ACTIVE members for admin lists (optional nickname/username/mobile keyword).
+     */
+    List<MemberSearchRespDTO> pageActiveMembers(Long tenantId, String keyword, int offset, int limit);
+
+    long countActiveMembers(Long tenantId, String keyword);
 }

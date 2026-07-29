@@ -49,4 +49,11 @@ public class DocObjectDO extends TenantBaseDO {
 
     @TableField("storage_file_id")
     private Long storageFileId;
+
+    /** ACTIVE | DELETED | PURGED */
+    @TableField("lifecycle")
+    private String lifecycle;
+
+    @TableField("deleted_at")
+    private OffsetDateTime deletedAt;
 }

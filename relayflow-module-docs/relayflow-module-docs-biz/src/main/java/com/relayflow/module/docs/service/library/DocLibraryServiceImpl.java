@@ -17,6 +17,7 @@ import com.relayflow.module.docs.dal.mapper.DocUserVisitMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
+import com.relayflow.module.docs.service.lifecycle.DocObjectLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
     private final DocObjectMapper docObjectMapper;
     private final DocUserVisitMapper docUserVisitMapper;
     private final DocAccessService docAccessService;
+    private final DocObjectLifecycleService docObjectLifecycleService;
 
     @Override
     public DocLibraryTreeRespVO getTree() {
@@ -104,6 +106,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
         object.setBodyFormat(DocConstants.BODY_FORMAT_TIPTAP_JSON_V1);
         object.setContentVersion(0);
         object.setOwnerUserId(userId);
+        object.setLifecycle(DocConstants.LIFECYCLE_ACTIVE);
         object.setCreator(userId);
         object.setCreateTime(now);
         object.setUpdater(userId);
@@ -189,6 +192,8 @@ public class DocLibraryServiceImpl implements DocLibraryService {
         }
 
         Set<Long> nodeIds = collectSubtreeNodeIds(nodeId, childrenByParent);
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        OffsetDateTime now = OffsetDateTime.now();
         for (Long id : nodeIds) {
             DocLibraryNodeDO node = allNodes.stream()
                     .filter(row -> Objects.equals(row.getId(), id))
@@ -200,6 +205,8 @@ public class DocLibraryServiceImpl implements DocLibraryService {
             docLibraryNodeMapper.deleteById(id);
             if (node.getObjectId() != null) {
                 docObjectMapper.deleteById(node.getObjectId());
+                docObjectLifecycleService.markDeleted(
+                        tenantId, node.getObjectId(), node.getOwnerUserId(), userId, now);
             }
         }
     }

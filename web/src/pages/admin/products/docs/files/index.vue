@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import type { TableColumn } from '@nuxt/ui'
 import AdminNavbar from '../../../../../components/admin/AdminNavbar.vue'
 import AdminDocsProductShell from '../../../../../components/admin/products/AdminDocsProductShell.vue'
@@ -13,6 +14,7 @@ import {
 import { useDocsFilesStore } from '../../../../../stores/docsFiles'
 
 const toast = useToast()
+const route = useRoute()
 const store = useDocsFilesStore()
 const { hasPermission } = usePermission()
 
@@ -54,13 +56,11 @@ const purgeOpen = ref(false)
 const actionIds = ref<string[]>([])
 
 const transferForm = reactive({
-  newOwnerUserId: '',
-  newOwnerDisplayName: ''
+  newOwnerUserId: ''
 })
 const restoreForm = reactive({
   useNewOwner: false,
-  newOwnerUserId: '',
-  newOwnerDisplayName: ''
+  newOwnerUserId: ''
 })
 
 const allSelected = computed({
@@ -137,14 +137,18 @@ async function loadPage(page = 1) {
   if (!canQuery.value) {
     return
   }
-  await store.fetchPage({
-    pageNo: page,
-    pageSize: store.pageSize,
-    keyword: keywordInput.value.trim(),
-    type: (typeFilter.value.value || '') as DocsFileType | '',
-    lifecycle: (lifecycleFilter.value.value || '') as DocsFileLifecycle | '',
-    ownerUserId: ownerUserIdInput.value.trim()
-  })
+  try {
+    await store.fetchPage({
+      pageNo: page,
+      pageSize: store.pageSize,
+      keyword: keywordInput.value.trim(),
+      type: (typeFilter.value.value || '') as DocsFileType | '',
+      lifecycle: (lifecycleFilter.value.value || '') as DocsFileLifecycle | '',
+      ownerUserId: ownerUserIdInput.value.trim()
+    })
+  } catch {
+    // lastError already set on store
+  }
 }
 
 function handleSearch() {
@@ -172,7 +176,6 @@ function openTransfer(ids?: string[]) {
     return
   }
   transferForm.newOwnerUserId = ''
-  transferForm.newOwnerDisplayName = ''
   transferOpen.value = true
 }
 
@@ -200,7 +203,6 @@ function openRestore(ids?: string[]) {
   }
   restoreForm.useNewOwner = false
   restoreForm.newOwnerUserId = ''
-  restoreForm.newOwnerDisplayName = ''
   restoreOpen.value = true
 }
 
@@ -221,14 +223,10 @@ async function confirmTransfer() {
   try {
     await store.transferOwner(
       actionIds.value,
-      transferForm.newOwnerUserId.trim(),
-      transferForm.newOwnerDisplayName.trim() || undefined
+      transferForm.newOwnerUserId.trim()
     )
     transferOpen.value = false
-    toast.add({
-      title: store.usingLocalDraft ? '已转移到本地草稿' : '已转移所有者',
-      color: 'success'
-    })
+    toast.add({ title: '已转移所有者', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '转移失败', color: 'error' })
   }
@@ -238,10 +236,7 @@ async function confirmDelete() {
   try {
     await store.softDelete(actionIds.value)
     deleteOpen.value = false
-    toast.add({
-      title: store.usingLocalDraft ? '已删除（本地草稿）' : '已删除',
-      color: 'success'
-    })
+    toast.add({ title: '已删除', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '删除失败', color: 'error' })
   }
@@ -254,16 +249,9 @@ async function confirmRestore() {
       toast.add({ title: '请填写新所有者用户 ID', color: 'warning' })
       return
     }
-    await store.restore(
-      actionIds.value,
-      newId,
-      restoreForm.useNewOwner ? restoreForm.newOwnerDisplayName.trim() : undefined
-    )
+    await store.restore(actionIds.value, newId)
     restoreOpen.value = false
-    toast.add({
-      title: store.usingLocalDraft ? '已恢复（本地草稿）' : '已恢复',
-      color: 'success'
-    })
+    toast.add({ title: '已恢复', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '恢复失败', color: 'error' })
   }
@@ -273,10 +261,7 @@ async function confirmPurge() {
   try {
     await store.purge(actionIds.value)
     purgeOpen.value = false
-    toast.add({
-      title: store.usingLocalDraft ? '已销毁（本地草稿）' : '已永久销毁',
-      color: 'success'
-    })
+    toast.add({ title: '已永久销毁', color: 'success' })
   } catch (e) {
     toast.add({ title: e instanceof Error ? e.message : '销毁失败', color: 'error' })
   }
@@ -290,6 +275,19 @@ watch(lifecycleFilter, () => {
 })
 
 onMounted(() => {
+  const fromQuery = typeof route.query.ownerUserId === 'string' ? route.query.ownerUserId.trim() : ''
+  if (fromQuery) {
+    ownerUserIdInput.value = fromQuery
+  }
+  void loadPage(1)
+})
+
+watch(() => route.query.ownerUserId, (value) => {
+  const next = typeof value === 'string' ? value.trim() : ''
+  if (next === ownerUserIdInput.value.trim()) {
+    return
+  }
+  ownerUserIdInput.value = next
   void loadPage(1)
 })
 </script>
@@ -312,7 +310,7 @@ meta:
           color="warning"
           variant="subtle"
           title="无权限"
-          description="需要 docs:files:query。权限种子将在 A1-api 写入；开发期可暂用产品设置权限验证 UI。"
+          description="需要 docs:files:query 权限。"
         />
 
         <AdminDocsProductShell
@@ -320,17 +318,14 @@ meta:
           title="文件管理"
           description="检索企业云文档元数据，转移所有者、删除、恢复或销毁。管理员无法凭身份直接阅读正文。"
         >
-          <template #actions>
-            <UBadge
-              v-if="store.usingLocalDraft"
-              color="warning"
-              variant="subtle"
-            >
-              本地草稿
-            </UBadge>
-          </template>
-
           <div class="space-y-4">
+            <UAlert
+              v-if="store.lastError"
+              color="error"
+              variant="subtle"
+              title="加载失败"
+              :description="store.lastError"
+            />
             <div class="flex flex-wrap items-end gap-3">
               <UFormField
                 label="标题"
@@ -556,9 +551,6 @@ meta:
               <UFormField label="新所有者用户 ID">
                 <UInput v-model="transferForm.newOwnerUserId" />
               </UFormField>
-              <UFormField label="展示名（可选，本地草稿用）">
-                <UInput v-model="transferForm.newOwnerDisplayName" />
-              </UFormField>
               <div class="flex justify-end gap-2">
                 <UButton
                   color="neutral"
@@ -621,9 +613,6 @@ meta:
               <template v-if="restoreForm.useNewOwner">
                 <UFormField label="新所有者用户 ID">
                   <UInput v-model="restoreForm.newOwnerUserId" />
-                </UFormField>
-                <UFormField label="展示名（可选）">
-                  <UInput v-model="restoreForm.newOwnerDisplayName" />
                 </UFormField>
               </template>
               <div class="flex justify-end gap-2">

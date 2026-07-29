@@ -204,15 +204,16 @@ meta:
 <template>
   <UDashboardPanel id="admin-products-calendar-all-staff">
     <template #header>
-      <AdminNavbar title="日历" />
+      <AdminNavbar title="日历 · 全员日历" />
     </template>
     <template #body>
-      <div class="flex min-h-0 flex-1 flex-col p-6">
+      <div class="flex flex-col gap-6 p-6">
         <UAlert
           v-if="!canQuery"
           color="warning"
+          variant="subtle"
           title="无权限"
-          description="需要 calendar:product-settings:query"
+          description="需要 calendar:product-settings:query。若刚跑完迁移，请重新登录以刷新权限。"
         />
         <AdminCalendarProductShell
           v-else

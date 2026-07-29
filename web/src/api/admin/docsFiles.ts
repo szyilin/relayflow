@@ -49,7 +49,26 @@ export interface DocsObjectIdsReq {
 }
 
 export function getDocsAdminFiles(params: DocsAdminFilePageQuery): Promise<DocsAdminFilePageResult> {
-  return get<DocsAdminFilePageResult>('/admin-api/docs/files', { params })
+  const cleaned: Record<string, string | number> = {}
+  if (params.pageNo != null) {
+    cleaned.pageNo = params.pageNo
+  }
+  if (params.pageSize != null) {
+    cleaned.pageSize = params.pageSize
+  }
+  if (params.keyword?.trim()) {
+    cleaned.keyword = params.keyword.trim()
+  }
+  if (params.type) {
+    cleaned.type = params.type
+  }
+  if (params.lifecycle) {
+    cleaned.lifecycle = params.lifecycle
+  }
+  if (params.ownerUserId?.trim()) {
+    cleaned.ownerUserId = params.ownerUserId.trim()
+  }
+  return get<DocsAdminFilePageResult>('/admin-api/docs/files', { params: cleaned })
 }
 
 export function transferDocsOwner(payload: DocsTransferOwnerReq): Promise<boolean> {

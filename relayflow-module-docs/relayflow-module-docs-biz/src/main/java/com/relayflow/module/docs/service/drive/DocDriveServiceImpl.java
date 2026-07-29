@@ -24,7 +24,9 @@ import com.relayflow.module.docs.dal.mapper.DocObjectMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
+import com.relayflow.module.docs.service.lifecycle.DocObjectLifecycleService;
 import com.relayflow.module.docs.service.productsettings.DocProductSettingsService;
+import com.relayflow.module.docs.service.storage.DocStorageQuotaService;
 import com.relayflow.module.infra.api.file.FileApi;
 import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
 import com.relayflow.module.infra.api.file.dto.FileRespDTO;
@@ -60,6 +62,8 @@ public class DocDriveServiceImpl implements DocDriveService {
     private final DocObjectMapper docObjectMapper;
     private final DocAccessService docAccessService;
     private final DocProductSettingsService docProductSettingsService;
+    private final DocObjectLifecycleService docObjectLifecycleService;
+    private final DocStorageQuotaService docStorageQuotaService;
     private final FileApi fileApi;
     private final UserApi userApi;
 
@@ -198,6 +202,8 @@ public class DocDriveServiceImpl implements DocDriveService {
         }
 
         FileRespDTO file = requireOwnedStorageFile(request.getFileId(), userId);
+        long fileSize = file.getSize() == null ? 0L : file.getSize();
+        docStorageQuotaService.requireWithinQuota(tenantId, userId, fileSize);
         String title = resolveFileTitle(request.getTitle(), file.getOriginalName());
         OffsetDateTime now = OffsetDateTime.now();
 
@@ -210,6 +216,7 @@ public class DocDriveServiceImpl implements DocDriveService {
         object.setContentVersion(0);
         object.setOwnerUserId(userId);
         object.setStorageFileId(file.getId());
+        object.setLifecycle(DocConstants.LIFECYCLE_ACTIVE);
         object.setCreator(userId);
         object.setCreateTime(now);
         object.setUpdater(userId);
@@ -287,11 +294,14 @@ public class DocDriveServiceImpl implements DocDriveService {
     @Transactional(rollbackFor = Exception.class)
     public void deleteItem(Long itemId) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         DocDriveItemDO item = docAccessService.requireOwnedDriveItem(itemId, userId);
         Long objectId = item.getObjectId();
         docDriveItemMapper.deleteById(itemId);
         if (objectId != null) {
             docObjectMapper.deleteById(objectId);
+            docObjectLifecycleService.markDeleted(
+                    tenantId, objectId, item.getOwnerUserId(), userId, OffsetDateTime.now());
         }
     }
 

@@ -104,6 +104,87 @@ public class MemberUserApiImpl implements MemberUserApi {
                 .toList();
     }
 
+    @Override
+    public List<MemberSearchRespDTO> pageActiveMembers(Long tenantId, String keyword, int offset, int limit) {
+        if (tenantId == null) {
+            return List.of();
+        }
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 20 : Math.min(limit, 100);
+        List<Long> activeUserIds = listActiveUserIds(tenantId);
+        if (activeUserIds.isEmpty()) {
+            return List.of();
+        }
+        List<SysUserDO> users = selectActiveUsers(activeUserIds, keyword, safeOffset, safeLimit);
+        if (users.isEmpty()) {
+            return List.of();
+        }
+        List<Long> userIds = users.stream().map(SysUserDO::getId).toList();
+        Map<Long, String> deptNames = loadPrimaryDeptNames(tenantId, userIds);
+        Map<Long, Long> deptIds = loadPrimaryDeptIds(tenantId, userIds);
+        return users.stream()
+                .map(user -> toDto(user, deptNames.get(user.getId()), deptIds.get(user.getId())))
+                .toList();
+    }
+
+    @Override
+    public long countActiveMembers(Long tenantId, String keyword) {
+        if (tenantId == null) {
+            return 0L;
+        }
+        List<Long> activeUserIds = listActiveUserIds(tenantId);
+        if (activeUserIds.isEmpty()) {
+            return 0L;
+        }
+        if (!StringUtils.hasText(keyword)) {
+            return activeUserIds.size();
+        }
+        var query = Wrappers.<SysUserDO>lambdaQuery().in(SysUserDO::getId, activeUserIds);
+        applyKeyword(query, keyword.trim());
+        Long count = userMapper.selectCount(query);
+        return count == null ? 0L : count;
+    }
+
+    private List<Long> listActiveUserIds(Long tenantId) {
+        return tenantUserMapper.selectList(
+                        Wrappers.<SysTenantUserDO>lambdaQuery()
+                                .eq(SysTenantUserDO::getTenantId, tenantId)
+                                .eq(SysTenantUserDO::getStatus, TenantUserStatus.ACTIVE))
+                .stream()
+                .map(SysTenantUserDO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private List<SysUserDO> selectActiveUsers(List<Long> activeUserIds, String keyword, int offset, int limit) {
+        var query = Wrappers.<SysUserDO>lambdaQuery()
+                .in(SysUserDO::getId, activeUserIds)
+                .orderByAsc(SysUserDO::getNickname)
+                .orderByAsc(SysUserDO::getUsername);
+        if (StringUtils.hasText(keyword)) {
+            applyKeyword(query, keyword.trim());
+        }
+        query.last("LIMIT " + limit + " OFFSET " + offset);
+        return userMapper.selectList(query);
+    }
+
+    private void applyKeyword(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SysUserDO> query, String trimmed) {
+        String normalizedMobile = normalizeMobile(trimmed);
+        Long exactUserId = parseUserId(trimmed);
+        query.and(wrapper -> {
+            wrapper.like(SysUserDO::getNickname, trimmed)
+                    .or()
+                    .like(SysUserDO::getUsername, trimmed);
+            if (normalizedMobile != null) {
+                wrapper.or().like(SysUserDO::getMobile, normalizedMobile);
+            }
+            if (exactUserId != null) {
+                wrapper.or().eq(SysUserDO::getId, exactUserId);
+            }
+        });
+    }
+
     private MemberSearchRespDTO toDto(SysUserDO user, String deptName, Long deptId) {
         MemberSearchRespDTO dto = new MemberSearchRespDTO();
         dto.setUserId(user.getId());

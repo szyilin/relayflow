@@ -29,6 +29,13 @@ public final class DocConstants {
     public static final String LOCATION_SHARED = "与我共享";
     public static final String LOCATION_DELETED = "已删除";
 
+    public static final String LIFECYCLE_ACTIVE = "ACTIVE";
+    public static final String LIFECYCLE_DELETED = "DELETED";
+    public static final String LIFECYCLE_PURGED = "PURGED";
+
+    /** Admin restore window from deleted_at. */
+    public static final int RESTORE_WINDOW_DAYS = 90;
+
     private DocConstants() {
     }
 }

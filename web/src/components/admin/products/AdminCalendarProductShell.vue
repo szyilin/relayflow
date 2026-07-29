@@ -27,7 +27,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 gap-6">
+  <div class="flex gap-6">
     <aside class="hidden w-52 shrink-0 lg:block">
       <div class="sticky top-0 space-y-3">
         <div class="px-2">

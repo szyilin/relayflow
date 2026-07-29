@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.relayflow.module.docs.dal.mapper.DocPlacementExtMapper">
+
+    <select id="selectLibraryNodeByObjectIdIncludeDeleted"
+            resultType="com.relayflow.module.docs.dal.dataobject.DocLibraryNodeDO">
+        SELECT id, tenant_id, owner_user_id, parent_id, object_id, sort_order,
+               creator, create_time, updater, update_time, deleted
+        FROM doc_library_node
+        WHERE tenant_id = #{tenantId}
+          AND object_id = #{objectId}
+        ORDER BY deleted ASC, id DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectDriveItemByObjectIdIncludeDeleted"
+            resultType="com.relayflow.module.docs.dal.dataobject.DocDriveItemDO">
+        SELECT id, tenant_id, owner_user_id, folder_id, object_id, sort_order,
+               creator, create_time, updater, update_time, deleted
+        FROM doc_drive_item
+        WHERE tenant_id = #{tenantId}
+          AND object_id = #{objectId}
+        ORDER BY deleted ASC, id DESC
+        LIMIT 1
+    </select>
+
+    <update id="updateLibraryNodeOwnerRoot">
+        UPDATE doc_library_node
+        SET owner_user_id = #{ownerUserId},
+            parent_id = NULL,
+            deleted = #{deleted},
+            updater = #{updater},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+    </update>
+
+    <update id="updateDriveItemOwnerRoot">
+        UPDATE doc_drive_item
+        SET owner_user_id = #{ownerUserId},
+            folder_id = NULL,
+            deleted = #{deleted},
+            updater = #{updater},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+    </update>
+
+    <update id="softDeleteLibraryNode">
+        UPDATE doc_library_node
+        SET deleted = 1,
+            updater = #{updater},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+    </update>
+
+    <update id="softDeleteDriveItem">
+        UPDATE doc_drive_item
+        SET deleted = 1,
+            updater = #{updater},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+    </update>
+
+</mapper>

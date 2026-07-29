@@ -119,7 +119,8 @@
 | **admin-enterprise-info** | **done** | **done** | `/admin-api/system/enterprise/*` · `/admin/system/enterprise` | [contract](../../openspec/lanes/admin-enterprise-info/contract.md) | `-integrate` 完成；档案/地址接真实 API；geo 接 `infra/geo/children` |
 | **admin-product-settings** | **ready** | **done** | `/admin-api/im/product-settings*` · `/admin/products/**` · app 公开群/撤回编辑 | [contract](../../openspec/lanes/admin-product-settings/contract.md) | 母 change 主能力已交付；docs 见下行；日历见再下行 |
 | **admin-docs-product-settings** | **ready** | **done** | B：`/admin-api/docs/product-settings` · effective | [contract](../../openspec/lanes/admin-docs-product-settings/contract.md) | B-integrate 完成 |
-| **admin-docs-file-ops** | **draft** | **ui_ready** | A1：`/admin-api/docs/files*` · `/admin/products/docs/files` | 同上 contract § A1 | 本地草稿 Mock；待 A1-api |
+| **admin-docs-file-ops** | **ready** | **done** | A1：`/admin-api/docs/files*` · `/admin/products/docs/files` | 同上 contract § A1 | A1-integrate 完成；无 Mock |
+| **admin-docs-storage-quota** | **ready** | **done** | A2：`/admin-api/docs/storage-*` · `/admin/products/docs/storage` | 同上 contract § A2 | A2-integrate 完成；上传触顶 `DOC_STORAGE_QUOTA_EXCEEDED` |
 | **admin-calendar-product-settings** | **ready** | **done** | `/admin-api/calendar/product-settings*` · `/admin/products/calendar/**` · 本机色 / 全员日历 | [contract](../../openspec/lanes/admin-calendar-product-settings/contract.md) | `admin-calendar-product-settings-v1`；本机色 App API 见 workspace-calendar contract |
 | **workspace-meeting** | **ready** | **done** | `/app-api/meeting/*` · `/app/meeting` · rtc `RtcSessionApi` · `CalEventApi` | [contract](../../openspec/lanes/meeting/contract.md) | 母 [workspace-meeting-v1](../../openspec/changes/workspace-meeting-v1/proposal.md)；去 Mock；join-credentials + LiveKit；日历「加入会议」 |
 

@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final String ACCESS_DENIED =
+            "org.springframework.security.access.AccessDeniedException";
 
     @ExceptionHandler(ServiceException.class)
     @ResponseStatus(HttpStatus.OK)
@@ -43,6 +45,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public CommonResult<Void> handleException(Exception exception) {
+        if (ACCESS_DENIED.equals(exception.getClass().getName())) {
+            log.warn("Access denied: {}", exception.getMessage());
+            return CommonResult.error(
+                    GlobalErrorCodeConstants.FORBIDDEN.getCode(),
+                    GlobalErrorCodeConstants.FORBIDDEN.getMsg());
+        }
         log.error("Unhandled exception", exception);
         return CommonResult.error(
                 GlobalErrorCodeConstants.INTERNAL_SERVER_ERROR.getCode(),
