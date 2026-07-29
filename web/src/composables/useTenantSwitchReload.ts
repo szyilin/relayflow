@@ -12,6 +12,7 @@ import { useImStore } from '../stores/im'
 import { useEnterpriseStore } from '../stores/enterprise'
 import { useInviteSettingsStore } from '../stores/inviteSettings'
 import { useImProductSettingsStore } from '../stores/imProductSettings'
+import { useDocsProductSettingsStore } from '../stores/docsProductSettings'
 import { useCalProductSettingsStore } from '../stores/calProductSettings'
 import { useOrgInviteStore } from '../stores/orgInvite'
 import { useProfileStore } from '../stores/profile'
@@ -34,6 +35,7 @@ export function useTenantSwitchReload() {
   const enterprise = useEnterpriseStore()
   const inviteSettings = useInviteSettingsStore()
   const imProductSettings = useImProductSettingsStore()
+  const docsProductSettings = useDocsProductSettingsStore()
   const calProductSettings = useCalProductSettingsStore()
   const orgInvite = useOrgInviteStore()
   const profile = useProfileStore()
@@ -62,6 +64,7 @@ export function useTenantSwitchReload() {
     enterprise.resetForTenantSwitch()
     inviteSettings.resetForTenantSwitch()
     imProductSettings.resetForTenantSwitch()
+    docsProductSettings.resetForTenantSwitch()
     calProductSettings.resetForTenantSwitch()
     orgInvite.resetForTenantSwitch()
     tasks.resetForTenantSwitch()
@@ -127,6 +130,7 @@ export function useTenantSwitchReload() {
     if (route.path.startsWith('/app/calendar')) {
       try {
         await calendar.fetchCalendars()
+        await calendar.fetchOrgPolicy()
         await calendar.fetchShares()
       } catch {
         // 页面 onMounted / watch 会再拉

@@ -21,6 +21,7 @@ import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
 import com.relayflow.module.docs.service.notify.DocsBotNotifyService;
+import com.relayflow.module.docs.service.productsettings.DocProductSettingsService;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
 import com.relayflow.module.system.api.user.dto.UserBasicDTO;
@@ -53,6 +54,7 @@ public class DocShareServiceImpl implements DocShareService {
     private final TenantMemberApi tenantMemberApi;
     private final UserApi userApi;
     private final DocsBotNotifyService docsBotNotifyService;
+    private final DocProductSettingsService docProductSettingsService;
 
     @Override
     public DocShareListRespVO listShares(Long objectId) {
@@ -72,6 +74,7 @@ public class DocShareServiceImpl implements DocShareService {
     public DocShareItemRespVO createShare(Long objectId, DocShareCreateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireMemberShareEnabled(tenantId);
         DocObjectDO object = docAccessService.requireOwnedShareableRichDoc(objectId, userId);
 
         Long grantee = request.getGranteeUserId();
@@ -119,6 +122,8 @@ public class DocShareServiceImpl implements DocShareService {
     @Transactional(rollbackFor = Exception.class)
     public DocShareItemRespVO updateShare(Long objectId, Long shareId, DocShareUpdateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireMemberShareEnabled(tenantId);
         DocObjectDO object = docAccessService.requireOwnedShareableRichDoc(objectId, userId);
         DocShareDO row = requireShareOnObject(objectId, shareId);
         String permission = normalizePermission(request.getPermission());
@@ -136,6 +141,8 @@ public class DocShareServiceImpl implements DocShareService {
     @Transactional(rollbackFor = Exception.class)
     public void revokeShare(Long objectId, Long shareId) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        requireMemberShareEnabled(tenantId);
         docAccessService.requireOwnedShareableRichDoc(objectId, userId);
         DocShareDO row = requireShareOnObject(objectId, shareId);
         docShareMapper.deleteById(row.getId());
@@ -285,5 +292,11 @@ public class DocShareServiceImpl implements DocShareService {
             return 50;
         }
         return Math.min(limit, 100);
+    }
+
+    private void requireMemberShareEnabled(Long tenantId) {
+        if (!docProductSettingsService.resolveMemberShareEnabled(tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.DOC_MEMBER_SHARE_DISABLED);
+        }
     }
 }

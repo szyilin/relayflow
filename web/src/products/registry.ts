@@ -35,9 +35,9 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     icon: 'i-lucide-file-text',
     workspacePath: '/app/docs',
     workspaceRailId: 'docs',
-    adminSettingsPath: '/admin/products/docs',
-    adminStatus: 'placeholder',
-    description: '组织级云文档设置（即将开放）'
+    adminSettingsPath: '/admin/products/docs/permissions',
+    adminStatus: 'enabled',
+    description: '权限与分享、文件管理与存储空间等组织策略'
   },
   {
     id: 'calendar',

@@ -20,7 +20,10 @@ public enum ErrorCodeConstants implements ErrorCode {
     DOC_PLACEMENT_INVALID(1_006_001_010, "文档放置无效或不支持该移动"),
     DOC_SHARE_SELF(1_006_001_011, "不能分享给自己"),
     DOC_SHARE_TYPE_UNSUPPORTED(1_006_001_012, "该类型文档暂不支持分享"),
-    DOC_GRANTEE_INVALID(1_006_001_013, "被分享人不是本企业有效成员");
+    DOC_GRANTEE_INVALID(1_006_001_013, "被分享人不是本企业有效成员"),
+    DOC_MEMBER_SHARE_DISABLED(1_006_001_014, "企业已禁止成员分享文档"),
+    DOC_MARKDOWN_EXPORT_DISABLED(1_006_001_015, "企业已禁止导出 Markdown"),
+    DOC_DRIVE_UPLOAD_DISABLED(1_006_001_016, "企业已禁止上传云盘文件");
 
     private final Integer code;
     private final String msg;

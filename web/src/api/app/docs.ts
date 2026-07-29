@@ -125,6 +125,12 @@ export interface DocsExportMdResp {
   markdown: string
 }
 
+export interface DocsEffectiveSettings {
+  memberShareEnabled: boolean
+  markdownExportEnabled: boolean
+  driveUploadEnabled: boolean
+}
+
 export function emptyTipTapDoc(): TipTapDocJson {
   return {
     type: 'doc',
@@ -229,4 +235,8 @@ export function starDocument(objectId: string): Promise<void> {
 
 export function unstarDocument(objectId: string): Promise<void> {
   return del<void>(`/app-api/docs/documents/${objectId}/star`)
+}
+
+export function getDocsEffectiveSettings(): Promise<DocsEffectiveSettings> {
+  return get<DocsEffectiveSettings>('/app-api/docs/settings/effective')
 }

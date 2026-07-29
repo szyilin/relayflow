@@ -17,6 +17,7 @@ import com.relayflow.module.docs.dal.mapper.DocUserVisitMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
+import com.relayflow.module.docs.service.productsettings.DocProductSettingsService;
 import com.relayflow.module.docs.service.visit.DocVisitService;
 import com.relayflow.module.docs.support.DocJsonSupport;
 import com.relayflow.module.docs.support.TipTapToMarkdown;
@@ -48,6 +49,7 @@ public class DocDocumentServiceImpl implements DocDocumentService {
     private final DocAccessService docAccessService;
     private final DocVisitService docVisitService;
     private final DocJsonSupport docJsonSupport;
+    private final DocProductSettingsService docProductSettingsService;
     private final UserApi userApi;
 
     @Override
@@ -114,6 +116,10 @@ public class DocDocumentServiceImpl implements DocDocumentService {
     @Override
     public DocExportMdRespVO exportMarkdown(Long objectId) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
+        Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        if (!docProductSettingsService.resolveMarkdownExportEnabled(tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.DOC_MARKDOWN_EXPORT_DISABLED);
+        }
         DocAccessService.AccessResult access = docAccessService.requireReadableRichDoc(objectId, userId);
         DocObjectDO row = access.getObject();
 

@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   createDocumentShare,
   createLibraryNode,
   deleteDocumentShare,
   deleteLibraryNode,
   exportDocumentMarkdown,
+  getDocsEffectiveSettings,
   getDocument,
   leaveSharedDocument,
   listDocumentShares,
@@ -20,6 +21,7 @@ import {
   updateDocumentShare,
   updateLibraryNode,
   type DocsDocument,
+  type DocsEffectiveSettings,
   type DocsLibraryNode,
   type DocsRecentItem,
   type DocsShareItem,
@@ -37,6 +39,9 @@ import { useProfileStore } from './profile'
 const DOC_NOT_FOUND = 1_006_001_001
 const DOC_FORBIDDEN = 1_006_001_002
 const DOC_VERSION_CONFLICT = 1_006_001_003
+const DOC_MEMBER_SHARE_DISABLED = 1_006_001_014
+const DOC_MARKDOWN_EXPORT_DISABLED = 1_006_001_015
+const DOC_DRIVE_UPLOAD_DISABLED = 1_006_001_016
 
 function cloneDoc(body: TipTapDocJson): TipTapDocJson {
   return JSON.parse(JSON.stringify(body)) as TipTapDocJson
@@ -49,6 +54,15 @@ function toStoreError(error: unknown, fallback: string): Error {
     }
     if (error.code === DOC_FORBIDDEN) {
       return new Error('无权访问该文档（分享已取消或已离开）')
+    }
+    if (error.code === DOC_MEMBER_SHARE_DISABLED) {
+      return new Error('企业已禁止成员分享文档')
+    }
+    if (error.code === DOC_MARKDOWN_EXPORT_DISABLED) {
+      return new Error('企业已禁止导出 Markdown')
+    }
+    if (error.code === DOC_DRIVE_UPLOAD_DISABLED) {
+      return new Error('企业已禁止上传云盘文件')
     }
     return new Error(error.message || fallback)
   }
@@ -106,6 +120,11 @@ export const useDocsStore = defineStore('docs', () => {
 
   const activeObjectId = ref<string | null>(null)
   const activeDocument = ref<DocsDocument | null>(null)
+  const effectiveSettings = ref<DocsEffectiveSettings | null>(null)
+
+  const memberShareEnabled = computed(() => effectiveSettings.value?.memberShareEnabled ?? true)
+  const markdownExportEnabled = computed(() => effectiveSettings.value?.markdownExportEnabled ?? true)
+  const driveUploadEnabled = computed(() => effectiveSettings.value?.driveUploadEnabled ?? true)
 
   function myUserId() {
     return useAuthStore().userId ?? useProfileStore().profile?.userId ?? ''
@@ -182,7 +201,13 @@ export const useDocsStore = defineStore('docs', () => {
       if (!useProfileStore().profile) {
         await useProfileStore().fetchProfile().catch(() => null)
       }
-      await Promise.all([loadTree(), loadRecent(), loadShared(), loadStarred()])
+      await Promise.all([
+        loadTree(),
+        loadRecent(),
+        loadShared(),
+        loadStarred(),
+        ensureEffectiveSettings()
+      ])
       hydrated.value = true
     } catch (e) {
       error.value = toStoreError(e, '加载文档库失败').message
@@ -190,6 +215,22 @@ export const useDocsStore = defineStore('docs', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function ensureEffectiveSettings() {
+    if (effectiveSettings.value) {
+      return effectiveSettings.value
+    }
+    try {
+      effectiveSettings.value = await getDocsEffectiveSettings()
+    } catch {
+      effectiveSettings.value = {
+        memberShareEnabled: true,
+        markdownExportEnabled: true,
+        driveUploadEnabled: true
+      }
+    }
+    return effectiveSettings.value
   }
 
   async function refreshCollabLists() {
@@ -314,6 +355,10 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function exportMarkdown(objectId: string): Promise<string> {
+    await ensureEffectiveSettings()
+    if (!markdownExportEnabled.value) {
+      throw new Error('企业已禁止导出 Markdown')
+    }
     try {
       const resp = await exportDocumentMarkdown(objectId)
       return resp.markdown
@@ -328,6 +373,10 @@ export const useDocsStore = defineStore('docs', () => {
     _granteeDisplayName: string,
     permission: DocsSharePermission
   ) {
+    await ensureEffectiveSettings()
+    if (!memberShareEnabled.value) {
+      throw new Error('企业已禁止成员分享文档')
+    }
     if (granteeUserId === myUserId()) {
       throw new Error('不能分享给自己')
     }
@@ -344,6 +393,10 @@ export const useDocsStore = defineStore('docs', () => {
     shareId: string,
     permission: DocsSharePermission
   ) {
+    await ensureEffectiveSettings()
+    if (!memberShareEnabled.value) {
+      throw new Error('企业已禁止成员分享文档')
+    }
     try {
       await updateDocumentShare(objectId, shareId, { permission })
       await loadShares(objectId)
@@ -353,6 +406,10 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function revokeShare(objectId: string, shareId: string) {
+    await ensureEffectiveSettings()
+    if (!memberShareEnabled.value) {
+      throw new Error('企业已禁止成员分享文档')
+    }
     try {
       await deleteDocumentShare(objectId, shareId)
       await loadShares(objectId)
@@ -407,6 +464,7 @@ export const useDocsStore = defineStore('docs', () => {
 
   function resetLocal() {
     hydrated.value = false
+    effectiveSettings.value = null
     treeRoots.value = []
     recentItems.value = []
     sharedItems.value = []
@@ -432,7 +490,12 @@ export const useDocsStore = defineStore('docs', () => {
     starredItems,
     activeObjectId,
     activeDocument,
+    effectiveSettings,
+    memberShareEnabled,
+    markdownExportEnabled,
+    driveUploadEnabled,
     ensureHydrated,
+    ensureEffectiveSettings,
     loadTree,
     loadRecent,
     loadShared,

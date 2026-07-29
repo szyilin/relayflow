@@ -24,6 +24,7 @@ import com.relayflow.module.docs.dal.mapper.DocObjectMapper;
 import com.relayflow.module.docs.enums.DocConstants;
 import com.relayflow.module.docs.enums.ErrorCodeConstants;
 import com.relayflow.module.docs.service.access.DocAccessService;
+import com.relayflow.module.docs.service.productsettings.DocProductSettingsService;
 import com.relayflow.module.infra.api.file.FileApi;
 import com.relayflow.module.infra.api.file.dto.FileBindReqDTO;
 import com.relayflow.module.infra.api.file.dto.FileRespDTO;
@@ -58,6 +59,7 @@ public class DocDriveServiceImpl implements DocDriveService {
     private final DocLibraryNodeMapper docLibraryNodeMapper;
     private final DocObjectMapper docObjectMapper;
     private final DocAccessService docAccessService;
+    private final DocProductSettingsService docProductSettingsService;
     private final FileApi fileApi;
     private final UserApi userApi;
 
@@ -187,6 +189,9 @@ public class DocDriveServiceImpl implements DocDriveService {
     public DocDriveItemRespVO registerFile(DocDriveFileRegisterReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
+        if (!docProductSettingsService.resolveDriveUploadEnabled(tenantId)) {
+            throw new ServiceException(ErrorCodeConstants.DOC_DRIVE_UPLOAD_DISABLED);
+        }
         Long folderId = request.getFolderId();
         if (folderId != null) {
             docAccessService.requireOwnedDriveFolder(folderId, userId);

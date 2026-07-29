@@ -10,6 +10,7 @@ const { hasPermission } = usePermission()
 const canQuery = computed(() =>
   hasPermission('im:product-settings:query')
   || hasPermission('calendar:product-settings:query')
+  || hasPermission('docs:product-settings:query')
 )
 </script>
 
@@ -36,7 +37,7 @@ meta:
           color="warning"
           variant="subtle"
           title="无权限"
-          description="需要 im:product-settings:query 或 calendar:product-settings:query 才能查看产品设置。"
+          description="需要 im / calendar / docs 任一产品设置查询权限。"
         />
 
         <div

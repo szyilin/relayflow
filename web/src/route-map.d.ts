@@ -108,6 +108,27 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/admin/products/docs/files/': RouteRecordInfo<
+      '/admin/products/docs/files/',
+      '/admin/products/docs/files',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/docs/permissions/': RouteRecordInfo<
+      '/admin/products/docs/permissions/',
+      '/admin/products/docs/permissions',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/admin/products/docs/storage/': RouteRecordInfo<
+      '/admin/products/docs/storage/',
+      '/admin/products/docs/storage',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/admin/products/im/': RouteRecordInfo<
       '/admin/products/im/',
       '/admin/products/im',
@@ -379,6 +400,30 @@ declare module 'vue-router/auto-routes' {
     'src/pages/admin/products/docs/index.vue': {
       routes:
         | '/admin/products/docs/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/docs/files/index.vue': {
+      routes:
+        | '/admin/products/docs/files/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/docs/permissions/index.vue': {
+      routes:
+        | '/admin/products/docs/permissions/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/admin/products/docs/storage/index.vue': {
+      routes:
+        | '/admin/products/docs/storage/'
       views:
         | never
       pathParamNames:
