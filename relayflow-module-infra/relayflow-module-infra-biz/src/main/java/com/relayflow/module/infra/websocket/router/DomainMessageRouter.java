@@ -23,7 +23,16 @@ public class DomainMessageRouter {
                 .collect(Collectors.toMap(
                         handler -> handler.domain().toLowerCase(),
                         Function.identity(),
-                        (left, right) -> left));
+                        (left, right) -> {
+                            // Prefer non-NoOp when two handlers claim the same domain
+                            if (left.getClass().getSimpleName().startsWith("NoOp")) {
+                                return right;
+                            }
+                            if (right.getClass().getSimpleName().startsWith("NoOp")) {
+                                return left;
+                            }
+                            return left;
+                        }));
         this.sessionSender = sessionSender;
     }
 

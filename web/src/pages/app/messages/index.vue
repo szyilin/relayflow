@@ -12,12 +12,15 @@ import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
 import type { ContentBlock, GroupMemberItem, MessageItem, PublicGroupSearchItem } from '../../../api/app/im'
 import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
+import { sendPresenceTyping } from '../../../composables/useImWebSocket'
 import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
+import { useTypingStore } from '../../../stores/typing'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
 
 const im = useImStore()
 const presence = usePresenceStore()
+const typing = useTypingStore()
 const preference = useUserPreferenceStore()
 const route = useRoute()
 const router = useRouter()
@@ -52,6 +55,48 @@ const mentionTriggerStart = ref<number | null>(null)
 const isNearBottom = ref(true)
 const unreadFabDismissed = ref(false)
 let readReportTimer: ReturnType<typeof setTimeout> | null = null
+let typingStartTimer: ReturnType<typeof setTimeout> | null = null
+let typingActive = false
+
+const TYPING_DEBOUNCE_MS = 300
+
+function clearTypingStartTimer() {
+  if (typingStartTimer) {
+    clearTimeout(typingStartTimer)
+    typingStartTimer = null
+  }
+}
+
+function stopTypingSignal() {
+  clearTypingStartTimer()
+  const conversationId = im.activeConversationId
+  if (!conversationId || !typingActive || isBotDmActive.value) {
+    typingActive = false
+    return
+  }
+  typingActive = false
+  sendPresenceTyping(conversationId, false)
+}
+
+function scheduleTypingStart() {
+  if (isBotDmActive.value || !im.activeConversationId) {
+    return
+  }
+  if (!draft.value.trim()) {
+    stopTypingSignal()
+    return
+  }
+  clearTypingStartTimer()
+  typingStartTimer = setTimeout(() => {
+    typingStartTimer = null
+    const conversationId = im.activeConversationId
+    if (!conversationId || !draft.value.trim() || isBotDmActive.value) {
+      return
+    }
+    typingActive = true
+    sendPresenceTyping(conversationId, true)
+  }, TYPING_DEBOUNCE_MS)
+}
 
 const NEAR_BOTTOM_PX = 80
 
@@ -436,6 +481,7 @@ async function handleSend() {
   if ((!text.trim() && pendingMentions.value.length === 0) || im.sending) {
     return
   }
+  stopTypingSignal()
   const mentions = [...pendingMentions.value]
   draft.value = ''
   pendingMentions.value = []
@@ -537,13 +583,22 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleDraftInput() {
   syncMentionPickerFromDraft()
+  scheduleTypingStart()
+}
+
+function handleDraftBlur() {
+  stopTypingSignal()
 }
 
 function handleDraftClick() {
   syncMentionPickerFromDraft()
 }
 
-watch(() => im.activeConversationId, (conversationId) => {
+watch(() => im.activeConversationId, (conversationId, prevId) => {
+  stopTypingSignal()
+  if (prevId) {
+    typing.clearConversation(prevId)
+  }
   pendingMentions.value = []
   closeMentionPicker()
   if (conversationId) {
@@ -772,6 +827,17 @@ function conversationSubtitle(thread: { type: string, memberCount?: number, botC
 function headerSubtitle() {
   if (!active.value) {
     return ''
+  }
+  const typingHint = typing.typingLabel(im.activeConversationId, {
+    selfUserId: im.currentUserId(),
+    isDirect: active.value.type === 'direct',
+    resolveName: (userId) => {
+      const member = im.groupMembers.find(m => m.userId === userId)
+      return member?.nickname || active.value?.title || '成员'
+    }
+  })
+  if (typingHint) {
+    return typingHint
   }
   return conversationSubtitle(active.value)
 }
@@ -1285,6 +1351,7 @@ meta:
               @input="handleDraftInput"
               @click="handleDraftClick"
               @keyup="handleDraftInput"
+              @blur="handleDraftBlur"
             >
             <UButton
               icon="i-lucide-send"

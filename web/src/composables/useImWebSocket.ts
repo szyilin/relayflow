@@ -8,6 +8,23 @@ export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
   onMessageUpdated?: (message: MessageItem) => void
   onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
+  onTypingUpdated?: (payload: { conversationId: string, userId: string, typing: boolean }) => void
+}
+
+/** Shared sender for modules that need uplink without owning the socket (e.g. typing). */
+let sharedSendEnvelope: ((envelope: RealtimeEnvelope) => void) | null = null
+
+export function sendPresenceTyping(conversationId: string, typing: boolean) {
+  if (!conversationId || !sharedSendEnvelope) {
+    return
+  }
+  sharedSendEnvelope({
+    domain: 'presence',
+    type: typing ? 'typing.start' : 'typing.stop',
+    requestId: crypto.randomUUID(),
+    ts: Date.now(),
+    payload: { conversationId }
+  })
 }
 
 function buildWebSocketUrl(token: string): string {
@@ -133,6 +150,19 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       if (conversationId && userId && readSeq != null) {
         handlers.onReadUpdated({ conversationId, userId, readSeq })
       }
+      return
+    }
+    if (envelope.domain === 'presence' && envelope.type === 'typing.updated') {
+      const payload = envelope.payload as Record<string, unknown> | undefined
+      if (!payload || handlers.onTypingUpdated == null) {
+        return
+      }
+      const conversationId = payload.conversationId != null ? String(payload.conversationId) : ''
+      const userId = payload.userId != null ? String(payload.userId) : ''
+      const typing = payload.typing === true || payload.typing === 'true'
+      if (conversationId && userId) {
+        handlers.onTypingUpdated({ conversationId, userId, typing })
+      }
     }
   }
 
@@ -141,6 +171,9 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
     clearPingTimer()
     clearReconnectTimer()
     connected.value = false
+    if (sharedSendEnvelope === sendEnvelope) {
+      sharedSendEnvelope = null
+    }
     if (ws) {
       ws.onopen = null
       ws.onclose = null
@@ -174,6 +207,7 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
 
     ws.onopen = () => {
       connected.value = true
+      sharedSendEnvelope = sendEnvelope
       clearPingTimer()
       sendPing()
       pingTimer = setInterval(sendPing, PING_INTERVAL_MS)
@@ -190,6 +224,9 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
 
     ws.onclose = () => {
       connected.value = false
+      if (sharedSendEnvelope === sendEnvelope) {
+        sharedSendEnvelope = null
+      }
       clearPingTimer()
       ws = null
       scheduleReconnect()
@@ -214,6 +251,7 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
   return {
     connected,
     connect,
-    disconnect
+    disconnect,
+    sendEnvelope
   }
 }

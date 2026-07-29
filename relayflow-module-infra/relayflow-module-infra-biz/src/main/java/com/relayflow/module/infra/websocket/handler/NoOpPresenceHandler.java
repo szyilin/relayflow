@@ -6,10 +6,19 @@ import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeSessionContext;
 import com.relayflow.module.infra.api.realtime.enums.RealtimeDomain;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+/**
+ * Fallback when no IM (or other) presence handler is registered.
+ * IM module provides {@code ImPresenceDomainHandler} for typing.*; that bean wins via
+ * {@link ConditionalOnMissingBean} / router merge preferring the non-noop handler.
+ */
 @Slf4j
 @Component
+@Order
+@ConditionalOnMissingBean(name = "imPresenceDomainHandler")
 public class NoOpPresenceHandler implements RealtimeDomainMessageHandler {
 
     @Override

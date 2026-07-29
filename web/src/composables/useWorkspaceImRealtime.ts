@@ -1,6 +1,7 @@
 import { onMounted } from 'vue'
 import { useImWebSocket } from './useImWebSocket'
 import { useImStore } from '../stores/im'
+import { useTypingStore } from '../stores/typing'
 
 /**
  * 工作台壳层级实时连接：IM 推送 + 会话列表预加载。
@@ -8,11 +9,13 @@ import { useImStore } from '../stores/im'
  */
 export function useWorkspaceImRealtime() {
   const im = useImStore()
+  const typing = useTypingStore()
 
   useImWebSocket({
     onMessageNew: message => im.handleMessageNew(message),
     onMessageUpdated: message => im.handleMessageUpdated(message),
-    onReadUpdated: payload => im.handleReadUpdated(payload.conversationId, payload.userId, payload.readSeq)
+    onReadUpdated: payload => im.handleReadUpdated(payload.conversationId, payload.userId, payload.readSeq),
+    onTypingUpdated: payload => typing.applyTypingUpdated(payload)
   })
 
   onMounted(() => {

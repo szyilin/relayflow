@@ -41,6 +41,7 @@
 | im-message-file | **ready** | **done** | `POST …/message/send` (file/image) · `/app/messages` | [contract](../../openspec/lanes/im-message-file/contract.md) | private 上传 + JWT 预览/下载 |
 | im-read-receipt | **ready** | **done** | `GET …/conversation/read-status` · `/app/messages` | [contract](../../openspec/lanes/im-read-receipt/contract.md) | 单聊「已读」+ WS `read.updated` |
 | im-presence | **ready** | **done** | `GET …/im/presence/batch` · messages/contacts | [contract](../../openspec/lanes/im-presence/contract.md) | 30s REST 轮询；WS push 留后续 |
+| **im-typing-indicator** | **done** | **done** | WS `presence` typing.* · `/app/messages` header | [contract](../../openspec/lanes/im-typing-indicator/contract.md) | Redis TTL 5s；不含 bot_dm；客户端 TTL 兜底 |
 | org-member-invite-notify | **ready** | **done** | `member-invite` · `/app/register`（触达改走 Bot DM，见 im-bot） | [contract](../../openspec/lanes/org-member-invite-notify/contract.md) | store 无 Mock |
 | workspace-tasks | **ready** | **done** | `/app-api/task/item/*` · `/app/tasks` | [contract](../../openspec/lanes/workspace-tasks/contract.md) | store 无 Mock |
 | im-bot-invite-migrate | **archived** | n/a | 邀请 → `org-assistant` · `ALL_ACTIVE_MEMBERSHIPS` | 见 archive | [archive](../../openspec/changes/archive/2026-07-16-im-bot-invite-migrate/proposal.md) |
