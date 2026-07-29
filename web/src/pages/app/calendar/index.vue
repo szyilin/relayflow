@@ -390,7 +390,14 @@ function isOwnedCalendar(cal: CalendarItem): boolean {
 function calendarRowMenuItems(cal: CalendarItem) {
   const colorChildren = calendarStore.DEFAULT_COLORS.map(color => ({
     label: color,
-    icon: 'i-lucide-circle',
+    avatar: {
+      alt: color,
+      style: { backgroundColor: color },
+      ui: {
+        root: 'ring-1 ring-default size-4',
+        fallback: 'bg-transparent text-[0px] leading-none'
+      }
+    },
     onSelect: () => {
       void setDisplayColorQuick(cal, color)
     }
@@ -399,6 +406,11 @@ function calendarRowMenuItems(cal: CalendarItem) {
     label: string
     icon?: string
     color?: string
+    avatar?: {
+      alt: string
+      style: { backgroundColor: string }
+      ui: Record<string, string>
+    }
     children?: typeof colorChildren
     onSelect?: () => void
   }> = [

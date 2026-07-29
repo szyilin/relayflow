@@ -20,6 +20,7 @@ import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarAttendeeResponse;
 import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
 import com.relayflow.module.calendar.enums.CalendarEventStatus;
+import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.enums.CalendarVideoMeetingKind;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
 import com.relayflow.module.calendar.service.allstaff.CalAllStaffService;
@@ -164,7 +165,7 @@ public class CalEventServiceImpl implements CalEventService {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         validateTime(request.getStartTime(), request.getEndTime());
-        CalCalendarDO calendar = calCalendarService.requireOwnedCalendar(request.getCalendarId(), userId);
+        CalCalendarDO calendar = calCalendarService.requireWritableCalendar(request.getCalendarId(), userId);
 
         String rrule = CalEventRecurrenceSupport.normalizeRrule(request.getRrule());
         RecurrenceExpander.validate(rrule);
@@ -262,7 +263,7 @@ public class CalEventServiceImpl implements CalEventService {
         Long tenantId = SecurityFrameworkUtils.requireLoginTenantId();
         validateTime(request.getStartTime(), request.getEndTime());
         CalEventDO event = requireOrganizerEvent(request.getId(), userId);
-        CalCalendarDO calendar = calCalendarService.requireOwnedCalendar(request.getCalendarId(), userId);
+        CalCalendarDO calendar = calCalendarService.requireWritableCalendar(request.getCalendarId(), userId);
 
         CalEventRecurrenceSupport.EditScope scope = recurrenceSupport.parseEditScope(request.getEditScope(), event, request.getInstanceStart(), CalEventRecurrenceSupport.EditScope.ALL);
         String rrule = CalEventRecurrenceSupport.normalizeRrule(request.getRrule());
@@ -607,10 +608,19 @@ public class CalEventServiceImpl implements CalEventService {
         if (event == null || CalendarEventStatus.CANCELLED.name().equals(event.getStatus())) {
             throw new ServiceException(ErrorCodeConstants.EVENT_NOT_FOUND);
         }
-        if (!Objects.equals(event.getOrganizerId(), userId)) {
-            throw new ServiceException(ErrorCodeConstants.EVENT_FORBIDDEN);
+        if (Objects.equals(event.getOrganizerId(), userId)) {
+            return event;
         }
-        return event;
+        // All-staff product admins may manage events on ALL_STAFF calendars they did not organize.
+        try {
+            CalCalendarDO calendar = calCalendarService.requireWritableCalendar(event.getCalendarId(), userId);
+            if (CalendarType.ALL_STAFF.name().equals(calendar.getType())) {
+                return event;
+            }
+        } catch (ServiceException ignored) {
+            // fall through
+        }
+        throw new ServiceException(ErrorCodeConstants.EVENT_FORBIDDEN);
     }
 
     private CalEventDO requireVisibleEvent(Long id, Long userId) {
@@ -678,7 +688,10 @@ public class CalEventServiceImpl implements CalEventService {
         boolean sharedRead = sharedReadCalendarIds.contains(master.getCalendarId())
                 || (allStaffCalendarIds != null && allStaffCalendarIds.contains(master.getCalendarId()));
         vo.setInvitedOnly(!owned && !sharedRead);
-        vo.setViewerRole(Objects.equals(master.getOrganizerId(), viewerId)
+        boolean allStaffManager = calendar != null
+                && CalendarType.ALL_STAFF.name().equals(calendar.getType())
+                && calCalendarService.canManageAllStaffCalendars();
+        vo.setViewerRole(Objects.equals(master.getOrganizerId(), viewerId) || allStaffManager
                 ? CalendarAttendeeRole.ORGANIZER.name()
                 : CalendarAttendeeRole.ATTENDEE.name());
         vo.setRrule(master.getRrule());

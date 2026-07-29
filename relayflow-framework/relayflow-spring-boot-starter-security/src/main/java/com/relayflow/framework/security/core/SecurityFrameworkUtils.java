@@ -3,9 +3,12 @@ package com.relayflow.framework.security.core;
 import com.relayflow.common.exception.GlobalErrorCodeConstants;
 import com.relayflow.common.exception.ServiceException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public final class SecurityFrameworkUtils {
+
+    private static final String SUPER_AUTHORITY = "*:*:*";
 
     private SecurityFrameworkUtils() {
     }
@@ -41,5 +44,20 @@ public final class SecurityFrameworkUtils {
 
     public static Long requireLoginTenantId() {
         return requireLoginUser().getTenantId();
+    }
+
+    /** True when login user has the given permission code or the super {@code *:*:*} authority. */
+    public static boolean hasAuthority(String authority) {
+        LoginUser loginUser = getLoginUser();
+        if (loginUser == null || authority == null || authority.isBlank()) {
+            return false;
+        }
+        for (GrantedAuthority granted : loginUser.getAuthorities()) {
+            String code = granted.getAuthority();
+            if (SUPER_AUTHORITY.equals(code) || authority.equals(code)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -10,6 +10,9 @@ import com.relayflow.module.calendar.dal.mapper.CalCalendarMapper;
 import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarType;
 import com.relayflow.module.calendar.enums.ErrorCodeConstants;
+import com.relayflow.module.calendar.service.allstaff.CalAllStaffService;
+import com.relayflow.module.calendar.service.pref.CalCalendarUserPrefService;
+import com.relayflow.module.calendar.service.settings.CalTenantSettingsService;
 import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,10 +26,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +47,10 @@ class CalCalendarServiceImplTest {
     private CalCalendarMapper calCalendarMapper;
     @Mock
     private CalEventMapper calEventMapper;
+    @Mock
+    private CalCalendarUserPrefService calCalendarUserPrefService;
+    @Mock
+    private CalTenantSettingsService calTenantSettingsService;
 
     private CalCalendarServiceImpl service;
 
@@ -48,7 +58,18 @@ class CalCalendarServiceImplTest {
     void setUp() {
         @SuppressWarnings("unchecked")
         ObjectProvider<CalCalendarShareService> shareProvider = mock(ObjectProvider.class);
-        service = new CalCalendarServiceImpl(calCalendarMapper, calEventMapper, shareProvider);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<CalCalendarUserPrefService> prefProvider = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<CalAllStaffService> allStaffProvider = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<CalTenantSettingsService> settingsProvider = mock(ObjectProvider.class);
+        lenient().when(prefProvider.getObject()).thenReturn(calCalendarUserPrefService);
+        lenient().when(settingsProvider.getObject()).thenReturn(calTenantSettingsService);
+        lenient().when(calCalendarUserPrefService.displayColors(any(), anyCollection())).thenReturn(Map.of());
+        lenient().when(calTenantSettingsService.allowMemberCreateOwnedCalendar(TENANT_ID)).thenReturn(true);
+        service = new CalCalendarServiceImpl(
+                calCalendarMapper, calEventMapper, shareProvider, prefProvider, allStaffProvider, settingsProvider);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));

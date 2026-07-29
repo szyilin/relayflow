@@ -27,4 +27,13 @@ public interface CalCalendarService {
     CalCalendarDO ensurePrimary(Long tenantId, Long userId);
 
     CalCalendarDO requireOwnedCalendar(Long calendarId, Long userId);
+
+    /**
+     * Writable calendar for event create/move: owned PRIMARY/OWNED, or ALL_STAFF when the user
+     * has {@code calendar:product-settings:update}.
+     */
+    CalCalendarDO requireWritableCalendar(Long calendarId, Long userId);
+
+    /** Admin product-settings write authority for all-staff calendars. */
+    boolean canManageAllStaffCalendars();
 }

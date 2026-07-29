@@ -39,6 +39,7 @@ public class CalCalendarServiceImpl implements CalCalendarService {
 
     private static final String DEFAULT_PRIMARY_NAME = "我的日历";
     private static final String DEFAULT_PRIMARY_COLOR = "#3B82F6";
+    private static final String ALL_STAFF_WRITE_AUTHORITY = "calendar:product-settings:update";
 
     private final CalCalendarMapper calCalendarMapper;
     private final CalEventMapper calEventMapper;
@@ -141,8 +142,23 @@ public class CalCalendarServiceImpl implements CalCalendarService {
     @Override
     public void update(CalCalendarUpdateReqVO request) {
         Long userId = SecurityFrameworkUtils.requireLoginUserId();
-        CalCalendarDO row = requireOwnedCalendar(request.getId(), userId);
+        CalCalendarDO row = calCalendarMapper.selectById(request.getId());
+        if (row == null) {
+            throw new ServiceException(ErrorCodeConstants.CALENDAR_NOT_FOUND);
+        }
         if (CalendarType.ALL_STAFF.name().equals(row.getType())) {
+            if (!canManageAllStaffCalendars()) {
+                throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+            }
+            // Name/description only; default color stays admin product-settings only.
+            row.setName(request.getName().trim());
+            row.setDescription(blankToNull(request.getDescription()));
+            row.setUpdater(userId);
+            row.setUpdateTime(OffsetDateTime.now());
+            calCalendarMapper.updateById(row);
+            return;
+        }
+        if (!Objects.equals(row.getOwnerUserId(), userId)) {
             throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
         }
         row.setName(request.getName().trim());
@@ -226,6 +242,33 @@ public class CalCalendarServiceImpl implements CalCalendarService {
             throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
         }
         return row;
+    }
+
+    @Override
+    public CalCalendarDO requireWritableCalendar(Long calendarId, Long userId) {
+        CalCalendarDO row = calCalendarMapper.selectById(calendarId);
+        if (row == null) {
+            throw new ServiceException(ErrorCodeConstants.CALENDAR_NOT_FOUND);
+        }
+        String type = row.getType();
+        if (CalendarType.PRIMARY.name().equals(type) || CalendarType.OWNED.name().equals(type)) {
+            if (!Objects.equals(row.getOwnerUserId(), userId)) {
+                throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+            }
+            return row;
+        }
+        if (CalendarType.ALL_STAFF.name().equals(type)) {
+            if (!canManageAllStaffCalendars()) {
+                throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+            }
+            return row;
+        }
+        throw new ServiceException(ErrorCodeConstants.CALENDAR_FORBIDDEN);
+    }
+
+    @Override
+    public boolean canManageAllStaffCalendars() {
+        return SecurityFrameworkUtils.hasAuthority(ALL_STAFF_WRITE_AUTHORITY);
     }
 
     private static String blankToNull(String value) {

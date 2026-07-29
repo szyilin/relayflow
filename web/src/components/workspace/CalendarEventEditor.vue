@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatISO, parseISO } from 'date-fns'
 import type { CalendarEditScope, CalendarEvent, CalendarVideoMeetingKind } from '../../api/app/calendar'
 import { scheduleMeeting } from '../../api/app/meeting'
+import { usePermission } from '../../composables/usePermission'
 import { useAuthStore } from '../../stores/auth'
 import { useCalendarStore } from '../../stores/calendar'
 import { useContactsStore } from '../../stores/contacts'
@@ -28,7 +29,11 @@ const calendarStore = useCalendarStore()
 const preference = useUserPreferenceStore()
 const contacts = useContactsStore()
 const auth = useAuthStore()
+const { hasPermission } = usePermission()
 const toast = useToast()
+
+const canManageAllStaff = computed(() =>
+  hasPermission('calendar:product-settings:update'))
 
 const linkedMeetingId = computed(() =>
   form.videoMeetingKind === 'RELAYFLOW' ? (form.meetingId || props.event?.meetingId || null) : null)
@@ -100,12 +105,11 @@ const isRecurringEdit = computed(() =>
   props.mode === 'edit' && Boolean(props.event?.recurring || props.event?.rrule))
 
 const calendarItems = computed(() => {
-  const uid = auth.userId
   return calendarStore.calendars
     .filter(c =>
       c.type === 'PRIMARY'
       || c.type === 'OWNED'
-      || (c.type === 'ALL_STAFF' && uid != null && c.ownerUserId === uid))
+      || (c.type === 'ALL_STAFF' && canManageAllStaff.value))
     .map(c => ({
       label: c.name,
       value: c.id

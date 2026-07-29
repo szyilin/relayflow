@@ -12,8 +12,10 @@ import com.relayflow.module.calendar.dal.mapper.CalEventExceptionMapper;
 import com.relayflow.module.calendar.dal.mapper.CalEventMapper;
 import com.relayflow.module.calendar.enums.CalendarAttendeeRole;
 import com.relayflow.module.calendar.enums.CalendarType;
+import com.relayflow.module.calendar.service.allstaff.CalAllStaffService;
 import com.relayflow.module.calendar.service.calendar.CalCalendarService;
 import com.relayflow.module.calendar.service.notify.CalendarBotNotifyService;
+import com.relayflow.module.calendar.service.pref.CalCalendarUserPrefService;
 import com.relayflow.module.calendar.service.share.CalCalendarShareService;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
 import com.relayflow.module.system.api.user.UserApi;
@@ -59,6 +61,10 @@ class CalEventServiceImplTest {
     @Mock
     private CalCalendarShareService calCalendarShareService;
     @Mock
+    private CalCalendarUserPrefService calCalendarUserPrefService;
+    @Mock
+    private CalAllStaffService calAllStaffService;
+    @Mock
     private TenantMemberApi tenantMemberApi;
     @Mock
     private UserApi userApi;
@@ -73,8 +79,8 @@ class CalEventServiceImplTest {
                 new CalEventRecurrenceSupport(calEventMapper, calEventExceptionMapper);
         service = new CalEventServiceImpl(
                 calEventMapper, calAttendeeMapper, calCalendarMapper,
-                calCalendarService, calCalendarShareService, tenantMemberApi, userApi,
-                calendarBotNotifyService, recurrenceSupport);
+                calCalendarService, calCalendarShareService, calCalendarUserPrefService, calAllStaffService,
+                tenantMemberApi, userApi, calendarBotNotifyService, recurrenceSupport);
         LoginUser loginUser = new LoginUser(USER_ID, "u", TENANT_ID, "member", List.of());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities()));
@@ -93,7 +99,7 @@ class CalEventServiceImplTest {
         calendar.setType(CalendarType.OWNED.name());
         calendar.setName("工作");
         calendar.setColor("#EC4899");
-        when(calCalendarService.requireOwnedCalendar(CAL_ID, USER_ID)).thenReturn(calendar);
+        when(calCalendarService.requireWritableCalendar(CAL_ID, USER_ID)).thenReturn(calendar);
         when(tenantMemberApi.filterActiveMemberUserIds(eq(TENANT_ID), anyCollection()))
                 .thenReturn(Set.of(PEER_ID));
         when(calEventMapper.insert(any(CalEventDO.class))).thenAnswer(invocation -> {
