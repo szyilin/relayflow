@@ -9,4 +9,7 @@ public class SkillCatalogItemRespVO {
     private String name;
     private String description;
     private String inputSchema;
+    private String domain;
+    /** HOT | DEFERRED */
+    private String tier;
 }

@@ -5,6 +5,7 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.skill.BuiltinSkill;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistryImpl;
+import com.relayflow.module.agent.skill.SkillTier;
 import com.relayflow.module.im.api.conversation.ImConversationReadApi;
 import com.relayflow.module.im.api.conversation.dto.ImMessageSummaryDTO;
 import com.relayflow.module.im.api.conversation.dto.ImReadPrincipal;
@@ -34,6 +35,8 @@ public class ImReadNearbySkill implements BuiltinSkill {
                 .inputSchema("""
                         {"type":"object","properties":{"conversationId":{"type":"integer"},"aroundSeq":{"type":"integer"},"before":{"type":"integer","minimum":0,"maximum":20},"after":{"type":"integer","minimum":0,"maximum":20}},"required":["aroundSeq"]}
                         """)
+                .domain("im")
+                .tier(SkillTier.HOT)
                 .build();
     }
 

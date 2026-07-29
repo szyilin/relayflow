@@ -26,10 +26,20 @@ public class AgentBuilder {
      * @param tools skill tool callbacks (may be empty)
      */
     public RuntimeAgent build(AgentDefDO def, List<ToolCallback> tools) {
+        return build(def, tools, null);
+    }
+
+    /**
+     * @param domainSummaryAppendix short authorized-domain blurb (may be null/blank)
+     */
+    public RuntimeAgent build(AgentDefDO def, List<ToolCallback> tools, String domainSummaryAppendix) {
         String persona = def.getSystemPrompt() == null ? "" : def.getSystemPrompt().trim();
         String systemPrompt = PLATFORM_BASE_PROMPT.trim();
         if (StringUtils.hasText(persona)) {
             systemPrompt = systemPrompt + "\n\n# Persona\n" + persona;
+        }
+        if (StringUtils.hasText(domainSummaryAppendix)) {
+            systemPrompt = systemPrompt + "\n\n" + domainSummaryAppendix.trim();
         }
         List<ToolCallback> safeTools = tools == null ? List.of() : List.copyOf(tools);
         return RuntimeAgent.builder()

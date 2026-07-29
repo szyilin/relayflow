@@ -16,6 +16,7 @@
         <result column="system_prompt" property="systemPrompt" />
         <result column="model_ref" property="modelRef" />
         <result column="skill_ids_json" property="skillIdsJson" />
+        <result column="capability_profile_json" property="capabilityProfileJson" />
         <result column="carrier_bot_id" property="carrierBotId" />
         <result column="status" property="status" />
         <result column="owner_user_id" property="ownerUserId" />
@@ -31,7 +32,7 @@
         updater,
         update_time,
         deleted,
-        name, description, system_prompt, model_ref, skill_ids_json, carrier_bot_id, status, owner_user_id, visibility
+        name, description, system_prompt, model_ref, skill_ids_json, capability_profile_json, carrier_bot_id, status, owner_user_id, visibility
     </sql>
 
 </mapper>

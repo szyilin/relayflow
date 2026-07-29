@@ -7,23 +7,22 @@ import com.relayflow.module.agent.api.carrier.dto.AgentCarrierHistoryMessageDTO;
 import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.agent.builder.AgentBuilder;
 import com.relayflow.module.agent.builder.RuntimeAgent;
+import com.relayflow.module.agent.channel.AgentChannel;
 import com.relayflow.module.agent.dal.dataobject.AgentDefDO;
 import com.relayflow.module.agent.dal.mapper.AgentDefMapper;
 import com.relayflow.module.agent.runtime.AgentRunCommand;
 import com.relayflow.module.agent.runtime.AgentRunResult;
 import com.relayflow.module.agent.runtime.AgentRuntime;
-import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssembly;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssemblyService;
+import com.relayflow.module.agent.skill.assembly.CapabilityAuthContext;
 import com.relayflow.module.agent.skill.im.ImCarrierToolContext;
 import com.relayflow.module.agent.skill.im.ImCarrierToolScope;
-import com.relayflow.module.agent.skill.im.ImReadHistorySkill;
-import com.relayflow.module.agent.skill.im.ImReadMessageSkill;
-import com.relayflow.module.agent.skill.im.ImReadNearbySkill;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -44,15 +42,11 @@ import java.util.Set;
 public class AgentCarrierInboundApiImpl implements AgentCarrierInboundApi {
 
     private static final String STATUS_ACTIVE = "active";
-    private static final List<String> DEFAULT_IM_SKILLS = List.of(
-            ImReadMessageSkill.CODE,
-            ImReadNearbySkill.CODE,
-            ImReadHistorySkill.CODE);
 
     private final AgentDefMapper agentDefMapper;
     private final AgentBuilder agentBuilder;
     private final AgentRuntime agentRuntime;
-    private final SkillRegistry skillRegistry;
+    private final CapabilityAssemblyService capabilityAssemblyService;
 
     @Override
     public String handleInbound(AgentCarrierInboundCommand command) {
@@ -84,9 +78,13 @@ public class AgentCarrierInboundApiImpl implements AgentCarrierInboundApi {
             if (agent == null || !STATUS_ACTIVE.equals(agent.getStatus())) {
                 return null;
             }
-            List<String> skillIds = mergeImSkills(skillRegistry.parseSkillIdsJson(agent.getSkillIdsJson()));
-            List<ToolCallback> tools = skillRegistry.resolveToolCallbacks(skillIds);
-            RuntimeAgent runtimeAgent = agentBuilder.build(agent, tools);
+            CapabilityAssembly assembly = capabilityAssemblyService.assemble(agent, AgentChannel.IM_BOT);
+            CapabilityAuthContext.set(new CapabilityAuthContext.CapabilityAuthScope(
+                    Set.copyOf(assembly.getDeferredDomains()),
+                    assembly.getHotSkillCodeSet(),
+                    assembly.getDeferredSkillCodeSet()));
+            RuntimeAgent runtimeAgent = agentBuilder.build(
+                    agent, assembly.getTools(), assembly.getDomainSummaryAppendix());
             String systemPrompt = appendImToolHint(runtimeAgent.getSystemPrompt());
             AgentRunResult result = agentRuntime.run(AgentRunCommand.builder()
                     .modelRef(runtimeAgent.getModelRef())
@@ -103,6 +101,7 @@ public class AgentCarrierInboundApiImpl implements AgentCarrierInboundApi {
             String msg = ex.getMessage();
             return StringUtils.hasText(msg) ? "智能体暂时无法回复：" + msg : "智能体暂时无法回复，请稍后重试";
         } finally {
+            CapabilityAuthContext.clear();
             ImCarrierToolContext.clear();
             if (previousTenant != null) {
                 TenantContextHolder.set(previousTenant);
@@ -111,15 +110,6 @@ public class AgentCarrierInboundApiImpl implements AgentCarrierInboundApi {
             }
             SecurityContextHolder.setContext(previousContext);
         }
-    }
-
-    private static List<String> mergeImSkills(List<String> configured) {
-        Set<String> codes = new LinkedHashSet<>();
-        if (configured != null) {
-            codes.addAll(configured);
-        }
-        codes.addAll(DEFAULT_IM_SKILLS);
-        return List.copyOf(codes);
     }
 
     private static String appendImToolHint(String systemPrompt) {

@@ -3,7 +3,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import AgentChatPanel from '../../../components/workspace/agent/AgentChatPanel.vue'
 import { useAgentStore } from '../../../stores/agent'
-import type { AgentSession } from '../../../api/app/agent'
+import {
+  groupSkillsByDomain,
+  KNOWN_CAPABILITY_PACKS,
+  type AgentSession
+} from '../../../api/app/agent'
 
 const agent = useAgentStore()
 const toast = useToast()
@@ -15,7 +19,10 @@ const editorForm = reactive({
   name: '',
   description: '',
   systemPrompt: '',
-  modelRef: ''
+  modelRef: '',
+  skillIds: [] as string[],
+  hotPacks: [] as string[],
+  deferredDomains: [] as string[]
 })
 
 const autoOpen = ref(false)
@@ -86,6 +93,9 @@ function openCreateAgent() {
   editorForm.description = ''
   editorForm.systemPrompt = '你是友好的企业办公助手，回答简洁、可执行。'
   editorForm.modelRef = agent.models[0]?.code ?? ''
+  editorForm.skillIds = []
+  editorForm.hotPacks = []
+  editorForm.deferredDomains = []
   editorOpen.value = true
 }
 
@@ -100,6 +110,9 @@ function openEditAgent(id: string) {
   editorForm.description = item.description ?? ''
   editorForm.systemPrompt = item.systemPrompt
   editorForm.modelRef = item.modelRef
+  editorForm.skillIds = [...(item.skillIds ?? [])]
+  editorForm.hotPacks = [...(item.capabilityProfile?.hotPacks ?? [])]
+  editorForm.deferredDomains = [...(item.capabilityProfile?.deferredDomains ?? [])]
   editorOpen.value = true
 }
 
@@ -119,7 +132,12 @@ async function submitEditor() {
       description: editorForm.description.trim() || undefined,
       systemPrompt: editorForm.systemPrompt,
       modelRef: editorForm.modelRef,
-      status: 'active'
+      status: 'active',
+      skillIds: [...editorForm.skillIds],
+      capabilityProfile: {
+        hotPacks: [...editorForm.hotPacks],
+        deferredDomains: [...editorForm.deferredDomains]
+      }
     })
     editorOpen.value = false
     toast.add({
@@ -290,6 +308,66 @@ const agentSelectItems = computed(() =>
       value: a.id
     }))
 )
+
+/** Catalog skills for hot-path multi-select (exclude meta capability.*). */
+const selectableSkillGroups = computed(() =>
+  groupSkillsByDomain(
+    agent.skillCatalog.filter(s => s.domain !== 'capability' && s.code)
+  )
+)
+
+const deferredDomainOptions = computed(() => {
+  const domains = new Set<string>()
+  for (const item of agent.skillCatalog) {
+    if (item.domain && item.domain !== 'capability') {
+      domains.add(item.domain)
+    }
+  }
+  return [...domains].sort().map(domain => ({
+    value: domain,
+    label: domainLabel(domain)
+  }))
+})
+
+function domainLabel(domain: string) {
+  if (domain === 'im') {
+    return 'IM（消息）'
+  }
+  if (domain === 'task') {
+    return '任务'
+  }
+  return domain
+}
+
+function toggleSkillId(code: string, checked: boolean | 'indeterminate') {
+  const on = checked === true
+  const idx = editorForm.skillIds.indexOf(code)
+  if (on && idx < 0) {
+    editorForm.skillIds.push(code)
+  } else if (!on && idx >= 0) {
+    editorForm.skillIds.splice(idx, 1)
+  }
+}
+
+function toggleHotPack(packId: string, checked: boolean | 'indeterminate') {
+  const on = checked === true
+  const idx = editorForm.hotPacks.indexOf(packId)
+  if (on && idx < 0) {
+    editorForm.hotPacks.push(packId)
+  } else if (!on && idx >= 0) {
+    editorForm.hotPacks.splice(idx, 1)
+  }
+}
+
+function toggleDeferredDomain(domain: string, checked: boolean | 'indeterminate') {
+  const on = checked === true
+  const idx = editorForm.deferredDomains.indexOf(domain)
+  if (on && idx < 0) {
+    editorForm.deferredDomains.push(domain)
+  } else if (!on && idx >= 0) {
+    editorForm.deferredDomains.splice(idx, 1)
+  }
+}
 </script>
 
 <route lang="yaml">
@@ -656,10 +734,10 @@ meta:
     <UModal
       v-model:open="editorOpen"
       title="智能体"
-      description="定义名称、人设与模型引用"
+      description="定义名称、人设、模型与能力配置"
     >
       <template #body>
-        <div class="space-y-4">
+        <div class="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1">
           <UFormField
             label="名称"
             required
@@ -702,6 +780,114 @@ meta:
             >
               无可用模型：请先在管理端配置并启用模型连接。
             </p>
+          </UFormField>
+
+          <UFormField label="热路径技能">
+            <p class="mb-2 text-xs text-[var(--ws-text-muted)]">
+              直接暴露给模型的工具；按域分组。未勾选的长尾技能可通过下方「可检索域」经 capability.search / use 发现。
+            </p>
+            <div
+              v-if="!selectableSkillGroups.length"
+              class="rounded-lg border border-[var(--ws-border-subtle)] px-3 py-4 text-center text-xs text-[var(--ws-text-muted)]"
+            >
+              暂无技能目录
+            </div>
+            <div
+              v-else
+              class="space-y-3 rounded-lg border border-[var(--ws-border-subtle)] p-3"
+            >
+              <div
+                v-for="group in selectableSkillGroups"
+                :key="group.domain"
+              >
+                <p class="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-[var(--ws-text-muted)]">
+                  {{ domainLabel(group.domain) }}
+                </p>
+                <div class="space-y-1">
+                  <label
+                    v-for="skill in group.items"
+                    :key="skill.code"
+                    class="flex cursor-pointer items-start gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--ws-rail-hover)]"
+                  >
+                    <UCheckbox
+                      class="mt-0.5"
+                      :model-value="editorForm.skillIds.includes(skill.code)"
+                      @update:model-value="toggleSkillId(skill.code, $event)"
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-sm font-medium">
+                        {{ skill.name }}
+                        <span class="ml-1 font-normal text-[var(--ws-text-muted)]">{{ skill.code }}</span>
+                      </span>
+                      <span class="block text-xs text-[var(--ws-text-muted)]">
+                        {{ skill.tier === 'HOT' ? 'HOT' : 'DEFERRED' }}
+                        <template v-if="skill.description">
+                          · {{ skill.description }}
+                        </template>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </UFormField>
+
+          <UFormField label="热路径能力包">
+            <p class="mb-2 text-xs text-[var(--ws-text-muted)]">
+              具名包会合并进热路径；IM 通道仍会强制挂载 im-carrier。
+            </p>
+            <div class="space-y-1 rounded-lg border border-[var(--ws-border-subtle)] p-2">
+              <label
+                v-for="pack in KNOWN_CAPABILITY_PACKS"
+                :key="pack.id"
+                class="flex cursor-pointer items-start gap-2 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
+              >
+                <UCheckbox
+                  class="mt-0.5"
+                  :model-value="editorForm.hotPacks.includes(pack.id)"
+                  @update:model-value="toggleHotPack(pack.id, $event)"
+                />
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-medium">
+                    {{ pack.name }}
+                  </span>
+                  <span class="block text-xs text-[var(--ws-text-muted)]">
+                    {{ pack.id }} · {{ pack.description }}
+                  </span>
+                </span>
+              </label>
+            </div>
+          </UFormField>
+
+          <UFormField label="可检索域（Deferred）">
+            <p class="mb-2 text-xs text-[var(--ws-text-muted)]">
+              勾选后挂载 capability.search / use，模型可在授权域内发现长尾技能。
+            </p>
+            <div
+              v-if="!deferredDomainOptions.length"
+              class="rounded-lg border border-[var(--ws-border-subtle)] px-3 py-4 text-center text-xs text-[var(--ws-text-muted)]"
+            >
+              暂无可选域
+            </div>
+            <div
+              v-else
+              class="space-y-1 rounded-lg border border-[var(--ws-border-subtle)] p-2"
+            >
+              <label
+                v-for="opt in deferredDomainOptions"
+                :key="opt.value"
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
+              >
+                <UCheckbox
+                  :model-value="editorForm.deferredDomains.includes(opt.value)"
+                  @update:model-value="toggleDeferredDomain(opt.value, $event)"
+                />
+                <span class="text-sm">
+                  {{ opt.label }}
+                  <span class="text-[var(--ws-text-muted)]">（{{ opt.value }}）</span>
+                </span>
+              </label>
+            </div>
           </UFormField>
         </div>
       </template>

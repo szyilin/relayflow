@@ -4,6 +4,7 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.agent.controller.app.skill.vo.SkillCatalogItemRespVO;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.SkillTier;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +35,9 @@ public class AppAgentSkillController {
         vo.setName(descriptor.getName());
         vo.setDescription(descriptor.getDescription());
         vo.setInputSchema(descriptor.getInputSchema());
+        vo.setDomain(descriptor.getDomain());
+        SkillTier tier = descriptor.getTier() == null ? SkillTier.DEFERRED : descriptor.getTier();
+        vo.setTier(tier.name());
         return vo;
     }
 }

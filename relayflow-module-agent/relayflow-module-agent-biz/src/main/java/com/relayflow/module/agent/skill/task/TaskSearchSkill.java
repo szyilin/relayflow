@@ -5,6 +5,7 @@ import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.agent.skill.BuiltinSkill;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistryImpl;
+import com.relayflow.module.agent.skill.SkillTier;
 import com.relayflow.module.task.api.item.TaskItemApi;
 import com.relayflow.module.task.api.item.dto.TaskSearchRespDTO;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,8 @@ public class TaskSearchSkill implements BuiltinSkill {
                 .inputSchema("""
                         {"type":"object","properties":{"keyword":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":[]}
                         """)
+                .domain("task")
+                .tier(SkillTier.HOT)
                 .build();
     }
 

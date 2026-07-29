@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
+import com.relayflow.module.agent.controller.app.def.vo.AgentCapabilityProfileVO;
 import com.relayflow.module.agent.controller.app.def.vo.AgentDefRespVO;
 import com.relayflow.module.agent.controller.app.def.vo.AgentDefSaveReqVO;
 import com.relayflow.module.agent.dal.dataobject.AgentDefDO;
@@ -11,6 +12,8 @@ import com.relayflow.module.agent.dal.mapper.AgentDefMapper;
 import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.llm.LlmConnectionResolver;
 import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.pack.CapabilityPackRegistry;
+import com.relayflow.module.agent.skill.profile.CapabilityProfile;
 import com.relayflow.module.im.api.bot.ImBotProvisioningApi;
 import com.relayflow.module.im.api.bot.dto.ImBotProvisionAgentCarrierCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotProvisionResult;
@@ -34,6 +37,7 @@ public class AgentDefServiceImpl implements AgentDefService {
     private final AgentDefMapper agentDefMapper;
     private final LlmConnectionResolver llmConnectionResolver;
     private final SkillRegistry skillRegistry;
+    private final CapabilityPackRegistry capabilityPackRegistry;
     private final ImBotProvisioningApi imBotProvisioningApi;
 
     @Override
@@ -149,6 +153,33 @@ public class AgentDefServiceImpl implements AgentDefService {
         List<String> skillIds = request.getSkillIds() == null ? List.of() : request.getSkillIds();
         skillRegistry.validateSkillCodes(skillIds);
         row.setSkillIdsJson(skillRegistry.toSkillIdsJson(skillIds));
+
+        CapabilityProfile profile = toProfile(request.getCapabilityProfile());
+        capabilityPackRegistry.validatePackIds(profile.getHotPacks());
+        skillRegistry.validateDeferredDomains(profile.getDeferredDomains());
+        row.setCapabilityProfileJson(skillRegistry.toCapabilityProfileJson(profile));
+    }
+
+    private static CapabilityProfile toProfile(AgentCapabilityProfileVO vo) {
+        if (vo == null) {
+            return CapabilityProfile.builder().build();
+        }
+        return CapabilityProfile.builder()
+                .hotPacks(vo.getHotPacks() == null ? List.of() : vo.getHotPacks())
+                .deferredDomains(vo.getDeferredDomains() == null ? List.of() : vo.getDeferredDomains())
+                .build();
+    }
+
+    private static AgentCapabilityProfileVO toProfileVo(CapabilityProfile profile) {
+        AgentCapabilityProfileVO vo = new AgentCapabilityProfileVO();
+        if (profile == null) {
+            vo.setHotPacks(List.of());
+            vo.setDeferredDomains(List.of());
+            return vo;
+        }
+        vo.setHotPacks(profile.getHotPacks() == null ? List.of() : profile.getHotPacks());
+        vo.setDeferredDomains(profile.getDeferredDomains() == null ? List.of() : profile.getDeferredDomains());
+        return vo;
     }
 
     private void validateSave(AgentDefSaveReqVO request) {
@@ -183,6 +214,7 @@ public class AgentDefServiceImpl implements AgentDefService {
         vo.setOwnerUserId(row.getOwnerUserId());
         vo.setVisibility(row.getVisibility());
         vo.setSkillIds(skillRegistry.parseSkillIdsJson(row.getSkillIdsJson()));
+        vo.setCapabilityProfile(toProfileVo(skillRegistry.parseCapabilityProfileJson(row.getCapabilityProfileJson())));
         return vo;
     }
 }

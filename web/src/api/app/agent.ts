@@ -1,6 +1,11 @@
 import { ApiError, del, get, post, put } from '../request'
 import { getAccessToken } from '../../utils/session-storage'
 
+export interface AgentCapabilityProfile {
+  hotPacks?: string[]
+  deferredDomains?: string[]
+}
+
 export interface AgentDef {
   id: string
   name: string
@@ -11,6 +16,7 @@ export interface AgentDef {
   ownerUserId?: string
   visibility?: string
   skillIds?: string[]
+  capabilityProfile?: AgentCapabilityProfile
 }
 
 export interface AgentDefSavePayload {
@@ -21,6 +27,7 @@ export interface AgentDefSavePayload {
   modelRef: string
   status?: 'active' | 'disabled'
   skillIds?: string[]
+  capabilityProfile?: AgentCapabilityProfile
 }
 
 export interface AgentSession {
@@ -91,6 +98,7 @@ type RawMessage = Omit<AgentSessionMessage, 'id' | 'role' | 'parts'> & {
 
 function normalizeDef(row: RawAgentDef): AgentDef {
   const status = row.status === 'disabled' ? 'disabled' : 'active'
+  const profile = row.capabilityProfile
   return {
     id: String(row.id),
     name: row.name,
@@ -100,7 +108,11 @@ function normalizeDef(row: RawAgentDef): AgentDef {
     status,
     ownerUserId: row.ownerUserId != null ? String(row.ownerUserId) : undefined,
     visibility: row.visibility,
-    skillIds: Array.isArray(row.skillIds) ? row.skillIds.map(String) : []
+    skillIds: Array.isArray(row.skillIds) ? row.skillIds.map(String) : [],
+    capabilityProfile: {
+      hotPacks: Array.isArray(profile?.hotPacks) ? profile.hotPacks.map(String) : [],
+      deferredDomains: Array.isArray(profile?.deferredDomains) ? profile.deferredDomains.map(String) : []
+    }
   }
 }
 
@@ -407,15 +419,59 @@ export function listEnabledLlmModels(): Promise<EnabledLlmModel[]> {
   return get<EnabledLlmModel[]>('/app-api/agent/llm/model/list-enabled').then(rows => rows ?? [])
 }
 
+export type SkillTier = 'HOT' | 'DEFERRED'
+
 export interface SkillCatalogItem {
   code: string
   name: string
   description: string
   inputSchema?: string
+  /** Business domain, e.g. im / task / capability */
+  domain: string
+  tier: SkillTier
+}
+
+/** Known capability packs (aligned with backend CapabilityPackRegistry). */
+export const KNOWN_CAPABILITY_PACKS = [
+  { id: 'im-carrier', name: 'IM Carrier 热路径', description: 'IM 通道强制热路径：会话消息读' },
+  { id: 'workspace-default', name: '工作台默认热路径', description: '工作台 Session 默认起点（当前可为空）' }
+] as const
+
+type RawSkillCatalogItem = Omit<SkillCatalogItem, 'tier' | 'domain'> & {
+  domain?: string | null
+  tier?: string | null
+}
+
+function normalizeSkillCatalogItem(row: RawSkillCatalogItem): SkillCatalogItem {
+  const tier = row.tier === 'HOT' ? 'HOT' : 'DEFERRED'
+  return {
+    code: String(row.code ?? ''),
+    name: row.name ?? '',
+    description: row.description ?? '',
+    inputSchema: row.inputSchema,
+    domain: String(row.domain ?? '').trim() || 'unknown',
+    tier
+  }
 }
 
 export function listSkillCatalog(): Promise<SkillCatalogItem[]> {
-  return get<SkillCatalogItem[]>('/app-api/agent/skill/catalog').then(rows => rows ?? [])
+  return get<RawSkillCatalogItem[]>('/app-api/agent/skill/catalog')
+    .then(rows => (rows ?? []).map(normalizeSkillCatalogItem))
+}
+
+/** Group catalog items by domain (stable order: first-seen domains). */
+export function groupSkillsByDomain(items: SkillCatalogItem[]): Array<{ domain: string, items: SkillCatalogItem[] }> {
+  const order: string[] = []
+  const map = new Map<string, SkillCatalogItem[]>()
+  for (const item of items) {
+    const domain = item.domain || 'unknown'
+    if (!map.has(domain)) {
+      order.push(domain)
+      map.set(domain, [])
+    }
+    map.get(domain)!.push(item)
+  }
+  return order.map(domain => ({ domain, items: map.get(domain)! }))
 }
 
 export interface AgentAutomation {

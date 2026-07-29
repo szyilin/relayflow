@@ -7,6 +7,7 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.skill.BuiltinSkill;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistryImpl;
+import com.relayflow.module.agent.skill.SkillTier;
 import com.relayflow.module.task.api.item.TaskItemApi;
 import com.relayflow.module.task.api.item.dto.TaskDueRangeRespDTO;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,8 @@ public class TaskListDueSkill implements BuiltinSkill {
                 .inputSchema("""
                         {"type":"object","properties":{"from":{"type":"string","description":"ISO-8601 start inclusive"},"to":{"type":"string","description":"ISO-8601 end exclusive"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":["from","to"]}
                         """)
+                .domain("task")
+                .tier(SkillTier.HOT)
                 .build();
     }
 

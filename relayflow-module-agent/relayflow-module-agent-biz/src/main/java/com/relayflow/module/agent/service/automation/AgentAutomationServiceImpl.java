@@ -7,6 +7,7 @@ import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.agent.builder.AgentBuilder;
 import com.relayflow.module.agent.builder.RuntimeAgent;
+import com.relayflow.module.agent.channel.AgentChannel;
 import com.relayflow.module.agent.controller.app.automation.vo.AgentAutomationRespVO;
 import com.relayflow.module.agent.controller.app.automation.vo.AgentAutomationSaveReqVO;
 import com.relayflow.module.agent.dal.dataobject.AgentAutomationDO;
@@ -17,13 +18,14 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.runtime.AgentRunCommand;
 import com.relayflow.module.agent.runtime.AgentRunResult;
 import com.relayflow.module.agent.runtime.AgentRuntime;
-import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssembly;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssemblyService;
+import com.relayflow.module.agent.skill.assembly.CapabilityAuthContext;
 import com.relayflow.module.im.api.bot.ImBotApi;
 import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -53,7 +55,7 @@ public class AgentAutomationServiceImpl implements AgentAutomationService {
     private final AgentDefMapper agentDefMapper;
     private final AgentBuilder agentBuilder;
     private final AgentRuntime agentRuntime;
-    private final SkillRegistry skillRegistry;
+    private final CapabilityAssemblyService capabilityAssemblyService;
     private final ImBotApi imBotApi;
 
     @Override
@@ -163,9 +165,13 @@ public class AgentAutomationServiceImpl implements AgentAutomationService {
                 return;
             }
 
-            List<String> skillIds = skillRegistry.parseSkillIdsJson(agent.getSkillIdsJson());
-            List<ToolCallback> tools = skillRegistry.resolveToolCallbacks(skillIds);
-            RuntimeAgent runtimeAgent = agentBuilder.build(agent, tools);
+            CapabilityAssembly assembly = capabilityAssemblyService.assemble(agent, AgentChannel.AUTOMATION);
+            CapabilityAuthContext.set(new CapabilityAuthContext.CapabilityAuthScope(
+                    java.util.Set.copyOf(assembly.getDeferredDomains()),
+                    assembly.getHotSkillCodeSet(),
+                    assembly.getDeferredSkillCodeSet()));
+            RuntimeAgent runtimeAgent = agentBuilder.build(
+                    agent, assembly.getTools(), assembly.getDomainSummaryAppendix());
             AgentRunResult result = agentRuntime.run(AgentRunCommand.builder()
                     .modelRef(runtimeAgent.getModelRef())
                     .systemPrompt(runtimeAgent.getSystemPrompt())
@@ -206,6 +212,7 @@ public class AgentAutomationServiceImpl implements AgentAutomationService {
                         "自动化执行失败：" + msg);
             }
         } finally {
+            CapabilityAuthContext.clear();
             if (previousTenant != null) {
                 TenantContextHolder.set(previousTenant);
             } else {

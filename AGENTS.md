@@ -51,6 +51,7 @@ openspec archive <change-name>
 | **员工工作台 UI** | [workspace-ui-patterns.md](docs/dev/workspace-ui-patterns.md) | **编辑 `/app/*`、对接 app-api 前** |
 | **IM Bot / 业务触达** | [im-messaging-architecture-draft.md](docs/dev/im-messaging-architecture-draft.md) | **Bot、bot_dm、ImBotApi 概念与拍板结论** |
 | **智能体平台** | [agent-architecture-draft.md](docs/dev/agent-architecture-draft.md) | **AgentDef、Spring AI、Channel 隔离；母 change `agent-platform-foundation`** |
+| **Agent 能力/技能发现** | [agent-capability-architecture.md](docs/dev/agent-capability-architecture.md) | **热路径工具 · 域二级发现 · 流程技能包（对齐 Grok 理念）** |
 | **可交互卡片** | [im-bot-interactive-card.md](docs/dev/im-bot-interactive-card.md) | **写 card / CardActionHandler / 卡片 action 前** |
 | 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |

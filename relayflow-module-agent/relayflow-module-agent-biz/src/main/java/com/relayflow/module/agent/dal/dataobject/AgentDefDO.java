@@ -44,6 +44,12 @@ public class AgentDefDO extends TenantBaseDO {
     @TableField(value = "skill_ids_json", typeHandler = JsonbTypeHandler.class)
     private String skillIdsJson;
 
+    /**
+     * Capability profile JSON: hotPacks + deferredDomains (see CapabilityProfile).
+     */
+    @TableField(value = "capability_profile_json", typeHandler = JsonbTypeHandler.class)
+    private String capabilityProfileJson;
+
     @TableField("carrier_bot_id")
     private Long carrierBotId;
 

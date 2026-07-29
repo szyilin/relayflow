@@ -12,6 +12,7 @@ import {
   listAgentSessionMessages,
   listAgentSessions,
   listEnabledLlmModels,
+  listSkillCatalog,
   runAgentAutomationNow,
   sendAgentSessionMessageStream,
   switchAgentSession,
@@ -25,7 +26,8 @@ import {
   type AgentMessagePart,
   type AgentSession,
   type AgentSessionMessage,
-  type EnabledLlmModel
+  type EnabledLlmModel,
+  type SkillCatalogItem
 } from '../api/app/agent'
 import { ApiError } from '../api/request'
 
@@ -46,6 +48,7 @@ export const useAgentStore = defineStore('agent', () => {
   const automations = ref<AgentAutomation[]>([])
   const messagesBySession = ref<Record<string, AgentSessionMessage[]>>({})
   const models = ref<EnabledLlmModel[]>([])
+  const skillCatalog = ref<SkillCatalogItem[]>([])
 
   const panelMode = ref<AgentPanelMode>('home')
   const activeSessionId = ref<string | null>(null)
@@ -222,6 +225,10 @@ export const useAgentStore = defineStore('agent', () => {
     models.value = await listEnabledLlmModels()
   }
 
+  async function refreshSkillCatalog() {
+    skillCatalog.value = await listSkillCatalog()
+  }
+
   async function refreshAutomations() {
     automations.value = await listAgentAutomations()
   }
@@ -230,7 +237,13 @@ export const useAgentStore = defineStore('agent', () => {
     loading.value = true
     lastError.value = null
     try {
-      await Promise.all([refreshAgents(), refreshSessions(), refreshModels(), refreshAutomations()])
+      await Promise.all([
+        refreshAgents(),
+        refreshSessions(),
+        refreshModels(),
+        refreshAutomations(),
+        refreshSkillCatalog()
+      ])
     } catch (error) {
       lastError.value = errorMessage(error, '加载智能体失败，请确认后端已启动')
       throw error
@@ -620,6 +633,7 @@ export const useAgentStore = defineStore('agent', () => {
     sessions,
     automations,
     models,
+    skillCatalog,
     panelMode,
     activeSessionId,
     selectedAgentId,

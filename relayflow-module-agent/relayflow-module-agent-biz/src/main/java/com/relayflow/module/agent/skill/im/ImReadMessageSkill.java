@@ -5,6 +5,7 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.skill.BuiltinSkill;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistryImpl;
+import com.relayflow.module.agent.skill.SkillTier;
 import com.relayflow.module.im.api.conversation.ImConversationReadApi;
 import com.relayflow.module.im.api.conversation.dto.ImMessageSummaryDTO;
 import com.relayflow.module.im.api.conversation.dto.ImReadPrincipal;
@@ -31,6 +32,8 @@ public class ImReadMessageSkill implements BuiltinSkill {
                 .inputSchema("""
                         {"type":"object","properties":{"messageId":{"type":"integer","description":"消息 ID"}},"required":["messageId"]}
                         """)
+                .domain("im")
+                .tier(SkillTier.HOT)
                 .build();
     }
 

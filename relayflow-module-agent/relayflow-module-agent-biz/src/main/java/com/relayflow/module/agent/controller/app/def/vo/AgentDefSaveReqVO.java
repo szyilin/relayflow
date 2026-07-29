@@ -31,4 +31,7 @@ public class AgentDefSaveReqVO {
 
     /** Bound skill codes from catalog; empty/null means no tools. */
     private List<String> skillIds;
+
+    /** Capability profile (hot packs + deferred domains); optional. */
+    private AgentCapabilityProfileVO capabilityProfile;
 }

@@ -16,4 +16,5 @@ public class AgentDefRespVO {
     private Long ownerUserId;
     private String visibility;
     private List<String> skillIds;
+    private AgentCapabilityProfileVO capabilityProfile;
 }

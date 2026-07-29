@@ -5,6 +5,7 @@ import com.relayflow.module.agent.enums.ErrorCodeConstants;
 import com.relayflow.module.agent.skill.BuiltinSkill;
 import com.relayflow.module.agent.skill.SkillDescriptor;
 import com.relayflow.module.agent.skill.SkillRegistryImpl;
+import com.relayflow.module.agent.skill.SkillTier;
 import com.relayflow.module.im.api.conversation.ImConversationReadApi;
 import com.relayflow.module.im.api.conversation.dto.ImMessageSummaryDTO;
 import com.relayflow.module.im.api.conversation.dto.ImReadPrincipal;
@@ -34,6 +35,8 @@ public class ImReadHistorySkill implements BuiltinSkill {
                 .inputSchema("""
                         {"type":"object","properties":{"conversationId":{"type":"integer"},"beforeSeq":{"type":"integer","description":"只返回 seq 严格小于该值的消息"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":["beforeSeq"]}
                         """)
+                .domain("im")
+                .tier(SkillTier.HOT)
                 .build();
     }
 

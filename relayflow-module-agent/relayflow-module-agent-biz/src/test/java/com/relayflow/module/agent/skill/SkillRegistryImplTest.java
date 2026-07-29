@@ -29,6 +29,8 @@ class SkillRegistryImplTest {
                 .code(TaskSearchSkill.CODE)
                 .name("搜索任务")
                 .description("desc")
+                .domain("task")
+                .tier(com.relayflow.module.agent.skill.SkillTier.HOT)
                 .build());
         ToolCallback callback = mock(ToolCallback.class);
         when(callback.getToolDefinition()).thenReturn(ToolDefinition.builder()

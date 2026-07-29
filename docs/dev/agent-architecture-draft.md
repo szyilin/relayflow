@@ -35,13 +35,16 @@ RelayFlow 要展示 **可配置企业智能体** 能力（对齐飞书 aily 形�
 
 ## 3. 与开源对照（学什么 / 不学什么）
 
-### 3.1 grok-build（`xai-grok-agent`）
+### 3.1 grok-build（`xai-grok-agent` + tools/skills）
 
 | 学 | 不学 |
 |----|------|
 | Agent = Definition → Builder → 可运行对象 | Markdown/YAML 文件发现（我们用 DB + 管理/工作台 UI） |
 | tools 白名单、promptMode extend（base + persona） | 编程工具集（bash/文件）作默认 Skill |
 | Agent 与 Shell（Host）分离 | Rust crate / 终端 harness |
+| **热路径小工具集 + 长尾二级发现**（search → use）；Skills 短清单 + 懒加载正文 | 嵌其运行时 / 真 MCP 协议为唯一扩展；照搬 BM25 实现细节 |
+
+> **能力发现与 Skill/Tool 分层的目标态**见专文：[`agent-capability-architecture.md`](agent-capability-architecture.md)（2026-07-29）。母稿管 Channel/Runtime；该文管「技能变多后如何找得到」。
 
 ### 3.2 OpenClaw
 
@@ -167,6 +170,7 @@ agent-biz
 | 文档 | 关系 |
 |------|------|
 | 本文 | Agent 平台目标态与分层 |
+| [`agent-capability-architecture.md`](agent-capability-architecture.md) | **Capability / Skill 发现**（对齐 Grok：热路径 · 域检索 · 流程技能包） |
 | `im-messaging-architecture-draft.md` | Bot / bot_dm / Runtime SPI（载体层） |
 | `agent-platform-foundation` | OpenSpec 母 change |
 | 各子 change | 可执行 tasks |

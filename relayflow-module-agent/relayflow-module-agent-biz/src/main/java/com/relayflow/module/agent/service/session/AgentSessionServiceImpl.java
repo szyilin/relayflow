@@ -8,6 +8,7 @@ import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.agent.builder.AgentBuilder;
 import com.relayflow.module.agent.builder.RuntimeAgent;
+import com.relayflow.module.agent.channel.AgentChannel;
 import com.relayflow.module.agent.controller.app.session.vo.AgentMessagePartVO;
 import com.relayflow.module.agent.controller.app.session.vo.AgentSessionCreateReqVO;
 import com.relayflow.module.agent.controller.app.session.vo.AgentSessionMessageRespVO;
@@ -25,13 +26,14 @@ import com.relayflow.module.agent.runtime.AgentRunCommand;
 import com.relayflow.module.agent.runtime.AgentRunResult;
 import com.relayflow.module.agent.runtime.AgentRuntime;
 import com.relayflow.module.agent.runtime.AgentStreamEvent;
-import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssembly;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssemblyService;
+import com.relayflow.module.agent.skill.assembly.CapabilityAuthContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -63,7 +65,7 @@ public class AgentSessionServiceImpl implements AgentSessionService {
     private final AgentDefMapper agentDefMapper;
     private final AgentBuilder agentBuilder;
     private final AgentRuntime agentRuntime;
-    private final SkillRegistry skillRegistry;
+    private final CapabilityAssemblyService capabilityAssemblyService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -174,33 +176,41 @@ public class AgentSessionServiceImpl implements AgentSessionService {
         messageMapper.insert(userRow);
 
         List<Message> history = toSpringHistory(existing);
-        List<String> skillIds = skillRegistry.parseSkillIdsJson(agent.getSkillIdsJson());
-        List<ToolCallback> tools = skillRegistry.resolveToolCallbacks(skillIds);
-        RuntimeAgent runtimeAgent = agentBuilder.build(agent, tools);
-        AgentRunResult result = agentRuntime.run(AgentRunCommand.builder()
-                .modelRef(runtimeAgent.getModelRef())
-                .systemPrompt(runtimeAgent.getSystemPrompt())
-                .history(history)
-                .userMessage(userText)
-                .tools(runtimeAgent.getTools())
-                .build());
+        CapabilityAssembly assembly = capabilityAssemblyService.assemble(agent, AgentChannel.AGENT_WEB);
+        CapabilityAuthContext.set(new CapabilityAuthContext.CapabilityAuthScope(
+                java.util.Set.copyOf(assembly.getDeferredDomains()),
+                assembly.getHotSkillCodeSet(),
+                assembly.getDeferredSkillCodeSet()));
+        try {
+            RuntimeAgent runtimeAgent = agentBuilder.build(
+                    agent, assembly.getTools(), assembly.getDomainSummaryAppendix());
+            AgentRunResult result = agentRuntime.run(AgentRunCommand.builder()
+                    .modelRef(runtimeAgent.getModelRef())
+                    .systemPrompt(runtimeAgent.getSystemPrompt())
+                    .history(history)
+                    .userMessage(userText)
+                    .tools(runtimeAgent.getTools())
+                    .build());
 
-        String assistantText = result.getAssistantText() == null ? "" : result.getAssistantText();
-        AgentSessionMessageDO assistantRow = new AgentSessionMessageDO();
-        assistantRow.setTenantId(tenantId);
-        assistantRow.setSessionId(session.getId());
-        assistantRow.setRole(ROLE_ASSISTANT);
-        assistantRow.setContent(assistantText);
-        assistantRow.setPartsJson(writePartsJson(List.of(textPart(assistantText))));
-        assistantRow.setSeq(nextSeq + 1);
-        messageMapper.insert(assistantRow);
+            String assistantText = result.getAssistantText() == null ? "" : result.getAssistantText();
+            AgentSessionMessageDO assistantRow = new AgentSessionMessageDO();
+            assistantRow.setTenantId(tenantId);
+            assistantRow.setSessionId(session.getId());
+            assistantRow.setRole(ROLE_ASSISTANT);
+            assistantRow.setContent(assistantText);
+            assistantRow.setPartsJson(writePartsJson(List.of(textPart(assistantText))));
+            assistantRow.setSeq(nextSeq + 1);
+            messageMapper.insert(assistantRow);
 
-        touchSessionTitle(session, userText);
+            touchSessionTitle(session, userText);
 
-        AgentSessionSendRespVO resp = new AgentSessionSendRespVO();
-        resp.setUserMessage(toMessageVo(userRow));
-        resp.setAssistantMessage(toMessageVo(assistantRow));
-        return resp;
+            AgentSessionSendRespVO resp = new AgentSessionSendRespVO();
+            resp.setUserMessage(toMessageVo(userRow));
+            resp.setAssistantMessage(toMessageVo(assistantRow));
+            return resp;
+        } finally {
+            CapabilityAuthContext.clear();
+        }
     }
 
     @Override
@@ -259,6 +269,8 @@ public class AgentSessionServiceImpl implements AgentSessionService {
                     ErrorCodeConstants.AGENT_RUNTIME_FAILED.getCode()));
             throw new ServiceException(ErrorCodeConstants.AGENT_RUNTIME_FAILED.getCode(),
                     "智能体运行失败：" + ex.getMessage());
+        } finally {
+            CapabilityAuthContext.clear();
         }
     }
 
@@ -288,9 +300,13 @@ public class AgentSessionServiceImpl implements AgentSessionService {
         messageMapper.insert(userRow);
 
         List<Message> history = toSpringHistory(existing);
-        List<String> skillIds = skillRegistry.parseSkillIdsJson(agent.getSkillIdsJson());
-        List<ToolCallback> tools = skillRegistry.resolveToolCallbacks(skillIds);
-        RuntimeAgent runtimeAgent = agentBuilder.build(agent, tools);
+        CapabilityAssembly assembly = capabilityAssemblyService.assemble(agent, AgentChannel.AGENT_WEB);
+        CapabilityAuthContext.set(new CapabilityAuthContext.CapabilityAuthScope(
+                java.util.Set.copyOf(assembly.getDeferredDomains()),
+                assembly.getHotSkillCodeSet(),
+                assembly.getDeferredSkillCodeSet()));
+        RuntimeAgent runtimeAgent = agentBuilder.build(
+                agent, assembly.getTools(), assembly.getDomainSummaryAppendix());
         AgentRunCommand command = AgentRunCommand.builder()
                 .modelRef(runtimeAgent.getModelRef())
                 .systemPrompt(runtimeAgent.getSystemPrompt())

@@ -4,12 +4,17 @@ import com.relayflow.module.agent.api.carrier.dto.AgentCarrierHistoryMessageDTO;
 import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.agent.builder.AgentBuilder;
 import com.relayflow.module.agent.builder.RuntimeAgent;
+import com.relayflow.module.agent.channel.AgentChannel;
 import com.relayflow.module.agent.dal.dataobject.AgentDefDO;
 import com.relayflow.module.agent.dal.mapper.AgentDefMapper;
 import com.relayflow.module.agent.runtime.AgentRunCommand;
 import com.relayflow.module.agent.runtime.AgentRunResult;
 import com.relayflow.module.agent.runtime.AgentRuntime;
-import com.relayflow.module.agent.skill.SkillRegistry;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssembly;
+import com.relayflow.module.agent.skill.assembly.CapabilityAssemblyService;
+import com.relayflow.module.agent.skill.im.ImReadHistorySkill;
+import com.relayflow.module.agent.skill.im.ImReadMessageSkill;
+import com.relayflow.module.agent.skill.im.ImReadNearbySkill;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +26,15 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,13 +48,13 @@ class AgentCarrierInboundApiImplTest {
     @Mock
     private AgentRuntime agentRuntime;
     @Mock
-    private SkillRegistry skillRegistry;
+    private CapabilityAssemblyService capabilityAssemblyService;
 
     @InjectMocks
     private AgentCarrierInboundApiImpl api;
 
     @Test
-    void handleInbound_runsRuntimeWithHistoryAndDefaultImSkills() {
+    void handleInbound_runsRuntimeWithHistoryAndImCarrierPack() {
         AgentDefDO agent = new AgentDefDO();
         agent.setId(9L);
         agent.setTenantId(1L);
@@ -57,9 +65,24 @@ class AgentCarrierInboundApiImplTest {
         agent.setName("A");
 
         when(agentDefMapper.selectOne(any(Wrapper.class))).thenReturn(agent);
-        when(skillRegistry.parseSkillIdsJson("[]")).thenReturn(List.of());
-        when(skillRegistry.resolveToolCallbacks(anyList())).thenReturn(List.of());
-        when(agentBuilder.build(any(AgentDefDO.class), anyList())).thenReturn(RuntimeAgent.builder()
+        when(capabilityAssemblyService.assemble(eq(agent), eq(AgentChannel.IM_BOT)))
+                .thenReturn(CapabilityAssembly.builder()
+                        .hotSkillCodes(List.of(
+                                ImReadMessageSkill.CODE,
+                                ImReadNearbySkill.CODE,
+                                ImReadHistorySkill.CODE))
+                        .deferredDomains(List.of())
+                        .authorizedDomains(List.of("im"))
+                        .domainSummaryAppendix("")
+                        .metaToolsAttached(false)
+                        .tools(List.of())
+                        .hotSkillCodeSet(Set.of(
+                                ImReadMessageSkill.CODE,
+                                ImReadNearbySkill.CODE,
+                                ImReadHistorySkill.CODE))
+                        .deferredSkillCodeSet(Set.of())
+                        .build());
+        when(agentBuilder.build(any(AgentDefDO.class), anyList(), any())).thenReturn(RuntimeAgent.builder()
                 .agentId(9L)
                 .name("A")
                 .systemPrompt("sys")
@@ -88,11 +111,8 @@ class AgentCarrierInboundApiImplTest {
 
         assertEquals("ok", api.handleInbound(command));
 
-        ArgumentCaptor<List<String>> skillCaptor = ArgumentCaptor.forClass(List.class);
-        verify(skillRegistry).resolveToolCallbacks(skillCaptor.capture());
-        assertTrue(skillCaptor.getValue().contains("im.read_message"));
-        assertTrue(skillCaptor.getValue().contains("im.read_nearby"));
-        assertTrue(skillCaptor.getValue().contains("im.read_history"));
+        ArgumentCaptor<CapabilityAssembly> unused = ArgumentCaptor.forClass(CapabilityAssembly.class);
+        verify(capabilityAssemblyService).assemble(eq(agent), eq(AgentChannel.IM_BOT));
 
         ArgumentCaptor<AgentRunCommand> captor = ArgumentCaptor.forClass(AgentRunCommand.class);
         verify(agentRuntime).run(captor.capture());
