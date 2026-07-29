@@ -59,12 +59,18 @@ let typingStartTimer: ReturnType<typeof setTimeout> | null = null
 let typingActive = false
 
 const TYPING_DEBOUNCE_MS = 300
+/** IME composition (e.g. Chinese Pinyin) — v-model stays stale until compositionend. */
+const isComposing = ref(false)
 
 function clearTypingStartTimer() {
   if (typingStartTimer) {
     clearTimeout(typingStartTimer)
     typingStartTimer = null
   }
+}
+
+function hasTypingActivity() {
+  return isComposing.value || Boolean(draft.value.trim())
 }
 
 function stopTypingSignal() {
@@ -82,7 +88,7 @@ function scheduleTypingStart() {
   if (isBotDmActive.value || !im.activeConversationId) {
     return
   }
-  if (!draft.value.trim()) {
+  if (!hasTypingActivity()) {
     stopTypingSignal()
     return
   }
@@ -90,7 +96,7 @@ function scheduleTypingStart() {
   typingStartTimer = setTimeout(() => {
     typingStartTimer = null
     const conversationId = im.activeConversationId
-    if (!conversationId || !draft.value.trim() || isBotDmActive.value) {
+    if (!conversationId || !hasTypingActivity() || isBotDmActive.value) {
       return
     }
     typingActive = true
@@ -535,6 +541,10 @@ function onCardUpdated(message: MessageItem) {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  // Let IME own keys while composing (Enter confirms candidates, arrows move them).
+  if (event.isComposing || isComposing.value) {
+    return
+  }
   if (mentionPickerOpen.value && isGroupActive.value) {
     const list = filteredMentionMembers.value
     if (event.key === 'ArrowDown') {
@@ -586,7 +596,24 @@ function handleDraftInput() {
   scheduleTypingStart()
 }
 
+function handleCompositionStart() {
+  isComposing.value = true
+  scheduleTypingStart()
+}
+
+function handleCompositionUpdate() {
+  isComposing.value = true
+  scheduleTypingStart()
+}
+
+function handleCompositionEnd() {
+  isComposing.value = false
+  syncMentionPickerFromDraft()
+  scheduleTypingStart()
+}
+
 function handleDraftBlur() {
+  isComposing.value = false
   stopTypingSignal()
 }
 
@@ -831,6 +858,7 @@ function headerSubtitle() {
   const typingHint = typing.typingLabel(im.activeConversationId, {
     selfUserId: im.currentUserId(),
     isDirect: active.value.type === 'direct',
+    isBotDm: active.value.type === 'bot_dm',
     resolveName: (userId) => {
       const member = im.groupMembers.find(m => m.userId === userId)
       return member?.nickname || active.value?.title || '成员'
@@ -1007,14 +1035,12 @@ meta:
           :icon="conversationAvatarIcon(active.type)"
         />
         <div class="min-w-0 flex-1">
-          <h1 class="truncate font-semibold">
+          <h1 class="truncate font-semibold leading-5">
             {{ active.title }}
           </h1>
-          <p
-            v-if="headerSubtitle()"
-            class="text-xs text-[var(--ws-text-muted)]"
-          >
-            {{ headerSubtitle() }}
+          <!-- Always reserve one subtitle line so typing hint does not shift the message list. -->
+          <p class="h-4 truncate text-xs leading-4 text-[var(--ws-text-muted)]">
+            {{ headerSubtitle() || '\u00A0' }}
           </p>
         </div>
         <UButton
@@ -1349,6 +1375,9 @@ meta:
               :disabled="im.sending"
               @keydown="handleKeydown"
               @input="handleDraftInput"
+              @compositionstart="handleCompositionStart"
+              @compositionupdate="handleCompositionUpdate"
+              @compositionend="handleCompositionEnd"
               @click="handleDraftClick"
               @keyup="handleDraftInput"
               @blur="handleDraftBlur"

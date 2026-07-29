@@ -217,12 +217,19 @@ export default defineConfig({
       '/app-api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-        // Avoid proxy buffering for agent SSE (/session/send/stream)
+        // Agent SSE: disable proxy buffering and force chunked streaming
         configure: (proxy) => {
-          proxy.on('proxyRes', (proxyRes, req) => {
-            if (req.url?.includes('/agent/session/send/stream')) {
-              proxyRes.headers['cache-control'] = 'no-cache'
-              proxyRes.headers['x-accel-buffering'] = 'no'
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            if (!req.url?.includes('/agent/session/send/stream')) {
+              return
+            }
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform'
+            proxyRes.headers['x-accel-buffering'] = 'no'
+            proxyRes.headers['connection'] = 'keep-alive'
+            delete proxyRes.headers['content-length']
+            // Flush headers immediately so the browser starts the EventStream
+            if (typeof (res as { flushHeaders?: () => void }).flushHeaders === 'function') {
+              ;(res as { flushHeaders: () => void }).flushHeaders()
             }
           })
         }

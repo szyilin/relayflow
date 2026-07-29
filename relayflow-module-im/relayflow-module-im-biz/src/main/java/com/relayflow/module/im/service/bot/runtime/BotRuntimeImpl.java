@@ -2,7 +2,9 @@ package com.relayflow.module.im.service.bot.runtime;
 
 import com.relayflow.module.agent.api.carrier.AgentCarrierInboundApi;
 import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
+import com.relayflow.module.im.api.bot.dto.ImBotTypingCommand;
 import com.relayflow.module.im.enums.ImBotHandlerKind;
+import com.relayflow.module.im.service.bot.ImBotService;
 import com.relayflow.module.im.service.message.ImMessageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,13 +18,16 @@ public class BotRuntimeImpl implements BotRuntime {
 
     private final BotPlatformHandlerRegistry platformHandlerRegistry;
     private final ImMessageService messageService;
+    private final ImBotService imBotService;
     private final ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi;
 
     public BotRuntimeImpl(BotPlatformHandlerRegistry platformHandlerRegistry,
                           @Lazy ImMessageService messageService,
+                          ImBotService imBotService,
                           ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi) {
         this.platformHandlerRegistry = platformHandlerRegistry;
         this.messageService = messageService;
+        this.imBotService = imBotService;
         this.agentCarrierInboundApi = agentCarrierInboundApi;
     }
 
@@ -48,13 +53,37 @@ public class BotRuntimeImpl implements BotRuntime {
                 return;
             }
             if (ImBotHandlerKind.PLATFORM.equals(kind)) {
-                dispatchPlatform(context);
+                withBotTyping(context, () -> dispatchPlatform(context));
                 return;
             }
             log.warn("BotRuntime unknown handler_kind={}: botCode={}", kind, context.getBotCode());
         } catch (Exception ex) {
             log.warn("BotRuntime.dispatch failed: botCode={}, conversationId={}",
                     context.getBotCode(), context.getConversationId(), ex);
+        }
+    }
+
+    private void withBotTyping(BotInboundContext context, Runnable action) {
+        setTyping(context, true);
+        try {
+            action.run();
+        } finally {
+            setTyping(context, false);
+        }
+    }
+
+    private void setTyping(BotInboundContext context, boolean typing) {
+        if (!StringUtils.hasText(context.getBotCode()) || context.getConversationId() == null) {
+            return;
+        }
+        try {
+            ImBotTypingCommand command = new ImBotTypingCommand();
+            command.setBotCode(context.getBotCode());
+            command.setConversationId(context.getConversationId());
+            command.setTyping(typing);
+            imBotService.setTyping(command);
+        } catch (Exception ex) {
+            log.debug("Bot typing {} failed: botCode={}", typing, context.getBotCode(), ex);
         }
     }
 

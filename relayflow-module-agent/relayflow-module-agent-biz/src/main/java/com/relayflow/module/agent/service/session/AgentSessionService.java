@@ -24,6 +24,11 @@ public interface AgentSessionService {
     AgentSessionSendRespVO send(AgentSessionSendReqVO request);
 
     /**
+     * Switch the agent bound to a session without clearing message history.
+     */
+    AgentSessionRespVO switchAgent(Long sessionId, Long agentId);
+
+    /**
      * Stream a turn. Emits contract JSON maps (type + fields) via {@code onEvent}.
      * Runs synchronously on the calling thread (controller should offload).
      */

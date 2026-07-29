@@ -2,19 +2,24 @@
 import { computed } from 'vue'
 import { Comark } from '@comark/vue'
 import type { UIMessage } from 'ai'
-import type { AgentMessagePart, AgentSessionMessage } from '../../../api/app/agent'
+import type { AgentDef, AgentMessagePart, AgentSessionMessage } from '../../../api/app/agent'
 import type { AgentStreamStatus } from '../../../stores/agent'
 
 const props = defineProps<{
   messages: AgentSessionMessage[]
   status: AgentStreamStatus
   draft: string
+  agents: AgentDef[]
+  selectedAgentId: string | null
   loadingMessages?: boolean
   error?: Error | null
+  /** Allow switching agent mid-session (calls switch-agent API). */
+  allowSwitchAgent?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:draft': [value: string]
+  'update:selectedAgentId': [value: string]
   submit: []
   stop: []
 }>()
@@ -26,13 +31,33 @@ const chatMessages = computed(() =>
     .map(m => ({
       id: m.id,
       role: m.role as 'user' | 'assistant',
-      parts: (m.parts?.length ? m.parts : [{ type: 'text' as const, text: m.content }]) as UIMessage['parts']
+      parts: (m.parts?.length
+        ? m.parts
+        : (m.content ? [{ type: 'text' as const, text: m.content }] : [])) as UIMessage['parts']
     })) as UIMessage[]
 )
 
 const input = computed({
   get: () => props.draft,
   set: (value: string) => emit('update:draft', value)
+})
+
+const agentItems = computed(() =>
+  props.agents
+    .filter(a => a.status === 'active')
+    .map(a => ({
+      label: a.name,
+      value: a.id
+    }))
+)
+
+const selectedAgent = computed({
+  get: () => props.selectedAgentId ?? undefined,
+  set: (value: string | undefined) => {
+    if (value) {
+      emit('update:selectedAgentId', value)
+    }
+  }
 })
 
 function isTextPart(part: AgentMessagePart): part is Extract<AgentMessagePart, { type: 'text' }> {
@@ -103,11 +128,18 @@ function onSubmit() {
               :streaming="partStreaming(part)"
               class="mb-2"
             >
-              <Comark
-                :markdown="part.text"
-                :streaming="partStreaming(part)"
-                class="*:first:mt-0 *:last:mb-0 text-sm"
-              />
+              <Suspense>
+                <Comark
+                  :markdown="part.text || ' '"
+                  :streaming="partStreaming(part)"
+                  class="*:first:mt-0 *:last:mb-0 text-sm text-[var(--ws-text)]"
+                />
+                <template #fallback>
+                  <p class="whitespace-pre-wrap text-sm text-[var(--ws-text)]">
+                    {{ part.text }}
+                  </p>
+                </template>
+              </Suspense>
             </UChatReasoning>
 
             <UChatTool
@@ -127,12 +159,21 @@ function onSubmit() {
             </UChatTool>
 
             <template v-else-if="isTextPart(part)">
-              <Comark
-                v-if="message.role === 'assistant'"
-                :markdown="part.text"
-                :streaming="partStreaming(part)"
-                class="*:first:mt-0 *:last:mb-0"
-              />
+              <template v-if="message.role === 'assistant'">
+                <Suspense>
+                  <Comark
+                    :key="message.id"
+                    :markdown="part.text || ' '"
+                    :streaming="partStreaming(part)"
+                    class="*:first:mt-0 *:last:mb-0 text-[var(--ws-text)]"
+                  />
+                  <template #fallback>
+                    <p class="whitespace-pre-wrap text-[var(--ws-text)]">
+                      {{ part.text }}
+                    </p>
+                  </template>
+                </Suspense>
+              </template>
               <p
                 v-else
                 class="whitespace-pre-wrap"
@@ -165,6 +206,18 @@ function onSubmit() {
           :status="status"
           @stop="emit('stop')"
         />
+        <template #footer>
+          <div class="flex min-w-0 flex-1 items-center gap-2">
+            <USelect
+              v-model="selectedAgent"
+              :items="agentItems"
+              placeholder="选择智能体"
+              size="sm"
+              class="max-w-56"
+              :disabled="!agentItems.length || (allowSwitchAgent === false)"
+            />
+          </div>
+        </template>
       </UChatPrompt>
     </div>
   </div>

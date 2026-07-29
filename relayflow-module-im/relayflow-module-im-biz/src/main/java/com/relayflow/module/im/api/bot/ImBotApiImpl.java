@@ -2,6 +2,7 @@ package com.relayflow.module.im.api.bot;
 
 import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotSendResult;
+import com.relayflow.module.im.api.bot.dto.ImBotTypingCommand;
 import com.relayflow.module.im.service.bot.ImBotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,5 +21,10 @@ public class ImBotApiImpl implements ImBotApi {
     @Override
     public void ensureUserEnablementsOnActive(Long tenantId, Long userId) {
         imBotService.ensureUserEnablementsOnActive(tenantId, userId);
+    }
+
+    @Override
+    public void setTyping(ImBotTypingCommand command) {
+        imBotService.setTyping(command);
     }
 }

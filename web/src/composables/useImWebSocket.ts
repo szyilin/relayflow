@@ -8,7 +8,13 @@ export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
   onMessageUpdated?: (message: MessageItem) => void
   onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
-  onTypingUpdated?: (payload: { conversationId: string, userId: string, typing: boolean }) => void
+  onTypingUpdated?: (payload: {
+    conversationId: string
+    typing: boolean
+    senderType?: string
+    userId?: string
+    botId?: string
+  }) => void
 }
 
 /** Shared sender for modules that need uplink without owning the socket (e.g. typing). */
@@ -158,10 +164,12 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
         return
       }
       const conversationId = payload.conversationId != null ? String(payload.conversationId) : ''
-      const userId = payload.userId != null ? String(payload.userId) : ''
+      const userId = payload.userId != null ? String(payload.userId) : undefined
+      const botId = payload.botId != null ? String(payload.botId) : undefined
+      const senderType = payload.senderType != null ? String(payload.senderType) : undefined
       const typing = payload.typing === true || payload.typing === 'true'
-      if (conversationId && userId) {
-        handlers.onTypingUpdated({ conversationId, userId, typing })
+      if (conversationId && (userId || botId)) {
+        handlers.onTypingUpdated({ conversationId, userId, botId, senderType, typing })
       }
     }
   }

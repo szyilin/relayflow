@@ -131,6 +131,20 @@ public class AgentSessionServiceImpl implements AgentSessionService {
 
     @Override
     @Transactional
+    public AgentSessionRespVO switchAgent(Long sessionId, Long agentId) {
+        AgentSessionDO session = requireOwnedSession(sessionId);
+        AgentDefDO agent = requireAccessibleAgent(agentId);
+        if (!AGENT_STATUS_ACTIVE.equals(agent.getStatus())) {
+            throw new ServiceException(ErrorCodeConstants.AGENT_DEF_DISABLED);
+        }
+        session.setAgentId(agent.getId());
+        session.setUpdateTime(OffsetDateTime.now());
+        sessionMapper.updateById(session);
+        return toSessionVo(session, agent);
+    }
+
+    @Override
+    @Transactional
     public AgentSessionSendRespVO send(AgentSessionSendReqVO request) {
         if (request == null || !StringUtils.hasText(request.getContent())) {
             throw new ServiceException(ErrorCodeConstants.AGENT_MESSAGE_EMPTY);
@@ -487,6 +501,11 @@ public class AgentSessionServiceImpl implements AgentSessionService {
         vo.setAgentName(agent != null ? agent.getName() : null);
         vo.setTitle(session.getTitle());
         vo.setStatus(session.getStatus());
+        if (session.getUpdateTime() != null) {
+            vo.setUpdateTime(session.getUpdateTime().toString());
+        } else if (session.getCreateTime() != null) {
+            vo.setUpdateTime(session.getCreateTime().toString());
+        }
         return vo;
     }
 

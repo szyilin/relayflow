@@ -14,6 +14,7 @@ import {
   listEnabledLlmModels,
   runAgentAutomationNow,
   sendAgentSessionMessageStream,
+  switchAgentSession,
   updateAgentAutomation,
   updateAgentDef,
   type AgentAutomation,
@@ -28,7 +29,7 @@ import {
 } from '../api/app/agent'
 import { ApiError } from '../api/request'
 
-export type AgentPanelMode = 'home' | 'agents' | 'history' | 'automations'
+export type AgentPanelMode = 'home' | 'agents' | 'automations' | 'chat'
 
 /** Matches Nuxt UI / AI SDK chat status. */
 export type AgentStreamStatus = 'ready' | 'submitted' | 'streaming' | 'error'
@@ -95,7 +96,7 @@ export const useAgentStore = defineStore('agent', () => {
       if (msg.id !== assistantId) {
         return msg
       }
-      const parts = updater([...msg.parts])
+      const parts = updater(msg.parts.map(part => ({ ...part })))
       const textContent = parts
         .filter((p): p is Extract<AgentMessagePart, { type: 'text' }> => p.type === 'text')
         .map(p => p.text)
@@ -113,8 +114,11 @@ export const useAgentStore = defineStore('agent', () => {
       if (event.type === 'reasoning-delta') {
         const last = parts[parts.length - 1]
         if (last?.type === 'reasoning') {
-          last.text += event.text ?? ''
-          last.state = 'streaming'
+          parts[parts.length - 1] = {
+            ...last,
+            text: last.text + (event.text ?? ''),
+            state: 'streaming'
+          }
           return parts
         }
         parts.push({ type: 'reasoning', text: event.text ?? '', state: 'streaming' })
@@ -124,7 +128,7 @@ export const useAgentStore = defineStore('agent', () => {
         for (let i = parts.length - 1; i >= 0; i -= 1) {
           const part = parts[i]
           if (part?.type === 'reasoning') {
-            part.state = 'done'
+            parts[i] = { ...part, state: 'done' }
             break
           }
         }
@@ -140,17 +144,21 @@ export const useAgentStore = defineStore('agent', () => {
         return parts
       }
       if (event.type === 'tool-result') {
-        let tool: Extract<AgentMessagePart, { type: 'tool' }> | undefined
+        let toolIndex = -1
         for (let i = parts.length - 1; i >= 0; i -= 1) {
           const part = parts[i]
           if (part?.type === 'tool' && part.toolName === event.toolName && part.state === 'running') {
-            tool = part
+            toolIndex = i
             break
           }
         }
-        if (tool) {
-          tool.state = 'done'
-          tool.output = event.output
+        if (toolIndex >= 0) {
+          const tool = parts[toolIndex] as Extract<AgentMessagePart, { type: 'tool' }>
+          parts[toolIndex] = {
+            ...tool,
+            state: 'done',
+            output: event.output
+          }
         } else {
           parts.push({
             type: 'tool',
@@ -164,22 +172,26 @@ export const useAgentStore = defineStore('agent', () => {
       if (event.type === 'text-delta') {
         const last = parts[parts.length - 1]
         if (last?.type === 'text') {
-          last.text += event.text ?? ''
-          last.state = 'streaming'
+          parts[parts.length - 1] = {
+            ...last,
+            text: last.text + (event.text ?? ''),
+            state: 'streaming'
+          }
           return parts
         }
         parts.push({ type: 'text', text: event.text ?? '', state: 'streaming' })
         return parts
       }
       if (event.type === 'done') {
-        for (const part of parts) {
+        return parts.map((part) => {
           if (part.type === 'text' || part.type === 'reasoning') {
-            part.state = 'done'
+            return { ...part, state: 'done' as const }
           }
           if (part.type === 'tool' && part.state === 'running') {
-            part.state = 'done'
+            return { ...part, state: 'done' as const }
           }
-        }
+          return part
+        })
       }
       return parts
     })
@@ -235,10 +247,12 @@ export const useAgentStore = defineStore('agent', () => {
 
   function openAgents() {
     panelMode.value = 'agents'
+    activeSessionId.value = null
   }
 
   function openHistory() {
-    panelMode.value = 'history'
+    panelMode.value = 'home'
+    activeSessionId.value = null
   }
 
   function openAutomations() {
@@ -299,7 +313,7 @@ export const useAgentStore = defineStore('agent', () => {
         ...messagesBySession.value,
         [sessionId]: []
       }
-      panelMode.value = 'history'
+      panelMode.value = 'chat'
       draft.value = ''
       return sessionId
     } catch (error) {
@@ -310,7 +324,7 @@ export const useAgentStore = defineStore('agent', () => {
 
   async function openSession(sessionId: string) {
     activeSessionId.value = sessionId
-    panelMode.value = 'history'
+    panelMode.value = 'chat'
     const session = sessions.value.find(s => s.id === sessionId)
     if (session) {
       selectedAgentId.value = session.agentId
@@ -340,6 +354,23 @@ export const useAgentStore = defineStore('agent', () => {
     sending.value = false
     if (streamStatus.value === 'streaming' || streamStatus.value === 'submitted') {
       streamStatus.value = 'ready'
+    }
+  }
+
+  async function switchSessionAgent(agentId: string) {
+    const sessionId = activeSessionId.value
+    if (!sessionId) {
+      selectedAgentId.value = agentId
+      return
+    }
+    lastError.value = null
+    try {
+      const updated = await switchAgentSession(sessionId, agentId)
+      selectedAgentId.value = agentId
+      sessions.value = sessions.value.map(s => (s.id === sessionId ? { ...s, ...updated } : s))
+    } catch (error) {
+      lastError.value = errorMessage(error, '切换智能体失败')
+      throw error
     }
   }
 
@@ -381,6 +412,7 @@ export const useAgentStore = defineStore('agent', () => {
       role: 'assistant',
       content: '',
       seq: prev.length + 2,
+      // Empty parts → UChatMessages shows submitted indicator until first delta
       parts: []
     }
     patchSessionMessages(sessionId, [...prev, userMessage, assistantMessage])
@@ -398,7 +430,13 @@ export const useAgentStore = defineStore('agent', () => {
           if (signal.aborted) {
             return
           }
-          if (streamStatus.value === 'submitted') {
+          // Keep Nuxt UI "submitted" dots until first content/tool/reasoning delta
+          if (
+            streamStatus.value === 'submitted'
+            && (event.type === 'text-delta'
+              || event.type === 'reasoning-delta'
+              || event.type === 'tool-start')
+          ) {
             streamStatus.value = 'streaming'
           }
 
@@ -458,6 +496,7 @@ export const useAgentStore = defineStore('agent', () => {
 
           if (event.type === 'done') {
             streamStatus.value = 'ready'
+            applyStreamEvent(sessionId!, liveAssistantId, event)
             return
           }
 
@@ -472,6 +511,20 @@ export const useAgentStore = defineStore('agent', () => {
       if (!endedWithError) {
         streamStatus.value = 'ready'
       }
+      // Re-sync from server so the final assistant message is always visible
+      // even if some live deltas were dropped by proxy/chunk framing.
+      try {
+        const messages = await listAgentSessionMessages(sessionId)
+        patchSessionMessages(
+          sessionId,
+          messages.map(m => ({
+            ...m,
+            parts: ensureMessageParts(m)
+          }))
+        )
+      } catch {
+        // keep local stream state
+      }
       await refreshSessions()
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
@@ -481,6 +534,21 @@ export const useAgentStore = defineStore('agent', () => {
       streamStatus.value = 'error'
       streamError.value = error instanceof Error ? error : new Error(String(error))
       lastError.value = errorMessage(error, '发送失败')
+      // Still try to show persisted assistant reply after a transport error
+      try {
+        const messages = await listAgentSessionMessages(sessionId)
+        if (messages.length) {
+          patchSessionMessages(
+            sessionId,
+            messages.map(m => ({
+              ...m,
+              parts: ensureMessageParts(m)
+            }))
+          )
+        }
+      } catch {
+        // ignore
+      }
       throw error
     } finally {
       sending.value = false
@@ -567,6 +635,7 @@ export const useAgentStore = defineStore('agent', () => {
     startNewTask,
     openSession,
     sendMessage,
+    switchSessionAgent,
     stopStreaming,
     saveAutomation,
     removeAutomation,

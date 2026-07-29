@@ -10,6 +10,7 @@ import com.relayflow.module.agent.controller.app.session.vo.AgentSessionMessageR
 import com.relayflow.module.agent.controller.app.session.vo.AgentSessionRespVO;
 import com.relayflow.module.agent.controller.app.session.vo.AgentSessionSendReqVO;
 import com.relayflow.module.agent.controller.app.session.vo.AgentSessionSendRespVO;
+import com.relayflow.module.agent.controller.app.session.vo.AgentSessionSwitchAgentReqVO;
 import com.relayflow.module.agent.service.session.AgentSessionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -67,6 +68,11 @@ public class AppAgentSessionController {
     @PostMapping("/send")
     public CommonResult<AgentSessionSendRespVO> send(@Valid @RequestBody AgentSessionSendReqVO request) {
         return CommonResult.success(agentSessionService.send(request));
+    }
+
+    @PostMapping("/switch-agent")
+    public CommonResult<AgentSessionRespVO> switchAgent(@Valid @RequestBody AgentSessionSwitchAgentReqVO request) {
+        return CommonResult.success(agentSessionService.switchAgent(request.getSessionId(), request.getAgentId()));
     }
 
     @PostMapping(value = "/send/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

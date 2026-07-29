@@ -29,6 +29,7 @@ export interface AgentSession {
   agentName?: string | null
   title?: string | null
   status: string
+  updateTime?: string | null
 }
 
 /** Aligns with Nuxt UI Chat / AI SDK UIMessage parts (subset). */
@@ -109,7 +110,8 @@ function normalizeSession(row: RawSession): AgentSession {
     agentId: String(row.agentId),
     agentName: row.agentName ?? null,
     title: row.title ?? null,
-    status: row.status
+    status: row.status,
+    updateTime: row.updateTime ?? null
   }
 }
 
@@ -155,6 +157,10 @@ export function createAgentSession(agentId: string, title?: string): Promise<str
 
 export function listAgentSessions(): Promise<AgentSession[]> {
   return get<RawSession[]>('/app-api/agent/session/list').then(rows => (rows ?? []).map(normalizeSession))
+}
+
+export function switchAgentSession(sessionId: string, agentId: string): Promise<AgentSession> {
+  return post<RawSession>('/app-api/agent/session/switch-agent', { sessionId, agentId }).then(normalizeSession)
 }
 
 export function getAgentSession(id: string): Promise<AgentSession> {
@@ -275,6 +281,63 @@ function coerceStreamEvent(payload: unknown): AgentChatStreamEvent | null {
   return null
 }
 
+/** Emit events from one SSE frame; tolerates glued `data:{...}data:{...}` (proxy chunking). */
+function emitSseFrame(frame: string, onEvent: (event: AgentChatStreamEvent) => void) {
+  const trimmed = frame.trim()
+  if (!trimmed || trimmed.startsWith(':')) {
+    return
+  }
+  const parts = trimmed.includes('data:')
+    ? trimmed.split(/(?=data:)/).map(part => part.trim()).filter(Boolean)
+    : [trimmed]
+  for (const part of parts) {
+    const raw = part.startsWith('data:') ? part.slice(5).trimStart() : part
+    if (!raw) {
+      continue
+    }
+    // Multi-line SSE data: join continuation lines that are not fields
+    const payloadText = raw
+      .split('\n')
+      .filter(line => !/^(id|event|retry):/i.test(line))
+      .map(line => (line.startsWith('data:') ? line.slice(5).trimStart() : line))
+      .join('\n')
+    const event = coerceStreamEvent(parseSseDataPayload(payloadText))
+    if (event) {
+      onEvent(event)
+    }
+  }
+}
+
+function consumeSseBuffer(buffer: string, onEvent: (event: AgentChatStreamEvent) => void): string {
+  let rest = buffer.replace(/\r\n/g, '\n')
+  let sep: number
+  while ((sep = rest.indexOf('\n\n')) >= 0) {
+    const frame = rest.slice(0, sep)
+    rest = rest.slice(sep + 2)
+    emitSseFrame(frame, onEvent)
+  }
+  return rest
+}
+
+function flushSseBuffer(buffer: string, onEvent: (event: AgentChatStreamEvent) => void) {
+  const rest = consumeSseBuffer(buffer.endsWith('\n\n') ? buffer : `${buffer}\n\n`, onEvent)
+  if (rest.trim()) {
+    emitSseFrame(rest, onEvent)
+  }
+}
+
+function isStreamTerminatedError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+  const err = error as { name?: string, message?: string }
+  if (err.name === 'AbortError') {
+    return false
+  }
+  const message = String(err.message || '')
+  return /terminated|network error|Failed to fetch|other side closed/i.test(message)
+}
+
 export async function sendAgentSessionMessageStream(
   sessionId: string,
   content: string,
@@ -314,31 +377,29 @@ export async function sendAgentSessionMessageStream(
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
-    }
-    buffer += decoder.decode(value, { stream: true })
-    buffer = buffer.replace(/\r\n/g, '\n')
-
-    let sep: number
-    while ((sep = buffer.indexOf('\n\n')) >= 0) {
-      const chunk = buffer.slice(0, sep)
-      buffer = buffer.slice(sep + 2)
-      const dataLines = chunk
-        .split('\n')
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).trimStart())
-      if (!dataLines.length) {
-        continue
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
       }
-      const payload = parseSseDataPayload(dataLines.join('\n'))
-      const event = coerceStreamEvent(payload)
-      if (event) {
-        options.onEvent(event)
-      }
+      buffer += decoder.decode(value, { stream: true })
+      buffer = consumeSseBuffer(buffer, options.onEvent)
     }
+    buffer += decoder.decode()
+    flushSseBuffer(buffer, options.onEvent)
+  } catch (error) {
+    buffer += decoder.decode()
+    flushSseBuffer(buffer, options.onEvent)
+    if (options.signal?.aborted || (error as Error)?.name === 'AbortError') {
+      throw error
+    }
+    // Spring/SseEmitter often closes the socket right after `done`; treat as normal EOF
+    // once we have flushed any buffered frames.
+    if (isStreamTerminatedError(error)) {
+      return
+    }
+    throw error
   }
 }
 

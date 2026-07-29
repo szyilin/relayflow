@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import AgentChatPanel from '../../../components/workspace/agent/AgentChatPanel.vue'
 import { useAgentStore } from '../../../stores/agent'
+import type { AgentSession } from '../../../api/app/agent'
 
 const agent = useAgentStore()
 const toast = useToast()
@@ -27,8 +28,38 @@ const autoForm = reactive({
   status: 'active' as 'active' | 'disabled'
 })
 
-const showChat = computed(() => !!agent.activeSessionId)
-const showAutomations = computed(() => agent.panelMode === 'automations' && !agent.activeSessionId)
+const showAgentsPanel = computed(() => agent.panelMode === 'agents')
+const showAutomations = computed(() => agent.panelMode === 'automations')
+const showChat = computed(() => !!agent.activeSessionId && !showAgentsPanel.value && !showAutomations.value)
+const showHome = computed(() => !showChat.value && !showAgentsPanel.value && !showAutomations.value)
+
+type SessionGroup = { label: string, sessions: AgentSession[] }
+
+const sessionGroups = computed((): SessionGroup[] => {
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfYesterday = new Date(startOfToday)
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+
+  const groups: SessionGroup[] = [
+    { label: '今天', sessions: [] },
+    { label: '昨天', sessions: [] },
+    { label: '更早', sessions: [] }
+  ]
+
+  for (const session of agent.sessions) {
+    const raw = session.updateTime
+    const t = raw ? new Date(raw) : null
+    if (t && !Number.isNaN(t.getTime()) && t >= startOfToday) {
+      groups[0]!.sessions.push(session)
+    } else if (t && !Number.isNaN(t.getTime()) && t >= startOfYesterday) {
+      groups[1]!.sessions.push(session)
+    } else {
+      groups[2]!.sessions.push(session)
+    }
+  }
+  return groups.filter(g => g.sessions.length > 0)
+})
 
 onMounted(async () => {
   try {
@@ -166,6 +197,21 @@ async function handleOpenSession(sessionId: string) {
   }
 }
 
+async function handleSelectAgent(agentId: string) {
+  try {
+    if (agent.activeSessionId && showChat.value) {
+      await agent.switchSessionAgent(agentId)
+    } else {
+      agent.selectAgent(agentId)
+    }
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '切换智能体失败',
+      color: 'error'
+    })
+  }
+}
+
 function openCreateAutomation() {
   if (!agent.agents.length) {
     toast.add({ title: '请先创建智能体', color: 'warning' })
@@ -284,7 +330,7 @@ meta:
         <button
           type="button"
           class="workspace-list-item flex w-full items-center gap-2 px-3 py-2 text-left"
-          :data-active="!agent.activeSessionId && agent.panelMode === 'home'"
+          :data-active="showHome"
           @click="agent.openHome()"
         >
           <UIcon name="i-lucide-sparkles" class="size-4 shrink-0 text-[var(--ui-primary)]" />
@@ -293,7 +339,7 @@ meta:
         <button
           type="button"
           class="workspace-list-item flex w-full items-center gap-2 px-3 py-2 text-left"
-          :data-active="agent.panelMode === 'agents'"
+          :data-active="showAgentsPanel"
           @click="agent.openAgents()"
         >
           <UIcon name="i-lucide-bot" class="size-4 shrink-0" />
@@ -302,16 +348,7 @@ meta:
         <button
           type="button"
           class="workspace-list-item flex w-full items-center gap-2 px-3 py-2 text-left"
-          :data-active="agent.panelMode === 'history'"
-          @click="agent.openHistory()"
-        >
-          <UIcon name="i-lucide-history" class="size-4 shrink-0" />
-          <span class="text-sm font-medium">历史任务</span>
-        </button>
-        <button
-          type="button"
-          class="workspace-list-item flex w-full items-center gap-2 px-3 py-2 text-left"
-          :data-active="agent.panelMode === 'automations'"
+          :data-active="showAutomations"
           @click="agent.openAutomations()"
         >
           <UIcon name="i-lucide-zap" class="size-4 shrink-0" />
@@ -319,26 +356,92 @@ meta:
         </button>
       </div>
 
-      <div v-if="agent.loading" class="space-y-2 px-3 py-3">
-        <USkeleton v-for="i in 4" :key="i" class="h-12 w-full" />
+      <!-- 常驻历史（ChatGPT 风格时间分组） -->
+      <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <div
+          v-if="agent.loading"
+          class="space-y-2 px-1 py-2"
+        >
+          <USkeleton
+            v-for="i in 4"
+            :key="i"
+            class="h-12 w-full"
+          />
+        </div>
+        <template v-else>
+          <p
+            v-if="!agent.sessions.length"
+            class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
+          >
+            还没有对话，从「新任务」开始吧
+          </p>
+          <div
+            v-for="group in sessionGroups"
+            :key="group.label"
+            class="mb-3"
+          >
+            <p class="px-2 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-[var(--ws-text-muted)]">
+              {{ group.label }}
+            </p>
+            <div class="space-y-0.5">
+              <button
+                v-for="session in group.sessions"
+                :key="session.id"
+                type="button"
+                class="workspace-list-item flex w-full flex-col gap-0.5 px-3 py-2.5 text-left"
+                :data-active="agent.activeSessionId === session.id && showChat"
+                @click="handleOpenSession(session.id)"
+              >
+                <span class="truncate text-sm font-medium">
+                  {{ session.title || '未命名任务' }}
+                </span>
+                <span class="truncate text-xs text-[var(--ws-text-muted)]">
+                  {{ session.agentName || '智能体' }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
+    </template>
 
-      <div v-else-if="agent.panelMode === 'agents'" class="flex-1 overflow-y-auto px-2 py-2">
-        <p class="px-2 pb-2 text-xs text-[var(--ws-text-muted)]">
-          管理你的专属智能体
-        </p>
+    <!-- 右侧：智能体管理 -->
+    <div
+      v-if="showAgentsPanel"
+      class="flex min-h-0 flex-1 flex-col"
+    >
+      <header class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-5 py-3">
+        <div>
+          <h1 class="font-semibold">
+            智能体
+          </h1>
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            管理专属智能体的人设与模型
+          </p>
+        </div>
+        <UButton
+          icon="i-lucide-plus"
+          @click="openCreateAgent"
+        >
+          新建
+        </UButton>
+      </header>
+      <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <p
           v-if="!agent.agents.length"
-          class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
+          class="py-12 text-center text-sm text-[var(--ws-text-muted)]"
         >
-          还没有智能体，点击上方「新建」
+          还没有智能体，点击「新建」创建
         </p>
-        <div v-else class="space-y-0.5">
+        <div
+          v-else
+          class="mx-auto max-w-2xl space-y-2"
+        >
           <div
             v-for="item in agent.agents"
             :key="item.id"
-            class="group workspace-list-item flex w-full items-start gap-2 px-3 py-2.5"
-            :data-active="agent.selectedAgentId === item.id"
+            class="group flex items-start gap-3 rounded-lg border border-[var(--ws-border-subtle)] px-4 py-3"
+            :class="agent.selectedAgentId === item.id ? 'ring-1 ring-[var(--ui-primary)]' : ''"
           >
             <button
               type="button"
@@ -371,109 +474,92 @@ meta:
           </div>
         </div>
       </div>
+    </div>
 
-      <div v-else-if="agent.panelMode === 'automations'" class="flex-1 overflow-y-auto px-2 py-2">
-        <p class="px-2 pb-2 text-xs text-[var(--ws-text-muted)]">
-          定时跑智能体，结果推送到「消息」（不进 Session）
-        </p>
+    <!-- 右侧：自动化管理 -->
+    <div
+      v-else-if="showAutomations"
+      class="flex min-h-0 flex-1 flex-col"
+    >
+      <header class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-5 py-3">
+        <div>
+          <h1 class="font-semibold">
+            自动化
+          </h1>
+          <p class="text-xs text-[var(--ws-text-muted)]">
+            按 Cron 定时运行，结果经 Carrier Bot 推送到「消息」
+          </p>
+        </div>
+        <UButton
+          icon="i-lucide-plus"
+          @click="openCreateAutomation"
+        >
+          新建
+        </UButton>
+      </header>
+      <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <p
           v-if="!agent.automations.length"
-          class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
+          class="py-12 text-center text-sm text-[var(--ws-text-muted)]"
         >
-          还没有自动化，点击上方「新建」
+          还没有自动化，点击「新建」创建
         </p>
-        <div v-else class="space-y-0.5">
+        <div
+          v-else
+          class="mx-auto max-w-2xl space-y-2"
+        >
           <div
             v-for="item in agent.automations"
             :key="item.id"
-            class="group workspace-list-item flex w-full flex-col gap-1 px-3 py-2.5"
+            class="group flex items-start gap-3 rounded-lg border border-[var(--ws-border-subtle)] px-4 py-3"
           >
-            <div class="flex items-start gap-2">
-              <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-medium">
-                  {{ item.title }}
-                </div>
-                <p class="mt-0.5 truncate text-xs text-[var(--ws-text-muted)]">
-                  {{ item.agentName || '智能体' }} · {{ item.cronExpr }}
-                </p>
-                <p v-if="item.lastStatus" class="mt-0.5 text-xs text-[var(--ws-text-muted)]">
-                  上次：{{ item.lastStatus }}{{ item.lastError ? ` · ${item.lastError}` : '' }}
-                </p>
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-sm font-medium">
+                {{ item.title }}
               </div>
-              <div class="flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
-                <UButton
-                  icon="i-lucide-play"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  :loading="agent.automationBusy"
-                  @click="handleRunAutomation(item.id)"
-                />
-                <UButton
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="ghost"
-                  size="xs"
-                  @click="handleDeleteAutomation(item.id)"
-                />
-              </div>
+              <p class="mt-0.5 truncate text-xs text-[var(--ws-text-muted)]">
+                {{ item.agentName || '智能体' }} · {{ item.cronExpr }}
+              </p>
+              <p
+                v-if="item.lastStatus"
+                class="mt-0.5 text-xs text-[var(--ws-text-muted)]"
+              >
+                上次：{{ item.lastStatus }}{{ item.lastError ? ` · ${item.lastError}` : '' }}
+              </p>
+            </div>
+            <div class="flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
+              <UButton
+                icon="i-lucide-play"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :loading="agent.automationBusy"
+                @click="handleRunAutomation(item.id)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="xs"
+                @click="handleDeleteAutomation(item.id)"
+              />
             </div>
           </div>
         </div>
       </div>
-
-      <div v-else class="flex-1 overflow-y-auto px-2 py-2">
-        <p
-          v-if="!agent.sessions.length"
-          class="px-2 py-6 text-center text-sm text-[var(--ws-text-muted)]"
-        >
-          还没有历史任务，从「新任务」开始吧
-        </p>
-        <div v-else class="space-y-0.5">
-          <button
-            v-for="session in agent.sessions"
-            :key="session.id"
-            type="button"
-            class="workspace-list-item flex w-full flex-col gap-0.5 px-3 py-2.5 text-left"
-            :data-active="agent.activeSessionId === session.id"
-            @click="handleOpenSession(session.id)"
-          >
-            <span class="truncate text-sm font-medium">
-              {{ session.title || '未命名任务' }}
-            </span>
-            <span class="truncate text-xs text-[var(--ws-text-muted)]">
-              {{ session.agentName || '智能体' }}
-            </span>
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <!-- 自动化主区 -->
-    <div
-      v-if="showAutomations"
-      class="flex min-h-0 flex-1 flex-col items-center justify-center px-6"
-    >
-      <UIcon name="i-lucide-zap" class="mb-4 size-10 text-[var(--ui-primary)]" />
-      <h1 class="mb-2 text-xl font-semibold">
-        自动化
-      </h1>
-      <p class="mb-6 max-w-md text-center text-sm text-[var(--ws-text-muted)]">
-        按 Cron 定时运行智能体，结果经 Carrier Bot 推送到「消息」。不会写入智能体 Session。
-      </p>
-      <UButton icon="i-lucide-plus" @click="openCreateAutomation">
-        新建自动化
-      </UButton>
     </div>
 
     <!-- 新任务落地页 -->
     <div
-      v-else-if="!showChat"
+      v-else-if="showHome"
       class="flex min-h-0 flex-1 flex-col"
     >
       <div class="flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-12">
         <div class="mb-6 flex size-14 items-center justify-center rounded-2xl bg-[color-mix(in_oklab,var(--ui-primary)_12%,transparent)]">
-          <UIcon name="i-lucide-sparkles" class="size-7 text-[var(--ui-primary)]" />
+          <UIcon
+            name="i-lucide-sparkles"
+            class="size-7 text-[var(--ui-primary)]"
+          />
         </div>
         <h1 class="mb-2 text-2xl font-semibold tracking-tight">
           让智能体帮你做点什么
@@ -497,17 +583,6 @@ meta:
           description="请先到管理后台「基础设施 → 模型连接」启用至少一个连接，再创建智能体。"
         />
 
-        <div class="mb-4 w-full max-w-xl">
-          <label class="mb-1.5 block text-xs text-[var(--ws-text-muted)]">选择智能体</label>
-          <USelect
-            :model-value="agent.selectedAgentId ?? undefined"
-            :items="agentSelectItems"
-            placeholder="选择智能体"
-            class="w-full"
-            @update:model-value="(v: string) => agent.selectAgent(v)"
-          />
-        </div>
-
         <div class="w-full max-w-xl space-y-2">
           <UChatPrompt
             :model-value="agent.draft"
@@ -520,18 +595,19 @@ meta:
               :status="agent.streamStatus"
               @stop="agent.stopStreaming()"
             />
+            <template #footer>
+              <div class="flex min-w-0 flex-1 items-center gap-2">
+                <USelect
+                  :model-value="agent.selectedAgentId ?? undefined"
+                  :items="agentSelectItems"
+                  placeholder="选择智能体"
+                  size="sm"
+                  class="max-w-56"
+                  @update:model-value="(v: string) => agent.selectAgent(v)"
+                />
+              </div>
+            </template>
           </UChatPrompt>
-          <div class="flex justify-start">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              icon="i-lucide-bot"
-              @click="agent.openAgents()"
-            >
-              管理智能体
-            </UButton>
-          </div>
         </div>
       </div>
     </div>
@@ -565,22 +641,41 @@ meta:
         :messages="agent.activeMessages"
         :status="agent.streamStatus"
         :draft="agent.draft"
+        :agents="agent.agents"
+        :selected-agent-id="agent.selectedAgentId"
         :loading-messages="agent.loadingMessages"
         :error="agent.streamError"
+        allow-switch-agent
         @update:draft="agent.draft = $event"
+        @update:selected-agent-id="handleSelectAgent"
         @submit="handleSend"
         @stop="agent.stopStreaming()"
       />
     </div>
 
-    <UModal v-model:open="editorOpen" title="智能体" description="定义名称、人设与模型引用">
+    <UModal
+      v-model:open="editorOpen"
+      title="智能体"
+      description="定义名称、人设与模型引用"
+    >
       <template #body>
         <div class="space-y-4">
-          <UFormField label="名称" required>
-            <UInput v-model="editorForm.name" placeholder="例如：数据分析师" class="w-full" />
+          <UFormField
+            label="名称"
+            required
+          >
+            <UInput
+              v-model="editorForm.name"
+              placeholder="例如：数据分析师"
+              class="w-full"
+            />
           </UFormField>
           <UFormField label="描述">
-            <UInput v-model="editorForm.description" placeholder="一句话说明用途" class="w-full" />
+            <UInput
+              v-model="editorForm.description"
+              placeholder="一句话说明用途"
+              class="w-full"
+            />
           </UFormField>
           <UFormField label="系统提示词">
             <UTextarea
@@ -590,7 +685,10 @@ meta:
               placeholder="你是…"
             />
           </UFormField>
-          <UFormField label="模型" required>
+          <UFormField
+            label="模型"
+            required
+          >
             <USelect
               v-model="editorForm.modelRef"
               :items="modelItems"
@@ -598,7 +696,10 @@ meta:
               class="w-full"
               :disabled="!modelItems.length"
             />
-            <p v-if="!modelItems.length" class="mt-1 text-xs text-[var(--ws-text-muted)]">
+            <p
+              v-if="!modelItems.length"
+              class="mt-1 text-xs text-[var(--ws-text-muted)]"
+            >
               无可用模型：请先在管理端配置并启用模型连接。
             </p>
           </UFormField>
@@ -606,7 +707,11 @@ meta:
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="editorOpen = false">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="editorOpen = false"
+          >
             取消
           </UButton>
           <UButton @click="submitEditor">
@@ -616,13 +721,27 @@ meta:
       </template>
     </UModal>
 
-    <UModal v-model:open="autoOpen" title="自动化" description="定时运行智能体并通过消息推送结果">
+    <UModal
+      v-model:open="autoOpen"
+      title="自动化"
+      description="定时运行智能体并通过消息推送结果"
+    >
       <template #body>
         <div class="space-y-4">
-          <UFormField label="标题" required>
-            <UInput v-model="autoForm.title" placeholder="例如：每日任务摘要" class="w-full" />
+          <UFormField
+            label="标题"
+            required
+          >
+            <UInput
+              v-model="autoForm.title"
+              placeholder="例如：每日任务摘要"
+              class="w-full"
+            />
           </UFormField>
-          <UFormField label="智能体" required>
+          <UFormField
+            label="智能体"
+            required
+          >
             <USelect
               v-model="autoForm.agentId"
               :items="agentSelectItems"
@@ -630,7 +749,10 @@ meta:
               class="w-full"
             />
           </UFormField>
-          <UFormField label="任务提示词" required>
+          <UFormField
+            label="任务提示词"
+            required
+          >
             <UTextarea
               v-model="autoForm.prompt"
               :rows="4"
@@ -638,8 +760,15 @@ meta:
               placeholder="告诉智能体要做什么…"
             />
           </UFormField>
-          <UFormField label="Cron（6 段）" required>
-            <UInput v-model="autoForm.cronExpr" placeholder="0 0 9 * * ?" class="w-full" />
+          <UFormField
+            label="Cron（6 段）"
+            required
+          >
+            <UInput
+              v-model="autoForm.cronExpr"
+              placeholder="0 0 9 * * ?"
+              class="w-full"
+            />
             <p class="mt-1 text-xs text-[var(--ws-text-muted)]">
               示例：每天 9:00 → <code>0 0 9 * * ?</code>；每分钟 → <code>0 * * * * ?</code>
             </p>
@@ -648,10 +777,17 @@ meta:
       </template>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="autoOpen = false">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="autoOpen = false"
+          >
             取消
           </UButton>
-          <UButton :loading="agent.automationBusy" @click="submitAutomation">
+          <UButton
+            :loading="agent.automationBusy"
+            @click="submitAutomation"
+          >
             保存
           </UButton>
         </div>

@@ -10,4 +10,6 @@ public class AgentSessionRespVO {
     private String agentName;
     private String title;
     private String status;
+    /** ISO-8601; used for history time grouping. */
+    private String updateTime;
 }

@@ -6,6 +6,7 @@ import com.relayflow.framework.tenant.core.TenantContextHolder;
 import com.relayflow.module.im.api.bot.dto.ImBotSendCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotSendResult;
 import com.relayflow.module.im.api.bot.dto.ImBotSendTarget;
+import com.relayflow.module.im.api.bot.dto.ImBotTypingCommand;
 import com.relayflow.module.im.controller.app.vo.ContentBlockVO;
 import com.relayflow.module.im.controller.app.vo.MessageContentVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
@@ -31,6 +32,7 @@ import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImContentHelper;
+import com.relayflow.module.im.service.typing.ImTypingService;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.system.api.tenant.TenantMemberApi;
@@ -70,6 +72,7 @@ public class ImBotServiceImpl implements ImBotService {
     private final ImMessageMapper messageMapper;
     private final ImConversationService conversationService;
     private final ImContentHelper contentHelper;
+    private final ImTypingService typingService;
     private final RealtimeTransportApi realtimeTransportApi;
     private final TenantMemberApi tenantMemberApi;
 
@@ -136,6 +139,25 @@ public class ImBotServiceImpl implements ImBotService {
             }
         } finally {
             restoreTenantContext(previous);
+        }
+    }
+
+    @Override
+    public void setTyping(ImBotTypingCommand command) {
+        if (command == null || !StringUtils.hasText(command.getBotCode()) || command.getConversationId() == null) {
+            return;
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        ImBotDO bot;
+        try {
+            bot = requireActiveBot(command.getBotCode().trim());
+        } catch (ServiceException ex) {
+            return;
+        }
+        if (command.isTyping()) {
+            typingService.startBotTyping(tenantId, bot.getId(), command.getConversationId());
+        } else {
+            typingService.stopBotTyping(tenantId, bot.getId(), command.getConversationId());
         }
     }
 
