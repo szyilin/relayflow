@@ -21,4 +21,6 @@ public class MessageItemRespVO {
     private Boolean edited;
     private OffsetDateTime recalledAt;
     private OffsetDateTime editedAt;
+    /** Present when this message quotes another in the same conversation. */
+    private MessageReplyToRespVO replyTo;
 }

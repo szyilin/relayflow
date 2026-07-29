@@ -70,6 +70,14 @@ relayflow:
     token-query-param: token
   task:
     due-remind-window: 24h
+  im:
+    bot-carrier:
+      dm-history-limit: 20
+      dm-history-hard-cap: 50
+      group-nearby-window: 5
+      nearby-hard-cap: 20
+      history-max-chars: 8000
+      reply-preview-max-chars: 80
   job:
     enabled: ${RELAYFLOW_JOB_ENABLED:false}
     admin-addresses: ${RELAYFLOW_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8090/xxl-job-admin}

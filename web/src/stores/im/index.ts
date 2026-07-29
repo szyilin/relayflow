@@ -618,7 +618,7 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
-  async function sendText(text: string, mentions: GroupMemberItem[] = []) {
+  async function sendText(text: string, mentions: GroupMemberItem[] = [], replyToMsgId?: string) {
     const trimmed = text.trim()
     const conversation = activeConversation.value
     if ((!trimmed && mentions.length === 0) || !conversation) {
@@ -663,6 +663,9 @@ export const useImStore = defineStore('im', () => {
       blocks: [...mentionBlocks, textBlock]
     }
     const preview = textFromContent(content)
+    const quoted = replyToMsgId
+      ? messages.value.find(item => item.id === replyToMsgId)
+      : undefined
 
     const optimistic: MessageViewItem = {
       id: `local-${clientMsgId}`,
@@ -674,7 +677,17 @@ export const useImStore = defineStore('im', () => {
       clientMsgId,
       seq: (messages.value.at(-1)?.seq ?? 0) + 1,
       createTime: new Date().toISOString(),
-      localStatus: 'sending'
+      localStatus: 'sending',
+      replyTo: quoted
+        ? {
+            messageId: quoted.id,
+            seq: quoted.seq,
+            senderType: quoted.senderType,
+            senderId: quoted.senderId,
+            senderNickname: quoted.senderNickname,
+            preview: textFromContent(quoted.content).slice(0, 80)
+          }
+        : undefined
     }
     replaceActiveMessages(prev => [...prev, optimistic])
     if (!isPending) {
@@ -688,7 +701,8 @@ export const useImStore = defineStore('im', () => {
         conversationId: isPending ? undefined : conversation.id,
         peerUserId: conversation.peerUserId,
         clientMsgId,
-        content
+        content,
+        replyToMsgId
       })
 
       if (isPending) {

@@ -303,6 +303,9 @@ export const useAgentStore = defineStore('agent', () => {
     if (!aid) {
       throw new Error('请先选择智能体')
     }
+    // Abort any in-flight stream so send isn't blocked by a stuck `sending` flag.
+    stopStreaming()
+    streamError.value = null
     lastError.value = null
     try {
       const sessionId = await createAgentSession(aid)
@@ -323,6 +326,8 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   async function openSession(sessionId: string) {
+    stopStreaming()
+    streamError.value = null
     activeSessionId.value = sessionId
     panelMode.value = 'chat'
     const session = sessions.value.find(s => s.id === sessionId)
@@ -495,6 +500,8 @@ export const useAgentStore = defineStore('agent', () => {
           }
 
           if (event.type === 'done') {
+            // Unlock send immediately; post-stream sync runs after the await below.
+            sending.value = false
             streamStatus.value = 'ready'
             applyStreamEvent(sessionId!, liveAssistantId, event)
             return
@@ -505,10 +512,12 @@ export const useAgentStore = defineStore('agent', () => {
       })
 
       if (signal.aborted) {
+        sending.value = false
         streamStatus.value = 'ready'
         return
       }
       if (!endedWithError) {
+        sending.value = false
         streamStatus.value = 'ready'
       }
       // Re-sync from server so the final assistant message is always visible
@@ -528,6 +537,7 @@ export const useAgentStore = defineStore('agent', () => {
       await refreshSessions()
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
+        sending.value = false
         streamStatus.value = 'ready'
         return
       }

@@ -53,7 +53,7 @@ public class TaskSearchSkill implements BuiltinSkill {
         return taskItemApi.searchTasks(tenantId, userId, keyword, limit);
     }
 
-    static int normalizeLimit(Integer limit, int defaultLimit) {
+    public static int normalizeLimit(Integer limit, int defaultLimit) {
         if (limit == null || limit < 1) {
             return defaultLimit;
         }

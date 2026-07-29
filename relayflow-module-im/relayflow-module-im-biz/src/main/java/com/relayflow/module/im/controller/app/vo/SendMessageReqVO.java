@@ -16,6 +16,9 @@ public class SendMessageReqVO {
 
     private String type;
 
+    /** Optional single-message quote (WeChat-style reply_to). */
+    private Long replyToMsgId;
+
     @NotNull
     @Valid
     private MessageContentVO content;

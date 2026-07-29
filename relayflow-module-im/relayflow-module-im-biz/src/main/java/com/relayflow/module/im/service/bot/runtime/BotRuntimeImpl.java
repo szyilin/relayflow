@@ -5,6 +5,7 @@ import com.relayflow.module.agent.api.carrier.dto.AgentCarrierInboundCommand;
 import com.relayflow.module.im.api.bot.dto.ImBotTypingCommand;
 import com.relayflow.module.im.enums.ImBotHandlerKind;
 import com.relayflow.module.im.service.bot.ImBotService;
+import com.relayflow.module.im.service.bot.ingress.CarrierInboundContextAssembler;
 import com.relayflow.module.im.service.message.ImMessageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -19,15 +20,18 @@ public class BotRuntimeImpl implements BotRuntime {
     private final BotPlatformHandlerRegistry platformHandlerRegistry;
     private final ImMessageService messageService;
     private final ImBotService imBotService;
+    private final CarrierInboundContextAssembler carrierInboundContextAssembler;
     private final ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi;
 
     public BotRuntimeImpl(BotPlatformHandlerRegistry platformHandlerRegistry,
                           @Lazy ImMessageService messageService,
                           ImBotService imBotService,
+                          CarrierInboundContextAssembler carrierInboundContextAssembler,
                           ObjectProvider<AgentCarrierInboundApi> agentCarrierInboundApi) {
         this.platformHandlerRegistry = platformHandlerRegistry;
         this.messageService = messageService;
         this.imBotService = imBotService;
+        this.carrierInboundContextAssembler = carrierInboundContextAssembler;
         this.agentCarrierInboundApi = agentCarrierInboundApi;
     }
 
@@ -106,13 +110,16 @@ public class BotRuntimeImpl implements BotRuntime {
             log.warn("BotRuntime: AgentCarrierInboundApi missing for ownerAgentId={}", context.getOwnerAgentId());
             return;
         }
+        CarrierInboundContextAssembler.Assembled assembled = carrierInboundContextAssembler.assemble(context);
         AgentCarrierInboundCommand command = new AgentCarrierInboundCommand();
         command.setTenantId(context.getTenantId());
         command.setAgentId(context.getOwnerAgentId());
         command.setConversationId(context.getConversationId());
         command.setTriggerUserId(context.getTriggerUserId());
         command.setTriggerMessageId(context.getTriggerMessageId());
-        command.setInboundText(context.getInboundText());
+        command.setBotId(context.getBotId());
+        command.setInboundText(assembled.inboundText());
+        command.setHistory(assembled.history());
         String text = api.handleInbound(command);
         if (!StringUtils.hasText(text)) {
             return;

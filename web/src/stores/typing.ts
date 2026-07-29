@@ -126,36 +126,43 @@ export const useTypingStore = defineStore('im-typing', () => {
     options: {
       selfUserId?: string | null
       resolveName?: (userId: string) => string
+      resolveBotName?: (botId: string) => string
       isDirect?: boolean
       isBotDm?: boolean
+      isGroup?: boolean
     } = {}
   ): string {
     const entries = activeEntries(conversationId)
     if (!entries.length) {
       return ''
     }
-    if (options.isBotDm || (options.isDirect && entries.some(e => e.kind === 'bot'))) {
+    // 1:1 / bot_dm keep WeChat-style「对方」
+    if (options.isBotDm || options.isDirect) {
       return '对方正在输入…'
     }
-    if (entries.some(e => e.kind === 'bot') && !entries.some(e => e.kind === 'user')) {
-      return '对方正在输入…'
+
+    const names: string[] = []
+    for (const entry of entries) {
+      if (entry.kind === 'user') {
+        if (entry.key === options.selfUserId) {
+          continue
+        }
+        names.push(options.resolveName?.(entry.key) || '成员')
+      } else {
+        const botId = entry.key.startsWith('bot:') ? entry.key.slice(4) : entry.key
+        names.push(options.resolveBotName?.(botId) || '助手')
+      }
     }
-    const ids = entries
-      .filter(e => e.kind === 'user')
-      .map(e => e.key)
-      .filter(id => id !== options.selfUserId)
-    if (!ids.length) {
-      return entries.some(e => e.kind === 'bot') ? '对方正在输入…' : ''
+    if (!names.length) {
+      return ''
     }
-    if (options.isDirect) {
-      return '对方正在输入…'
+    if (names.length === 1) {
+      return `${names[0]}正在输入…`
     }
-    const names = ids.slice(0, 3).map(id => options.resolveName?.(id) || '成员')
-    const botExtra = entries.some(e => e.kind === 'bot')
-    if (ids.length > 3 || botExtra) {
-      return `${names.join('、')}等正在输入…`
+    if (names.length === 2) {
+      return `${names[0]}、${names[1]}正在输入…`
     }
-    return `${names.join('、')}正在输入…`
+    return `${names[0]}等 ${names.length} 人正在输入…`
   }
 
   const activeCount = computed(() =>

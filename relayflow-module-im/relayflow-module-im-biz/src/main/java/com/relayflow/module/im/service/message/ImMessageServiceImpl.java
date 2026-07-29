@@ -25,7 +25,10 @@ import com.relayflow.module.im.enums.ImMemberRole;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
 import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
+import com.relayflow.module.im.config.ImBotCarrierProperties;
+import com.relayflow.module.im.controller.app.vo.MessageReplyToRespVO;
 import com.relayflow.module.im.service.bot.ingress.BotDmInboundDispatcher;
+import com.relayflow.module.im.service.bot.ingress.BotInboundAsyncDispatcher;
 import com.relayflow.module.im.service.bot.ingress.GroupBotMentionDispatcher;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
@@ -38,12 +41,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,6 +75,8 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final UserApi userApi;
     private final GroupBotMentionDispatcher groupBotMentionDispatcher;
     private final BotDmInboundDispatcher botDmInboundDispatcher;
+    private final BotInboundAsyncDispatcher botInboundAsyncDispatcher;
+    private final ImBotCarrierProperties botCarrierProperties;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
@@ -92,8 +96,13 @@ public class ImMessageServiceImpl implements ImMessageService {
                         .orderByAsc(ImMessageDO::getSeq));
 
         Map<Long, String> nicknameByUserId = loadSenderNicknames(messages);
+        Map<Long, MessageReplyToRespVO> replyToByMsgId = loadReplyToMap(tenantId, messages, nicknameByUserId);
         return messages.stream()
-                .map(message -> toMessageItem(message, nicknameByUserId))
+                .map(message -> {
+                    MessageContentVO content = contentHelper.fromJson(message.getContentJson());
+                    contentHelper.enrichDownloadUrls(content);
+                    return toMessageItem(message, content, nicknameByUserId, replyToByMsgId.get(message.getId()));
+                })
                 .toList();
     }
 
@@ -244,6 +253,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         message.setContentJson(contentJson);
         message.setClientMsgId(request.getClientMsgId().trim());
         message.setSeq(nextSeq);
+        message.setReplyToMsgId(resolveReplyToMsgId(tenantId, conversationId, request.getReplyToMsgId()));
         message.setCreator(userId);
         message.setCreateTime(now);
 
@@ -277,29 +287,30 @@ public class ImMessageServiceImpl implements ImMessageService {
 
     private void scheduleGroupBotMentionDispatch(Long tenantId, Long conversationId, Long userId,
                                                  Long messageId, MessageContentVO content) {
-        Runnable task = () -> groupBotMentionDispatcher.dispatchAfterUserMessage(
-                tenantId, conversationId, userId, messageId, content);
-        runAfterCommit(task);
+        botInboundAsyncDispatcher.scheduleAfterCommit(conversationId, () ->
+                groupBotMentionDispatcher.dispatchAfterUserMessage(
+                        tenantId, conversationId, userId, messageId, content));
     }
 
     private void scheduleBotDmInboundDispatch(Long tenantId, Long conversationId, Long userId,
                                               Long messageId, MessageContentVO content) {
-        Runnable task = () -> botDmInboundDispatcher.dispatchAfterUserMessage(
-                tenantId, conversationId, userId, messageId, content);
-        runAfterCommit(task);
+        botInboundAsyncDispatcher.scheduleAfterCommit(conversationId, () ->
+                botDmInboundDispatcher.dispatchAfterUserMessage(
+                        tenantId, conversationId, userId, messageId, content));
     }
 
-    private void runAfterCommit(Runnable task) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    task.run();
-                }
-            });
-            return;
+    private Long resolveReplyToMsgId(Long tenantId, Long conversationId, Long replyToMsgId) {
+        if (replyToMsgId == null) {
+            return null;
         }
-        task.run();
+        ImMessageDO quoted = messageMapper.selectById(replyToMsgId);
+        if (quoted == null
+                || !Objects.equals(quoted.getTenantId(), tenantId)
+                || !Objects.equals(quoted.getConversationId(), conversationId)
+                || quoted.getRecalledAt() != null) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_REPLY_INVALID);
+        }
+        return quoted.getId();
     }
 
     @Override
@@ -504,7 +515,74 @@ public class ImMessageServiceImpl implements ImMessageService {
     private MessageItemRespVO toMessageItem(ImMessageDO message, Map<Long, String> nicknameByUserId) {
         MessageContentVO content = contentHelper.fromJson(message.getContentJson());
         contentHelper.enrichDownloadUrls(content);
-        return toMessageItem(message, content, nicknameByUserId);
+        MessageReplyToRespVO replyTo = null;
+        if (message.getReplyToMsgId() != null) {
+            Map<Long, MessageReplyToRespVO> map = loadReplyToMap(
+                    message.getTenantId(), List.of(message), nicknameByUserId);
+            replyTo = map.get(message.getId());
+        }
+        return toMessageItem(message, content, nicknameByUserId, replyTo);
+    }
+
+    private MessageItemRespVO toMessageItem(ImMessageDO message, Map<Long, String> nicknameByUserId,
+                                            MessageReplyToRespVO replyTo) {
+        MessageContentVO content = contentHelper.fromJson(message.getContentJson());
+        contentHelper.enrichDownloadUrls(content);
+        return toMessageItem(message, content, nicknameByUserId, replyTo);
+    }
+
+    private Map<Long, MessageReplyToRespVO> loadReplyToMap(Long tenantId, List<ImMessageDO> messages,
+                                                           Map<Long, String> nicknameBySenderId) {
+        Set<Long> quotedIds = new HashSet<>();
+        for (ImMessageDO message : messages) {
+            if (message.getReplyToMsgId() != null) {
+                quotedIds.add(message.getReplyToMsgId());
+            }
+        }
+        if (quotedIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ImMessageDO> quoted = messageMapper.selectBatchIds(quotedIds);
+        Map<Long, ImMessageDO> quotedById = new HashMap<>();
+        for (ImMessageDO row : quoted) {
+            if (row != null && Objects.equals(row.getTenantId(), tenantId)) {
+                quotedById.put(row.getId(), row);
+            }
+        }
+        Map<Long, String> names = new HashMap<>(nicknameBySenderId);
+        names.putAll(loadSenderNicknames(new ArrayList<>(quotedById.values())));
+
+        Map<Long, MessageReplyToRespVO> result = new HashMap<>();
+        int previewMax = Math.max(20, botCarrierProperties.getReplyPreviewMaxChars());
+        for (ImMessageDO message : messages) {
+            if (message.getReplyToMsgId() == null) {
+                continue;
+            }
+            ImMessageDO target = quotedById.get(message.getReplyToMsgId());
+            if (target == null || !Objects.equals(target.getConversationId(), message.getConversationId())) {
+                continue;
+            }
+            MessageReplyToRespVO replyTo = new MessageReplyToRespVO();
+            replyTo.setMessageId(target.getId());
+            replyTo.setSeq(target.getSeq());
+            replyTo.setSenderType(target.getSenderType());
+            replyTo.setSenderId(target.getSenderId());
+            if (target.getSenderId() != null) {
+                replyTo.setSenderNickname(names.get(target.getSenderId()));
+            }
+            if (target.getRecalledAt() != null) {
+                replyTo.setPreview("消息已撤回");
+            } else {
+                String preview = contentHelper.buildPreview(
+                        target.getType(), contentHelper.fromJson(target.getContentJson()));
+                if (preview != null && preview.length() > previewMax) {
+                    preview = preview.substring(0, previewMax) + "…";
+                }
+                replyTo.setPreview(preview);
+            }
+            result.put(message.getId(), replyTo);
+        }
+        return result;
     }
 
     private ImMessageDO findByClientMsgId(Long tenantId, String clientMsgId) {
@@ -582,7 +660,11 @@ public class ImMessageServiceImpl implements ImMessageService {
         Map<Long, String> nicknameByUserId = loadSenderNicknames(List.of(message));
         MessageContentVO enrichedContent = contentHelper.fromJson(message.getContentJson());
         contentHelper.enrichDownloadUrls(enrichedContent);
-        MessageItemRespVO newMessage = toMessageItem(message, enrichedContent, nicknameByUserId);
+        MessageReplyToRespVO replyTo = null;
+        if (message.getReplyToMsgId() != null) {
+            replyTo = loadReplyToMap(tenantId, List.of(message), nicknameByUserId).get(message.getId());
+        }
+        MessageItemRespVO newMessage = toMessageItem(message, enrichedContent, nicknameByUserId, replyTo);
         RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
                 .domain(ImRealtimeTypes.DOMAIN)
                 .type(ImRealtimeTypes.MESSAGE_NEW)
@@ -627,6 +709,12 @@ public class ImMessageServiceImpl implements ImMessageService {
 
     private MessageItemRespVO toMessageItem(ImMessageDO message, MessageContentVO content,
                                             Map<Long, String> nicknameBySenderId) {
+        return toMessageItem(message, content, nicknameBySenderId, null);
+    }
+
+    private MessageItemRespVO toMessageItem(ImMessageDO message, MessageContentVO content,
+                                            Map<Long, String> nicknameBySenderId,
+                                            MessageReplyToRespVO replyTo) {
         MessageItemRespVO item = new MessageItemRespVO();
         item.setId(message.getId());
         item.setConversationId(message.getConversationId());
@@ -641,6 +729,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         item.setEdited(message.getEditedAt() != null);
         item.setRecalledAt(message.getRecalledAt());
         item.setEditedAt(message.getEditedAt());
+        item.setReplyTo(replyTo);
         if (Boolean.TRUE.equals(item.getRecalled())) {
             item.setContent(textContent("消息已撤回"));
         }

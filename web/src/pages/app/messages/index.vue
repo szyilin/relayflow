@@ -48,6 +48,7 @@ const editMessageText = ref('')
 const editMessageSubmitting = ref(false)
 const removingBotCode = ref<string | null>(null)
 const pendingMentions = ref<GroupMemberItem[]>([])
+const pendingReplyTo = ref<MessageItem | null>(null)
 const mentionPickerOpen = ref(false)
 const mentionQuery = ref('')
 const mentionActiveIndex = ref(0)
@@ -479,6 +480,7 @@ watch(
 )
 
 async function handleSelect(conversationId: string) {
+  pendingReplyTo.value = null
   await selectConversationWithRoute(conversationId)
 }
 
@@ -489,16 +491,19 @@ async function handleSend() {
   }
   stopTypingSignal()
   const mentions = [...pendingMentions.value]
+  const replyTo = pendingReplyTo.value
   draft.value = ''
   pendingMentions.value = []
+  pendingReplyTo.value = null
   closeMentionPicker()
   try {
     isNearBottom.value = true
-    await im.sendText(text, mentions)
+    await im.sendText(text, mentions, replyTo?.id)
     await scrollToBottom(true)
   } catch {
     draft.value = text
     pendingMentions.value = mentions
+    pendingReplyTo.value = replyTo
   }
 }
 
@@ -627,6 +632,7 @@ watch(() => im.activeConversationId, (conversationId, prevId) => {
     typing.clearConversation(prevId)
   }
   pendingMentions.value = []
+  pendingReplyTo.value = null
   closeMentionPicker()
   if (conversationId) {
     void im.ensureEffectiveSettings().catch(() => {})
@@ -700,6 +706,13 @@ function canEditMessage(msg: MessageItem): boolean {
 
 function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
   const items: DropdownMenuItem[] = []
+  if (!msg.recalled) {
+    items.push({
+      label: '引用',
+      icon: 'i-lucide-reply',
+      onSelect: () => { setPendingReply(msg) }
+    })
+  }
   if (canRecallMessage(msg)) {
     items.push({
       label: '撤回',
@@ -715,6 +728,23 @@ function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
     })
   }
   return items.length > 0 ? [items] : []
+}
+
+function setPendingReply(msg: MessageItem) {
+  if (msg.recalled) {
+    return
+  }
+  pendingReplyTo.value = msg
+  nextTick(() => draftInputRef.value?.focus())
+}
+
+function clearPendingReply() {
+  pendingReplyTo.value = null
+}
+
+function replyPreviewText(msg: MessageItem): string {
+  const preview = im.textFromContent(msg.content) || im.messagePreviewFromContent(msg.type, msg.content)
+  return preview.length > 80 ? `${preview.slice(0, 80)}…` : preview
 }
 
 function hasMessageActions(msg: MessageItem) {
@@ -859,9 +889,14 @@ function headerSubtitle() {
     selfUserId: im.currentUserId(),
     isDirect: active.value.type === 'direct',
     isBotDm: active.value.type === 'bot_dm',
+    isGroup: active.value.type === 'group',
     resolveName: (userId) => {
-      const member = im.groupMembers.find(m => m.userId === userId)
+      const member = im.groupMembers.find(m => m.subjectType === 'user' && m.userId === userId)
       return member?.nickname || active.value?.title || '成员'
+    },
+    resolveBotName: (botId) => {
+      const member = im.groupMembers.find(m => m.subjectType === 'bot' && m.botId === botId)
+      return member?.nickname || active.value?.title || '助手'
     }
   })
   if (typingHint) {
@@ -1183,6 +1218,20 @@ meta:
                     >
                       {{ item.message.senderNickname }}
                     </p>
+                    <div
+                      v-if="!item.message.recalled && item.message.replyTo"
+                      class="mb-1.5 rounded-md px-2 py-1 text-xs"
+                      :class="isOwnMessage(item.message.senderId)
+                        ? 'bg-black/15 text-primary-foreground/90'
+                        : 'bg-black/5 text-[var(--ws-text-muted)]'"
+                    >
+                      <p class="truncate font-medium">
+                        {{ item.message.replyTo.senderNickname || '消息' }}
+                      </p>
+                      <p class="line-clamp-2 break-words opacity-90">
+                        {{ item.message.replyTo.preview || '…' }}
+                      </p>
+                    </div>
                     <template v-if="item.message.recalled">
                       <p class="text-sm">
                         消息已撤回
@@ -1327,6 +1376,28 @@ meta:
             @update:active-index="mentionActiveIndex = $event"
             @select="selectMention"
           />
+          <div
+            v-if="pendingReplyTo"
+            class="flex items-start gap-2 rounded-md bg-[var(--ws-input-bar-bg)] px-2.5 py-2"
+          >
+            <div class="min-w-0 flex-1 border-l-2 border-primary pl-2">
+              <p class="truncate text-xs font-medium text-[var(--ws-text)]">
+                {{ pendingReplyTo.senderNickname || '消息' }}
+              </p>
+              <p class="line-clamp-2 text-xs text-[var(--ws-text-muted)]">
+                {{ replyPreviewText(pendingReplyTo) }}
+              </p>
+            </div>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-x"
+              square
+              aria-label="取消引用"
+              @click="clearPendingReply"
+            />
+          </div>
           <div
             v-if="isGroupActive && pendingMentions.length"
             class="flex flex-wrap items-center gap-1.5"

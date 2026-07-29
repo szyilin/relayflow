@@ -64,6 +64,9 @@ replay_pid*
 # 业务 JAR/WAR 不提交；Maven Wrapper JAR 例外（见下方 !）
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
+# 误在仓库根目录 jar xf 依赖 JAR 的残留（真源在 ~/.m2，勿提交）
+/META-INF/
+/org/
 
 # --- 前端 web/ ---
 web/node_modules/

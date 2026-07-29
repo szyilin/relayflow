@@ -41,7 +41,9 @@ public enum ErrorCodeConstants implements ErrorCode {
     GROUP_EXPORT_DENIED(1_003_003_012, "无权导出群成员"),
     MESSAGE_RECALL_DENIED(1_003_002_006, "无权撤回该消息"),
     MESSAGE_EDIT_DENIED(1_003_002_007, "无权编辑该消息"),
-    MESSAGE_NOT_FOUND(1_003_002_008, "消息不存在");
+    MESSAGE_NOT_FOUND(1_003_002_008, "消息不存在"),
+    MESSAGE_REPLY_INVALID(1_003_002_009, "引用消息无效或不在同一会话"),
+    MESSAGE_READ_DENIED(1_003_002_010, "无权读取该会话消息");
 
     private final Integer code;
     private final String msg;

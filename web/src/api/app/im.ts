@@ -164,6 +164,15 @@ export interface AddGroupMembersResult {
   addedCount: number
 }
 
+export interface MessageReplyTo {
+  messageId: string
+  seq?: number
+  senderType?: string
+  senderId?: string
+  senderNickname?: string
+  preview?: string
+}
+
 export interface MessageItem {
   id: string
   conversationId: string
@@ -179,6 +188,7 @@ export interface MessageItem {
   edited?: boolean
   recalledAt?: string
   editedAt?: string
+  replyTo?: MessageReplyTo
 }
 
 export interface SendMessagePayload {
@@ -187,6 +197,7 @@ export interface SendMessagePayload {
   clientMsgId: string
   type?: 'text' | 'image' | 'file'
   content: MessageContent
+  replyToMsgId?: string
 }
 
 export interface SendMessageResult {
@@ -211,11 +222,16 @@ type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId' | 'botId'>
   botId?: number | string
 }
 
-type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq'> & {
+type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq' | 'replyTo'> & {
   id: number | string
   conversationId: number | string
   senderId: number | string
   seq: number | string
+  replyTo?: Omit<MessageReplyTo, 'messageId' | 'senderId' | 'seq'> & {
+    messageId?: number | string
+    senderId?: number | string
+    seq?: number | string
+  }
 }
 
 type RawSendMessageResult = Omit<SendMessageResult, 'id' | 'conversationId' | 'seq'> & {
@@ -238,6 +254,16 @@ function normalizeConversation(item: RawConversationItem): ConversationItem {
 }
 
 function normalizeMessage(item: RawMessageItem): MessageItem {
+  const replyTo = item.replyTo?.messageId != null
+    ? {
+        messageId: String(item.replyTo.messageId),
+        seq: item.replyTo.seq != null ? parseSeq(item.replyTo.seq) : undefined,
+        senderType: item.replyTo.senderType,
+        senderId: item.replyTo.senderId != null ? String(item.replyTo.senderId) : undefined,
+        senderNickname: item.replyTo.senderNickname,
+        preview: item.replyTo.preview
+      }
+    : undefined
   return {
     ...item,
     id: String(item.id),
@@ -245,7 +271,8 @@ function normalizeMessage(item: RawMessageItem): MessageItem {
     senderId: String(item.senderId),
     seq: parseSeq(item.seq),
     recalled: Boolean(item.recalled),
-    edited: Boolean(item.edited)
+    edited: Boolean(item.edited),
+    replyTo
   }
 }
 
