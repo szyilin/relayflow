@@ -6,6 +6,7 @@ import {
   createGroup as createGroupRequest,
   editMessage as editMessageRequest,
   exportGroupMembers as exportGroupMembersRequest,
+  forwardMessage as forwardMessageRequest,
   getConversationList,
   getGroupBotCatalog,
   getGroupInfo as getGroupInfoRequest,
@@ -13,6 +14,7 @@ import {
   getImEffectiveSettings,
   getMessageList,
   getReadStatus,
+  getStickerPacks,
   joinPublicGroup as joinPublicGroupRequest,
   leaveGroup as leaveGroupRequest,
   markConversationRead,
@@ -20,6 +22,7 @@ import {
   removeGroupBot as removeGroupBotRequest,
   searchPublicGroups as searchPublicGroupsRequest,
   sendMessage,
+  toggleMessageReaction,
   updateGroupPublic as updateGroupPublicRequest,
   type ContentBlock,
   type ConversationItem,
@@ -29,7 +32,9 @@ import {
   type ImEffectiveSettings,
   type MessageContent,
   type MessageItem,
-  type PublicGroupSearchItem
+  type MessageReactionAgg,
+  type PublicGroupSearchItem,
+  type StickerPackItem
 } from '../../api/app/im'
 import { ApiError } from '../../api/request'
 import { uploadPrivateFile } from '../../api/app/file'
@@ -43,8 +48,10 @@ import {
   formatRelativeTime,
   isFileMessage,
   isImageMessage,
+  isStickerMessage,
   messagePreviewFromContent,
   normalizeIncomingMessage,
+  stickerBlockFromContent,
   textFromContent
 } from './helpers'
 import type { GroupMemberCandidate, MessageViewItem, PendingDirectChat } from './types'
@@ -854,6 +861,162 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
+  const stickerPacks = ref<StickerPackItem[]>([])
+
+  async function fetchStickerPacks() {
+    try {
+      stickerPacks.value = await getStickerPacks()
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '加载表情包失败'
+      stickerPacks.value = []
+    }
+    return stickerPacks.value
+  }
+
+  function listStickerPacks(): StickerPackItem[] {
+    return stickerPacks.value
+  }
+
+  async function toggleReaction(messageId: string, emoji: string) {
+    const normalized = emoji.trim()
+    if (!normalized) {
+      return
+    }
+    const target = messages.value.find(item => item.id === messageId)
+    if (!target || target.recalled) {
+      lastError.value = '无法回应此消息'
+      return
+    }
+    try {
+      const result = await toggleMessageReaction(messageId, normalized)
+      applyReactionUpdated({
+        conversationId: result.conversationId,
+        messageId: result.messageId,
+        reactions: result.reactions
+      })
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '表情回应失败'
+    }
+  }
+
+  function applyReactionUpdated(payload: {
+    conversationId: string
+    messageId: string
+    reactions: MessageReactionAgg[]
+  }) {
+    const { conversationId, messageId, reactions } = payload
+    const apply = (list: MessageViewItem[]) =>
+      list.map(item => (item.id === messageId ? { ...item, reactions } : item))
+    if (conversationId === activeConversationId.value) {
+      replaceActiveMessages(apply)
+      putMessageCache(conversationId, messages.value)
+      return
+    }
+    const cached = messagesByConversation.value[conversationId]
+    if (cached) {
+      messagesByConversation.value = {
+        ...messagesByConversation.value,
+        [conversationId]: apply(cached)
+      }
+    }
+  }
+
+  async function forwardMessage(messageId: string, targetConversationId: string) {
+    try {
+      const created = await forwardMessageRequest({
+        messageId,
+        targetConversationId,
+        clientMsgId: crypto.randomUUID()
+      })
+      const view = normalizeIncomingMessage(created)
+      const cached = messagesByConversation.value[targetConversationId] ?? []
+      if (!cached.some(item => item.id === view.id)) {
+        const nextCached = [...cached, view].sort((a, b) => a.seq - b.seq)
+        messagesByConversation.value = {
+          ...messagesByConversation.value,
+          [targetConversationId]: nextCached
+        }
+        if (activeConversationId.value === targetConversationId) {
+          messages.value = nextCached
+        }
+      }
+      const preview = messagePreviewFromContent(view.type, view.content)
+      const conv = conversations.value.find(item => item.id === targetConversationId)
+      if (conv) {
+        conv.lastMsgPreview = preview.startsWith('[') ? preview : `[转发] ${preview}`
+        conv.lastMsgAt = view.createTime
+      }
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '转发失败'
+      throw error
+    }
+  }
+
+  async function sendSticker(stickerId: string) {
+    const conversationId = activeConversationId.value
+    if (!conversationId || conversationId.startsWith('pending-')) {
+      throw new Error('请先选择会话')
+    }
+    sending.value = true
+    lastError.value = null
+    const clientMsgId = crypto.randomUUID()
+    try {
+      const result = await sendMessage({
+        conversationId,
+        clientMsgId,
+        type: 'sticker',
+        content: {
+          version: 1,
+          blocks: [{ type: 'sticker', stickerId }]
+        }
+      })
+      const sticker = stickerPacks.value.flatMap(pack => pack.stickers).find(item => item.id === stickerId)
+      const msg: MessageViewItem = {
+        id: result.id,
+        conversationId: result.conversationId,
+        senderId: currentUserId(),
+        senderNickname: '我',
+        senderType: 'user',
+        type: 'sticker',
+        content: {
+          version: 1,
+          blocks: [{
+            type: 'sticker',
+            stickerId,
+            packId: sticker?.packId,
+            fileId: sticker?.downloadUrl ? undefined : undefined,
+            downloadUrl: sticker?.downloadUrl,
+            emoji: sticker?.emoji,
+            text: sticker?.emoji
+          }]
+        },
+        clientMsgId: result.clientMsgId,
+        seq: result.seq,
+        createTime: result.createTime,
+        localStatus: 'sent',
+        reactions: []
+      }
+      const exists = messages.value.some(item => item.id === msg.id || item.clientMsgId === clientMsgId)
+      if (!exists) {
+        replaceActiveMessages(prev => [...prev, msg])
+      } else {
+        replaceActiveMessages(prev => prev.map(item =>
+          item.clientMsgId === clientMsgId || item.id === msg.id ? { ...item, ...msg } : item))
+      }
+      putMessageCache(conversationId, messages.value)
+      const conv = conversations.value.find(item => item.id === conversationId)
+      if (conv) {
+        conv.lastMsgPreview = '[表情]'
+        conv.lastMsgAt = msg.createTime
+      }
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '发送表情失败'
+      throw error
+    } finally {
+      sending.value = false
+    }
+  }
+
   return {
     conversations,
     messages,
@@ -904,6 +1067,13 @@ export const useImStore = defineStore('im', () => {
     flushConversationRead,
     sendText,
     sendFileMessage,
+    stickerPacks,
+    fetchStickerPacks,
+    listStickerPacks,
+    toggleReaction,
+    applyReactionUpdated,
+    forwardMessage,
+    sendSticker,
     resetForTenantSwitch,
     formatRelativeTime,
     formatClockTime,
@@ -912,8 +1082,10 @@ export const useImStore = defineStore('im', () => {
     buildMessageTimeline,
     textFromContent,
     fileBlockFromContent,
+    stickerBlockFromContent,
     isImageMessage,
     isFileMessage,
+    isStickerMessage,
     messagePreviewFromContent,
     isSystemMessage
   }

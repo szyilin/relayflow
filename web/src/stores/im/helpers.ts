@@ -216,6 +216,14 @@ export function isFileMessage(message: Pick<MessageItem, 'type' | 'content'>): b
     || fileBlockFromContent(message.content) != null
 }
 
+export function stickerBlockFromContent(content: MessageContent) {
+  return content.blocks.find(block => block.type === 'sticker')
+}
+
+export function isStickerMessage(message: Pick<MessageItem, 'type' | 'content'>): boolean {
+  return message.type === 'sticker' || stickerBlockFromContent(message.content) != null
+}
+
 export function messagePreviewFromContent(type: MessageItem['type'], content: MessageContent): string {
   if (type === 'image') {
     return '[图片]'
@@ -228,6 +236,9 @@ export function messagePreviewFromContent(type: MessageItem['type'], content: Me
     const card = content.blocks.find(block => block.type === 'card')
     const title = card?.header?.title?.trim()
     return title ? `[卡片] ${title}` : '[卡片]'
+  }
+  if (type === 'sticker' || stickerBlockFromContent(content)) {
+    return '[表情]'
   }
   return textFromContent(content)
 }

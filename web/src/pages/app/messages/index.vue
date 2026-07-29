@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import ImAddGroupBotModal from '../../../components/workspace/ImAddGroupBotModal.vue'
 import ImAuthenticatedImage from '../../../components/workspace/ImAuthenticatedImage.vue'
+import ImForwardConversationPicker from '../../../components/im/ImForwardConversationPicker.vue'
 import ImMediaLightbox from '../../../components/im/ImMediaLightbox.vue'
 import ImMessageContextMenu from '../../../components/im/ImMessageContextMenu.vue'
 import type { ImMessageMenuAction } from '../../../components/im/ImMessageContextMenu.vue'
+import ImMessageReactionBar from '../../../components/im/ImMessageReactionBar.vue'
+import ImStickerPicker from '../../../components/im/ImStickerPicker.vue'
 import WorkspaceCreateGroupModal from '../../../components/workspace/WorkspaceCreateGroupModal.vue'
 import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersModal.vue'
 import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
@@ -68,6 +71,10 @@ const mediaLightbox = ref<{
 }>({ open: false, kind: null })
 const highlightMsgId = ref<string | null>(null)
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
+const forwardPickerOpen = ref(false)
+const forwardSourceMessageId = ref<string | null>(null)
+const stickerPickerOpen = ref(false)
+const reactionPickerMsgId = ref<string | null>(null)
 const mentionPickerOpen = ref(false)
 const mentionQuery = ref('')
 const mentionActiveIndex = ref(0)
@@ -755,10 +762,22 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
     })
   }
   actions.push({
+    label: '回应',
+    icon: 'i-lucide-smile-plus',
+    onSelect: () => { openReactionQuickBar(msg.id) }
+  })
+  actions.push({
     label: '引用',
     icon: 'i-lucide-reply',
     onSelect: () => { setPendingReply(msg) }
   })
+  if (msg.type !== 'card') {
+    actions.push({
+      label: '转发',
+      icon: 'i-lucide-forward',
+      onSelect: () => { openForwardPicker(msg) }
+    })
+  }
   if (im.isFileMessage(msg) && fileDownloadUrl(msg)) {
     actions.push({
       label: '下载',
@@ -781,6 +800,55 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
     })
   }
   return actions
+}
+
+function openReactionQuickBar(messageId: string) {
+  reactionPickerMsgId.value = messageId
+}
+
+function openForwardPicker(msg: MessageItem) {
+  if (msg.recalled || msg.type === 'card') {
+    return
+  }
+  forwardSourceMessageId.value = msg.id
+  forwardPickerOpen.value = true
+}
+
+async function handleForwardSelect(targetConversationId: string) {
+  const messageId = forwardSourceMessageId.value
+  if (!messageId) {
+    return
+  }
+  try {
+    await im.forwardMessage(messageId, targetConversationId)
+    toast.add({ title: '已转发', color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '转发失败',
+      color: 'error'
+    })
+  } finally {
+    forwardSourceMessageId.value = null
+  }
+}
+
+async function handleStickerSelect(sticker: { id: string }) {
+  try {
+    await im.sendSticker(sticker.id)
+    focusDraftInput()
+  } catch (error) {
+    toast.add({
+      title: error instanceof Error ? error.message : '发送失败',
+      color: 'error'
+    })
+  }
+}
+
+async function openStickerPicker() {
+  stickerPickerOpen.value = !stickerPickerOpen.value
+  if (stickerPickerOpen.value && im.stickerPacks.length === 0) {
+    await im.fetchStickerPacks()
+  }
 }
 
 function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
@@ -1403,6 +1471,20 @@ meta:
                     >
                       {{ item.message.senderNickname }}
                     </p>
+                    <div
+                      v-if="!item.message.recalled && item.message.forwardedFrom"
+                      class="mb-1.5 rounded-md px-2 py-1 text-xs"
+                      :class="isOwnMessage(item.message.senderId)
+                        ? 'bg-black/15 text-primary-foreground/90'
+                        : 'bg-black/5 text-[var(--ws-text-muted)]'"
+                    >
+                      <p class="truncate font-medium">
+                        转发自 {{ item.message.forwardedFrom.senderNickname || '消息' }}
+                      </p>
+                      <p class="line-clamp-2 break-words opacity-90">
+                        {{ item.message.forwardedFrom.preview || '…' }}
+                      </p>
+                    </div>
                     <button
                       v-if="!item.message.recalled && item.message.replyTo"
                       type="button"
@@ -1423,6 +1505,21 @@ meta:
                       <p class="text-sm">
                         消息已撤回
                       </p>
+                    </template>
+                    <template v-else-if="im.isStickerMessage(item.message)">
+                      <div class="flex items-center justify-center py-1 text-5xl leading-none">
+                        <img
+                          v-if="im.stickerBlockFromContent(item.message.content)?.downloadUrl"
+                          :src="im.stickerBlockFromContent(item.message.content)!.downloadUrl"
+                          :alt="im.stickerBlockFromContent(item.message.content)?.text || '表情'"
+                          class="max-h-28 max-w-28 object-contain"
+                        >
+                        <span v-else>
+                          {{ im.stickerBlockFromContent(item.message.content)?.emoji
+                            || im.stickerBlockFromContent(item.message.content)?.text
+                            || '🙂' }}
+                        </span>
+                      </div>
                     </template>
                     <template v-else-if="im.isFileMessage(item.message)">
                       <ImAuthenticatedImage
@@ -1491,6 +1588,15 @@ meta:
                     />
                   </UDropdownMenu>
                 </div>
+                <ImMessageReactionBar
+                  v-if="!item.message.recalled && item.message.type !== 'system'"
+                  class="px-1"
+                  :class="isOwnMessage(item.message.senderId) ? 'justify-end' : ''"
+                  :reactions="item.message.reactions"
+                  :force-open="reactionPickerMsgId === item.message.id"
+                  @toggle="emoji => im.toggleReaction(item.message.id, emoji)"
+                  @update:force-open="val => { if (!val && reactionPickerMsgId === item.message.id) reactionPickerMsgId = null }"
+                />
                 <div
                   v-if="item.isGroupEnd || messageStatusSuffix(item.message) || item.message.edited"
                   class="mt-0.5 flex items-center gap-1.5 px-1 text-[10px] text-[var(--ws-text-muted)]"
@@ -1611,7 +1717,7 @@ meta:
               {{ member.nickname }}
             </UButton>
           </div>
-          <div class="flex items-end gap-2">
+          <div class="relative flex items-end gap-2">
             <UButton
               v-if="isGroupActive"
               icon="i-lucide-at-sign"
@@ -1636,6 +1742,25 @@ meta:
               aria-label="发送附件"
               @click="openFilePicker"
             />
+            <div class="relative mb-0.5">
+              <UButton
+                icon="i-lucide-sticker"
+                color="neutral"
+                variant="ghost"
+                square
+                size="sm"
+                :disabled="im.sending"
+                aria-label="表情包"
+                title="表情包"
+                @click="openStickerPicker"
+              />
+              <ImStickerPicker
+                :open="stickerPickerOpen"
+                :packs="im.stickerPacks"
+                @update:open="stickerPickerOpen = $event"
+                @select="handleStickerSelect"
+              />
+            </div>
             <textarea
               ref="draftInputRef"
               v-model="draft"
@@ -1916,5 +2041,12 @@ meta:
     :title="mediaLightbox.title"
     @update:open="val => { if (!val) closeMediaLightbox() }"
     @download="downloadLightboxMedia"
+  />
+
+  <ImForwardConversationPicker
+    v-model:open="forwardPickerOpen"
+    :conversations="im.conversations"
+    :exclude-conversation-id="im.activeConversationId"
+    @select="handleForwardSelect"
   />
 </template>

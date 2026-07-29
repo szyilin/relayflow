@@ -3,6 +3,7 @@ package com.relayflow.module.im.controller.app.vo;
 import lombok.Data;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Data
 public class MessageItemRespVO {
@@ -23,4 +24,6 @@ public class MessageItemRespVO {
     private OffsetDateTime editedAt;
     /** Present when this message quotes another in the same conversation. */
     private MessageReplyToRespVO replyTo;
+    private List<MessageReactionAggVO> reactions;
+    private MessageForwardedFromVO forwardedFrom;
 }

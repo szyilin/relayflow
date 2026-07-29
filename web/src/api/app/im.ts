@@ -3,7 +3,7 @@ import { get, post, put } from '../request'
 export type ConversationType = 'direct' | 'group' | 'channel' | 'bot_dm'
 
 export interface ContentBlock {
-  type: 'text' | 'file' | 'image' | 'system' | 'deeplink' | 'card' | 'mention'
+  type: 'text' | 'file' | 'image' | 'system' | 'deeplink' | 'card' | 'mention' | 'sticker'
   text?: string
   fileId?: string
   filename?: string
@@ -26,6 +26,11 @@ export interface ContentBlock {
   subjectType?: 'user' | 'bot'
   subjectId?: string
   botCode?: string
+  /** Present when type=sticker. */
+  stickerId?: string
+  packId?: string
+  /** Web mock / fallback glyph when image URL missing. */
+  emoji?: string
 }
 
 export interface CardHeader {
@@ -90,6 +95,7 @@ export interface CardActionResult {
 export interface MessageContent {
   version: number
   blocks: ContentBlock[]
+  forwardedFrom?: MessageForwardedFrom
 }
 
 export interface ConversationItem {
@@ -173,13 +179,45 @@ export interface MessageReplyTo {
   preview?: string
 }
 
+export interface MessageReactionAgg {
+  emoji: string
+  count: number
+  me: boolean
+}
+
+export interface MessageForwardedFrom {
+  conversationId: string
+  messageId: string
+  senderNickname?: string
+  preview?: string
+}
+
+export interface StickerItem {
+  id: string
+  packId: string
+  code: string
+  name: string
+  /** Image URL when backed by infra_file; optional in web mock. */
+  downloadUrl?: string
+  /** Glyph used by web mock / text fallback. */
+  emoji?: string
+}
+
+export interface StickerPackItem {
+  id: string
+  code: string
+  name: string
+  scope: 'system' | 'tenant'
+  stickers: StickerItem[]
+}
+
 export interface MessageItem {
   id: string
   conversationId: string
   senderId: string
   senderNickname?: string
   senderType: 'user' | 'system' | 'bot' | 'app'
-  type: 'text' | 'image' | 'file' | 'system' | 'card'
+  type: 'text' | 'image' | 'file' | 'system' | 'card' | 'sticker'
   content: MessageContent
   clientMsgId?: string
   seq: number
@@ -189,13 +227,15 @@ export interface MessageItem {
   recalledAt?: string
   editedAt?: string
   replyTo?: MessageReplyTo
+  reactions?: MessageReactionAgg[]
+  forwardedFrom?: MessageForwardedFrom
 }
 
 export interface SendMessagePayload {
   conversationId?: string
   peerUserId?: string
   clientMsgId: string
-  type?: 'text' | 'image' | 'file'
+  type?: 'text' | 'image' | 'file' | 'sticker'
   content: MessageContent
   replyToMsgId?: string
 }
@@ -222,7 +262,7 @@ type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId' | 'botId'>
   botId?: number | string
 }
 
-type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq' | 'replyTo'> & {
+type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq' | 'replyTo' | 'forwardedFrom'> & {
   id: number | string
   conversationId: number | string
   senderId: number | string
@@ -232,6 +272,11 @@ type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | '
     senderId?: number | string
     seq?: number | string
   }
+  forwardedFrom?: Omit<MessageForwardedFrom, 'conversationId' | 'messageId'> & {
+    conversationId?: number | string
+    messageId?: number | string
+  }
+  reactions?: MessageReactionAgg[]
 }
 
 type RawSendMessageResult = Omit<SendMessageResult, 'id' | 'conversationId' | 'seq'> & {
@@ -264,6 +309,22 @@ function normalizeMessage(item: RawMessageItem): MessageItem {
         preview: item.replyTo.preview
       }
     : undefined
+  const contentForwarded = item.content?.forwardedFrom
+  const forwardedFrom = item.forwardedFrom?.messageId != null
+    ? {
+        conversationId: String(item.forwardedFrom.conversationId ?? ''),
+        messageId: String(item.forwardedFrom.messageId),
+        senderNickname: item.forwardedFrom.senderNickname,
+        preview: item.forwardedFrom.preview
+      }
+    : contentForwarded?.messageId != null
+      ? {
+          conversationId: String(contentForwarded.conversationId ?? ''),
+          messageId: String(contentForwarded.messageId),
+          senderNickname: contentForwarded.senderNickname,
+          preview: contentForwarded.preview
+        }
+      : undefined
   return {
     ...item,
     id: String(item.id),
@@ -272,7 +333,13 @@ function normalizeMessage(item: RawMessageItem): MessageItem {
     seq: parseSeq(item.seq),
     recalled: Boolean(item.recalled),
     edited: Boolean(item.edited),
-    replyTo
+    replyTo,
+    forwardedFrom,
+    reactions: (item.reactions ?? []).map(r => ({
+      emoji: r.emoji,
+      count: Number(r.count) || 0,
+      me: Boolean(r.me)
+    }))
   }
 }
 
@@ -299,6 +366,64 @@ export function getMessageList(conversationId: string, afterSeq = 0): Promise<Me
 
 export function sendMessage(payload: SendMessagePayload): Promise<SendMessageResult> {
   return post<RawSendMessageResult>('/app-api/im/message/send', payload).then(normalizeSendResult)
+}
+
+export interface ToggleReactionResult {
+  messageId: string
+  conversationId: string
+  reactions: MessageReactionAgg[]
+}
+
+export function toggleMessageReaction(messageId: string, emoji: string): Promise<ToggleReactionResult> {
+  return post<{
+    messageId: number | string
+    conversationId: number | string
+    reactions?: MessageReactionAgg[]
+  }>('/app-api/im/message/reaction/toggle', { messageId, emoji }).then(raw => ({
+    messageId: String(raw.messageId),
+    conversationId: String(raw.conversationId),
+    reactions: (raw.reactions ?? []).map(r => ({
+      emoji: r.emoji,
+      count: Number(r.count) || 0,
+      me: Boolean(r.me)
+    }))
+  }))
+}
+
+export function forwardMessage(payload: {
+  messageId: string
+  targetConversationId: string
+  clientMsgId?: string
+}): Promise<MessageItem> {
+  return post<RawMessageItem>('/app-api/im/message/forward', payload).then(normalizeMessage)
+}
+
+type RawStickerItem = Omit<StickerItem, 'id' | 'packId'> & {
+  id: number | string
+  packId: number | string
+}
+
+type RawStickerPackItem = Omit<StickerPackItem, 'id' | 'stickers'> & {
+  id: number | string
+  stickers?: RawStickerItem[]
+}
+
+export function getStickerPacks(): Promise<StickerPackItem[]> {
+  return get<RawStickerPackItem[]>('/app-api/im/sticker/packs').then(list =>
+    (list ?? []).map(pack => ({
+      id: String(pack.id),
+      code: pack.code,
+      name: pack.name,
+      scope: pack.scope,
+      stickers: (pack.stickers ?? []).map(sticker => ({
+        id: String(sticker.id),
+        packId: String(sticker.packId),
+        code: sticker.code,
+        name: sticker.name,
+        downloadUrl: sticker.downloadUrl,
+        emoji: sticker.emoji
+      }))
+    })))
 }
 
 export function markConversationRead(conversationId: string, readSeq: number): Promise<void> {

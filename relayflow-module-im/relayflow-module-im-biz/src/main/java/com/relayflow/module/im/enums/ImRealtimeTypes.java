@@ -9,6 +9,7 @@ public final class ImRealtimeTypes {
     public static final String MESSAGE_UPDATED = "message.updated";
     public static final String MESSAGE_RECALLED = "message.recalled";
     public static final String MESSAGE_EDITED = "message.edited";
+    public static final String REACTION_UPDATED = "reaction.updated";
     public static final String READ_UPDATED = "read.updated";
 
     private ImRealtimeTypes() {

@@ -2,12 +2,13 @@
 
 消息交互基线（`im-message-ux-v1`）补齐右键 / 预览 / 发送手感后，仍缺飞书式表情回应、转发与表情包，协作表达与消息流转不完整。
 
-## What Changes（规划 · 本 change 待深化后实现）
+## What Changes
 
-- **表情回应（reaction）**：消息级 emoji 回应聚合；右键 / 悬停快捷入口
-- **转发**：单条转发至其它会话（权限与审计另定）
-- **表情包系统**：系统 / 租户表情包目录、发送 sticker 消息类型、选择器 UI
-- **API + 表**：reaction / sticker 持久化与实时推送
+- **表情回应（reaction）**：消息级 Unicode emoji 增删与聚合；右键 / 快捷栏入口；WS `reaction.updated`
+- **转发**：单条转发至本租户其它可写会话（拷贝内容 + `forwardedFrom` 元数据；禁止转发已撤回与 card）
+- **表情包**：系统表情包目录、`type=sticker` 消息、选择器发送（租户自定义上传另开 change）
+- **API + 表**：`im_message_reaction` / `im_sticker_pack` / `im_sticker`；消息列表扩展字段
+- **交付顺序**：同一 change 内 `-web` → `-api` → `-integrate`
 
 ## Capabilities
 
@@ -19,10 +20,11 @@
 
 ### Modified Capabilities
 
-- `im`: 消息类型与实时事件增量（实现前补 delta）
+- `im`: 消息类型 `sticker`、列表字段与实时事件增量
 
 ## Impact
 
-- `web/` 消息页与选择器；`relayflow-module-im` 表与 API；可能 `infra` 文件存贴纸资源
-- **依赖**：建议先完成并 archive `im-message-ux-v1`
-- 本目录目前仅 proposal 占位；实现前须补 design / specs / tasks 并 `openspec validate`
+- `web/`：消息页 reaction 条、转发选择器、sticker 面板；复用右键菜单 action 源
+- `relayflow-module-im`：表、app-api、WS；`infra` 文件引用贴纸资源
+- **依赖**：`im-message-ux-v1` 已实现（右键菜单可挂新 action）
+- 部署：需跑 Flyway；系统 sticker 种子可选

@@ -2,10 +2,14 @@ package com.relayflow.module.im.controller.app;
 
 import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.im.controller.app.vo.EditMessageReqVO;
+import com.relayflow.module.im.controller.app.vo.ForwardMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
 import com.relayflow.module.im.controller.app.vo.RecallMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageRespVO;
+import com.relayflow.module.im.controller.app.vo.ToggleReactionReqVO;
+import com.relayflow.module.im.controller.app.vo.ToggleReactionRespVO;
+import com.relayflow.module.im.service.message.ImMessageReactionService;
 import com.relayflow.module.im.service.message.ImMessageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ import java.util.List;
 public class ImMessageController {
 
     private final ImMessageService messageService;
+    private final ImMessageReactionService reactionService;
 
     @GetMapping("/list")
     public CommonResult<List<MessageItemRespVO>> listMessages(
@@ -35,6 +40,16 @@ public class ImMessageController {
     @PostMapping("/send")
     public CommonResult<SendMessageRespVO> sendMessage(@Valid @RequestBody SendMessageReqVO request) {
         return CommonResult.success(messageService.sendMyMessage(request));
+    }
+
+    @PostMapping("/forward")
+    public CommonResult<MessageItemRespVO> forwardMessage(@Valid @RequestBody ForwardMessageReqVO request) {
+        return CommonResult.success(messageService.forwardMessage(request));
+    }
+
+    @PostMapping("/reaction/toggle")
+    public CommonResult<ToggleReactionRespVO> toggleReaction(@Valid @RequestBody ToggleReactionReqVO request) {
+        return CommonResult.success(reactionService.toggle(request.getMessageId(), request.getEmoji()));
     }
 
     @PostMapping("/recall")

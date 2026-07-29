@@ -1,5 +1,6 @@
 package com.relayflow.module.im.service.message;
 
+import com.relayflow.module.im.controller.app.vo.ForwardMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageRespVO;
@@ -14,6 +15,8 @@ public interface ImMessageService {
     SendMessageRespVO sendMessage(Long tenantId, Long userId, SendMessageReqVO request, RealtimeSendContext realtimeContext);
 
     SendMessageRespVO sendMyMessage(SendMessageReqVO request);
+
+    MessageItemRespVO forwardMessage(ForwardMessageReqVO request);
 
     void recallMessage(Long messageId);
 

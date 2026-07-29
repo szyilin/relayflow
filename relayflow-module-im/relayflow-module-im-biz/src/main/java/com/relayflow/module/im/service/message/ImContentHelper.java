@@ -25,10 +25,12 @@ public class ImContentHelper {
     public static final String MESSAGE_TYPE_FILE = "file";
     /** Reserved for Feishu-like interactive cards; callbacks deferred to im-bot-interactive-card. */
     public static final String MESSAGE_TYPE_CARD = "card";
+    public static final String MESSAGE_TYPE_STICKER = "sticker";
     public static final String BLOCK_TYPE_FILE = "file";
     /** Reserved card block; interactive actions deferred to later slice. */
     public static final String BLOCK_TYPE_CARD = "card";
     public static final String BLOCK_TYPE_MENTION = "mention";
+    public static final String BLOCK_TYPE_STICKER = "sticker";
     public static final String MENTION_SUBJECT_BOT = "bot";
     public static final String MENTION_SUBJECT_USER = "user";
 
@@ -48,6 +50,10 @@ public class ImContentHelper {
             validateTextContent(content);
             return;
         }
+        if (MESSAGE_TYPE_STICKER.equals(messageType)) {
+            validateStickerContentShape(content);
+            return;
+        }
         validateFileContent(messageType, content);
     }
 
@@ -55,10 +61,34 @@ public class ImContentHelper {
         if (!StringUtils.hasText(type) || MESSAGE_TYPE_TEXT.equals(type)) {
             return MESSAGE_TYPE_TEXT;
         }
-        if (MESSAGE_TYPE_IMAGE.equals(type) || MESSAGE_TYPE_FILE.equals(type)) {
+        if (MESSAGE_TYPE_IMAGE.equals(type) || MESSAGE_TYPE_FILE.equals(type)
+                || MESSAGE_TYPE_STICKER.equals(type)) {
             return type;
         }
         throw new ServiceException(ErrorCodeConstants.MESSAGE_SEND_INVALID);
+    }
+
+    public void validateStickerContentShape(MessageContentVO content) {
+        if (content == null || content.getVersion() == null || content.getVersion() != 1) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+        if (CollectionUtils.isEmpty(content.getBlocks())) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+        ContentBlockVO sticker = firstStickerBlock(content);
+        if (sticker == null || sticker.getStickerId() == null) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+        }
+    }
+
+    public ContentBlockVO firstStickerBlock(MessageContentVO content) {
+        if (content == null || CollectionUtils.isEmpty(content.getBlocks())) {
+            return null;
+        }
+        return content.getBlocks().stream()
+                .filter(block -> BLOCK_TYPE_STICKER.equals(block.getType()))
+                .findFirst()
+                .orElse(null);
     }
 
     public void validateTextContent(MessageContentVO content) {
@@ -119,10 +149,11 @@ public class ImContentHelper {
             return;
         }
         for (ContentBlockVO block : content.getBlocks()) {
-            if (!BLOCK_TYPE_FILE.equals(block.getType()) || !StringUtils.hasText(block.getFileId())) {
-                continue;
+            if (BLOCK_TYPE_FILE.equals(block.getType()) && StringUtils.hasText(block.getFileId())) {
+                block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + block.getFileId().trim());
+            } else if (BLOCK_TYPE_STICKER.equals(block.getType()) && StringUtils.hasText(block.getFileId())) {
+                block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + block.getFileId().trim());
             }
-            block.setDownloadUrl(APP_FILE_DOWNLOAD_PREFIX + block.getFileId().trim());
         }
     }
 
@@ -158,6 +189,9 @@ public class ImContentHelper {
         }
         if (MESSAGE_TYPE_CARD.equals(messageType)) {
             return buildCardPreview(content);
+        }
+        if (MESSAGE_TYPE_STICKER.equals(messageType)) {
+            return "[表情]";
         }
         return buildTextPreview(content);
     }

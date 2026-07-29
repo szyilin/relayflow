@@ -17,6 +17,9 @@ public class RelayflowTenantLineHandler implements TenantLineHandler {
             "sys_user",
             // Platform-level bot catalog (no tenant_id column)
             "im_bot",
+            // Platform sticker catalog (no tenant_id column; tenant packs deferred)
+            "im_sticker_pack",
+            "im_sticker",
             // Platform geo (no tenant_id column)
             "infra_geo_region",
             "infra_geo_sync_meta"

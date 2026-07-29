@@ -7,6 +7,11 @@ const PING_INTERVAL_MS = 30_000
 export interface ImWebSocketHandlers {
   onMessageNew: (message: MessageItem) => void
   onMessageUpdated?: (message: MessageItem) => void
+  onReactionUpdated?: (payload: {
+    conversationId: string
+    messageId: string
+    reactions: { emoji: string, count: number, me: boolean }[]
+  }) => void
   onReadUpdated?: (payload: { conversationId: string, userId: string, readSeq: number }) => void
   onTypingUpdated?: (payload: {
     conversationId: string
@@ -155,6 +160,27 @@ export function useImWebSocket(handlers: ImWebSocketHandlers) {
       const readSeq = parseSeq(payload.readSeq)
       if (conversationId && userId && readSeq != null) {
         handlers.onReadUpdated({ conversationId, userId, readSeq })
+      }
+      return
+    }
+    if (envelope.domain === 'im' && envelope.type === 'reaction.updated') {
+      const payload = envelope.payload as Record<string, unknown> | undefined
+      if (!payload || handlers.onReactionUpdated == null) {
+        return
+      }
+      const conversationId = payload.conversationId != null ? String(payload.conversationId) : ''
+      const messageId = payload.messageId != null ? String(payload.messageId) : ''
+      const rawReactions = Array.isArray(payload.reactions) ? payload.reactions : []
+      const reactions = rawReactions.map((item) => {
+        const row = item as Record<string, unknown>
+        return {
+          emoji: String(row.emoji ?? ''),
+          count: Number(row.count) || 0,
+          me: Boolean(row.me)
+        }
+      }).filter(item => item.emoji)
+      if (conversationId && messageId) {
+        handlers.onReactionUpdated({ conversationId, messageId, reactions })
       }
       return
     }

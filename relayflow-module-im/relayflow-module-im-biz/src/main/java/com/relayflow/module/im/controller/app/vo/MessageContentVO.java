@@ -9,4 +9,6 @@ public class MessageContentVO {
 
     private Integer version;
     private List<ContentBlockVO> blocks;
+    /** Present when this message was created by forwarding another message. */
+    private MessageForwardedFromVO forwardedFrom;
 }

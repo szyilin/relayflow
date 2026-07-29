@@ -5,8 +5,11 @@ import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.im.controller.app.vo.ContentBlockVO;
+import com.relayflow.module.im.controller.app.vo.ForwardMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.MessageContentVO;
+import com.relayflow.module.im.controller.app.vo.MessageForwardedFromVO;
 import com.relayflow.module.im.controller.app.vo.MessageItemRespVO;
+import com.relayflow.module.im.controller.app.vo.MessageReactionAggVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageReqVO;
 import com.relayflow.module.im.controller.app.vo.SendMessageRespVO;
 import com.relayflow.module.im.dal.dataobject.ImBotDO;
@@ -33,6 +36,7 @@ import com.relayflow.module.im.service.bot.ingress.GroupBotMentionDispatcher;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.dto.RealtimeSendContext;
 import com.relayflow.module.im.service.productsettings.ImProductSettingsService;
+import com.relayflow.module.im.service.sticker.ImStickerService;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
 import com.relayflow.module.system.api.user.UserApi;
@@ -52,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +82,8 @@ public class ImMessageServiceImpl implements ImMessageService {
     private final BotDmInboundDispatcher botDmInboundDispatcher;
     private final BotInboundAsyncDispatcher botInboundAsyncDispatcher;
     private final ImBotCarrierProperties botCarrierProperties;
+    private final ImMessageReactionService reactionService;
+    private final ImStickerService stickerService;
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
@@ -97,11 +104,17 @@ public class ImMessageServiceImpl implements ImMessageService {
 
         Map<Long, String> nicknameByUserId = loadSenderNicknames(messages);
         Map<Long, MessageReplyToRespVO> replyToByMsgId = loadReplyToMap(tenantId, messages, nicknameByUserId);
+        List<Long> messageIds = messages.stream().map(ImMessageDO::getId).toList();
+        Map<Long, List<MessageReactionAggVO>> reactionsByMsgId =
+                reactionService.aggregateForMessages(tenantId, userId, messageIds);
         return messages.stream()
                 .map(message -> {
                     MessageContentVO content = contentHelper.fromJson(message.getContentJson());
                     contentHelper.enrichDownloadUrls(content);
-                    return toMessageItem(message, content, nicknameByUserId, replyToByMsgId.get(message.getId()));
+                    MessageItemRespVO item = toMessageItem(
+                            message, content, nicknameByUserId, replyToByMsgId.get(message.getId()));
+                    item.setReactions(reactionsByMsgId.getOrDefault(message.getId(), List.of()));
+                    return item;
                 })
                 .toList();
     }
@@ -245,6 +258,9 @@ public class ImMessageServiceImpl implements ImMessageService {
                                          RealtimeSendContext realtimeContext) {
         validateSendRequest(request);
         String messageType = contentHelper.normalizeMessageType(request.getType());
+        if (ImContentHelper.MESSAGE_TYPE_STICKER.equals(messageType)) {
+            request.setContent(stickerService.resolveSendContent(request.getContent(), contentHelper));
+        }
         contentHelper.validateUserMessage(request.getType(), request.getContent());
         contentHelper.enrichDownloadUrls(request.getContent());
 
@@ -338,6 +354,107 @@ public class ImMessageServiceImpl implements ImMessageService {
     public SendMessageRespVO sendMyMessage(SendMessageReqVO request) {
         LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
         return sendMessage(loginUser.getTenantId(), loginUser.getUserId(), request, null);
+    }
+
+    @Override
+    @Transactional
+    public MessageItemRespVO forwardMessage(ForwardMessageReqVO request) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        if (request == null || request.getMessageId() == null || request.getTargetConversationId() == null) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_FORWARD_DENIED);
+        }
+
+        ImMessageDO source = requireMessage(tenantId, request.getMessageId());
+        conversationService.requireMembership(tenantId, source.getConversationId(), userId);
+        if (source.getRecalledAt() != null
+                || ImContentHelper.MESSAGE_TYPE_CARD.equals(source.getType())
+                || MESSAGE_TYPE_SYSTEM.equals(source.getType())) {
+            throw new ServiceException(ErrorCodeConstants.MESSAGE_FORWARD_DENIED);
+        }
+        Long targetConversationId = request.getTargetConversationId();
+        conversationService.requireMembership(tenantId, targetConversationId, userId);
+        conversationService.lockConversation(tenantId, targetConversationId);
+
+        String clientMsgId = StringUtils.hasText(request.getClientMsgId())
+                ? request.getClientMsgId().trim()
+                : UUID.randomUUID().toString();
+        ImMessageDO existing = findByClientMsgId(tenantId, clientMsgId);
+        if (existing != null) {
+            Map<Long, String> nicknames = loadSenderNicknames(List.of(existing));
+            return toMessageItem(existing, nicknames);
+        }
+
+        MessageContentVO sourceContent = contentHelper.fromJson(source.getContentJson());
+        MessageContentVO forwardedContent = new MessageContentVO();
+        forwardedContent.setVersion(sourceContent.getVersion() != null ? sourceContent.getVersion() : 1);
+        forwardedContent.setBlocks(sourceContent.getBlocks() != null
+                ? new ArrayList<>(sourceContent.getBlocks())
+                : List.of());
+        MessageForwardedFromVO forwardedFrom = new MessageForwardedFromVO();
+        forwardedFrom.setConversationId(source.getConversationId());
+        forwardedFrom.setMessageId(source.getId());
+        Map<Long, String> sourceNames = loadSenderNicknames(List.of(source));
+        if (source.getSenderId() != null) {
+            forwardedFrom.setSenderNickname(sourceNames.get(source.getSenderId()));
+        }
+        forwardedFrom.setPreview(contentHelper.buildPreview(source.getType(), sourceContent));
+        forwardedContent.setForwardedFrom(forwardedFrom);
+        contentHelper.enrichDownloadUrls(forwardedContent);
+
+        long nextSeq = nextSeq(tenantId, targetConversationId);
+        OffsetDateTime now = OffsetDateTime.now();
+        ImMessageDO message = new ImMessageDO();
+        message.setTenantId(tenantId);
+        message.setConversationId(targetConversationId);
+        message.setSenderId(userId);
+        message.setSenderType(SENDER_TYPE_USER);
+        message.setType(source.getType());
+        message.setContentJson(contentHelper.toJson(forwardedContent));
+        message.setClientMsgId(clientMsgId);
+        message.setSeq(nextSeq);
+        message.setCreator(userId);
+        message.setCreateTime(now);
+
+        try {
+            messageMapper.insert(message);
+        } catch (DuplicateKeyException ex) {
+            ImMessageDO raced = findByClientMsgId(tenantId, clientMsgId);
+            if (raced == null) {
+                throw ex;
+            }
+            return toMessageItem(raced, loadSenderNicknames(List.of(raced)));
+        }
+
+        String preview = contentHelper.buildPreview(source.getType(), forwardedContent);
+        if (StringUtils.hasText(preview) && !preview.startsWith("[")) {
+            preview = "[转发] " + preview;
+        } else if (!StringUtils.hasText(preview)) {
+            preview = "[转发]";
+        }
+        ImConversationDO conversation = conversationMapper.selectById(targetConversationId);
+        conversation.setLastMsgId(message.getId());
+        conversation.setLastMsgAt(now);
+        conversation.setLastMsgPreview(preview);
+        conversation.setUpdater(userId);
+        conversationMapper.updateById(conversation);
+        incrementUnreadForOthers(tenantId, targetConversationId, userId, forwardedContent);
+
+        Map<Long, String> nicknames = loadSenderNicknames(List.of(message));
+        MessageItemRespVO payload = toMessageItem(message, nicknames);
+        payload.setReactions(List.of());
+        RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
+                .domain(ImRealtimeTypes.DOMAIN)
+                .type(ImRealtimeTypes.MESSAGE_NEW)
+                .ts(System.currentTimeMillis())
+                .payload(payload)
+                .build();
+        List<Long> recipients = conversationService.listMemberUserIds(tenantId, targetConversationId);
+        if (!recipients.isEmpty()) {
+            realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
+        }
+        return payload;
     }
 
     @Override
@@ -750,6 +867,9 @@ public class ImMessageServiceImpl implements ImMessageService {
         item.setRecalledAt(message.getRecalledAt());
         item.setEditedAt(message.getEditedAt());
         item.setReplyTo(replyTo);
+        if (content != null && content.getForwardedFrom() != null) {
+            item.setForwardedFrom(content.getForwardedFrom());
+        }
         if (Boolean.TRUE.equals(item.getRecalled())) {
             item.setContent(textContent("消息已撤回"));
         }
