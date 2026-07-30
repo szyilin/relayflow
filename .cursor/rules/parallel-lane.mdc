@@ -1,0 +1,30 @@
+---
+description: 并行 Lane — *-web / *-api 分工与边界（不变量）
+globs: web/**/*,relayflow-*/**/*
+alwaysApply: false
+---
+
+# 并行 Lane（`-web` / `-api`）
+
+用户指派前后端 lane，或 change 名以 **`-web`** / **`-api`** 结尾时适用。全文：[`parallel-lane-workflow.md`](../../docs/dev/parallel-lane-workflow.md)、[`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)、[`api-integration-board.md`](../../docs/dev/api-integration-board.md)。
+
+## 共同
+
+- 只做当前 change 的 `tasks.md`；默认 **`-web` 先于 `-api`**
+- Contract：`openspec/lanes/<slice>/contract.md`（通常 `-web` 起草，`-api` 按契约实现）
+- 看板状态见 [`api-integration-board.md`](../../docs/dev/api-integration-board.md)
+
+## `-web`
+
+- **只改** `web/` 与当前 `*-web` 文档（`vite` proxy / `VITE_*` 除外可动）
+- UI + Store；API 未就绪时临时数据仅 store；**禁止**常驻 mocks / `isApiUnavailable`
+- 起草或更新 contract；完成前 **`pnpm build` + `pnpm typecheck`**
+- **禁止**改 Java；未有 contract（且 tasks 未写明沿用已有 API）就要求 `-api` 定形状
+
+## `-api`
+
+- **只改** Java、Flyway、`deploy/`（tasks 要求时）；CORS/Security 白名单除外勿改 `web/`
+- 前置：`-web` 已 ui_ready 或 contract 已冻结（单人顺序则 web 完成后再开 api）
+- 字段与 contract / 前端一致；改字段先改 contract
+- **禁止**无 `-web` contract 草案擅自定 API 形状（`[平台]` 除外）；勿勾选 `-web` / `-integrate` tasks
+- 验证：`mvn compile` + 契约级联调（curl 等）

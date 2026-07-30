@@ -53,10 +53,9 @@ openspec archive <change-name>
 | **智能体平台** | [agent-architecture-draft.md](docs/dev/agent-architecture-draft.md) | **AgentDef、Spring AI、Channel 隔离；母 change `agent-platform-foundation`** |
 | **Agent 能力/技能发现** | [agent-capability-architecture.md](docs/dev/agent-capability-architecture.md) | **热路径工具 · 域二级发现 · 流程技能包（对齐 Grok 理念）** |
 | **可交互卡片** | [im-bot-interactive-card.md](docs/dev/im-bot-interactive-card.md) | **写 card / CardActionHandler / 卡片 action 前** |
-| 实现工作流（脚手架、小步 change） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **实现任何代码前** |
+| 实现工作流（小步 change、验证门禁） | [.cursor/rules/implementation-workflow.mdc](.cursor/rules/implementation-workflow.mdc) | **长期不变量；实现任何代码前** |
 | 纵向切片（Cursor 规则摘要） | [.cursor/rules/vertical-slice-workflow.mdc](.cursor/rules/vertical-slice-workflow.mdc) | **业务功能必读** |
-| 并行 Lane 前端 | [.cursor/rules/parallel-lane-frontend.mdc](.cursor/rules/parallel-lane-frontend.mdc) | **`*-web` change / 前端 AI** |
-| 并行 Lane 后端 | [.cursor/rules/parallel-lane-backend.mdc](.cursor/rules/parallel-lane-backend.mdc) | **`*-api` change / 后端 AI** |
+| 并行 Lane | [.cursor/rules/parallel-lane.mdc](.cursor/rules/parallel-lane.mdc) | **`*-web` / `*-api` 双 lane** |
 | 前端 UI（Nuxt UI v4） | [.cursor/rules/frontend-nuxt-ui.mdc](.cursor/rules/frontend-nuxt-ui.mdc) | 写 `web/` |
 | 系统行为规格 | [openspec/specs/](openspec/specs/) | 实现前对齐需求 |
 | 当前变更任务 | [openspec/changes/](openspec/changes/) | 本次工作范围 |
@@ -96,11 +95,9 @@ relayflow/
 
 **认证入口**：唯一登录页 `/app/login`（已接 JWT）；登录后进工作台；管理后台 `/admin` 须管理身份（见 [product-permission-model.md](docs/dev/product-permission-model.md)）。
 
-**下一优先**：**智能体平台**（母 change [`agent-platform-foundation`](openspec/changes/agent-platform-foundation/proposal.md) + 架构 [`docs/dev/agent-architecture-draft.md`](docs/dev/agent-architecture-draft.md)）。Create Hub / 组织邀请母 change [`workspace-plus-create-v1`](openspec/changes/archive/2026-07-29-workspace-plus-create-v1/proposal.md) 已归档。子 change 骨架已开单：`admin-llm-provider-v1` → `agent-module-scaffold` → **`agent-runtime-core-v1`（亮点）** → `workspace-agent-web` → `workspace-agent-integrate` → `agent-skill-catalog-v1` → `im-bot-agent-carrier-v1` → `agent-automation-v1`。实现前先深化对应子 change 的 design/specs/tasks；勿在一个 OpenSpec 内吞全栈；勿从 archive 未勾任务续做。
+**下一步**：以 `openspec list` 的 **active change** 与本文件近期备注为准；无 active 则先 propose / `openspec new change`，深化 design/specs/tasks 后再实现。勿在一个 OpenSpec 内吞全栈；**禁止**从 archive 未勾任务续做。领域背景文档仍在 [`docs/dev/`](docs/dev/)（如智能体、IM Bot 等 draft）。
 
-脚手架顺序（已完成）：`scaffold-*` → `tenant-ready-foundation` / `system-schema-v1` → 组织/IM 纵向切片。
-
-Phase 2 微服务脚手架（Gateway、Nacos、`*-server`）**不在 V1 脚手架阶段实现**；见 `distributed-backend-v1`。
+脚手架与早期切片已完成。Phase 2（Gateway、Nacos、`*-server`）见 `distributed-backend-v1`，**不在 V1 提前做**。
 
 ## OpenSpec（摘要）
 
@@ -117,7 +114,7 @@ Phase 2 微服务脚手架（Gateway、Nacos、`*-server`）**不在 V1 脚手�
 | 用户端 API | `/app-api/{module}/` |
 | 管理端前端路由 | 必须以 `/admin` 开头 |
 | WebSocket | `/infra/ws` |
-| 表前缀 | `sys_`、`infra_`、`im_`、`bpm_` |
+| 表前缀 | 按域前缀分域；清单见 [database.md](docs/dev/database.md) |
 | API 成功码 | `code = 0`，HTTP 200 |
 | 主键 | 雪花 ID |
 | Flyway | `V{major}.{minor}.{patch}.{seq}__{desc}.sql` |

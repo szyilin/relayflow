@@ -1,23 +1,21 @@
 ---
-description: 员工工作台 UI（/app/*）页面与 token 约定
+description: 工作台 UI 不变量 — 编辑 /app 与 workspace 组件时生效；细则见 docs
 globs: web/src/pages/app/**,web/src/components/workspace/**,web/src/assets/css/workspace.css,web/src/composables/useWorkspace*.ts
 alwaysApply: false
 ---
 
 # 员工工作台 UI
 
-编辑 `/app/*` 或 `components/workspace/` 时遵循：
+编辑 `/app/*` 或 `components/workspace/` 时遵守下列不变量；壳层细节与 token 见文档。
 
-1. [`docs/dev/workspace-ui-patterns.md`](../../docs/dev/workspace-ui-patterns.md) — 壳层、数据层
-2. [`docs/dev/workspace-ui-tokens.md`](../../docs/dev/workspace-ui-tokens.md) — `--ws-*` token
+## 真源
 
-## 应当
+1. [`workspace-ui-patterns.md`](../../docs/dev/workspace-ui-patterns.md)
+2. [`workspace-ui-tokens.md`](../../docs/dev/workspace-ui-tokens.md)（`--ws-*`）
 
-- 使用 `WorkspaceShell` + `workspace.css`；**禁止**混用管理端 `UDashboardSidebar` / `--admin-*`
-- 页面 → **Store** → `api/`；`-web` 临时假数据只放 store，integrate 删除
-- HTTP 走 `web/src/api/request.ts`（axios）
+## 不变量
 
-## 禁止
-
-- 页面直接 `import mocks/`；常驻 `web/src/mocks/`；已废弃的 `isApiUnavailable` 全局回退
-- 引入 Element Plus 等第二套 UI 库
+- 使用工作台壳层与 `workspace.css`；**禁止**混用管理端 dashboard 壳层 / `--admin-*` token
+- 页面 → Store → `web/src/api/`（经 `request.ts`）；`-web` 临时数据只放 store，integrate 删除
+- **禁止**页面 `import mocks/`、常驻 `mocks/`、`isApiUnavailable` 全局回退
+- **禁止**引入第二套 UI 库（见 `frontend-nuxt-ui.mdc`）

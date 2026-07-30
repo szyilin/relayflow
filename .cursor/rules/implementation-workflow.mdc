@@ -1,119 +1,92 @@
 ---
-description: 实现工作流 — 脚手架优先、小步变更、CLI 生成、验证门禁
+description: 实现工作流 — 小步 change、CLI 优先、验证门禁、封闭变量（长期不变量）
 alwaysApply: true
 ---
 
 # 实现工作流（必读）
 
-RelayFlow 脚手架已就绪；**业务功能**按 **纵向切片 · 前端优先**（`-web` → `-api` → `-integrate`）推进。详见 [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)。
+**用户可感知功能**按 **纵向切片 · 前端优先**（`-web` → `-api` → `-integrate`）推进。详见 [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)。
 
 ## 核心原则
 
 1. **能 CLI/模板生成的，禁止 AI 从零手写**（构建配置、目录树、官方脚手架）
 2. **一次只做一个 OpenSpec change 中的一组 tasks**（通常 ≤10 条），不得跨 change 实现
-3. **用户可感知功能 · 前端优先**：先 `-web`（UI + Mock + contract 草案），再 `-api`，最后 `-integrate` 去 Mock 联调（见 [`frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md)）
+3. **用户可感知功能 · 前端优先**：先 `-web`（UI + 临时数据 + contract 草案），再 `-api`，最后 `-integrate` 去临时数据联调
 4. **行为以 `openspec/specs/` 为真源**；archive 中的 design 仅作背景，不是本次实现清单
-5. **声称完成前必须运行验证命令**并依据输出判断，不得仅凭「看起来对」
+5. **下一步以 active change 与 [`AGENTS.md`](../../AGENTS.md) 为准**；无 active 则先 `openspec new change` / propose，**禁止**从 archive 未勾任务续做
+6. **声称完成前必须运行验证命令**并依据输出判断，不得仅凭「看起来对」
+7. **规格、提交说明、用户可见文案**：禁止点名第三方商业产品品牌；对标表述用中性说法（如「常见企业协作产品」「行业常见交互」）
 
 ## 文档阅读顺序（实现时）
 
 1. `openspec/changes/<当前 change>/tasks.md` — **本次唯一工作范围**
-2. [`docs/dev/product-permission-model.md`](../../docs/dev/product-permission-model.md) — **双产品面、登录门禁、管理身份（涉及 auth/路由/RBAC 时必读）**
-3. [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) — **业务切片默认顺序（必读）**
+2. [`docs/dev/product-permission-model.md`](../../docs/dev/product-permission-model.md) — 涉及 auth / 路由 / RBAC 时
+3. [`docs/dev/frontend-first-workflow.md`](../../docs/dev/frontend-first-workflow.md) — 业务切片默认顺序
 4. [`docs/dev/vertical-slice-workflow.md`](../../docs/dev/vertical-slice-workflow.md) — 切片结构与验证
-5. `openspec/changes/<当前 change>/specs/` — 本变更的规格增量
-6. `openspec/specs/<相关域>/spec.md` — 已归档的行为真源
-7. `docs/dev/` — API、数据库、代码分层等实现约定
-8. `AGENTS.md`、`.cursor/rules/*.mdc` — 入口导引与 Cursor 规则
-9. `openspec/changes/archive/*/design.md` — 仅当 tasks 要求查架构细节时
+5. `openspec/changes/<当前 change>/specs/` — 本变更规格增量
+6. `openspec/specs/<相关域>/spec.md` — 已归档行为真源
+7. `docs/dev/` — API、数据库、分层等实现约定
+8. `AGENTS.md`、`.cursor/rules/*.mdc` — 入口与 Cursor 规则
+9. `openspec/changes/archive/*/design.md` — **仅当** tasks 要求查架构细节时
 
 ## 必须用 CLI / 官方模板（禁止手写替代）
 
 | 产物 | 做法 |
 |------|------|
 | OpenSpec 变更 | `openspec new change <name>` |
-| Vue 前端 `web/` | 基于 [dashboard-vue 模板](https://github.com/nuxt-ui-templates/dashboard-vue) 初始化，再按 [Nuxt UI Vue 安装](https://ui.nuxt.com/docs/getting-started/installation/vue) 集成 |
-| Maven 多模块 | 复制/扩展仓库内已验证的 parent pom 模式；版本仅来自 `relayflow-dependencies` BOM |
-| Flyway 迁移 | AI 只写 **SQL 内容与业务含义**；文件名 `V{major}.{minor}.{patch}.{seq}__{description}.sql`（前三段=产品 SemVer，第四段=同版本序号） |
-| DO / 基础 Mapper / Mapper.xml | **CLI 按需生成参照**（`scripts/codegen.sh --tables` → 临时目录 → **diff 合入 `src/` 并提交**）；自定义 SQL 用 ExtMapper 分文件；禁止硬编码表清单、禁止从零手写 DO（见 `docs/dev/codegen.md`） |
-| 依赖版本 | 只写入 BOM，子模块 pom 不写死版本号（除 BOM import） |
+| 新前端工程 | 官方模板初始化后再按 [Nuxt UI Vue 安装](https://ui.nuxt.com/docs/getting-started/installation/vue) 集成；**已有 `web/` 则扩展，勿重搭** |
+| Maven 模块 | 复制/扩展仓库内已有 parent / 模块模式；版本仅来自 `relayflow-dependencies` BOM |
+| Flyway | AI 只写 SQL 语义；文件名见 [`database.md`](../../docs/dev/database.md) |
+| DO / 基础 Mapper | `scripts/codegen.sh --tables` → 临时目录 → diff 合入 `src/`；自定义 SQL 用 ExtMapper（见 [`codegen.md`](../../docs/dev/codegen.md)） |
+| 依赖版本 | 只写入 BOM；子模块 pom 不写死版本号（除 BOM import） |
 
 ## 禁止行为
 
-- 单次会话实现「整个 V1」「全部模块」
-- **连续多会话只堆后端 API、无对应 `web/` 对接**（tasks 标 `[平台]` 的纯基础设施除外）
-- 未读 `tasks.md` 就根据 README/archive design 大量生成代码
-- 手写完整 `pom.xml` 树、`vite.config.ts`、`nuxt.config` 而不参考官方模板
-- 引入 Element Plus、React、未在 BOM/spec 中的依赖
-- 为 DO/DTO/VO/Properties 等数据类手写 getter/setter（须用 Lombok，见 `docs/dev/code-style.md` § Lombok）
-- Spring Bean 使用字段注入，或手写仅赋值的构造器（须用 `@RequiredArgsConstructor`，见 `docs/dev/code-style.md` § 构造器注入）
-- 跨域调用：同步走 `*-api`，异步走领域消息；禁止 `*-biz` 互依赖、禁止跨域 Mapper 访问他域表（见 `docs/dev/architecture.md`、`docs/dev/cross-domain-messaging.md`）
-- V1 禁止引入 Gateway、Nacos、独立 `*-server`（Phase 2 再做）
+- 单次会话实现「整个 V1 / 全模块」
+- **连续多会话只堆后端、无对应 `web/`**（tasks 标 `[平台]` 除外）
+- 未读 `tasks.md` 就按 README / archive design 大量生成代码
+- 手写完整构建树 / Vite·Nuxt 配置而不参考官方模板或现有工程
+- 引入未在 BOM / 规格中的 UI 栈或依赖（见 `frontend-nuxt-ui.mdc`）
+- 为数据类手写 getter/setter；Spring Bean 字段注入（见 [`code-style.md`](../../docs/dev/code-style.md)）
+- `*-biz → *-biz`、跨域 Mapper 直连他域表（同步走 `*-api`，异步走领域消息）
+- V1 引入 Gateway、Nacos、独立 `*-server`（Phase 2，见 `distributed-backend-v1`）
 
-## 推荐实施阶段（按顺序，每阶段独立 change）
-
-### 脚手架（已完成或按原流程）
-
-```text
-scaffold-maven-parent → scaffold-framework → scaffold-server
-→ scaffold-deploy-compose → scaffold-web-nuxt-ui
-→ tenant-ready-foundation（框架+表）→ system-schema-v1 → scaffold-system-codegen
-```
-
-### 业务功能 — 纵向切片 · 前端优先（当前起）
-
-默认顺序 **`-web` → `-api` → `-integrate`**。详见 `frontend-first-workflow.md`。
-
-```text
-1. unified-login-slice     — 唯一登录 /app/login → 工作台 ✅
-2. admin-shell-web         — 壳层租户名（-api 已有）
-3. admin-user-list-web     — 用户列表 UI 先行 → 再 -api 分页
-4. tenant-platform-slice   — [平台] Redis/MinIO/WS
-5. infra-* / im-*          — 按域继续
-```
-
-### Phase 2（以后 — 分布式部署，满足触发条件后再做）
-
-```text
-9. distributed-backend-v1 第二章节 — Gateway + Nacos + *-server + 分库 + Feign
-```
-
-**V1 禁止**：提前创建 `relayflow-gateway`、`relayflow-*-server`、引入 Nacos。  
-**V1 必须**：`*-api` 边界、禁止 `*-biz → *-biz`、表前缀分域、跨域不直连他域表。
-
-## 单次实现会话的检查清单
+## 单次实现会话检查清单
 
 开始：
-- [ ] 确认当前 active change 名称与 `tasks.md` 章节
-- [ ] 若含用户可见功能：确认本切片 **前端路径** 与 **API 列表**（见 vertical-slice-workflow.md）
-- [ ] 确认脚手架是否已存在（无 pom 则不做业务代码）
+
+- [ ] 确认 **active** change 与本次 `tasks.md` 章节（无 active → 先开 change，勿续 archive）
+- [ ] 用户可见功能：确认前端路径与 API 列表（见 vertical-slice 文档）
+- [ ] 新模块：对齐现有 parent / BOM / `*-api`·`*-biz` 边界，勿另起炉灶
 
 结束：
-- [ ] 仅完成 tasks 中勾选项对应范围
-- [ ] 运行本 change 适用的验证命令（见 AGENTS.md）；**含 web/ 必须 `pnpm build` + `pnpm typecheck`**
-- [ ] 有 UI 的切片：说明浏览器验证路径
+
+- [ ] 仅完成 tasks 勾选范围
+- [ ] 跑适用验证（见下）；含 `web/` 必须 `pnpm build` + `pnpm typecheck`
+- [ ] 有 UI：说明浏览器验证路径
 - [ ] 未请求则不 git commit / push
 
 ## 验证命令（按场景选用）
 
 ```bash
 openspec validate <change-name> --strict
-./mvnw -pl relayflow-server -am compile    # 后端
-cd web && pnpm install && pnpm build && pnpm typecheck  # 含 web/ 的切片必跑
-docker compose -f deploy/compose.yml config # Compose 语法
+./mvnw -pl relayflow-server -am compile
+cd web && pnpm install && pnpm build && pnpm typecheck
+docker compose -f deploy/compose.yml config
 ```
 
 ## 封闭变量（不得擅自更改）
 
+细节以 `docs/dev/` 为准；此处只列不变量：
+
 - 包名：`com.relayflow`
-- API：`/admin-api/`、`/app-api/`、`/infra/ws`；响应 `code=0` 成功（见 `docs/dev/api.md`）
-- 前端：管理端路由必须以 `/admin` 开头（见 `docs/dev/code-style.md`）
-- 表前缀：`sys_`、`infra_`、`im_`、`bpm_`；主键雪花 ID；时间字段 `create_time`（见 `docs/dev/database.md`）
-- Flyway：`V{major}.{minor}.{patch}.{seq}__{description}.sql`（见 `docs/dev/database.md`）
-- 产品版本：**开发期 major 固定 `0`**（当前 `0.1.0-SNAPSHOT`）；**禁止** AI 自行将 major 升到 `1`；只有产品负责人宣布正式上线后才允许 `1.0.0`；minor/patch 可按开发进度调整（见 `CONTRIBUTING.md` § 版本号）
+- API：`/admin-api/`、`/app-api/`、`/infra/ws`；成功 `code=0`（[`api.md`](../../docs/dev/api.md)）
+- 管理端路由：`/admin` 前缀；页面在 `web/src/pages/admin/`（[`code-style.md`](../../docs/dev/code-style.md)）
+- 表：域前缀分域、雪花 ID、`create_time`；前缀清单见 [`database.md`](../../docs/dev/database.md)
+- Flyway：`V{major}.{minor}.{patch}.{seq}__{desc}.sql`
+- 产品版本：开发期 **major 固定 `0`**；禁止 AI 自行升到 `1.x`（[`CONTRIBUTING.md`](../../CONTRIBUTING.md)）
 - 租户：V1 `relayflow.tenant.enabled=false`，默认 `tenant_id=1`
-- 前端 UI：Nuxt UI v4（见 `frontend-nuxt-ui.mdc`）
-- Lombok：数据类用 `@Data` 等；禁止手写 getter/setter（见 `docs/dev/code-style.md` § Lombok）
-- 构造器注入：Spring Bean 用 `@RequiredArgsConstructor`；禁止字段注入（见 `docs/dev/code-style.md` § 构造器注入）
-- Commit：中文 + Conventional Commits（见 `CONTRIBUTING.md`）
-- 模块：跨域同步仅 `*-api`，异步走领域消息；禁止 `*-biz → *-biz`（见 `docs/dev/architecture.md`、`docs/dev/cross-domain-messaging.md`）
+- 前端 UI：Nuxt UI v4（`frontend-nuxt-ui.mdc`）
+- Lombok / `@RequiredArgsConstructor`（[`code-style.md`](../../docs/dev/code-style.md)）
+- Commit：中文 + Conventional Commits
+- 跨域：同步 `*-api`，异步领域消息；禁止 `*-biz → *-biz`

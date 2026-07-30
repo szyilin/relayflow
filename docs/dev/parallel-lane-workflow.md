@@ -37,7 +37,7 @@
 - **编辑**：`web/`、contract 草案、看板
 - **产出**：UI 可演示（Mock）、`contract.md` 草案、`pnpm build` 通过
 - **禁止**：改 Java（proxy/env 除外）
-- **Cursor**：`.cursor/rules/parallel-lane-frontend.mdc`
+- **Cursor**：`.cursor/rules/parallel-lane.mdc`（`-web` 段）
 
 ### `-api`（第二步）
 
@@ -45,7 +45,7 @@
 - **编辑**：Java、Flyway
 - **验证**：`mvn compile`、curl
 - **归档**：看板 `api → archived`；**不必等 integrate**
-- **Cursor**：`.cursor/rules/parallel-lane-backend.mdc`
+- **Cursor**：`.cursor/rules/parallel-lane.mdc`（`-api` 段）
 
 ### `-integrate`（第三步）
 
