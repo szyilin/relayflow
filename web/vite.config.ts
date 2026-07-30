@@ -45,6 +45,24 @@ const prosemirrorAlias = Object.fromEntries(
   prosemirrorSingletons.map(name => [name, packageRoot(name)])
 )
 
+/**
+ * @nuxt/icon runtime always imports `#build/nuxt-icon-client-bundle` (Nuxt module id).
+ * Nuxt UI's Vue Vite plugin only ships `virtual:nuxt-ui-icons` with the same `init()` export.
+ * Without this bridge, Vite fails: Failed to resolve import "#build/nuxt-icon-client-bundle".
+ */
+function nuxtIconClientBundleBridge(): Plugin {
+  return {
+    name: 'relayflow-nuxt-icon-client-bundle',
+    enforce: 'pre',
+    resolveId(id) {
+      if (id === '#build/nuxt-icon-client-bundle') {
+        return 'virtual:nuxt-ui-icons'
+      }
+      return null
+    }
+  }
+}
+
 /** Route Nuxt UI useToast → app wrapper (icons + close/progress defaults). */
 function relayflowToastWrapper(): Plugin {
   return {
@@ -69,6 +87,7 @@ function relayflowToastWrapper(): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    nuxtIconClientBundleBridge(),
     relayflowToastWrapper(),
     vueRouter({
       dts: 'src/route-map.d.ts'
@@ -206,8 +225,11 @@ export default defineConfig({
     dedupe: [...prosemirrorSingletons]
   },
   optimizeDeps: {
+    // @nuxt/icon uses `#imports` / `#build/*`; must stay on Vite's pipeline (same as @nuxt/ui).
+    exclude: ['@nuxt/icon'],
     include: [...prosemirrorSingletons]
   },
+
   server: {
     proxy: {
       '/admin-api': {
