@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContactItem } from '../../../api/app/contacts'
 import type { DeptTreeItem } from '../../../api/app/contacts'
+import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 
 defineProps<{
   breadcrumb: DeptTreeItem[]
@@ -104,8 +105,9 @@ const emit = defineEmits<{
             :data-active="activeContactId === person.id"
             @click="emit('contactClick', person, $event)"
           >
-            <UAvatar
+            <WorkspaceAvatar
               :text="person.avatarText"
+              :seed="person.id"
               size="md"
             />
             <div class="min-w-0 flex-1">

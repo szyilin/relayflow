@@ -28,6 +28,37 @@
 | `--ws-card-radius` | `0.875rem` | 同左 | 圆角 |
 | `--ws-text` / `--ws-text-muted` | 见 CSS | 见 CSS | 文字 |
 
+### 语义 / 身份 tint（`--ws-tint-*`）
+
+明暗 **同 hue 族**，仅调亮度/透明度。业务页禁止散落 hex；标签走 `WorkspaceSemanticBadge`。
+
+| Token 族 | 用途 |
+|----------|------|
+| `info` / `success` / `warning` / `danger` | 通用状态 |
+| `official` / `bot` / `agent` / `external` / `role` | 身份 |
+| `coming-soon` | 产品态「即将推出」 |
+| 每族另有 `-muted` | soft 标签底色 |
+
+### 模块 tint（Rail 图标）
+
+| 变量 | 模块 |
+|------|------|
+| `--ws-module-messages` | 消息 |
+| `--ws-module-contacts` | 通讯录 |
+| `--ws-module-docs` | 云文档 |
+| `--ws-module-calendar` | 日历 |
+| `--ws-module-tasks` | 任务 |
+| `--ws-module-meeting` | 视频会议 |
+| `--ws-module-agents` | 智能体 |
+
+Rail 项通过 `--ws-module-tint` 注入；图标 class `.workspace-rail-icon`。文字保持 `--ws-text` / muted，不整行彩虹。
+
+### 默认字母头像渐变
+
+- util：`avatarGradientFromId` / `letterAvatarStyle`（`web/src/utils/avatar.ts`）
+- 组件：`WorkspaceAvatar`（有 `src` 用图；无图则双色 135° 渐变 + 首字）
+- seed 优先 `userId`，否则名称；同 seed 跨页同色
+
 ## 语义用法
 
 | 用途 | 做法 | 禁止 |
@@ -36,6 +67,8 @@
 | 内部分割 | `border-[var(--ws-border-subtle)]` | 列间硬 `border-right` 满高 |
 | 列表选中 | `.workspace-list-item[data-active='true']` | 管理端 active 样式 |
 | 搜索框 | `.workspace-search` | 裸 `UInput` 无容器样式 |
+| 身份/状态色 | `--ws-tint-*` + `WorkspaceSemanticBadge` / `WorkspaceAvatar` | 染画布/列卡片/正文框 |
+| 空态 | `WorkspaceEmptyState` | 假数据填空；仅 muted 灰字无锚点 |
 
 ## 可拖拽列表栏
 

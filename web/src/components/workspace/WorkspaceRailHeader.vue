@@ -16,6 +16,7 @@ import { useProfileStore } from '../../stores/profile'
 import { useUserPreferenceStore } from '../../stores/userPreference'
 import { useWorkspaceSearchShortcut } from '../../composables/useWorkspaceSearchShortcut'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -140,10 +141,11 @@ onMounted(() => {
           :class="{ 'is-open': profileOpen }"
           :aria-label="displayNickname"
         >
-          <UAvatar
+          <WorkspaceAvatar
             :src="avatarUrl"
             :alt="displayNickname"
             :text="avatarText"
+            :seed="authStore.userId"
             size="lg"
             class="ring-2 ring-primary/25 transition-shadow duration-200"
             :class="{ 'ring-primary/50': profileOpen }"

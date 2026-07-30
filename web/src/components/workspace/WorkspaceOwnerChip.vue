@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import WorkspaceBusinessCard from './WorkspaceBusinessCard.vue'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { useClickAnchoredPopover } from '../../composables/useClickAnchoredPopover'
 import { useAuthStore } from '../../stores/auth'
 import { useContactsStore } from '../../stores/contacts'
@@ -68,9 +69,6 @@ const resolvedAvatarUrl = computed(() => {
 const avatarText = computed(() =>
   contact.value?.avatarText || avatarTextFromName(resolvedName.value))
 
-const avatarClass = computed(() =>
-  props.size === 'sm' ? 'size-6 text-[10px]' : 'size-5 text-[9px]')
-
 function onChipClick(event: MouseEvent) {
   event.preventDefault()
   event.stopPropagation()
@@ -118,11 +116,13 @@ async function openMessage() {
       :title="resolvedName"
       @click="onChipClick"
     >
-      <UAvatar
+      <WorkspaceAvatar
         :src="resolvedAvatarUrl"
         :alt="resolvedName"
         :text="avatarText"
-        :class="avatarClass"
+        :seed="props.userId"
+        :size="props.size === 'sm' ? 'sm' : 'xs'"
+        :class="props.size === 'sm' ? 'size-6 text-[10px]' : 'size-5 text-[9px]'"
       />
       <span class="min-w-0 truncate text-xs text-[var(--ws-text-secondary,var(--ui-text-muted))]">
         {{ resolvedName }}

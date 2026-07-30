@@ -81,11 +81,24 @@ web/src/
 | 项 | 规范 |
 |----|------|
 | 组件 | `WorkspaceOwnerChip` |
-| 展示 | 头像（图或字）+ **真实显示名**；当前用户可旁标「我」，**禁止**单独用「我」代替姓名 |
+| 展示 | 头像（图或 **哈希渐变字母底**）+ **真实显示名**；当前用户可旁标「我」，**禁止**单独用「我」代替姓名 |
 | 点击 | `stopPropagation` + `useClickAnchoredPopover` → `WorkspaceBusinessCard`；不得单独触发行打开 |
 | 数据 | `userId` 必填；`displayName` / `avatarUrl` 可选；否则从 auth / contacts 解析 |
+| 头像 | 统一 `WorkspaceAvatar`（seed=`userId`）；无 URL 时渐变字母，禁止中性灰圆 |
 | 复用 | 云文档列表所有者列、任务负责人等；多负责人最多约 3 个 chip + `+N` |
 | Change | [`workspace-owner-chip-web`](../../openspec/changes/archive/2026-07-27-workspace-owner-chip-web/proposal.md) |
+
+## 视觉系统（身份色 / 状态色 / 空态）
+
+| 项 | 规范 |
+|----|------|
+| 边界 | 色用在人/态/空；画布、列卡片、正文、多数工具图标保持冷静（见 `workspace-ui-tokens.md`） |
+| 字母头像 | `WorkspaceAvatar` + `avatarGradientFromId`；IM/通讯录/名片/Rail 等同规则 |
+| 语义标签 | `WorkspaceSemanticBadge`：`kind` = official/bot/agent/external/role/comingSoon/info/success/warning/danger |
+| 「即将推出」 | MUST 用 `comingSoon` soft 标签，禁止 muted 纯文字冒充 |
+| Rail 模块 tint | `useWorkspaceNav` 的 `tintVar` → `--ws-module-*`；未选中可辨、选中靠 active 底 |
+| 空态 | `WorkspaceEmptyState`（插画区 + 标题 + 可选描述/CTA）；设置占位、列表空、主区无选等优先接入 |
+| Change | [`workspace-visual-polish-web`](../../openspec/changes/workspace-visual-polish-web/proposal.md) |
 
 ## 工作台设置窗
 
@@ -95,7 +108,7 @@ web/src/
 | 布局 | 左栏分类（账号与安全、通用、隐私、通知、快捷键）；右栏内容；默认「通用」 |
 | 通用 | 主题模式（跟随系统/浅色/深色 + 预览）、主题色色点、会话气泡布局（左对齐/左右分布） |
 | 数据 | `stores/userPreference` → **preference API 为真源**（登录/切租户后 GET 水合；PUT 失败须 toast）；localStorage 仅作带 `(tenantId, userId)` 作用域的短时缓存，**不得**作跨会话权威写路径；契约见 [`user-preference/contract.md`](../../openspec/lanes/user-preference/contract.md)；工程约定见 change [`frontend-eng-hardening-v1`](../../openspec/changes/frontend-eng-hardening-v1/proposal.md) |
-| 占位分类 | 右侧空态「功能即将推出（占位）」+ toast |
+| 占位分类 | `WorkspaceEmptyState` + `WorkspaceSemanticBadge`（comingSoon）+ toast |
 
 ## 全局搜索（⌘K / Rail）
 

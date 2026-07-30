@@ -11,6 +11,7 @@ import DocsRecentList from '../../../components/workspace/DocsRecentList.vue'
 import DocsSharedList from '../../../components/workspace/DocsSharedList.vue'
 import DocsStarredList from '../../../components/workspace/DocsStarredList.vue'
 import DocsShareDialog from '../../../components/workspace/DocsShareDialog.vue'
+import WorkspaceSemanticBadge from '../../../components/workspace/WorkspaceSemanticBadge.vue'
 import AppTreeSelect from '../../../components/AppTreeSelect.vue'
 import type { DocsLibraryNode, DocsSharePermission, TipTapDocJson } from '../../../api/app/docs'
 import { emptyTipTapDoc } from '../../../api/app/docs'
@@ -762,10 +763,13 @@ meta:
                   :class="entry.enabled && isPanelActive(entry.key) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
                 />
                 <span class="min-w-0 flex-1 truncate">{{ entry.label }}</span>
-                <span
+                <WorkspaceSemanticBadge
                   v-if="!entry.enabled"
-                  class="shrink-0 text-[10px] text-[var(--ws-text-muted)]"
-                >即将推出</span>
+                  kind="comingSoon"
+                  size="xs"
+                >
+                  即将推出
+                </WorkspaceSemanticBadge>
                 <UIcon
                   v-else-if="entry.enterable && (driveHover || isPanelActive('drive'))"
                   name="i-lucide-chevron-right"
@@ -843,7 +847,13 @@ meta:
           </span>
           <span>
             <span class="block text-sm font-semibold">模板库</span>
-            <span class="text-xs text-[var(--ws-text-muted)]">即将推出</span>
+            <WorkspaceSemanticBadge
+              kind="comingSoon"
+              size="xs"
+              class="mt-0.5"
+            >
+              即将推出
+            </WorkspaceSemanticBadge>
           </span>
         </button>
       </div>

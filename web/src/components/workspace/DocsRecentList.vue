@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DocsRecentItem } from '../../api/app/docs'
 import WorkspaceOwnerChip from './WorkspaceOwnerChip.vue'
+import WorkspaceEmptyState from './WorkspaceEmptyState.vue'
 import { resolveAvatarUrl } from '../../utils/avatar'
 
 const props = withDefaults(defineProps<{
@@ -133,12 +134,12 @@ function rowActions(item: DocsRecentItem) {
       </h2>
     </div>
     <div class="min-h-0 flex-1 overflow-x-auto overflow-y-auto p-3">
-      <p
+      <WorkspaceEmptyState
         v-if="!props.items.length"
-        class="px-2 py-8 text-center text-sm text-[var(--ws-text-muted)]"
-      >
-        打开或编辑过的文档会显示在这里。
-      </p>
+        icon="i-lucide-clock"
+        title="暂无最近访问"
+        description="打开或编辑过的文档会显示在这里。"
+      />
       <template v-else>
         <div
           class="mb-1 hidden grid-cols-[minmax(10rem,1.4fr)_7rem_6rem_7rem_7rem_2rem] gap-2 px-3 text-[11px] font-medium text-[var(--ws-text-muted)] md:grid"

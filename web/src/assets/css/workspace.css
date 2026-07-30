@@ -23,6 +23,37 @@
   --ws-search-bg: #ffffff;
   --ws-input-bar-bg: #f5f6f8;
   --ws-resize-hover: rgb(0 0 0 / 12%);
+
+  /* Semantic / identity tints — same hue family in light & dark */
+  --ws-tint-info: #2563eb;
+  --ws-tint-info-muted: color-mix(in oklab, #2563eb 14%, #ffffff);
+  --ws-tint-success: #16a34a;
+  --ws-tint-success-muted: color-mix(in oklab, #16a34a 14%, #ffffff);
+  --ws-tint-warning: #d97706;
+  --ws-tint-warning-muted: color-mix(in oklab, #d97706 16%, #ffffff);
+  --ws-tint-danger: #dc2626;
+  --ws-tint-danger-muted: color-mix(in oklab, #dc2626 14%, #ffffff);
+  --ws-tint-official: #2563eb;
+  --ws-tint-official-muted: color-mix(in oklab, #2563eb 14%, #ffffff);
+  --ws-tint-bot: #ea580c;
+  --ws-tint-bot-muted: color-mix(in oklab, #ea580c 16%, #ffffff);
+  --ws-tint-agent: #7c3aed;
+  --ws-tint-agent-muted: color-mix(in oklab, #7c3aed 14%, #ffffff);
+  --ws-tint-external: #0284c7;
+  --ws-tint-external-muted: color-mix(in oklab, #0284c7 14%, #ffffff);
+  --ws-tint-role: #6d28d9;
+  --ws-tint-role-muted: color-mix(in oklab, #6d28d9 12%, #ffffff);
+  --ws-tint-coming-soon: #0d9488;
+  --ws-tint-coming-soon-muted: color-mix(in oklab, #0d9488 14%, #ffffff);
+
+  /* Rail module icon tints (identity only — not chrome) */
+  --ws-module-messages: #3b82f6;
+  --ws-module-contacts: #06b6d4;
+  --ws-module-docs: #14b8a6;
+  --ws-module-calendar: #f59e0b;
+  --ws-module-tasks: #6366f1;
+  --ws-module-meeting: #0ea5e9;
+  --ws-module-agents: #a855f7;
 }
 
 .dark {
@@ -43,6 +74,35 @@
   --ws-search-bg: #111214;
   --ws-input-bar-bg: #2b2d31;
   --ws-resize-hover: rgb(255 255 255 / 22%);
+
+  --ws-tint-info: #60a5fa;
+  --ws-tint-info-muted: color-mix(in oklab, #3b82f6 22%, #1c1d21);
+  --ws-tint-success: #4ade80;
+  --ws-tint-success-muted: color-mix(in oklab, #22c55e 20%, #1c1d21);
+  --ws-tint-warning: #fbbf24;
+  --ws-tint-warning-muted: color-mix(in oklab, #f59e0b 22%, #1c1d21);
+  --ws-tint-danger: #f87171;
+  --ws-tint-danger-muted: color-mix(in oklab, #ef4444 22%, #1c1d21);
+  --ws-tint-official: #60a5fa;
+  --ws-tint-official-muted: color-mix(in oklab, #3b82f6 22%, #1c1d21);
+  --ws-tint-bot: #fb923c;
+  --ws-tint-bot-muted: color-mix(in oklab, #f97316 22%, #1c1d21);
+  --ws-tint-agent: #c4b5fd;
+  --ws-tint-agent-muted: color-mix(in oklab, #8b5cf6 24%, #1c1d21);
+  --ws-tint-external: #38bdf8;
+  --ws-tint-external-muted: color-mix(in oklab, #0ea5e9 22%, #1c1d21);
+  --ws-tint-role: #c4b5fd;
+  --ws-tint-role-muted: color-mix(in oklab, #7c3aed 22%, #1c1d21);
+  --ws-tint-coming-soon: #2dd4bf;
+  --ws-tint-coming-soon-muted: color-mix(in oklab, #14b8a6 22%, #1c1d21);
+
+  --ws-module-messages: #60a5fa;
+  --ws-module-contacts: #22d3ee;
+  --ws-module-docs: #2dd4bf;
+  --ws-module-calendar: #fbbf24;
+  --ws-module-tasks: #818cf8;
+  --ws-module-meeting: #38bdf8;
+  --ws-module-agents: #c084fc;
 }
 
 .workspace-shell {
@@ -96,7 +156,18 @@
 
 .workspace-rail-btn[data-active='true'] {
   background: var(--ws-rail-active);
-  color: var(--ui-primary);
+  color: var(--ws-text);
+}
+
+.workspace-rail-btn .workspace-rail-icon {
+  color: var(--ws-module-tint, var(--ws-text-muted));
+  opacity: 0.82;
+  transition: opacity 0.15s ease;
+}
+
+.workspace-rail-btn:hover .workspace-rail-icon,
+.workspace-rail-btn[data-active='true'] .workspace-rail-icon {
+  opacity: 1;
 }
 
 .workspace-list-item {

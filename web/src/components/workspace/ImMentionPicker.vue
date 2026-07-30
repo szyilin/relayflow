@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { computed, ref, watch } from 'vue'
 import type { GroupMemberItem } from '../../api/app/im'
 
@@ -95,10 +96,10 @@ function onSelect(member: GroupMemberItem) {
         @mousedown.prevent="onSelect(member)"
         @mouseenter="emit('update:activeIndex', index)"
       >
-        <UAvatar
+        <WorkspaceAvatar
           :text="member.avatarText || member.nickname.slice(0, 1)"
+          :seed="member.userId || member.botId || member.nickname"
           size="xs"
-          :ui="{ root: member.subjectType === 'bot' ? 'bg-primary/20' : undefined }"
         />
         <span class="min-w-0 flex-1 truncate font-medium">
           {{ member.nickname }}

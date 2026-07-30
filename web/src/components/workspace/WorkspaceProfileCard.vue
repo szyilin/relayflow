@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useImStore } from '../../stores/im'
 import { useProfileStore } from '../../stores/profile'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 
 const props = defineProps<{
   open: boolean
@@ -206,10 +207,11 @@ function openAdmin() {
         :disabled="profileStore.uploading"
         @click="pickAvatar"
       >
-        <UAvatar
+        <WorkspaceAvatar
           :src="avatarUrl"
           :alt="displayNickname"
           :text="avatarText"
+          :seed="authStore.userId"
           size="xl"
           class="ring-2 ring-primary/20"
         />

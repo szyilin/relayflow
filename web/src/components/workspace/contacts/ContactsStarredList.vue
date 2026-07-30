@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StarredContactItem } from '../../../stores/contacts'
+import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 
 defineProps<{
   starred: StarredContactItem[]
@@ -45,8 +46,9 @@ const emit = defineEmits<{
             class="flex min-w-0 flex-1 items-center gap-3 text-left"
             @click="emit('contactClick', person, $event)"
           >
-            <UAvatar
+            <WorkspaceAvatar
               :text="person.avatarText"
+              :seed="person.userId"
               size="md"
             />
             <div class="min-w-0 flex-1">

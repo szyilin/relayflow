@@ -130,6 +130,7 @@ function onItemClick(event: MouseEvent, to: string) {
           draggingId === item.id ? 'opacity-50' : '',
           dropMode === 'before' && overBeforeId === item.id ? 'workspace-rail-drop-before' : ''
         ]"
+        :style="item.tintVar ? { '--ws-module-tint': `var(${item.tintVar})` } : undefined"
         :data-active="activeRailId === item.id"
         :draggable="true"
         @dragstart="onDragStart($event, item.id)"
@@ -138,7 +139,7 @@ function onItemClick(event: MouseEvent, to: string) {
         @drop="onDrop"
         @click="onItemClick($event, item.to)"
       >
-        <UIcon :name="item.icon" class="size-5 shrink-0" />
+        <UIcon :name="item.icon" class="workspace-rail-icon size-5 shrink-0" />
         <span class="truncate text-sm font-medium">{{ item.label }}</span>
         <span
           v-if="item.badge"

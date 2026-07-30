@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ExternalContactItem } from '../../../stores/contacts'
 import type { LetterGroup } from '../../../utils/contactSort'
+import WorkspaceAvatar from '../WorkspaceAvatar.vue'
+import WorkspaceSemanticBadge from '../WorkspaceSemanticBadge.vue'
 
 defineProps<{
   groups: LetterGroup<ExternalContactItem>[]
@@ -63,13 +65,15 @@ const emit = defineEmits<{
               class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
               @click="emit('contactClick', person, $event)"
             >
-              <UAvatar
+              <WorkspaceAvatar
                 :text="person.avatarText"
+                :seed="person.userId"
                 size="md"
               />
               <div class="min-w-0 flex-1">
                 <p class="truncate font-medium">
                   {{ person.displayName }}
+                  <WorkspaceSemanticBadge kind="external" size="xs" class="ml-1.5 align-middle">外部</WorkspaceSemanticBadge>
                 </p>
                 <p class="truncate text-sm text-[var(--ws-text-muted)]">
                   {{ person.orgLabel }}

@@ -15,6 +15,9 @@ import ImInviteMembersModal from '../../../components/workspace/ImInviteMembersM
 import ImMentionPicker from '../../../components/workspace/ImMentionPicker.vue'
 import ImMessageCard from '../../../components/im/ImMessageCard.vue'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
+import WorkspaceAvatar from '../../../components/workspace/WorkspaceAvatar.vue'
+import WorkspaceSemanticBadge from '../../../components/workspace/WorkspaceSemanticBadge.vue'
+import WorkspaceEmptyState from '../../../components/workspace/WorkspaceEmptyState.vue'
 import { downloadAuthenticatedFile } from '../../../api/app/file'
 import type { ContentBlock, GroupMemberItem, MessageItem, PublicGroupSearchItem } from '../../../api/app/im'
 import { useMessageConversationRoute } from '../../../composables/im/useMessageConversationRoute'
@@ -1373,8 +1376,9 @@ meta:
           :data-active="im.activeConversationId === thread.id"
           @click="handleSelect(thread.id)"
         >
-          <UAvatar
+          <WorkspaceAvatar
             :text="thread.avatarText ?? thread.title.slice(0, 1)"
+            :seed="thread.peerUserId || thread.botId || thread.id"
             :icon="conversationAvatarIcon(thread.type)"
             size="md"
           />
@@ -1386,8 +1390,8 @@ meta:
               </span>
             </div>
             <p class="truncate text-sm text-[var(--ws-text-muted)]">
-              <span v-if="thread.type === 'group'" class="mr-1 text-xs">[群]</span>
-              <span v-else-if="thread.type === 'bot_dm'" class="mr-1 text-xs">[助手]</span>
+              <WorkspaceSemanticBadge v-if="thread.type === 'group'" kind="official" size="xs" class="mr-1">群</WorkspaceSemanticBadge>
+              <WorkspaceSemanticBadge v-else-if="thread.type === 'bot_dm'" kind="agent" size="xs" class="mr-1">助手</WorkspaceSemanticBadge>
               <span
                 v-if="thread.mentionedMe && thread.unreadCount > 0"
                 class="mr-1 text-xs font-medium text-error"
@@ -1405,14 +1409,19 @@ meta:
       </div>
 
       <div v-else class="flex flex-1 flex-col items-center justify-center p-6">
-        <UEmpty icon="i-lucide-message-square" title="暂无会话" description="开始与同事发起单聊、建群，或查看来自助手的消息" />
+        <WorkspaceEmptyState
+          icon="i-lucide-message-square"
+          title="暂无会话"
+          description="开始与同事发起单聊、建群，或查看来自助手的消息"
+        />
       </div>
     </template>
 
     <div v-if="active" class="flex h-full flex-col">
       <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
-        <UAvatar
+        <WorkspaceAvatar
           :text="active.avatarText ?? active.title.slice(0, 1)"
+          :seed="active.peerUserId || active.botId || active.id"
           :icon="conversationAvatarIcon(active.type)"
         />
         <div class="min-w-0 flex-1">
@@ -1906,7 +1915,11 @@ meta:
     </div>
 
     <div v-else class="flex h-full items-center justify-center p-8">
-      <UEmpty icon="i-lucide-message-circle" title="选择会话" description="从左侧列表选择会话开始聊天" />
+      <WorkspaceEmptyState
+        icon="i-lucide-message-circle"
+        title="选择会话"
+        description="从左侧列表选择会话开始聊天"
+      />
     </div>
   </WorkspaceShell>
 
@@ -1995,8 +2008,9 @@ meta:
             :key="memberRowKey(member)"
             class="flex items-center gap-3 rounded-md px-3 py-2"
           >
-            <UAvatar
+            <WorkspaceAvatar
               :text="member.avatarText"
+              :seed="member.userId || member.botId || member.nickname"
               :icon="member.subjectType === 'bot' ? 'i-lucide-bot' : undefined"
               size="sm"
             />
@@ -2060,8 +2074,9 @@ meta:
             :key="group.conversationId"
             class="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-[var(--ws-input-bar-bg)]"
           >
-            <UAvatar
+            <WorkspaceAvatar
               :text="group.name.slice(0, 1)"
+              :seed="group.conversationId || group.name"
               icon="i-lucide-users"
               size="sm"
             />

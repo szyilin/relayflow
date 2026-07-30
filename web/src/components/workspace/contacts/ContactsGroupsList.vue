@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import WorkspaceAvatar from '../WorkspaceAvatar.vue'
+
 export interface ContactsGroupRow {
   id: string
   title: string
@@ -52,8 +54,9 @@ const emit = defineEmits<{
           class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
           @click="emit('open', group)"
         >
-          <UAvatar
+          <WorkspaceAvatar
             :text="group.avatarText"
+            :seed="group.id"
             size="md"
           />
           <div class="min-w-0 flex-1">

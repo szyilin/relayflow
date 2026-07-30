@@ -4,6 +4,7 @@ import { useBusinessCardStore } from '../../stores/businessCard'
 import { useContactsStore } from '../../stores/contacts'
 import type { ContactRemark } from '../../api/app/contactRemark'
 import { avatarTextFromName, resolveAvatarUrl } from '../../utils/avatar'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 
 export type BusinessCardMode = 'self' | 'peer'
 
@@ -325,10 +326,11 @@ const peerMoreItems = computed(() => {
 
     <div class="relative px-4 pb-4 pt-0">
       <div class="flex justify-center">
-        <UAvatar
+        <WorkspaceAvatar
           :src="resolvedAvatarUrl"
           :alt="displayName"
           :text="displayAvatarText"
+          :seed="props.userId"
           size="3xl"
           class="workspace-business-card__avatar -mt-10 ring-4 ring-[var(--ws-panel-bg)]"
         />

@@ -12,6 +12,18 @@ export interface WorkspaceRailItem {
   icon: string
   to: string
   badge?: string
+  /** CSS variable name for module icon tint, e.g. `--ws-module-messages` */
+  tintVar?: string
+}
+
+const RAIL_TINT: Record<string, string> = {
+  messages: '--ws-module-messages',
+  contacts: '--ws-module-contacts',
+  docs: '--ws-module-docs',
+  calendar: '--ws-module-calendar',
+  tasks: '--ws-module-tasks',
+  meeting: '--ws-module-meeting',
+  agents: '--ws-module-agents'
 }
 
 function formatUnreadBadge(count: number): string | undefined {
@@ -53,15 +65,24 @@ export function useWorkspaceNav() {
   const railItems = computed<WorkspaceRailItem[]>(() => {
     const fromProducts: WorkspaceRailItem[] = PRODUCT_REGISTRY
       .filter(p => p.workspacePath)
-      .map(p => ({
-        id: p.workspaceRailId ?? p.id,
-        label: p.id === 'im' ? '消息' : p.label,
-        icon: p.icon,
-        to: p.workspacePath!,
-        badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined
-      }))
+      .map(p => {
+        const id = p.workspaceRailId ?? p.id
+        return {
+          id,
+          label: p.id === 'im' ? '消息' : p.label,
+          icon: p.icon,
+          to: p.workspacePath!,
+          badge: p.id === 'im' ? formatUnreadBadge(totalUnreadCount.value) : undefined,
+          tintVar: RAIL_TINT[id]
+        }
+      })
 
-    const byId = new Map([...fromProducts, ...EXTRA_RAIL].map(item => [item.id, item]))
+    const extras: WorkspaceRailItem[] = EXTRA_RAIL.map(item => ({
+      ...item,
+      tintVar: RAIL_TINT[item.id]
+    }))
+
+    const byId = new Map([...fromProducts, ...extras].map(item => [item.id, item]))
     const availableIds = [...byId.keys()]
     const order = resolveRailOrder(railOrder.value, availableIds)
     return order.flatMap((id) => {

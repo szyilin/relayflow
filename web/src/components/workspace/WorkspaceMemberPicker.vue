@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import { useContactsStore } from '../../stores/contacts'
 import { useMemberPickerStore } from '../../stores/memberPicker'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
+import WorkspaceSemanticBadge from './WorkspaceSemanticBadge.vue'
 
 export interface PickerMember {
   userId: string
@@ -385,7 +387,7 @@ defineExpose({
                   subtitle: member.deptName
                 }, $event === true)"
               />
-              <UAvatar :text="member.avatarText" size="sm" />
+              <WorkspaceAvatar :text="member.avatarText" :seed="member.id" size="sm" />
               <span class="truncate text-sm">{{ member.nickname }}</span>
             </label>
             <UEmpty
@@ -430,15 +432,9 @@ defineExpose({
                   external: true
                 }, $event === true)"
               />
-              <UAvatar :text="person.avatarText" size="sm" />
+              <WorkspaceAvatar :text="person.avatarText" :seed="person.userId" size="sm" />
               <span class="truncate text-sm">{{ person.displayName }}</span>
-              <UBadge
-                color="primary"
-                variant="subtle"
-                size="sm"
-              >
-                外部
-              </UBadge>
+              <WorkspaceSemanticBadge kind="external" size="sm">外部</WorkspaceSemanticBadge>
             </label>
             <UEmpty
               v-if="!externalRows.length"
@@ -483,7 +479,9 @@ defineExpose({
                 class="flex min-w-0 flex-1 items-center gap-3 text-left"
                 @click="openManagedMembers(group.id)"
               >
-                <UAvatar
+                <WorkspaceAvatar
+                  :text="group.title.slice(0, 1)"
+                  :seed="group.id"
                   icon="i-lucide-users"
                   size="sm"
                 />
@@ -525,7 +523,7 @@ defineExpose({
                 avatarText: member.avatarText
               }, $event === true)"
             />
-            <UAvatar :text="member.avatarText" size="sm" />
+            <WorkspaceAvatar :text="member.avatarText" :seed="member.userId" size="sm" />
             <span class="truncate text-sm">{{ member.displayName }}</span>
           </label>
           <UEmpty
@@ -552,19 +550,18 @@ defineExpose({
             :key="person.userId"
             class="flex items-center gap-2 rounded-md px-2 py-1.5"
           >
-            <UAvatar :text="person.avatarText" size="sm" />
+            <WorkspaceAvatar :text="person.avatarText" :seed="person.userId" size="sm" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm">
                 {{ person.displayName }}
-                <UBadge
+                <WorkspaceSemanticBadge
                   v-if="person.external"
-                  color="primary"
-                  variant="subtle"
+                  kind="external"
                   size="sm"
                   class="ml-1"
                 >
                   外部
-                </UBadge>
+                </WorkspaceSemanticBadge>
               </p>
             </div>
             <UButton

@@ -6,6 +6,8 @@ import {
   type ChatBubbleLayout,
   type ThemeMode
 } from '../../stores/userPreference'
+import WorkspaceEmptyState from './WorkspaceEmptyState.vue'
+import WorkspaceSemanticBadge from './WorkspaceSemanticBadge.vue'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -407,18 +409,19 @@ async function patchTask(patch: Parameters<typeof preference.patchTask>[0]) {
             </section>
           </template>
 
-          <div
+          <WorkspaceEmptyState
             v-else
-            class="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 text-center"
+            class="min-h-[320px]"
+            :icon="activeCategoryMeta.icon"
+            :title="activeCategoryMeta.label"
+            description="该分类功能即将推出"
           >
-            <UIcon :name="activeCategoryMeta.icon" class="size-10 text-[var(--ws-text-muted)] opacity-50" />
-            <p class="font-medium">
-              {{ activeCategoryMeta.label }}
-            </p>
-            <p class="text-sm text-[var(--ws-text-muted)]">
-              功能即将推出（占位）
-            </p>
-          </div>
+            <template #actions>
+              <WorkspaceSemanticBadge kind="comingSoon">
+                即将推出
+              </WorkspaceSemanticBadge>
+            </template>
+          </WorkspaceEmptyState>
         </div>
       </div>
     </template>

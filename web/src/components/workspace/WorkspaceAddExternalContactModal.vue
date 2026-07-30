@@ -4,6 +4,7 @@ import {
   useContactAddStore,
   type ContactAccountSearchHit
 } from '../../stores/contactAdd'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 
 const open = defineModel<boolean>('open', { required: true })
 const contactAdd = useContactAddStore()
@@ -137,7 +138,7 @@ function finish() {
               :key="hit.userId"
               class="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[var(--ws-rail-hover)]"
             >
-              <UAvatar :text="hit.avatarText" size="md" />
+              <WorkspaceAvatar :text="hit.avatarText" :seed="hit.userId" size="md" />
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">
                   {{ hit.displayName }}

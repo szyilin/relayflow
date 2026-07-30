@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { computed, ref, watch } from 'vue'
 import WorkspaceModalBody from './WorkspaceModalBody.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -151,8 +152,9 @@ async function handleSubmit() {
                 :model-value="selectedIds.includes(member.id)"
                 @update:model-value="toggleMember(member.id, $event === true)"
               />
-              <UAvatar
+              <WorkspaceAvatar
                 :text="member.avatarText"
+                :seed="member.id"
                 size="sm"
               />
               <div class="min-w-0 flex-1">

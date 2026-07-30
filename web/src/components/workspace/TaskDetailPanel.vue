@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import type { TaskItem } from '../../api/app/task'
 import { ApiError } from '../../api/request'
 import { useAuthStore } from '../../stores/auth'
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { useContactsStore } from '../../stores/contacts'
 import { useTasksStore } from '../../stores/tasks'
 import { resolveAssigneeIds } from '../../stores/tasks/assigneeLocal'
@@ -805,7 +806,7 @@ async function handleAddComment() {
                   class="pointer-events-none"
                   tabindex="-1"
                 />
-                <UAvatar :alt="nicknameFor(String(auth.userId))" size="xs" />
+                <WorkspaceAvatar :alt="nicknameFor(String(auth.userId))" :text="nicknameFor(String(auth.userId)).slice(0, 1)" :seed="auth.userId" size="xs" />
                 <span class="font-medium">{{ nicknameFor(String(auth.userId)) }}</span>
                 <span class="text-xs text-[var(--ws-text-muted)]">我</span>
               </button>
@@ -824,7 +825,7 @@ async function handleAddComment() {
                   class="pointer-events-none"
                   tabindex="-1"
                 />
-                <UAvatar :alt="m.nickname" size="xs" />
+                <WorkspaceAvatar :alt="m.nickname" :text="m.nickname.slice(0, 1)" :seed="m.id" size="xs" />
                 <span class="font-medium">{{ m.nickname }}</span>
                 <span class="text-xs text-[var(--ws-text-muted)]">{{ m.username }}</span>
               </button>

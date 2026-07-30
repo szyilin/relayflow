@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { computed, ref, watch } from 'vue'
 import WorkspaceModalBody from './WorkspaceModalBody.vue'
 import { useImStore } from '../../stores/im'
@@ -94,8 +95,9 @@ async function handleSubmit() {
                 :model-value="selectedCode === bot.botCode"
                 @update:model-value="selectedCode = $event === true ? bot.botCode : null"
               />
-              <UAvatar
+              <WorkspaceAvatar
                 :text="bot.avatarText"
+                :seed="bot.botId || bot.botCode"
                 icon="i-lucide-bot"
                 size="sm"
               />
