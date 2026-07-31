@@ -33,8 +33,14 @@ public class ImMessageController {
     @GetMapping("/list")
     public CommonResult<List<MessageItemRespVO>> listMessages(
             @RequestParam("conversationId") Long conversationId,
-            @RequestParam(value = "afterSeq", required = false, defaultValue = "0") Long afterSeq) {
-        return CommonResult.success(messageService.listMessages(conversationId, afterSeq));
+            @RequestParam(value = "afterSeq", required = false) Long afterSeq,
+            @RequestParam(value = "beforeSeq", required = false) Long beforeSeq,
+            @RequestParam(value = "aroundSeq", required = false) Long aroundSeq,
+            @RequestParam(value = "before", required = false) Integer before,
+            @RequestParam(value = "after", required = false) Integer after,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        return CommonResult.success(messageService.listMessages(
+                conversationId, afterSeq, beforeSeq, aroundSeq, before, after, limit));
     }
 
     @PostMapping("/send")

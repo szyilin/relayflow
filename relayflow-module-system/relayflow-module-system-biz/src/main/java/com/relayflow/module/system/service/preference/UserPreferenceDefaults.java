@@ -31,7 +31,12 @@ public class UserPreferenceDefaults {
     public static final List<String> DEFAULT_RAIL_ORDER = List.of(
             "messages", "calendar", "meeting", "tasks", "agents", "docs", "contacts");
 
+    /** Built-in IM sidebar groups (must match web IM_SIDEBAR_GROUP_IDS). */
+    public static final List<String> DEFAULT_SIDEBAR_GROUP_ORDER = List.of(
+            "all", "unread", "flagged", "mention_me", "tags", "direct", "group", "muted", "bot");
+
     private static final Set<String> KNOWN_RAIL_IDS = new LinkedHashSet<>(DEFAULT_RAIL_ORDER);
+    private static final Set<String> KNOWN_SIDEBAR_GROUP_IDS = new LinkedHashSet<>(DEFAULT_SIDEBAR_GROUP_ORDER);
 
     private final ObjectMapper objectMapper;
 
@@ -42,6 +47,9 @@ public class UserPreferenceDefaults {
 
         Map<String, Object> im = new LinkedHashMap<>();
         im.put("chatBubbleLayout", "split");
+        im.put("pinnedSectionCollapsed", false);
+        im.put("sidebarGroupOrder", new ArrayList<>(DEFAULT_SIDEBAR_GROUP_ORDER));
+        im.put("sidebarGroupHidden", new ArrayList<String>());
 
         Map<String, Object> calendar = new LinkedHashMap<>();
         calendar.put("weekStartsOn", 0);
@@ -75,6 +83,7 @@ public class UserPreferenceDefaults {
         }
         Map<String, Object> merged = objectMapper.convertValue(base, new TypeReference<>() {});
         normalizeWorkspaceRailOrder(merged);
+        normalizeImSidebarGroups(merged);
         return merged;
     }
 
@@ -99,6 +108,81 @@ public class UserPreferenceDefaults {
         }
         workspace.put("railOrder", resolveRailOrder(preferred));
         settings.put("workspace", workspace);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void normalizeImSidebarGroups(Map<String, Object> settings) {
+        Object imObj = settings.get("im");
+        Map<String, Object> im;
+        if (imObj instanceof Map<?, ?>) {
+            im = (Map<String, Object>) imObj;
+        } else {
+            im = new LinkedHashMap<>();
+            settings.put("im", im);
+        }
+        Object collapsed = im.get("pinnedSectionCollapsed");
+        if (!(collapsed instanceof Boolean)) {
+            im.put("pinnedSectionCollapsed", Boolean.parseBoolean(String.valueOf(collapsed != null ? collapsed : false)));
+        }
+        List<String> orderPreferred = toStringList(im.get("sidebarGroupOrder"));
+        List<String> hiddenPreferred = toStringList(im.get("sidebarGroupHidden"));
+        Map.Entry<List<String>, List<String>> resolved = resolveSidebarGroupPreferences(orderPreferred, hiddenPreferred);
+        im.put("sidebarGroupOrder", resolved.getKey());
+        im.put("sidebarGroupHidden", resolved.getValue());
+        settings.put("im", im);
+    }
+
+    private static List<String> toStringList(Object raw) {
+        List<String> out = new ArrayList<>();
+        if (!(raw instanceof List<?> list)) {
+            return out;
+        }
+        for (Object item : list) {
+            if (item != null) {
+                out.add(String.valueOf(item));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Visible order + hidden ids; empty visible falls back to full default order.
+     */
+    static Map.Entry<List<String>, List<String>> resolveSidebarGroupPreferences(
+            List<String> order,
+            List<String> hidden) {
+        Set<String> hiddenSet = new LinkedHashSet<>();
+        if (hidden != null) {
+            for (String id : hidden) {
+                if (id != null && KNOWN_SIDEBAR_GROUP_IDS.contains(id.trim())) {
+                    hiddenSet.add(id.trim());
+                }
+            }
+        }
+        List<String> visible = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        if (order != null) {
+            for (String id : order) {
+                if (id == null) {
+                    continue;
+                }
+                String trimmed = id.trim();
+                if (!KNOWN_SIDEBAR_GROUP_IDS.contains(trimmed) || hiddenSet.contains(trimmed) || !seen.add(trimmed)) {
+                    continue;
+                }
+                visible.add(trimmed);
+            }
+        }
+        for (String id : DEFAULT_SIDEBAR_GROUP_ORDER) {
+            if (!hiddenSet.contains(id) && seen.add(id)) {
+                visible.add(id);
+            }
+        }
+        if (visible.isEmpty()) {
+            return Map.entry(new ArrayList<>(DEFAULT_SIDEBAR_GROUP_ORDER), List.of());
+        }
+        List<String> hiddenList = DEFAULT_SIDEBAR_GROUP_ORDER.stream().filter(hiddenSet::contains).toList();
+        return Map.entry(visible, new ArrayList<>(hiddenList));
     }
 
     public Map<String, Object> parseSettingsJson(String json) {
@@ -169,6 +253,32 @@ public class UserPreferenceDefaults {
                     return null;
                 }
                 im.put("chatBubbleLayout", value);
+            }
+            Object collapsed = imMap.get("pinnedSectionCollapsed");
+            if (collapsed != null) {
+                if (!(collapsed instanceof Boolean)
+                        && !"true".equalsIgnoreCase(String.valueOf(collapsed))
+                        && !"false".equalsIgnoreCase(String.valueOf(collapsed))) {
+                    errorOut.append("pinnedSectionCollapsed 非法");
+                    return null;
+                }
+                im.put("pinnedSectionCollapsed", Boolean.parseBoolean(String.valueOf(collapsed)));
+            }
+            Object orderObj = imMap.get("sidebarGroupOrder");
+            if (orderObj != null) {
+                if (!(orderObj instanceof List<?>)) {
+                    errorOut.append("sidebarGroupOrder 非法");
+                    return null;
+                }
+                im.put("sidebarGroupOrder", toStringList(orderObj));
+            }
+            Object hiddenObj = imMap.get("sidebarGroupHidden");
+            if (hiddenObj != null) {
+                if (!(hiddenObj instanceof List<?>)) {
+                    errorOut.append("sidebarGroupHidden 非法");
+                    return null;
+                }
+                im.put("sidebarGroupHidden", toStringList(hiddenObj));
             }
             if (!im.isEmpty()) {
                 result.put("im", im);

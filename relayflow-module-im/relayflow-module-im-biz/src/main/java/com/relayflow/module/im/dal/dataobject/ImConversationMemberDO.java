@@ -37,6 +37,10 @@ public class ImConversationMemberDO extends TenantBaseDO {
     @TableField("read_seq")
     private Long readSeq;
 
+    /** Inbox badge watermark; unread_count derived from seq > badge_seq. */
+    @TableField("badge_seq")
+    private Long badgeSeq;
+
     @TableField("unread_count")
     private Integer unreadCount;
 
@@ -52,6 +56,13 @@ public class ImConversationMemberDO extends TenantBaseDO {
 
     @TableField("pinned")
     private Integer pinned;
+
+    @TableField("pinned_at")
+    private OffsetDateTime pinnedAt;
+
+    /** 1 when member flagged this conversation. */
+    @TableField("flagged")
+    private Integer flagged;
 
     @TableField("subject_type")
     private String subjectType;

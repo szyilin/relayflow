@@ -32,6 +32,7 @@ import com.relayflow.module.im.enums.ImRealtimeTypes;
 import com.relayflow.module.im.enums.ImSenderType;
 import com.relayflow.module.im.service.conversation.ImConversationService;
 import com.relayflow.module.im.service.message.ImContentHelper;
+import com.relayflow.module.im.service.message.ImMemberUnreadMath;
 import com.relayflow.module.im.service.typing.ImTypingService;
 import com.relayflow.module.infra.api.realtime.RealtimeTransportApi;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeEnvelopeDTO;
@@ -292,9 +293,12 @@ public class ImBotServiceImpl implements ImBotService {
         member.setSubjectId(subjectId);
         member.setRole(role);
         member.setReadSeq(0L);
+        member.setBadgeSeq(0L);
         member.setUnreadCount(0);
+        member.setMentionUnread(0);
         member.setJoinTime(OffsetDateTime.now());
         member.setPinned(0);
+        member.setFlagged(0);
         conversationMemberMapper.insert(member);
     }
 
@@ -429,8 +433,14 @@ public class ImBotServiceImpl implements ImBotService {
         if (member == null) {
             return;
         }
-        int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
-        member.setUnreadCount(unread + 1);
+        ImMessageDO latest = messageMapper.selectOne(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .orderByDesc(ImMessageDO::getSeq)
+                        .last("LIMIT 1"));
+        long maxSeq = latest != null && latest.getSeq() != null ? latest.getSeq() : 0L;
+        member.setUnreadCount(ImMemberUnreadMath.unreadFromBadge(maxSeq, member.getBadgeSeq()));
         conversationMemberMapper.updateById(member);
     }
 

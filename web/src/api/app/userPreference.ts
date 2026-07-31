@@ -30,6 +30,12 @@ export interface UserPreferenceSettings {
   }
   im: {
     chatBubbleLayout: ChatBubbleLayout
+    /** Collapse the pinned conversations section in the message list. */
+    pinnedSectionCollapsed?: boolean
+    /** Visible built-in group ids in display order. */
+    sidebarGroupOrder?: string[]
+    /** Hidden built-in group ids. */
+    sidebarGroupHidden?: string[]
   }
   calendar: CalendarPreferenceSettings
   task: TaskPreferenceSettings

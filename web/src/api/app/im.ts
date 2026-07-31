@@ -109,8 +109,22 @@ export interface ConversationItem {
   lastMsgPreview?: string
   lastMsgAt?: string
   unreadCount: number
+  /** Peer-visible read watermark. */
+  readSeq?: number
+  /** Inbox badge watermark; first unread ≈ badgeSeq + 1 when unreadCount > 0. */
+  badgeSeq?: number
   /** True when current user has unread @mentions in this conversation. */
   mentionedMe?: boolean
+  /** Member-private pin. */
+  pinned?: boolean
+  pinnedAt?: string | null
+  /** Member-private flag. */
+  flagged?: boolean
+  /** Message mute / DND for current member. */
+  muted?: boolean
+  muteUntil?: string | null
+  /** User-private tag ids applied to this conversation. */
+  tagIds?: string[]
   peerUserId?: string
   memberCount?: number
   /** Present when type=bot_dm. */
@@ -269,10 +283,13 @@ export interface RealtimeEnvelope {
   payload?: unknown
 }
 
-type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId' | 'botId'> & {
+type RawConversationItem = Omit<ConversationItem, 'id' | 'peerUserId' | 'botId' | 'readSeq' | 'badgeSeq' | 'tagIds'> & {
   id: number | string
   peerUserId?: number | string
   botId?: number | string
+  readSeq?: number | string
+  badgeSeq?: number | string
+  tagIds?: Array<number | string>
 }
 
 type RawMessageItem = Omit<MessageItem, 'id' | 'conversationId' | 'senderId' | 'seq' | 'replyTo' | 'forwardedFrom'> & {
@@ -308,7 +325,15 @@ function normalizeConversation(item: RawConversationItem): ConversationItem {
     id: String(item.id),
     peerUserId: item.peerUserId != null ? String(item.peerUserId) : undefined,
     botId: item.botId != null ? String(item.botId) : undefined,
-    avatar: item.avatar ?? null
+    avatar: item.avatar ?? null,
+    readSeq: item.readSeq != null ? parseSeq(item.readSeq) : 0,
+    badgeSeq: item.badgeSeq != null ? parseSeq(item.badgeSeq) : 0,
+    pinned: !!item.pinned,
+    pinnedAt: item.pinnedAt ?? null,
+    flagged: !!item.flagged,
+    muted: !!item.muted,
+    muteUntil: item.muteUntil ?? null,
+    tagIds: item.tagIds?.map(String) ?? []
   }
 }
 
@@ -372,11 +397,59 @@ export function getConversationList(keyword?: string): Promise<ConversationItem[
   }).then(list => list.map(normalizeConversation))
 }
 
-export function getMessageList(conversationId: string, afterSeq = 0): Promise<MessageItem[]> {
-  return get<RawMessageItem[]>('/app-api/im/message/list', {
-    params: { conversationId, afterSeq }
-  }).then(list => list.map(normalizeMessage))
+export type MessageListQuery = {
+  conversationId: string
+  /** Messages with seq > afterSeq (legacy / forward page). */
+  afterSeq?: number
+  /** Messages with seq < beforeSeq. */
+  beforeSeq?: number
+  /** Anchor seq for around window. */
+  aroundSeq?: number
+  /** Count before aroundSeq (around mode). */
+  before?: number
+  /** Count after aroundSeq (around mode). */
+  after?: number
+  /** Max items (latest / before / after modes). */
+  limit?: number
 }
+
+export function getMessageList(conversationId: string, afterSeq?: number): Promise<MessageItem[]>
+export function getMessageList(query: MessageListQuery): Promise<MessageItem[]>
+export function getMessageList(
+  conversationIdOrQuery: string | MessageListQuery,
+  afterSeq = 0
+): Promise<MessageItem[]> {
+  const query: MessageListQuery = typeof conversationIdOrQuery === 'string'
+    ? { conversationId: conversationIdOrQuery, afterSeq }
+    : conversationIdOrQuery
+
+  const params: Record<string, string | number> = {
+    conversationId: query.conversationId
+  }
+  if (query.afterSeq != null) {
+    params.afterSeq = query.afterSeq
+  }
+  if (query.beforeSeq != null) {
+    params.beforeSeq = query.beforeSeq
+  }
+  if (query.aroundSeq != null) {
+    params.aroundSeq = query.aroundSeq
+  }
+  if (query.before != null) {
+    params.before = query.before
+  }
+  if (query.after != null) {
+    params.after = query.after
+  }
+  if (query.limit != null) {
+    params.limit = query.limit
+  }
+
+  // Server enforces window modes (around / before / after / latest) with hard-cap 50.
+  return get<RawMessageItem[]>('/app-api/im/message/list', { params })
+    .then(list => list.map(normalizeMessage))
+}
+
 
 export function sendMessage(payload: SendMessagePayload): Promise<SendMessageResult> {
   return post<RawSendMessageResult>('/app-api/im/message/send', payload).then(normalizeSendResult)
@@ -479,6 +552,54 @@ export function deleteMyStickers(ids: string[]): Promise<void> {
 
 export function markConversationRead(conversationId: string, readSeq: number): Promise<void> {
   return post<void>('/app-api/im/conversation/read', { conversationId, readSeq })
+}
+
+export function pinConversation(conversationId: string, pinned: boolean): Promise<void> {
+  return post<void>('/app-api/im/conversation/pin', { conversationId, pinned })
+}
+
+export function flagConversation(conversationId: string, flagged: boolean): Promise<void> {
+  return post<void>('/app-api/im/conversation/flag', { conversationId, flagged })
+}
+
+export function muteConversation(conversationId: string, muted: boolean): Promise<void> {
+  return post<void>('/app-api/im/conversation/mute', { conversationId, muted })
+}
+
+export function markInboxRead(conversationId: string): Promise<void> {
+  return post<void>('/app-api/im/conversation/inbox/mark-read', { conversationId })
+}
+
+export function markInboxUnread(conversationId: string): Promise<void> {
+  return post<void>('/app-api/im/conversation/inbox/mark-unread', { conversationId })
+}
+
+export interface ImUserTagItem {
+  id: string
+  name: string
+}
+
+type RawImUserTagItem = Omit<ImUserTagItem, 'id'> & { id: number | string }
+
+function normalizeUserTag(item: RawImUserTagItem): ImUserTagItem {
+  return { id: String(item.id), name: item.name }
+}
+
+export function getUserTags(): Promise<ImUserTagItem[]> {
+  return get<RawImUserTagItem[]>('/app-api/im/tag/list').then(list => list.map(normalizeUserTag))
+}
+
+export function createUserTag(name: string): Promise<ImUserTagItem> {
+  return post<RawImUserTagItem>('/app-api/im/tag/create', { name }).then(normalizeUserTag)
+}
+
+export function assignUserTag(conversationId: string, tagId: string): Promise<void> {
+  return post<void>('/app-api/im/tag/assign', { conversationId, tagId })
+}
+
+export function createAndAssignUserTag(conversationId: string, name: string): Promise<ImUserTagItem> {
+  return post<RawImUserTagItem>('/app-api/im/tag/create-and-assign', { conversationId, name })
+    .then(normalizeUserTag)
 }
 
 export interface ConversationMemberReadStatus {

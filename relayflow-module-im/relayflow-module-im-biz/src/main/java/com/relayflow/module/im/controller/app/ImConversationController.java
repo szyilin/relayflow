@@ -2,7 +2,11 @@ package com.relayflow.module.im.controller.app;
 
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.common.pojo.CommonResult;
+import com.relayflow.module.im.controller.app.vo.ConversationFlagReqVO;
+import com.relayflow.module.im.controller.app.vo.ConversationInboxMarkReqVO;
 import com.relayflow.module.im.controller.app.vo.ConversationItemRespVO;
+import com.relayflow.module.im.controller.app.vo.ConversationMuteReqVO;
+import com.relayflow.module.im.controller.app.vo.ConversationPinReqVO;
 import com.relayflow.module.im.controller.app.vo.ConversationReadStatusRespVO;
 import com.relayflow.module.im.controller.app.vo.MarkConversationReadReqVO;
 import com.relayflow.module.im.controller.app.vo.ConversationSearchItemRespVO;
@@ -75,6 +79,36 @@ public class ImConversationController {
     @PostMapping("/read")
     public CommonResult<Void> markConversationRead(@Valid @RequestBody MarkConversationReadReqVO request) {
         conversationService.markConversationRead(request.getConversationId(), request.getReadSeq());
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/pin")
+    public CommonResult<Void> pinConversation(@Valid @RequestBody ConversationPinReqVO request) {
+        conversationService.pinConversation(request.getConversationId(), Boolean.TRUE.equals(request.getPinned()));
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/flag")
+    public CommonResult<Void> flagConversation(@Valid @RequestBody ConversationFlagReqVO request) {
+        conversationService.flagConversation(request.getConversationId(), Boolean.TRUE.equals(request.getFlagged()));
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/mute")
+    public CommonResult<Void> muteConversation(@Valid @RequestBody ConversationMuteReqVO request) {
+        conversationService.muteConversation(request.getConversationId(), Boolean.TRUE.equals(request.getMuted()));
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/inbox/mark-read")
+    public CommonResult<Void> markInboxRead(@Valid @RequestBody ConversationInboxMarkReqVO request) {
+        conversationService.markInboxRead(request.getConversationId());
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/inbox/mark-unread")
+    public CommonResult<Void> markInboxUnread(@Valid @RequestBody ConversationInboxMarkReqVO request) {
+        conversationService.markInboxUnread(request.getConversationId());
         return CommonResult.success(null);
     }
 

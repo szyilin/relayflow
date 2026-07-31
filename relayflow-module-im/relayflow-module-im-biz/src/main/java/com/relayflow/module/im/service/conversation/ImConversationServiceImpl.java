@@ -15,8 +15,10 @@ import com.relayflow.module.im.dal.dataobject.ImMessageDO;
 import com.relayflow.module.im.dal.mapper.ImBotMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMapper;
 import com.relayflow.module.im.dal.mapper.ImConversationMemberMapper;
+import com.relayflow.module.im.dal.mapper.ImConversationUserTagMapper;
 import com.relayflow.module.im.dal.mapper.ImGroupMapper;
 import com.relayflow.module.im.dal.mapper.ImMessageMapper;
+import com.relayflow.module.im.dal.dataobject.ImConversationUserTagDO;
 import com.relayflow.module.im.enums.ErrorCodeConstants;
 import com.relayflow.module.im.enums.ImConversationType;
 import com.relayflow.module.im.enums.ImMemberSubjectType;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -45,8 +48,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ImConversationServiceImpl implements ImConversationService {
 
+    /** Product mute toggle uses a far-future mute_until (NULL = not muted). */
+    private static final OffsetDateTime MUTE_FAR_FUTURE =
+            OffsetDateTime.of(9999, 12, 31, 0, 0, 0, 0, ZoneOffset.UTC);
+
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper conversationMemberMapper;
+    private final ImConversationUserTagMapper conversationUserTagMapper;
     private final ImMessageMapper messageMapper;
     private final ImGroupMapper groupMapper;
     private final ImBotMapper botMapper;
@@ -98,7 +106,6 @@ public class ImConversationServiceImpl implements ImConversationService {
             }
             UserBasicDTO peer = userApi.getUserBasic(peerUserId);
             String title = peer.getNickname();
-            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
 
             ConversationListItem item = new ConversationListItem();
             item.setId(conversation.getId());
@@ -108,8 +115,6 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setAvatar(peer.getAvatarFileId());
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
-            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
-            item.setMentionedMe(isMentionedMe(membership));
             item.setPeerUserId(peerUserId);
             items.add(item);
         }
@@ -119,7 +124,6 @@ public class ImConversationServiceImpl implements ImConversationService {
             if (group == null) {
                 continue;
             }
-            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
             String title = group.getName();
 
             ConversationListItem item = new ConversationListItem();
@@ -132,8 +136,6 @@ public class ImConversationServiceImpl implements ImConversationService {
                     : null);
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
-            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
-            item.setMentionedMe(isMentionedMe(membership));
             item.setMemberCount(memberCountByConversationId.getOrDefault(conversation.getId(), 0));
             items.add(item);
         }
@@ -145,7 +147,6 @@ public class ImConversationServiceImpl implements ImConversationService {
             if (bot == null) {
                 continue;
             }
-            ImConversationMemberDO membership = membershipByConversationId.get(conversation.getId());
             String title = bot.getName();
 
             ConversationListItem item = new ConversationListItem();
@@ -156,18 +157,25 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setAvatar(bot.getAvatarFileId() != null ? String.valueOf(bot.getAvatarFileId()) : null);
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
-            item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
-            item.setMentionedMe(isMentionedMe(membership));
             item.setBotId(bot.getId());
             item.setBotCode(bot.getCode());
             items.add(item);
         }
 
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase() : null;
+        OffsetDateTime now = OffsetDateTime.now();
+        Map<Long, List<Long>> tagIdsByConversation = loadTagIdsByConversation(
+                tenantId, userId, membershipByConversationId.keySet());
+
+        for (ConversationListItem item : items) {
+            ImConversationMemberDO membership = membershipByConversationId.get(item.getId());
+            applyMembershipFields(item, membership, now);
+            item.setTagIds(tagIdsByConversation.getOrDefault(item.getId(), List.of()));
+        }
+
         return items.stream()
                 .filter(item -> matchesKeyword(item, normalizedKeyword))
-                .sorted(Comparator.comparing(ConversationListItem::getLastMsgAt,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .sorted(conversationListComparator())
                 .toList();
     }
 
@@ -269,6 +277,94 @@ public class ImConversationServiceImpl implements ImConversationService {
     }
 
     private void markConversationRead(Long tenantId, Long userId, Long conversationId, Long readSeq) {
+        ImConversationMemberDO member = requireMemberRow(tenantId, conversationId, userId);
+
+        long targetReadSeq = readSeq != null ? readSeq : 0L;
+        long currentReadSeq = member.getReadSeq() != null ? member.getReadSeq() : 0L;
+        long currentBadgeSeq = member.getBadgeSeq() != null ? member.getBadgeSeq() : 0L;
+        long newReadSeq = Math.max(currentReadSeq, targetReadSeq);
+        long newBadgeSeq = Math.max(currentBadgeSeq, targetReadSeq);
+
+        member.setReadSeq(newReadSeq);
+        member.setBadgeSeq(newBadgeSeq);
+        member.setUnreadCount(countUnreadAfterBadge(tenantId, conversationId, newBadgeSeq));
+        member.setMentionUnread(0);
+        conversationMemberMapper.updateById(member);
+
+        if (newReadSeq > currentReadSeq) {
+            dispatchReadUpdated(tenantId, conversationId, userId, newReadSeq);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void pinConversation(Long conversationId, boolean pinned) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        ImConversationMemberDO member = requireMemberRow(
+                loginUser.getTenantId(), conversationId, loginUser.getUserId());
+        if (pinned) {
+            member.setPinned(1);
+            member.setPinnedAt(OffsetDateTime.now());
+        } else {
+            member.setPinned(0);
+            member.setPinnedAt(null);
+        }
+        conversationMemberMapper.updateById(member);
+    }
+
+    @Override
+    @Transactional
+    public void flagConversation(Long conversationId, boolean flagged) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        ImConversationMemberDO member = requireMemberRow(
+                loginUser.getTenantId(), conversationId, loginUser.getUserId());
+        member.setFlagged(flagged ? 1 : 0);
+        conversationMemberMapper.updateById(member);
+    }
+
+    @Override
+    @Transactional
+    public void muteConversation(Long conversationId, boolean muted) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        ImConversationMemberDO member = requireMemberRow(
+                loginUser.getTenantId(), conversationId, loginUser.getUserId());
+        member.setMuteUntil(muted ? MUTE_FAR_FUTURE : null);
+        conversationMemberMapper.updateById(member);
+    }
+
+    @Override
+    @Transactional
+    public void markInboxRead(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImConversationMemberDO member = requireMemberRow(tenantId, conversationId, userId);
+        long maxSeq = conversationMaxSeq(tenantId, conversationId);
+        long currentBadge = member.getBadgeSeq() != null ? member.getBadgeSeq() : 0L;
+        long newBadge = Math.max(currentBadge, maxSeq);
+        member.setBadgeSeq(newBadge);
+        member.setUnreadCount(0);
+        member.setMentionUnread(0);
+        conversationMemberMapper.updateById(member);
+    }
+
+    @Override
+    @Transactional
+    public void markInboxUnread(Long conversationId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        ImConversationMemberDO member = requireMemberRow(tenantId, conversationId, userId);
+        long maxSeq = conversationMaxSeq(tenantId, conversationId);
+        if (maxSeq <= 0) {
+            return;
+        }
+        member.setBadgeSeq(maxSeq - 1);
+        member.setUnreadCount(1);
+        conversationMemberMapper.updateById(member);
+    }
+
+    private ImConversationMemberDO requireMemberRow(Long tenantId, Long conversationId, Long userId) {
         requireMembership(tenantId, conversationId, userId);
         ImConversationMemberDO member = conversationMemberMapper.selectOne(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
@@ -279,25 +375,78 @@ public class ImConversationServiceImpl implements ImConversationService {
         if (member == null) {
             throw new ServiceException(ErrorCodeConstants.CONVERSATION_ACCESS_DENIED);
         }
+        return member;
+    }
 
-        long targetReadSeq = readSeq != null ? readSeq : 0L;
-        long currentReadSeq = member.getReadSeq() != null ? member.getReadSeq() : 0L;
-        long newReadSeq = Math.max(currentReadSeq, targetReadSeq);
+    private long conversationMaxSeq(Long tenantId, Long conversationId) {
+        ImMessageDO latest = messageMapper.selectOne(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .orderByDesc(ImMessageDO::getSeq)
+                        .last("LIMIT 1"));
+        return latest == null || latest.getSeq() == null ? 0L : latest.getSeq();
+    }
 
+    private int countUnreadAfterBadge(Long tenantId, Long conversationId, long badgeSeq) {
         Long unreadCount = messageMapper.selectCount(
                 Wrappers.<ImMessageDO>lambdaQuery()
                         .eq(ImMessageDO::getTenantId, tenantId)
                         .eq(ImMessageDO::getConversationId, conversationId)
-                        .gt(ImMessageDO::getSeq, newReadSeq));
+                        .gt(ImMessageDO::getSeq, badgeSeq));
+        return unreadCount != null ? unreadCount.intValue() : 0;
+    }
 
-        member.setReadSeq(newReadSeq);
-        member.setUnreadCount(unreadCount != null ? unreadCount.intValue() : 0);
-        member.setMentionUnread(0);
-        conversationMemberMapper.updateById(member);
-
-        if (newReadSeq > currentReadSeq) {
-            dispatchReadUpdated(tenantId, conversationId, userId, newReadSeq);
+    private void applyMembershipFields(ConversationListItem item, ImConversationMemberDO membership,
+                                       OffsetDateTime now) {
+        if (membership == null) {
+            item.setUnreadCount(0);
+            item.setReadSeq(0L);
+            item.setBadgeSeq(0L);
+            item.setMentionedMe(false);
+            item.setPinned(false);
+            item.setPinnedAt(null);
+            item.setFlagged(false);
+            item.setMuted(false);
+            item.setMuteUntil(null);
+            return;
         }
+        item.setUnreadCount(membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
+        item.setReadSeq(membership.getReadSeq() != null ? membership.getReadSeq() : 0L);
+        item.setBadgeSeq(membership.getBadgeSeq() != null ? membership.getBadgeSeq() : 0L);
+        item.setMentionedMe(isMentionedMe(membership));
+        item.setPinned(membership.getPinned() != null && membership.getPinned() == 1);
+        item.setPinnedAt(membership.getPinnedAt());
+        item.setFlagged(membership.getFlagged() != null && membership.getFlagged() == 1);
+        OffsetDateTime muteUntil = membership.getMuteUntil();
+        item.setMuteUntil(muteUntil);
+        item.setMuted(muteUntil != null && muteUntil.isAfter(now));
+    }
+
+    private Map<Long, List<Long>> loadTagIdsByConversation(Long tenantId, Long userId,
+                                                           java.util.Set<Long> conversationIds) {
+        Map<Long, List<Long>> result = new HashMap<>();
+        if (conversationIds == null || conversationIds.isEmpty()) {
+            return result;
+        }
+        List<ImConversationUserTagDO> rows = conversationUserTagMapper.selectList(
+                Wrappers.<ImConversationUserTagDO>lambdaQuery()
+                        .eq(ImConversationUserTagDO::getTenantId, tenantId)
+                        .eq(ImConversationUserTagDO::getUserId, userId)
+                        .in(ImConversationUserTagDO::getConversationId, conversationIds));
+        for (ImConversationUserTagDO row : rows) {
+            result.computeIfAbsent(row.getConversationId(), ignored -> new ArrayList<>()).add(row.getTagId());
+        }
+        return result;
+    }
+
+    private static Comparator<ConversationListItem> conversationListComparator() {
+        return Comparator
+                .comparing((ConversationListItem item) -> Boolean.TRUE.equals(item.getPinned()) ? 0 : 1)
+                .thenComparing(ConversationListItem::getPinnedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ConversationListItem::getLastMsgAt,
+                        Comparator.nullsLast(Comparator.reverseOrder()));
     }
 
     @Override
@@ -506,9 +655,12 @@ public class ImConversationServiceImpl implements ImConversationService {
         member.setSubjectId(userId);
         member.setRole("member");
         member.setReadSeq(0L);
+        member.setBadgeSeq(0L);
         member.setUnreadCount(0);
+        member.setMentionUnread(0);
         member.setJoinTime(OffsetDateTime.now());
         member.setPinned(0);
+        member.setFlagged(0);
         member.setCreator(userId);
         conversationMemberMapper.insert(member);
     }

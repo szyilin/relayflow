@@ -765,9 +765,12 @@ public class ImGroupServiceImpl implements ImGroupService {
         member.setSubjectId(userId);
         member.setRole(role);
         member.setReadSeq(0L);
+        member.setBadgeSeq(0L);
         member.setUnreadCount(0);
+        member.setMentionUnread(0);
         member.setJoinTime(OffsetDateTime.now());
         member.setPinned(0);
+        member.setFlagged(0);
         member.setCreator(creator);
         conversationMemberMapper.insert(member);
     }
@@ -780,6 +783,7 @@ public class ImGroupServiceImpl implements ImGroupService {
         member.setSubjectId(botId);
         member.setRole(ImMemberRole.MEMBER);
         member.setReadSeq(0L);
+        member.setBadgeSeq(0L);
         member.setUnreadCount(0);
         member.setJoinTime(OffsetDateTime.now());
         member.setPinned(0);

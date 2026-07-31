@@ -3,9 +3,13 @@ import { defineStore } from 'pinia'
 import {
   addGroupBot as addGroupBotRequest,
   addGroupMembers,
+  assignUserTag as assignUserTagRequest,
+  createAndAssignUserTag as createAndAssignUserTagRequest,
   createGroup as createGroupRequest,
+  createUserTag as createUserTagRequest,
   editMessage as editMessageRequest,
   exportGroupMembers as exportGroupMembersRequest,
+  flagConversation as flagConversationRequest,
   forwardMessage as forwardMessageRequest,
   getConversationList,
   getGroupBotCatalog,
@@ -16,6 +20,7 @@ import {
   getMyStickers,
   getReadStatus,
   getStickerPacks,
+  getUserTags as getUserTagsRequest,
   addMySticker,
   addMyStickerFromMessage,
   deleteMyStickers,
@@ -23,6 +28,10 @@ import {
   joinPublicGroup as joinPublicGroupRequest,
   leaveGroup as leaveGroupRequest,
   markConversationRead,
+  markInboxRead as markInboxReadRequest,
+  markInboxUnread as markInboxUnreadRequest,
+  muteConversation as muteConversationRequest,
+  pinConversation as pinConversationRequest,
   recallMessage as recallMessageRequest,
   removeGroupBot as removeGroupBotRequest,
   searchPublicGroups as searchPublicGroupsRequest,
@@ -35,6 +44,7 @@ import {
   type GroupInfo,
   type GroupMemberItem,
   type ImEffectiveSettings,
+  type ImUserTagItem,
   type MessageContent,
   type MessageItem,
   type MessageReactionAgg,
@@ -61,14 +71,34 @@ import {
   textFromContent
 } from './helpers'
 import type { GroupMemberCandidate, MessageViewItem, PendingDirectChat } from './types'
+import {
+  conversationMatchesSidebarSelection,
+  type ImSidebarSelection
+} from '../../composables/imConversationGroups'
+import {
+  MESSAGE_AROUND_AFTER,
+  MESSAGE_AROUND_BEFORE,
+  MESSAGE_WINDOW_LIMIT,
+  mergeMessagesBySeq
+} from './messageWindow'
+
+/** Merged fetch cache only — not a full history dump; pages come from server windows. */
 
 export type { GroupMemberCandidate, MessageViewItem, PendingDirectChat } from './types'
+
+export type ImUserTag = ImUserTagItem
 
 export const useImStore = defineStore('im', () => {
   const conversations = ref<ConversationItem[]>([])
   const messages = ref<MessageViewItem[]>([])
   /** In-memory cache keyed by conversationId — avoids skeleton flash on revisit. */
   const messagesByConversation = ref<Record<string, MessageViewItem[]>>({})
+  /** Merged seq cache for the active window + paginated pages / realtime inserts. */
+  const messagePools = ref<Record<string, MessageViewItem[]>>({})
+  const hasMoreBefore = ref(false)
+  const hasMoreAfter = ref(false)
+  const loadingOlder = ref(false)
+  const loadingNewer = ref(false)
   const groupMembers = ref<GroupMemberItem[]>([])
   const groupInfo = ref<GroupInfo | null>(null)
   const effectiveSettings = ref<ImEffectiveSettings | null>(null)
@@ -87,6 +117,10 @@ export const useImStore = defineStore('im', () => {
   const firstUnreadSeq = ref<number | null>(null)
   /** Highest read seq already reported for the active conversation. */
   const reportedReadSeq = ref(0)
+  /** Current user's tag library. */
+  const userTags = ref<ImUserTag[]>([])
+  /** Active conversation-list group / tag filter. */
+  const sidebarSelection = ref<ImSidebarSelection>({ kind: 'group', groupId: 'all' })
 
   const activeConversation = computed(() => {
     if (activeConversationId.value) {
@@ -108,15 +142,45 @@ export const useImStore = defineStore('im', () => {
 
   const filteredConversations = computed(() => {
     const q = keyword.value.trim().toLowerCase()
-    if (!q) {
-      return conversations.value
+    let list = conversations.value.filter(item =>
+      conversationMatchesSidebarSelection(item, sidebarSelection.value))
+    if (q) {
+      list = list.filter(item =>
+        item.title.toLowerCase().includes(q) || (item.lastMsgPreview ?? '').toLowerCase().includes(q))
     }
-    return conversations.value.filter(item =>
-      item.title.toLowerCase().includes(q) || (item.lastMsgPreview ?? '').toLowerCase().includes(q))
+    return [...list].sort((a, b) => {
+      const ap = a.pinned ? 1 : 0
+      const bp = b.pinned ? 1 : 0
+      if (ap !== bp) {
+        return bp - ap
+      }
+      if (ap && bp) {
+        const at = a.pinnedAt ? Date.parse(a.pinnedAt) : 0
+        const bt = b.pinnedAt ? Date.parse(b.pinnedAt) : 0
+        if (at !== bt) {
+          return bt - at
+        }
+      }
+      const aTime = a.lastMsgAt ? Date.parse(a.lastMsgAt) : 0
+      const bTime = b.lastMsgAt ? Date.parse(b.lastMsgAt) : 0
+      return bTime - aTime
+    })
   })
 
+  const pinnedConversations = computed(() => filteredConversations.value.filter(item => !!item.pinned))
+  const unpinnedConversations = computed(() => filteredConversations.value.filter(item => !item.pinned))
+
+  /** Nav badge excludes muted conversations. */
   const totalUnreadCount = computed(() =>
-    conversations.value.reduce((sum, item) => sum + (item.unreadCount > 0 ? item.unreadCount : 0), 0))
+    conversations.value.reduce((sum, item) => {
+      if (item.muted) {
+        return sum
+      }
+      return sum + (item.unreadCount > 0 ? item.unreadCount : 0)
+    }, 0))
+
+  const flaggedCount = computed(() =>
+    conversations.value.reduce((sum, item) => sum + (item.flagged ? 1 : 0), 0))
 
   function currentUserId(): string {
     const auth = useAuthStore()
@@ -131,6 +195,11 @@ export const useImStore = defineStore('im', () => {
     conversations.value = []
     messages.value = []
     messagesByConversation.value = {}
+    messagePools.value = {}
+    hasMoreBefore.value = false
+    hasMoreAfter.value = false
+    loadingOlder.value = false
+    loadingNewer.value = false
     groupMembers.value = []
     groupInfo.value = null
     effectiveSettings.value = null
@@ -144,6 +213,8 @@ export const useImStore = defineStore('im', () => {
     reportedReadSeq.value = 0
     stickerPacks.value = []
     myStickers.value = []
+    userTags.value = []
+    sidebarSelection.value = { kind: 'group', groupId: 'all' }
   }
 
   function clearLocalUnread(conversationId: string) {
@@ -152,6 +223,10 @@ export const useImStore = defineStore('im', () => {
       item.unreadCount = 0
       item.mentionedMe = false
     }
+  }
+
+  function setSidebarSelection(selection: ImSidebarSelection) {
+    sidebarSelection.value = selection
   }
 
   function messageMentionsCurrentUser(message: MessageItem): boolean {
@@ -177,12 +252,54 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
+  function putMessagePool(conversationId: string, list: MessageViewItem[]) {
+    messagePools.value = {
+      ...messagePools.value,
+      [conversationId]: list
+    }
+  }
+
+  function getPool(conversationId: string): MessageViewItem[] {
+    return messagePools.value[conversationId] ?? []
+  }
+
+  function toViewMessages(list: MessageItem[]): MessageViewItem[] {
+    return list.map(item => ({ ...item, localStatus: 'sent' as const }))
+  }
+
+  function applyServerWindow(
+    conversationId: string,
+    list: MessageViewItem[],
+    mode: 'latest' | 'around'
+  ) {
+    const pool = mergeMessagesBySeq(getPool(conversationId), list)
+    putMessagePool(conversationId, pool)
+    syncActiveMessages(conversationId, list)
+    if (mode === 'latest') {
+      hasMoreBefore.value = list.length >= MESSAGE_WINDOW_LIMIT
+      hasMoreAfter.value = false
+    } else if (mode === 'around') {
+      hasMoreBefore.value = list.length > 0 && (list[0]?.seq ?? 0) > 1
+      hasMoreAfter.value = list.length > 0
+    }
+  }
+
+  function syncPageFlags(fetchedCount: number, direction: 'before' | 'after') {
+    if (direction === 'before') {
+      hasMoreBefore.value = fetchedCount >= MESSAGE_WINDOW_LIMIT
+    } else {
+      hasMoreAfter.value = fetchedCount >= MESSAGE_WINDOW_LIMIT
+    }
+  }
+
   function replaceActiveMessages(updater: (prev: MessageViewItem[]) => MessageViewItem[]) {
     const conversationId = activeConversationId.value
     const next = updater(messages.value)
     messages.value = next
     if (conversationId && !conversationId.startsWith('pending-')) {
       putMessageCache(conversationId, next)
+      const pool = mergeMessagesBySeq(getPool(conversationId), next)
+      putMessagePool(conversationId, pool)
     }
   }
 
@@ -193,12 +310,24 @@ export const useImStore = defineStore('im', () => {
     putMessageCache(conversationId, list)
   }
 
-  function computeFirstUnreadSeq(list: MessageViewItem[], unreadCount: number): number | null {
-    if (unreadCount <= 0 || list.length === 0) {
+  function computeFirstUnreadSeq(badgeSeq: number | undefined, unreadCount: number): number | null {
+    if (unreadCount <= 0) {
       return null
     }
-    const idx = Math.max(0, list.length - unreadCount)
-    return list[idx]?.seq ?? null
+    return (badgeSeq ?? 0) + 1
+  }
+
+  /** Enter + stay: advance peer-visible read to conversation max seq (not viewport-gated). */
+  async function advanceReadToMax(conversationId: string, maxSeqHint?: number) {
+    let maxSeq = maxSeqHint ?? 0
+    if (maxSeq <= 0) {
+      maxSeq = latestMessageSeq(getPool(conversationId).length ? getPool(conversationId) : messages.value)
+    }
+    if (maxSeq > 0) {
+      await reportConversationRead(conversationId, maxSeq)
+      return
+    }
+    clearLocalUnread(conversationId)
   }
 
   async function reportConversationRead(conversationId: string, readSeq: number) {
@@ -286,6 +415,179 @@ export const useImStore = defineStore('im', () => {
       throw error
     } finally {
       loadingConversations.value = false
+    }
+  }
+
+  function patchConversation(conversationId: string, patch: Partial<ConversationItem>) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    Object.assign(item, patch)
+  }
+
+  async function togglePin(conversationId: string, pinned?: boolean) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const next = pinned ?? !item.pinned
+    const prev = { pinned: item.pinned, pinnedAt: item.pinnedAt }
+    patchConversation(conversationId, {
+      pinned: next,
+      pinnedAt: next ? new Date().toISOString() : null
+    })
+    try {
+      await pinConversationRequest(conversationId, next)
+    } catch (error) {
+      patchConversation(conversationId, prev)
+      lastError.value = error instanceof ApiError ? error.message : '置顶失败'
+      throw error
+    }
+  }
+
+  async function toggleFlag(conversationId: string, flagged?: boolean) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const next = flagged ?? !item.flagged
+    const prev = item.flagged
+    patchConversation(conversationId, { flagged: next })
+    try {
+      await flagConversationRequest(conversationId, next)
+    } catch (error) {
+      patchConversation(conversationId, { flagged: prev })
+      lastError.value = error instanceof ApiError ? error.message : '旗标失败'
+      throw error
+    }
+  }
+
+  async function toggleMute(conversationId: string, muted?: boolean) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const next = muted ?? !item.muted
+    const prev = { muted: item.muted, muteUntil: item.muteUntil }
+    patchConversation(conversationId, { muted: next, muteUntil: next ? item.muteUntil ?? undefined : null })
+    try {
+      await muteConversationRequest(conversationId, next)
+    } catch (error) {
+      patchConversation(conversationId, prev)
+      lastError.value = error instanceof ApiError ? error.message : '免打扰失败'
+      throw error
+    }
+  }
+
+  /** List mark-as-read: clear inbox badge only (does not change read_seq). */
+  async function markInboxRead(conversationId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const prev = {
+      unreadCount: item.unreadCount,
+      mentionedMe: item.mentionedMe,
+      badgeSeq: item.badgeSeq
+    }
+    patchConversation(conversationId, { unreadCount: 0, mentionedMe: false })
+    try {
+      await markInboxReadRequest(conversationId)
+    } catch (error) {
+      patchConversation(conversationId, prev)
+      lastError.value = error instanceof ApiError ? error.message : '标记已读失败'
+      throw error
+    }
+  }
+
+  /** List mark-as-unread: always shows exactly 1; does not change read_seq. */
+  async function markInboxUnread(conversationId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const prev = { unreadCount: item.unreadCount, badgeSeq: item.badgeSeq }
+    patchConversation(conversationId, { unreadCount: 1 })
+    try {
+      await markInboxUnreadRequest(conversationId)
+    } catch (error) {
+      patchConversation(conversationId, prev)
+      lastError.value = error instanceof ApiError ? error.message : '标记未读失败'
+      throw error
+    }
+  }
+
+  async function fetchUserTags() {
+    try {
+      userTags.value = await getUserTagsRequest()
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '加载标签失败'
+      throw error
+    }
+  }
+
+  async function createUserTag(name: string): Promise<ImUserTag | null> {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      return null
+    }
+    const existing = userTags.value.find(tag => tag.name === trimmed)
+    if (existing) {
+      return existing
+    }
+    try {
+      const tag = await createUserTagRequest(trimmed)
+      if (!userTags.value.some(item => item.id === tag.id)) {
+        userTags.value = [...userTags.value, tag]
+      }
+      return tag
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '创建标签失败'
+      throw error
+    }
+  }
+
+  async function assignTagToConversation(conversationId: string, tagId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const prevTagIds = [...(item.tagIds ?? [])]
+    const tagIds = new Set(prevTagIds)
+    tagIds.add(tagId)
+    patchConversation(conversationId, { tagIds: [...tagIds] })
+    try {
+      await assignUserTagRequest(conversationId, tagId)
+    } catch (error) {
+      patchConversation(conversationId, { tagIds: prevTagIds })
+      lastError.value = error instanceof ApiError ? error.message : '打标失败'
+      throw error
+    }
+  }
+
+  async function createAndAssignTag(conversationId: string, name: string): Promise<ImUserTag | null> {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      return null
+    }
+    try {
+      const tag = await createAndAssignUserTagRequest(conversationId, trimmed)
+      if (!userTags.value.some(item => item.id === tag.id || item.name === tag.name)) {
+        userTags.value = [...userTags.value, tag]
+      } else if (!userTags.value.some(item => item.id === tag.id)) {
+        userTags.value = userTags.value.map(item => (item.name === tag.name ? tag : item))
+      }
+      const item = conversations.value.find(conv => conv.id === conversationId)
+      if (item) {
+        const tagIds = new Set(item.tagIds ?? [])
+        tagIds.add(tag.id)
+        patchConversation(conversationId, { tagIds: [...tagIds] })
+      }
+      return tag
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '创建并打标失败'
+      throw error
     }
   }
 
@@ -393,8 +695,9 @@ export const useImStore = defineStore('im', () => {
   }
 
   async function selectConversation(conversationId: string) {
+    // Soft backup only — correctness is enter + stay continue, not leave flush.
     if (activeConversationId.value && activeConversationId.value !== conversationId) {
-      await flushConversationRead(activeConversationId.value)
+      void flushConversationRead(activeConversationId.value)
     }
 
     pendingDirectChat.value = null
@@ -402,18 +705,22 @@ export const useImStore = defineStore('im', () => {
     const conversation = conversations.value.find(item => item.id === conversationId)
     enterUnreadCount.value = conversation?.unreadCount ?? 0
     reportedReadSeq.value = 0
+    hasMoreBefore.value = false
+    hasMoreAfter.value = false
+    firstUnreadSeq.value = computeFirstUnreadSeq(conversation?.badgeSeq, enterUnreadCount.value)
 
-    const cached = messagesByConversation.value[conversationId]
-    if (cached?.length) {
-      messages.value = cached
-      firstUnreadSeq.value = computeFirstUnreadSeq(cached, enterUnreadCount.value)
+    const cachedWindow = messagesByConversation.value[conversationId]
+    if (cachedWindow?.length) {
+      messages.value = cachedWindow
       loadingMessages.value = false
     } else {
       messages.value = []
-      firstUnreadSeq.value = null
     }
 
-    const loadMessages = fetchMessages(conversationId, 0, { silent: Boolean(cached?.length) })
+    const loadMessages = loadConversationWindow(conversationId, {
+      aroundSeq: firstUnreadSeq.value ?? undefined,
+      silent: Boolean(cachedWindow?.length)
+    })
     if (conversation?.type === 'group') {
       await Promise.all([loadMessages, fetchGroupMembers(conversationId)])
     } else {
@@ -421,9 +728,7 @@ export const useImStore = defineStore('im', () => {
       await loadMessages
     }
 
-    firstUnreadSeq.value = computeFirstUnreadSeq(messages.value, enterUnreadCount.value)
-    // Clear list badge locally; server watermark updates as user views / leaves.
-    clearLocalUnread(conversationId)
+    await advanceReadToMax(conversationId, latestMessageSeq(getPool(conversationId)))
 
     if (conversation?.type === 'direct') {
       await fetchReadStatus(conversationId)
@@ -432,10 +737,10 @@ export const useImStore = defineStore('im', () => {
     }
   }
 
-  async function fetchMessages(
+  /** Load latest or around-unread window from server (hard-cap 50). */
+  async function loadConversationWindow(
     conversationId: string,
-    afterSeq = 0,
-    options?: { silent?: boolean }
+    options?: { aroundSeq?: number, silent?: boolean }
   ) {
     const silent = options?.silent ?? false
     if (!silent) {
@@ -443,14 +748,22 @@ export const useImStore = defineStore('im', () => {
     }
     lastError.value = null
     try {
-      const list = await getMessageList(conversationId, afterSeq)
-      const normalized = list.map(item => ({ ...item, localStatus: 'sent' as const }))
-      if (afterSeq === 0) {
-        syncActiveMessages(conversationId, normalized)
-      } else if (activeConversationId.value === conversationId) {
-        const merged = [...messages.value, ...normalized]
-        syncActiveMessages(conversationId, merged)
-      }
+      const aroundSeq = options?.aroundSeq
+      const list = aroundSeq != null
+        ? await getMessageList({
+            conversationId,
+            aroundSeq,
+            before: MESSAGE_AROUND_BEFORE,
+            after: MESSAGE_AROUND_AFTER
+          })
+        : await getMessageList({
+            conversationId,
+            limit: MESSAGE_WINDOW_LIMIT
+          })
+      const normalized = toViewMessages(list)
+      applyServerWindow(conversationId, normalized, aroundSeq != null ? 'around' : 'latest')
+      firstUnreadSeq.value = aroundSeq ?? null
+      return normalized
     } catch (error) {
       lastError.value = error instanceof ApiError ? error.message : '加载消息失败'
       throw error
@@ -459,6 +772,123 @@ export const useImStore = defineStore('im', () => {
         loadingMessages.value = false
       }
     }
+  }
+
+  /** @deprecated prefer loadConversationWindow; kept for invite/bot refresh paths. */
+  async function fetchMessages(
+    conversationId: string,
+    afterSeq = 0,
+    options?: { silent?: boolean }
+  ) {
+    if (afterSeq > 0) {
+      const silent = options?.silent ?? false
+      if (!silent) {
+        loadingMessages.value = true
+      }
+      try {
+        const list = await getMessageList({ conversationId, afterSeq, limit: MESSAGE_WINDOW_LIMIT })
+        const normalized = toViewMessages(list)
+        const pool = mergeMessagesBySeq(getPool(conversationId), normalized)
+        putMessagePool(conversationId, pool)
+        if (activeConversationId.value === conversationId) {
+          const merged = mergeMessagesBySeq(messages.value, normalized)
+          syncActiveMessages(conversationId, merged)
+          syncPageFlags(normalized.length, 'after')
+        }
+      } finally {
+        if (!silent) {
+          loadingMessages.value = false
+        }
+      }
+      return
+    }
+    await loadConversationWindow(conversationId, {
+      silent: options?.silent,
+      aroundSeq: undefined
+    })
+  }
+
+  async function loadOlderMessages(): Promise<boolean> {
+    const conversationId = activeConversationId.value
+    if (!conversationId || !hasMoreBefore.value || loadingOlder.value) {
+      return false
+    }
+    const first = messages.value[0]
+    if (!first?.seq) {
+      return false
+    }
+    loadingOlder.value = true
+    try {
+      const remote = await getMessageList({
+        conversationId,
+        beforeSeq: first.seq,
+        limit: MESSAGE_WINDOW_LIMIT
+      })
+      const older = toViewMessages(remote)
+      if (!older.length) {
+        hasMoreBefore.value = false
+        return false
+      }
+      putMessagePool(conversationId, mergeMessagesBySeq(getPool(conversationId), older))
+      const merged = mergeMessagesBySeq(older, messages.value)
+      syncActiveMessages(conversationId, merged)
+      syncPageFlags(older.length, 'before')
+      return true
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '加载更早消息失败'
+      return false
+    } finally {
+      loadingOlder.value = false
+    }
+  }
+
+  async function loadNewerMessages(): Promise<boolean> {
+    const conversationId = activeConversationId.value
+    if (!conversationId || !hasMoreAfter.value || loadingNewer.value) {
+      return false
+    }
+    const last = messages.value[messages.value.length - 1]
+    if (!last?.seq) {
+      return false
+    }
+    loadingNewer.value = true
+    try {
+      const remote = await getMessageList({
+        conversationId,
+        afterSeq: last.seq,
+        limit: MESSAGE_WINDOW_LIMIT
+      })
+      const newer = toViewMessages(remote)
+      if (!newer.length) {
+        hasMoreAfter.value = false
+        return false
+      }
+      putMessagePool(conversationId, mergeMessagesBySeq(getPool(conversationId), newer))
+      const merged = mergeMessagesBySeq(messages.value, newer)
+      syncActiveMessages(conversationId, merged)
+      syncPageFlags(newer.length, 'after')
+      return true
+    } catch (error) {
+      lastError.value = error instanceof ApiError ? error.message : '加载更新消息失败'
+      return false
+    } finally {
+      loadingNewer.value = false
+    }
+  }
+
+  /** Jump to latest window only — does not fill seq holes in between. */
+  async function jumpToLatestWindow() {
+    const conversationId = activeConversationId.value
+    if (!conversationId) {
+      return
+    }
+    try {
+      await loadConversationWindow(conversationId, { silent: true })
+    } catch {
+      // keep current window
+    }
+    firstUnreadSeq.value = null
+    await advanceReadToMax(conversationId, latestMessageSeq(getPool(conversationId)))
   }
 
   function handleMessageNew(raw: MessageItem) {
@@ -491,9 +921,18 @@ export const useImStore = defineStore('im', () => {
       return
     }
 
-    const next = [...messages.value, message]
-    syncActiveMessages(conversationId, next)
-    // Read watermark: page reports when near bottom; do not auto-mark here.
+    const pool = mergeMessagesBySeq(getPool(conversationId), [message])
+    putMessagePool(conversationId, pool)
+    if (!hasMoreAfter.value) {
+      const next = mergeMessagesBySeq(messages.value, [message])
+      syncActiveMessages(conversationId, next)
+      // stay on latest edge
+      hasMoreAfter.value = false
+    } else {
+      hasMoreAfter.value = true
+    }
+    // Stay-continue: advance watermarks while panel stays active.
+    void advanceReadToMax(conversationId, latestMessageSeq(pool))
   }
 
   function handleMessageUpdated(raw: MessageItem) {
@@ -1154,16 +1593,39 @@ export const useImStore = defineStore('im', () => {
     lastError,
     activeConversation,
     filteredConversations,
+    pinnedConversations,
+    unpinnedConversations,
     totalUnreadCount,
+    flaggedCount,
+    sidebarSelection,
     pendingDirectChat,
     peerReadSeq,
     enterUnreadCount,
     firstUnreadSeq,
+    hasMoreBefore,
+    hasMoreAfter,
+    loadingOlder,
+    loadingNewer,
     currentUserId,
     fetchConversations,
+    setSidebarSelection,
+    togglePin,
+    toggleFlag,
+    toggleMute,
+    markInboxRead,
+    markInboxUnread,
+    userTags,
+    fetchUserTags,
+    createUserTag,
+    assignTagToConversation,
+    createAndAssignTag,
     selectConversation,
     openDirectChat,
     fetchMessages,
+    loadOlderMessages,
+    loadNewerMessages,
+    jumpToLatestWindow,
+    advanceReadToMax,
     fetchGroupMembers,
     ensureEffectiveSettings,
     setGroupPublic,

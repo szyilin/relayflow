@@ -8,6 +8,10 @@ import ImForwardConversationPicker from '../../../components/im/ImForwardConvers
 import ImMediaLightbox from '../../../components/im/ImMediaLightbox.vue'
 import ImMessageContextMenu from '../../../components/im/ImMessageContextMenu.vue'
 import type { ImMessageMenuAction } from '../../../components/im/ImMessageContextMenu.vue'
+import ImConversationListContextMenu from '../../../components/im/ImConversationListContextMenu.vue'
+import ImConversationGroupsSidebar from '../../../components/im/ImConversationGroupsSidebar.vue'
+import type { ConversationItem } from '../../../api/app/im'
+import { sidebarEmptyCopy, isImSidebarGroupId, type ImSidebarGroupId } from '../../../composables/imConversationGroups'
 import ImMessageReactionBar from '../../../components/im/ImMessageReactionBar.vue'
 import ImStickerPicker from '../../../components/im/ImStickerPicker.vue'
 import WorkspaceCreateGroupModal from '../../../components/workspace/WorkspaceCreateGroupModal.vue'
@@ -73,6 +77,12 @@ const contextMenu = ref<{ open: boolean, x: number, y: number, items: ImMessageM
   x: 0,
   y: 0,
   items: []
+})
+const conversationMenu = ref<{ open: boolean, x: number, y: number, conversation: ConversationItem | null }>({
+  open: false,
+  x: 0,
+  y: 0,
+  conversation: null
 })
 const mediaLightbox = ref<{
   open: boolean
@@ -165,7 +175,7 @@ async function scrollToBottom(force = false) {
   isNearBottom.value = true
 }
 
-async function scrollToUnread() {
+async function scrollToUnread(behavior: ScrollBehavior = 'smooth') {
   await nextTick()
   const seq = im.firstUnreadSeq
   if (seq == null) {
@@ -175,72 +185,77 @@ async function scrollToUnread() {
   const el = messageListRef.value
   const target = el?.querySelector(`[data-msg-seq="${seq}"]`) as HTMLElement | null
   if (target) {
-    target.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    unreadFabDismissed.value = true
+    target.scrollIntoView({ block: 'center', behavior })
+    isNearBottom.value = isListNearBottom(el!)
     return
   }
   await scrollToBottom(true)
+}
+
+async function jumpToLatest() {
   unreadFabDismissed.value = true
-}
-
-function scheduleReadReport(readSeq: number) {
-  if (readReportTimer) {
-    clearTimeout(readReportTimer)
-  }
-  readReportTimer = setTimeout(() => {
-    void im.reportReadUpTo(readSeq)
-  }, 300)
-}
-
-function reportVisibleRead() {
+  await im.jumpToLatestWindow()
+  await nextTick()
   const el = messageListRef.value
-  if (!el || !im.activeConversationId) {
+  if (!el) {
     return
   }
-  const nodes = el.querySelectorAll<HTMLElement>('[data-msg-seq]')
-  let maxVisible = 0
-  const viewTop = el.scrollTop
-  const viewBottom = viewTop + el.clientHeight
-  nodes.forEach((node) => {
-    const seq = Number(node.dataset.msgSeq)
-    if (!Number.isFinite(seq) || seq <= 0) {
-      return
-    }
-    const top = node.offsetTop
-    const bottom = top + node.offsetHeight
-    if (bottom > viewTop && top < viewBottom) {
-      maxVisible = Math.max(maxVisible, seq)
-    }
-  })
-  if (isNearBottom.value) {
-    const last = im.messages.at(-1)?.seq ?? 0
-    maxVisible = Math.max(maxVisible, last)
-  }
-  if (maxVisible > 0) {
-    scheduleReadReport(maxVisible)
-  }
+  el.style.transition = 'opacity 180ms ease'
+  el.style.opacity = '0.72'
+  await new Promise<void>(resolve => window.setTimeout(resolve, 80))
+  el.scrollTop = el.scrollHeight
+  isNearBottom.value = true
+  el.style.opacity = '1'
+  window.setTimeout(() => {
+    el.style.transition = ''
+  }, 200)
 }
 
-function onMessageListScroll() {
+async function loadOlderKeepingScroll() {
+  const el = messageListRef.value
+  if (!el) {
+    return
+  }
+  const prevHeight = el.scrollHeight
+  const prevTop = el.scrollTop
+  const loaded = await im.loadOlderMessages()
+  if (!loaded) {
+    return
+  }
+  await nextTick()
+  el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
+}
+
+async function onMessageListScroll() {
   const el = messageListRef.value
   if (!el) {
     return
   }
   isNearBottom.value = isListNearBottom(el)
-  reportVisibleRead()
+  if (el.scrollTop < 72 && im.hasMoreBefore && !im.loadingOlder) {
+    await loadOlderKeepingScroll()
+  }
+  if (isNearBottom.value && im.hasMoreAfter && !im.loadingNewer) {
+    await im.loadNewerMessages()
+  }
+  if (isNearBottom.value) {
+    unreadFabDismissed.value = true
+  }
 }
 
 const showUnreadFab = computed(() =>
   Boolean(im.firstUnreadSeq)
   && im.enterUnreadCount > 0
   && !unreadFabDismissed.value
+  && !isNearBottom.value
   && !im.loadingMessages)
 
 const showBackToLatestFab = computed(() =>
   Boolean(im.activeConversationId)
   && im.messages.length > 0
   && !isNearBottom.value
-  && !im.loadingMessages)
+  && !im.loadingMessages
+  && !showUnreadFab.value)
 
 const active = computed(() => im.activeConversation)
 const isGroupActive = computed(() => active.value?.type === 'group')
@@ -251,6 +266,7 @@ const isGroupModerator = computed(() => {
   return role === 'owner' || role === 'admin'
 })
 const allowPublicGroup = computed(() => im.effectiveSettings?.allowPublicGroup ?? false)
+const groupListEmptyCopy = computed(() => sidebarEmptyCopy(im.sidebarSelection))
 const canExportMembers = computed(() =>
   im.effectiveSettings?.memberExportPolicy === 'ALLOW_OWNER_ADMIN' && isGroupModerator.value)
 const canLeaveGroup = computed(() => {
@@ -462,6 +478,7 @@ function syncPresenceWatch() {
 
 onMounted(async () => {
   void im.ensureEffectiveSettings().catch(() => {})
+  void im.fetchUserTags().catch(() => {})
   await im.fetchConversations()
   const conversationId = typeof route.query.conversationId === 'string'
     ? route.query.conversationId
@@ -492,6 +509,7 @@ onUnmounted(() => {
   if (readReportTimer) {
     clearTimeout(readReportTimer)
   }
+  // Soft backup only; enter + stay-continue is the authority.
   void im.flushConversationRead()
   presence.stopPolling()
 })
@@ -501,7 +519,7 @@ watch([directPeerUserId, groupMemberIds, isGroupActive], () => {
 }, { deep: true })
 
 watch(
-  () => [im.activeConversationId, im.messages.length, im.loadingMessages] as const,
+  () => [im.activeConversationId, im.messages.length, im.loadingMessages, im.firstUnreadSeq] as const,
   async ([conversationId, length, loading], prev) => {
     if (!conversationId || loading || length === 0) {
       return
@@ -509,12 +527,16 @@ watch(
     const switched = !prev || prev[0] !== conversationId
     if (switched) {
       unreadFabDismissed.value = false
-      isNearBottom.value = true
-      await scrollToBottom(true)
-      reportVisibleRead()
+      if (im.firstUnreadSeq != null) {
+        isNearBottom.value = false
+        await scrollToUnread('auto')
+      } else {
+        isNearBottom.value = true
+        await scrollToBottom(true)
+      }
       return
     }
-    if (isNearBottom.value) {
+    if (isNearBottom.value && !im.hasMoreAfter) {
       await scrollToBottom(true)
     }
   }
@@ -1020,6 +1042,50 @@ function closeMessageContextMenu() {
   contextMenu.value = { ...contextMenu.value, open: false, items: [] }
 }
 
+function openConversationContextMenu(event: MouseEvent, thread: ConversationItem) {
+  event.preventDefault()
+  event.stopPropagation()
+  conversationMenu.value = {
+    open: true,
+    x: event.clientX,
+    y: event.clientY,
+    conversation: thread
+  }
+}
+
+function closeConversationContextMenu() {
+  conversationMenu.value = { open: false, x: 0, y: 0, conversation: null }
+}
+
+async function togglePinnedSectionCollapsed() {
+  const next = !preference.settings.im.pinnedSectionCollapsed
+  await preference.patchIm({ pinnedSectionCollapsed: next })
+}
+
+watch(
+  () => preference.settings.im.sidebarGroupOrder,
+  (order) => {
+    const selection = im.sidebarSelection
+    if (selection.kind !== 'group') {
+      return
+    }
+    const visible = new Set(order ?? [])
+    if (visible.has(selection.groupId)) {
+      return
+    }
+    if (visible.has('all')) {
+      im.setSidebarSelection({ kind: 'group', groupId: 'all' })
+      return
+    }
+    const first = (order ?? []).find(
+      (id): id is Exclude<ImSidebarGroupId, 'tags'> => isImSidebarGroupId(id) && id !== 'tags'
+    )
+    if (first) {
+      im.setSidebarSelection({ kind: 'group', groupId: first })
+    }
+  }
+)
+
 async function copyMessageText(msg: MessageItem) {
   const text = messagePlainText(msg)
   if (!text) {
@@ -1362,6 +1428,10 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
+      <div class="flex min-h-0 flex-1">
+        <ImConversationGroupsSidebar />
+
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col">
       <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
         <h2 class="font-semibold">
           消息
@@ -1404,13 +1474,94 @@ meta:
       </div>
 
       <div v-else-if="im.filteredConversations.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+        <template v-if="im.pinnedConversations.length">
+          <button
+            type="button"
+            class="mb-0.5 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs text-[var(--ws-text-muted)] hover:bg-[var(--ws-list-hover)]"
+            @click="togglePinnedSectionCollapsed"
+          >
+            <UIcon
+              :name="preference.settings.im.pinnedSectionCollapsed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
+              class="size-3.5"
+            />
+            <span class="flex-1">置顶</span>
+            <span
+              v-if="preference.settings.im.pinnedSectionCollapsed && im.pinnedConversations.some(t => t.unreadCount > 0)"
+              class="size-1.5 rounded-full bg-error"
+            />
+            <span class="tabular-nums">{{ im.pinnedConversations.length }}</span>
+          </button>
+          <template v-if="!preference.settings.im.pinnedSectionCollapsed">
+            <button
+              v-for="thread in im.pinnedConversations"
+              :key="`pin-${thread.id}`"
+              type="button"
+              class="workspace-list-item flex w-full items-center gap-3 bg-[color-mix(in_oklab,var(--ws-text)_4%,transparent)] px-3 py-2.5 text-left"
+              :data-active="im.activeConversationId === thread.id"
+              @click="handleSelect(thread.id)"
+              @contextmenu="openConversationContextMenu($event, thread)"
+            >
+              <WorkspaceAvatar
+                :src="thread.avatar"
+                :text="thread.avatarText ?? thread.title.slice(0, 1)"
+                :seed="thread.peerUserId || thread.botId || thread.id"
+                :icon="conversationAvatarIcon(thread.type)"
+                size="md"
+                class="shrink-0 self-center"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex min-w-0 items-center gap-1.5">
+                  <span class="truncate font-medium">{{ thread.title }}</span>
+                  <WorkspaceSemanticBadge v-if="thread.type === 'group'" kind="official" size="xs" class="shrink-0">
+                    群
+                  </WorkspaceSemanticBadge>
+                  <WorkspaceSemanticBadge v-else-if="thread.type === 'bot_dm'" kind="agent" size="xs" class="shrink-0">
+                    助手
+                  </WorkspaceSemanticBadge>
+                  <span class="ml-auto flex shrink-0 items-center gap-1">
+                    <UIcon v-if="thread.flagged" name="i-lucide-flag" class="size-3.5 text-error" />
+                    <span class="text-xs text-[var(--ws-text-muted)]">
+                      {{ im.formatRelativeTime(thread.lastMsgAt) }}
+                    </span>
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <p class="min-w-0 flex-1 truncate text-sm text-[var(--ws-text-muted)]">
+                    <span
+                      v-if="thread.mentionedMe && thread.unreadCount > 0"
+                      class="mr-1 text-xs font-medium text-error"
+                    >[有人@我]</span>
+                    {{ thread.lastMsgPreview || '暂无消息' }}
+                  </p>
+                  <UIcon
+                    v-if="thread.muted"
+                    name="i-lucide-bell-off"
+                    class="size-3.5 shrink-0 text-[var(--ws-text-muted)]"
+                  />
+                  <span
+                    v-if="thread.unreadCount > 0 && !thread.muted"
+                    class="flex size-5 shrink-0 items-center justify-center rounded-full bg-error text-[10px] text-white"
+                  >
+                    {{ thread.unreadCount > 9 ? '9+' : thread.unreadCount }}
+                  </span>
+                  <span
+                    v-else-if="thread.unreadCount > 0 && thread.muted"
+                    class="size-1.5 shrink-0 rounded-full bg-error/80"
+                  />
+                </div>
+              </div>
+            </button>
+          </template>
+        </template>
+
         <button
-          v-for="thread in im.filteredConversations"
+          v-for="thread in im.unpinnedConversations"
           :key="thread.id"
           type="button"
-          class="workspace-list-item flex w-full gap-3 px-3 py-2.5 text-left"
+          class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
           :data-active="im.activeConversationId === thread.id"
           @click="handleSelect(thread.id)"
+          @contextmenu="openConversationContextMenu($event, thread)"
         >
           <WorkspaceAvatar
             :src="thread.avatar"
@@ -1418,39 +1569,60 @@ meta:
             :seed="thread.peerUserId || thread.botId || thread.id"
             :icon="conversationAvatarIcon(thread.type)"
             size="md"
+            class="shrink-0 self-center"
           />
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
+            <div class="flex min-w-0 items-center gap-1.5">
               <span class="truncate font-medium">{{ thread.title }}</span>
-              <span class="ml-auto shrink-0 text-xs text-[var(--ws-text-muted)]">
-                {{ im.formatRelativeTime(thread.lastMsgAt) }}
+              <WorkspaceSemanticBadge v-if="thread.type === 'group'" kind="official" size="xs" class="shrink-0">
+                群
+              </WorkspaceSemanticBadge>
+              <WorkspaceSemanticBadge v-else-if="thread.type === 'bot_dm'" kind="agent" size="xs" class="shrink-0">
+                助手
+              </WorkspaceSemanticBadge>
+              <span class="ml-auto flex shrink-0 items-center gap-1">
+                <UIcon v-if="thread.flagged" name="i-lucide-flag" class="size-3.5 text-error" />
+                <span class="text-xs text-[var(--ws-text-muted)]">
+                  {{ im.formatRelativeTime(thread.lastMsgAt) }}
+                </span>
               </span>
             </div>
-            <p class="truncate text-sm text-[var(--ws-text-muted)]">
-              <WorkspaceSemanticBadge v-if="thread.type === 'group'" kind="official" size="xs" class="mr-1">群</WorkspaceSemanticBadge>
-              <WorkspaceSemanticBadge v-else-if="thread.type === 'bot_dm'" kind="agent" size="xs" class="mr-1">助手</WorkspaceSemanticBadge>
+            <div class="flex items-center gap-1">
+              <p class="min-w-0 flex-1 truncate text-sm text-[var(--ws-text-muted)]">
+                <span
+                  v-if="thread.mentionedMe && thread.unreadCount > 0"
+                  class="mr-1 text-xs font-medium text-error"
+                >[有人@我]</span>
+                {{ thread.lastMsgPreview || '暂无消息' }}
+              </p>
+              <UIcon
+                v-if="thread.muted"
+                name="i-lucide-bell-off"
+                class="size-3.5 shrink-0 text-[var(--ws-text-muted)]"
+              />
               <span
-                v-if="thread.mentionedMe && thread.unreadCount > 0"
-                class="mr-1 text-xs font-medium text-error"
-              >[有人@我]</span>
-              {{ thread.lastMsgPreview || '暂无消息' }}
-            </p>
+                v-if="thread.unreadCount > 0 && !thread.muted"
+                class="flex size-5 shrink-0 items-center justify-center rounded-full bg-error text-[10px] text-white"
+              >
+                {{ thread.unreadCount > 9 ? '9+' : thread.unreadCount }}
+              </span>
+              <span
+                v-else-if="thread.unreadCount > 0 && thread.muted"
+                class="size-1.5 shrink-0 rounded-full bg-error/80"
+              />
+            </div>
           </div>
-          <span
-            v-if="thread.unreadCount > 0"
-            class="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-error text-[10px] text-white"
-          >
-            {{ thread.unreadCount > 9 ? '9+' : thread.unreadCount }}
-          </span>
         </button>
       </div>
 
       <div v-else class="flex flex-1 flex-col items-center justify-center p-6">
         <WorkspaceEmptyState
           icon="i-lucide-message-square"
-          title="暂无会话"
-          description="开始与同事发起单聊、建群，或查看来自助手的消息"
+          :title="groupListEmptyCopy.title"
+          :description="groupListEmptyCopy.description"
         />
+      </div>
+        </div>
       </div>
     </template>
 
@@ -1463,8 +1635,13 @@ meta:
           :icon="conversationAvatarIcon(active.type)"
         />
         <div class="min-w-0 flex-1">
-          <h1 class="truncate font-semibold leading-5">
-            {{ active.title }}
+          <h1 class="flex items-center gap-1.5 truncate font-semibold leading-5">
+            <span class="truncate">{{ active.title }}</span>
+            <UIcon
+              v-if="active.flagged"
+              name="i-lucide-flag"
+              class="size-3.5 shrink-0 text-error"
+            />
           </h1>
           <!-- Always reserve one subtitle line so typing hint does not shift the message list. -->
           <p class="h-4 truncate text-xs leading-4 text-[var(--ws-text-muted)]">
@@ -1512,6 +1689,12 @@ meta:
 
           <template v-else-if="messageTimeline.length">
             <div
+              v-if="im.loadingOlder"
+              class="mb-2 flex justify-center"
+            >
+              <span class="text-xs text-[var(--ws-text-muted)]">加载更早消息…</span>
+            </div>
+            <div
               v-if="im.loadingMessages"
               class="mb-2 flex justify-center"
             >
@@ -1525,6 +1708,15 @@ meta:
               <span class="rounded-full bg-[var(--ws-input-bar-bg)] px-3 py-0.5 text-xs text-[var(--ws-text-muted)]">
                 {{ item.timeHeader }}
               </span>
+            </div>
+
+            <div
+              v-if="im.firstUnreadSeq != null && item.message.seq === im.firstUnreadSeq"
+              class="flex items-center gap-3 py-3"
+            >
+              <div class="h-px flex-1 bg-[var(--ws-border-subtle)]" />
+              <span class="shrink-0 text-xs font-medium text-error">以下为新消息</span>
+              <div class="h-px flex-1 bg-[var(--ws-border-subtle)]" />
             </div>
 
             <div
@@ -1789,9 +1981,9 @@ meta:
             variant="solid"
             size="sm"
             icon="i-lucide-arrow-up"
-            @click="scrollToUnread"
+            @click="scrollToUnread()"
           >
-            查看未读 · {{ im.enterUnreadCount }}
+            还有 {{ im.enterUnreadCount }} 条未读
           </UButton>
           <UButton
             v-if="showBackToLatestFab"
@@ -1800,7 +1992,7 @@ meta:
             variant="solid"
             size="sm"
             icon="i-lucide-arrow-down"
-            @click="scrollToBottom(true)"
+            @click="jumpToLatest"
           >
             回到最新
           </UButton>
@@ -2209,6 +2401,14 @@ meta:
     :y="contextMenu.y"
     :items="contextMenu.items"
     @close="closeMessageContextMenu"
+  />
+
+  <ImConversationListContextMenu
+    :open="conversationMenu.open"
+    :x="conversationMenu.x"
+    :y="conversationMenu.y"
+    :conversation="conversationMenu.conversation"
+    @close="closeConversationContextMenu"
   />
 
 

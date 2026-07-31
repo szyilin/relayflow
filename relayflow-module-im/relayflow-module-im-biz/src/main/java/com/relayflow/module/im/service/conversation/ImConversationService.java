@@ -20,7 +20,20 @@ public interface ImConversationService {
 
     List<Long> listOtherMemberUserIds(Long tenantId, Long conversationId, Long senderId);
 
+    /** True read: advances read_seq + badge_seq to at least readSeq; materializes unread_count. */
     void markConversationRead(Long conversationId, Long readSeq);
+
+    void pinConversation(Long conversationId, boolean pinned);
+
+    void flagConversation(Long conversationId, boolean flagged);
+
+    void muteConversation(Long conversationId, boolean muted);
+
+    /** Inbox-only: badge_seq → max seq; read_seq unchanged. */
+    void markInboxRead(Long conversationId);
+
+    /** Inbox-only: badge_seq → max_seq - 1 (unread = 1); read_seq unchanged. */
+    void markInboxUnread(Long conversationId);
 
     ConversationReadStatusRespVO getReadStatus(Long conversationId);
 

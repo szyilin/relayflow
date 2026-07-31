@@ -285,9 +285,12 @@ public class ImBotProvisioningServiceImpl {
         member.setSubjectId(subjectId);
         member.setRole("member");
         member.setReadSeq(0L);
+        member.setBadgeSeq(0L);
         member.setUnreadCount(0);
+        member.setMentionUnread(0);
         member.setJoinTime(OffsetDateTime.now());
         member.setPinned(0);
+        member.setFlagged(0);
         conversationMemberMapper.insert(member);
     }
 

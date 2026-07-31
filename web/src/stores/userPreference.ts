@@ -11,6 +11,7 @@ import {
   type WorkspacePreferenceSettings
 } from '../api/app/userPreference'
 import { DEFAULT_RAIL_ORDER, resolveRailOrder } from '../composables/workspaceRailOrder'
+import { resolveSidebarGroupPreferences } from '../composables/imConversationGroups'
 import { useAdminColorMode } from '../composables/useAdminColorMode'
 import { useAuthStore } from './auth'
 
@@ -27,7 +28,20 @@ export const DEFAULT_USER_PREFERENCE: UserPreferenceSettings = {
     themeColor: 'teal'
   },
   im: {
-    chatBubbleLayout: 'split'
+    chatBubbleLayout: 'split',
+    pinnedSectionCollapsed: false,
+    sidebarGroupOrder: [
+      'all',
+      'unread',
+      'flagged',
+      'mention_me',
+      'tags',
+      'direct',
+      'group',
+      'muted',
+      'bot'
+    ],
+    sidebarGroupHidden: []
   },
   calendar: {
     weekStartsOn: 0,
@@ -60,6 +74,23 @@ function normalizeWorkspace(
   }
 }
 
+function normalizeIm(
+  patch: Partial<UserPreferenceSettings['im']> | null | undefined
+): UserPreferenceSettings['im'] {
+  const base = DEFAULT_USER_PREFERENCE.im
+  const merged = { ...base, ...(patch ?? {}) }
+  const resolved = resolveSidebarGroupPreferences(
+    merged.sidebarGroupOrder,
+    merged.sidebarGroupHidden
+  )
+  return {
+    chatBubbleLayout: merged.chatBubbleLayout === 'left' ? 'left' : 'split',
+    pinnedSectionCollapsed: !!merged.pinnedSectionCollapsed,
+    sidebarGroupOrder: resolved.order,
+    sidebarGroupHidden: resolved.hidden
+  }
+}
+
 function deepMergeSettings(
   base: UserPreferenceSettings,
   patch: {
@@ -75,10 +106,10 @@ function deepMergeSettings(
       ...base.general,
       ...(patch?.general ?? {})
     },
-    im: {
+    im: normalizeIm({
       ...base.im,
       ...(patch?.im ?? {})
-    },
+    }),
     calendar: {
       ...base.calendar,
       ...(patch?.calendar ?? {})
@@ -247,6 +278,12 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     return syncToServer()
   }
 
+  async function patchIm(patch: Partial<UserPreferenceSettings['im']>): Promise<boolean> {
+    settings.value = deepMergeSettings(settings.value, { im: patch })
+    persistCache()
+    return syncToServer()
+  }
+
   async function patchCalendar(patch: Partial<CalendarPreferenceSettings>): Promise<boolean> {
     settings.value = {
       ...settings.value,
@@ -309,6 +346,7 @@ export const useUserPreferenceStore = defineStore('userPreference', () => {
     setThemeMode,
     setThemeColor,
     setChatBubbleLayout,
+    patchIm,
     patchCalendar,
     patchTask,
     setRailOrder,

@@ -50,7 +50,9 @@ public enum ErrorCodeConstants implements ErrorCode {
     STICKER_NOT_FOUND(1_003_002_014, "表情不存在"),
     STICKER_FILE_TYPE_INVALID(1_003_002_015, "自定义表情仅支持图片或动图"),
     STICKER_LIMIT_EXCEEDED(1_003_002_016, "自定义表情数量已达上限"),
-    STICKER_COLLECT_DENIED(1_003_002_017, "无法添加到表情");
+    STICKER_COLLECT_DENIED(1_003_002_017, "无法添加到表情"),
+    TAG_NAME_INVALID(1_003_007_001, "标签名称无效"),
+    TAG_NOT_FOUND(1_003_007_002, "标签不存在");
 
     private final Integer code;
     private final String msg;

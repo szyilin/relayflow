@@ -12,6 +12,17 @@ public interface ImMessageService {
 
     List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq);
 
+    /**
+     * Windowed list: around / before / after / latest. See {@link ImMessageListWindows}.
+     */
+    List<MessageItemRespVO> listMessages(Long conversationId,
+                                         Long afterSeq,
+                                         Long beforeSeq,
+                                         Long aroundSeq,
+                                         Integer before,
+                                         Integer after,
+                                         Integer limit);
+
     SendMessageRespVO sendMessage(Long tenantId, Long userId, SendMessageReqVO request, RealtimeSendContext realtimeContext);
 
     SendMessageRespVO sendMyMessage(SendMessageReqVO request);

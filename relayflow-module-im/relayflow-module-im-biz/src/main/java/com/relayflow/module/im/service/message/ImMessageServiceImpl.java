@@ -87,21 +87,128 @@ public class ImMessageServiceImpl implements ImMessageService {
 
     @Override
     public List<MessageItemRespVO> listMessages(Long conversationId, Long afterSeq) {
-        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
-        return listMessages(loginUser.getTenantId(), loginUser.getUserId(), conversationId, afterSeq);
+        return listMessages(conversationId, afterSeq, null, null, null, null, null);
     }
 
-    private List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId, Long afterSeq) {
-        conversationService.requireMembership(tenantId, conversationId, userId);
-        long cursor = afterSeq != null ? afterSeq : 0L;
+    @Override
+    public List<MessageItemRespVO> listMessages(Long conversationId,
+                                                Long afterSeq,
+                                                Long beforeSeq,
+                                                Long aroundSeq,
+                                                Integer before,
+                                                Integer after,
+                                                Integer limit) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        return listMessages(loginUser.getTenantId(), loginUser.getUserId(), conversationId,
+                afterSeq, beforeSeq, aroundSeq, before, after, limit);
+    }
 
-        List<ImMessageDO> messages = messageMapper.selectList(
+    private List<MessageItemRespVO> listMessages(Long tenantId, Long userId, Long conversationId,
+                                                 Long afterSeq, Long beforeSeq, Long aroundSeq,
+                                                 Integer before, Integer after, Integer limit) {
+        conversationService.requireMembership(tenantId, conversationId, userId);
+
+        ImMessageListWindows.Mode mode = ImMessageListWindows.resolveMode(afterSeq, beforeSeq, aroundSeq);
+        List<ImMessageDO> messages = switch (mode) {
+            case AROUND -> loadAroundWindow(tenantId, conversationId, aroundSeq, before, after);
+            case BEFORE -> loadBeforeWindow(tenantId, conversationId, beforeSeq, limit);
+            case AFTER -> loadAfterWindow(tenantId, conversationId, afterSeq, limit);
+            case LATEST -> loadLatestWindow(tenantId, conversationId, limit);
+        };
+
+        return toMessageItems(tenantId, userId, messages);
+    }
+
+    private List<ImMessageDO> loadLatestWindow(Long tenantId, Long conversationId, Integer limit) {
+        int safeLimit = ImMessageListWindows.clampLimit(limit);
+        List<ImMessageDO> newestFirst = messageMapper.selectList(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .orderByDesc(ImMessageDO::getSeq)
+                        .last("LIMIT " + safeLimit));
+        java.util.Collections.reverse(newestFirst);
+        return newestFirst;
+    }
+
+    private List<ImMessageDO> loadAfterWindow(Long tenantId, Long conversationId, Long afterSeq, Integer limit) {
+        int safeLimit = ImMessageListWindows.clampLimit(limit);
+        long cursor = afterSeq != null ? afterSeq : 0L;
+        return messageMapper.selectList(
                 Wrappers.<ImMessageDO>lambdaQuery()
                         .eq(ImMessageDO::getTenantId, tenantId)
                         .eq(ImMessageDO::getConversationId, conversationId)
                         .gt(ImMessageDO::getSeq, cursor)
-                        .orderByAsc(ImMessageDO::getSeq));
+                        .orderByAsc(ImMessageDO::getSeq)
+                        .last("LIMIT " + safeLimit));
+    }
 
+    private List<ImMessageDO> loadBeforeWindow(Long tenantId, Long conversationId, Long beforeSeq, Integer limit) {
+        int safeLimit = ImMessageListWindows.clampLimit(limit);
+        if (beforeSeq == null || beforeSeq <= 1) {
+            return List.of();
+        }
+        List<ImMessageDO> older = messageMapper.selectList(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .lt(ImMessageDO::getSeq, beforeSeq)
+                        .orderByDesc(ImMessageDO::getSeq)
+                        .last("LIMIT " + safeLimit));
+        java.util.Collections.reverse(older);
+        return older;
+    }
+
+    private List<ImMessageDO> loadAroundWindow(Long tenantId, Long conversationId, Long aroundSeq,
+                                               Integer before, Integer after) {
+        long anchor = aroundSeq != null ? aroundSeq : 0L;
+        int beforeN = ImMessageListWindows.clampAroundSide(before, ImMessageListWindows.DEFAULT_AROUND_BEFORE);
+        int afterN = ImMessageListWindows.clampAroundSide(after, ImMessageListWindows.DEFAULT_AROUND_AFTER);
+        // Cap total window at HARD_CAP (before + 1 + after).
+        if (beforeN + 1 + afterN > ImMessageListWindows.HARD_CAP) {
+            int budget = ImMessageListWindows.HARD_CAP - 1;
+            beforeN = Math.min(beforeN, budget / 2);
+            afterN = Math.min(afterN, budget - beforeN);
+        }
+
+        List<ImMessageDO> rows = new ArrayList<>();
+        if (beforeN > 0) {
+            List<ImMessageDO> older = messageMapper.selectList(
+                    Wrappers.<ImMessageDO>lambdaQuery()
+                            .eq(ImMessageDO::getTenantId, tenantId)
+                            .eq(ImMessageDO::getConversationId, conversationId)
+                            .lt(ImMessageDO::getSeq, anchor)
+                            .orderByDesc(ImMessageDO::getSeq)
+                            .last("LIMIT " + beforeN));
+            java.util.Collections.reverse(older);
+            rows.addAll(older);
+        }
+        ImMessageDO anchorMsg = messageMapper.selectOne(
+                Wrappers.<ImMessageDO>lambdaQuery()
+                        .eq(ImMessageDO::getTenantId, tenantId)
+                        .eq(ImMessageDO::getConversationId, conversationId)
+                        .eq(ImMessageDO::getSeq, anchor)
+                        .last("LIMIT 1"));
+        if (anchorMsg != null) {
+            rows.add(anchorMsg);
+        }
+        if (afterN > 0) {
+            List<ImMessageDO> newer = messageMapper.selectList(
+                    Wrappers.<ImMessageDO>lambdaQuery()
+                            .eq(ImMessageDO::getTenantId, tenantId)
+                            .eq(ImMessageDO::getConversationId, conversationId)
+                            .gt(ImMessageDO::getSeq, anchor)
+                            .orderByAsc(ImMessageDO::getSeq)
+                            .last("LIMIT " + afterN));
+            rows.addAll(newer);
+        }
+        return rows;
+    }
+
+    private List<MessageItemRespVO> toMessageItems(Long tenantId, Long userId, List<ImMessageDO> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return List.of();
+        }
         Map<Long, String> nicknameByUserId = loadSenderNicknames(messages);
         Map<Long, MessageReplyToRespVO> replyToByMsgId = loadReplyToMap(tenantId, messages, nicknameByUserId);
         List<Long> messageIds = messages.stream().map(ImMessageDO::getId).toList();
@@ -160,7 +267,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         conversation.setLastMsgPreview(preview);
         conversationMapper.updateById(conversation);
 
-        incrementUnreadForAllMembers(tenantId, conversationId);
+        incrementUnreadForAllMembers(tenantId, conversationId, nextSeq);
 
         MessageItemRespVO payload = toMessageItem(message, Map.of());
         RealtimeEnvelopeDTO envelope = RealtimeEnvelopeDTO.builder()
@@ -232,7 +339,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         conversation.setLastMsgPreview(preview);
         conversationMapper.updateById(conversation);
 
-        incrementUnreadForAllMembers(tenantId, conversationId);
+        incrementUnreadForAllMembers(tenantId, conversationId, nextSeq);
 
         Map<Long, String> nicknames = new HashMap<>();
         if (StringUtils.hasText(botName)) {
@@ -312,7 +419,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         conversation.setUpdater(userId);
         conversationMapper.updateById(conversation);
 
-        incrementUnreadForOthers(tenantId, conversationId, userId, request.getContent());
+        incrementUnreadForOthers(tenantId, conversationId, userId, request.getContent(), message.getSeq());
 
         SendMessageRespVO response = toSendResponse(message);
         dispatchRealtime(message, request.getContent(), userId, tenantId, realtimeContext, false);
@@ -439,7 +546,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         conversation.setLastMsgPreview(preview);
         conversation.setUpdater(userId);
         conversationMapper.updateById(conversation);
-        incrementUnreadForOthers(tenantId, targetConversationId, userId, forwardedContent);
+        incrementUnreadForOthers(tenantId, targetConversationId, userId, forwardedContent, message.getSeq());
 
         Map<Long, String> nicknames = loadSenderNicknames(List.of(message));
         MessageItemRespVO payload = toMessageItem(message, nicknames);
@@ -743,7 +850,7 @@ public class ImMessageServiceImpl implements ImMessageService {
     }
 
     private void incrementUnreadForOthers(Long tenantId, Long conversationId, Long senderId,
-                                          MessageContentVO content) {
+                                          MessageContentVO content, long maxSeq) {
         Set<Long> mentionedUserIds = contentHelper.extractUserMentionSubjectIds(content);
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
@@ -754,8 +861,7 @@ public class ImMessageServiceImpl implements ImMessageService {
             if (Objects.equals(member.getSubjectId(), senderId)) {
                 continue;
             }
-            int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
-            member.setUnreadCount(unread + 1);
+            applyUnreadFromBadge(member, maxSeq);
             if (member.getSubjectId() != null && mentionedUserIds.contains(member.getSubjectId())) {
                 member.setMentionUnread(1);
             }
@@ -763,17 +869,21 @@ public class ImMessageServiceImpl implements ImMessageService {
         }
     }
 
-    private void incrementUnreadForAllMembers(Long tenantId, Long conversationId) {
+    private void incrementUnreadForAllMembers(Long tenantId, Long conversationId, long maxSeq) {
         List<ImConversationMemberDO> members = conversationMemberMapper.selectList(
                 Wrappers.<ImConversationMemberDO>lambdaQuery()
                         .eq(ImConversationMemberDO::getTenantId, tenantId)
                         .eq(ImConversationMemberDO::getConversationId, conversationId)
                         .eq(ImConversationMemberDO::getSubjectType, ImMemberSubjectType.USER));
         for (ImConversationMemberDO member : members) {
-            int unread = member.getUnreadCount() != null ? member.getUnreadCount() : 0;
-            member.setUnreadCount(unread + 1);
+            applyUnreadFromBadge(member, maxSeq);
             conversationMemberMapper.updateById(member);
         }
+    }
+
+    /** Contiguous seq model: unread_count = max(0, maxSeq - badge_seq). */
+    private static void applyUnreadFromBadge(ImConversationMemberDO member, long maxSeq) {
+        member.setUnreadCount(ImMemberUnreadMath.unreadFromBadge(maxSeq, member.getBadgeSeq()));
     }
 
     private void dispatchRealtime(ImMessageDO message, MessageContentVO content, Long senderId, Long tenantId,
