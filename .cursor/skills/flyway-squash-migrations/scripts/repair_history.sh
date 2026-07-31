@@ -94,9 +94,15 @@ if [[ -n "$ABSORB" ]]; then
   [[ -n "$ABSORB_SQL" ]] || ABSORB_SQL="NULL"
 fi
 
+KEEP_BASENAME="$(basename "$KEEP_FILE")"
+# Flyway description = underscored part after __ , with _ → space (e.g. init_foundation → init foundation)
+KEEP_DESC="${KEEP_BASENAME#*__}"
+KEEP_DESC="${KEEP_DESC%.sql}"
+KEEP_DESC="${KEEP_DESC//_/ }"
+
 echo "Host=$HOST Port=$PORT Db=$DBNAME"
 echo "Delete versions: $ABSORB_SQL"
-echo "Update checksum: version=$KEEP file=$(basename "$KEEP_FILE") checksum=$CHECKSUM"
+echo "Update keep: version=$KEEP file=$KEEP_BASENAME description='$KEEP_DESC' checksum=$CHECKSUM"
 
 SQL=$(cat <<EOF
 BEGIN;
@@ -104,10 +110,11 @@ DELETE FROM flyway_schema_history
 WHERE version IN (${ABSORB_SQL});
 UPDATE flyway_schema_history
 SET checksum = ${CHECKSUM},
-    script = '$(basename "$KEEP_FILE")'
+    script = '${KEEP_BASENAME}',
+    description = '${KEEP_DESC}'
 WHERE version = '${KEEP}';
 COMMIT;
-SELECT version, checksum, success, script
+SELECT version, description, checksum, success, script
 FROM flyway_schema_history
 WHERE version = '${KEEP}' OR version IN (${ABSORB_SQL})
 ORDER BY installed_rank;

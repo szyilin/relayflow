@@ -116,9 +116,10 @@ DELETE FROM flyway_schema_history
 WHERE version IN (/* 吸收版本，如 '0.1.0.1', '0.1.0.2' */);
 ```
 
-3. **修复保留版本 checksum**（文件已变，必须 repair，否则启动校验失败）：
-   - 优先运行本 skill 脚本：[`scripts/repair_history.sh`](scripts/repair_history.sh)（内部：删吸收行 + 按 Flyway CRC32 更新保留行 checksum；也可调 Flyway `repair` 若环境可用）。
-   - 若脚本不可用：用 `psql` 执行 DELETE后，再用 Flyway 官方 `repair`（classpath / Docker `flyway/flyway`）对准同一 `filesystem:.../db/migration`。
+3. **修复保留版本 history 元数据**（文件已变，必须 repair，否则启动校验失败）：
+   - 优先运行本 skill 脚本：[`scripts/repair_history.sh`](scripts/repair_history.sh)（内部：删吸收行 + 按 Flyway CRC32 更新保留行 **checksum / script / description**；也可调 Flyway `repair` 若环境可用）。
+   - 若改了保留文件 `__` 后的描述名：`description` 必须同步（Flyway 把 `init_foundation` 存成 `init foundation`）；只改 checksum/script 会报 **Migration description mismatch**。
+   - 若脚本不可用：用 `psql` 执行 DELETE 后，再用 Flyway 官方 `repair`（classpath / Docker `flyway/flyway`）对准同一 `filesystem:.../db/migration`。
 4. **禁止**：删除保留版本的 history 行后指望 Flyway 重跑合并 SQL（表已存在会失败）。
 5. **禁止**：未确认就 `DROP DATABASE` / `flyway clean` / 清空业务表。
 
@@ -127,10 +128,10 @@ WHERE version IN (/* 吸收版本，如 '0.1.0.1', '0.1.0.2' */);
 做完后由 AI 自行验证，**不要**强制清库重跑全链：
 
 1. **静态**：保留文件是否 DDL→DML；范围内净效果是否覆盖吸收脚本终态；无对已省略对象的引用；范围外文件未误改。
-2. **History**：`SELECT version, checksum, success, script FROM flyway_schema_history ORDER BY installed_rank;`  
+2. **History**：`SELECT version, description, checksum, success, script FROM flyway_schema_history ORDER BY installed_rank;`  
    - 吸收版本行不存在  
    - 保留版本行仍在且 `success = true`  
-   - checksum 与当前保留文件一致（与脚本计算值或 `repair` 后一致）
+   - checksum / script / description 均与当前保留文件一致（description 为 `__` 后 snake_case，下划线变空格）
 3. **可选轻量**：若本机有 `psql`，对保留文件做语法无执行检查有限（或仅 `EXPLAIN` 不适用）；**不要**对已有库执行合并文件全文。
 4. 向用户报告：改了哪些文件、history 如何、校验结果；提醒用户可自行在别处做空库安装验证。
 
