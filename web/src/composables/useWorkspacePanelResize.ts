@@ -2,9 +2,13 @@ import { onBeforeUnmount, ref } from 'vue'
 
 const STORAGE_KEY = 'relayflow:ws:panel-width'
 
-const DEFAULT_WIDTH = 420
-const MIN_WIDTH = 320
-const MAX_WIDTH = 560
+/**
+ * Panel hosts groups rail (~108px) + conversation list.
+ * Min keeps the list readable; default leaves comfortable room for title + preview.
+ */
+const DEFAULT_WIDTH = 480
+const MIN_WIDTH = 380
+const MAX_WIDTH = 640
 
 function readStoredWidth(): number {
   const raw = localStorage.getItem(STORAGE_KEY)

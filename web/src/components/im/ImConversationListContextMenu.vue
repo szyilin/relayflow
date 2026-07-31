@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
   <div
     v-if="open && conversation"
     ref="menuRef"
-    class="fixed z-[80] min-w-44 rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] py-1 shadow-lg"
+    class="fixed z-[80] min-w-44 select-none rounded-lg border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] py-1 shadow-lg"
     :style="style"
     @contextmenu.prevent
   >

@@ -1024,12 +1024,20 @@ function hasMessageActions(msg: MessageItem) {
   return buildMessageActions(msg).length > 0
 }
 
+function clearWindowTextSelection() {
+  const selection = window.getSelection()
+  if (selection && selection.rangeCount > 0) {
+    selection.removeAllRanges()
+  }
+}
+
 function openMessageContextMenu(event: MouseEvent, msg: MessageItem) {
   const items = buildMessageActions(msg)
   if (items.length === 0) {
     return
   }
   event.preventDefault()
+  clearWindowTextSelection()
   contextMenu.value = {
     open: true,
     x: event.clientX,
@@ -1045,6 +1053,7 @@ function closeMessageContextMenu() {
 function openConversationContextMenu(event: MouseEvent, thread: ConversationItem) {
   event.preventDefault()
   event.stopPropagation()
+  clearWindowTextSelection()
   conversationMenu.value = {
     open: true,
     x: event.clientX,
@@ -1428,10 +1437,10 @@ meta:
 <template>
   <WorkspaceShell>
     <template #panel>
-      <div class="flex min-h-0 flex-1">
+      <div class="flex min-h-0 flex-1 overflow-hidden">
         <ImConversationGroupsSidebar />
 
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div class="flex min-h-0 min-w-[260px] flex-1 flex-col overflow-hidden">
       <div class="flex items-center justify-between border-b border-[var(--ws-border-subtle)] px-4 py-3">
         <h2 class="font-semibold">
           消息
@@ -1473,7 +1482,7 @@ meta:
         <USkeleton v-for="i in 4" :key="i" class="h-14 w-full" />
       </div>
 
-      <div v-else-if="im.filteredConversations.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+      <div v-else-if="im.filteredConversations.length" class="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3 select-none">
         <template v-if="im.pinnedConversations.length">
           <button
             type="button"
@@ -1496,7 +1505,7 @@ meta:
               v-for="thread in im.pinnedConversations"
               :key="`pin-${thread.id}`"
               type="button"
-              class="workspace-list-item flex w-full items-center gap-3 bg-[color-mix(in_oklab,var(--ws-text)_4%,transparent)] px-3 py-2.5 text-left"
+              class="workspace-list-item flex w-full items-center gap-3 bg-[color-mix(in_oklab,var(--ws-text)_4%,transparent)] px-3 py-2.5 text-left select-none"
               :data-active="im.activeConversationId === thread.id"
               @click="handleSelect(thread.id)"
               @contextmenu="openConversationContextMenu($event, thread)"
@@ -1558,7 +1567,7 @@ meta:
           v-for="thread in im.unpinnedConversations"
           :key="thread.id"
           type="button"
-          class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left"
+          class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5 text-left select-none"
           :data-active="im.activeConversationId === thread.id"
           @click="handleSelect(thread.id)"
           @contextmenu="openConversationContextMenu($event, thread)"
@@ -1673,7 +1682,7 @@ meta:
       <div class="relative min-h-0 flex-1">
         <div
           ref="messageListRef"
-          class="h-full overflow-y-auto px-5 py-4"
+          class="h-full overflow-y-auto px-5 py-4 select-none"
           @scroll.passive="onMessageListScroll"
         >
           <div

@@ -198,6 +198,8 @@
 /* 消息气泡：主体大圆角 + 发送侧一角略收，避免四角等圆的机械感 */
 .ws-msg-bubble {
   border-radius: 1.125rem;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .ws-msg-row--highlight .ws-msg-bubble {

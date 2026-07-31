@@ -75,7 +75,7 @@ function run(action: ImMessageMenuAction, event: MouseEvent) {
     >
       <div
         ref="menuRef"
-        class="fixed min-w-40 overflow-hidden rounded-md border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] py-1 shadow-lg"
+        class="fixed min-w-40 select-none overflow-hidden rounded-md border border-[var(--ws-border-subtle)] bg-[var(--ui-bg)] py-1 shadow-lg"
         :style="{ left: `${pos.left}px`, top: `${pos.top}px` }"
         role="menu"
         @click.stop

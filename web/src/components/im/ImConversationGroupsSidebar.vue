@@ -63,9 +63,9 @@ function groupBadge(groupId: ImSidebarGroupId): string | undefined {
 </script>
 
 <template>
-  <div class="flex h-full w-[148px] shrink-0 flex-col border-r border-[var(--ws-border-subtle)] bg-[var(--ws-rail-bg)]">
-    <div class="flex items-center justify-between px-3 py-3">
-      <h3 class="text-sm font-semibold">
+  <div class="flex h-full w-[108px] shrink-0 flex-col border-r border-[var(--ws-border-subtle)] bg-[var(--ws-rail-bg)] select-none">
+    <div class="flex items-center justify-between gap-0.5 px-2 py-2.5">
+      <h3 class="text-xs font-semibold">
         分组
       </h3>
       <UButton
@@ -78,11 +78,11 @@ function groupBadge(groupId: ImSidebarGroupId): string | undefined {
       />
     </div>
 
-    <nav class="flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-3">
+    <nav class="flex-1 space-y-0.5 overflow-y-auto px-1 pb-3">
       <template v-for="groupId in visibleGroupIds" :key="groupId">
         <button
           type="button"
-          class="workspace-list-item flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm"
+          class="workspace-list-item flex w-full items-center gap-1.5 px-1.5 py-1.5 text-left text-xs"
           :data-active="isSelectedGroup(groupId) ? 'true' : undefined"
           @click="selectGroup(groupId)"
         >
@@ -116,24 +116,24 @@ function groupBadge(groupId: ImSidebarGroupId): string | undefined {
 
         <div
           v-if="groupId === 'tags' && tagsExpanded"
-          class="ml-2 space-y-0.5 border-l border-[var(--ws-border-subtle)] pl-1"
+          class="ml-1.5 space-y-0.5 border-l border-[var(--ws-border-subtle)] pl-1"
         >
           <button
             v-for="tag in userTags"
             :key="tag.id"
             type="button"
-            class="workspace-list-item flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm"
+            class="workspace-list-item flex w-full items-center gap-1.5 px-1.5 py-1 text-left text-xs"
             :data-active="isSelectedTag(tag.id) ? 'true' : undefined"
             @click="selectTag(tag.id)"
           >
             <UIcon
               name="i-lucide-tag"
-              class="size-3.5 shrink-0"
+              class="size-3 shrink-0"
               :class="isSelectedTag(tag.id) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
             />
             <span class="min-w-0 truncate">{{ tag.name }}</span>
           </button>
-          <p v-if="userTags.length === 0" class="px-2 py-1 text-xs text-[var(--ws-text-muted)]">
+          <p v-if="userTags.length === 0" class="px-1.5 py-1 text-[11px] text-[var(--ws-text-muted)]">
             暂无标签
           </p>
         </div>
