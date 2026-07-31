@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useImStore } from '../../stores/im'
 import { useUserPreferenceStore } from '../../stores/userPreference'
+import { appConfirm } from '../../composables/appConfirm'
 import {
   IM_SIDEBAR_GROUP_ICONS,
   IM_SIDEBAR_GROUP_LABELS,
@@ -52,6 +53,25 @@ async function submitNewTag() {
   createTagOpen.value = false
   tagsExpanded.value = true
   selectTag(tag.id)
+}
+
+async function confirmDeleteTag(tag: { id: string, name: string, conversationCount?: number }) {
+  const count = tag.conversationCount ?? 0
+  const description = count > 0
+    ? `标签「${tag.name}」已应用于 ${count} 个会话。删除后，这些会话上的该标签也会一并移除。`
+    : `确定删除标签「${tag.name}」吗？`
+
+  const ok = await appConfirm({
+    title: '删除标签',
+    description,
+    confirmLabel: '删除',
+    cancelLabel: '取消',
+    confirmColor: 'error'
+  })
+  if (!ok) {
+    return
+  }
+  await im.deleteUserTag(tag.id)
 }
 
 function groupBadge(groupId: ImSidebarGroupId): string | undefined {
@@ -118,21 +138,34 @@ function groupBadge(groupId: ImSidebarGroupId): string | undefined {
           v-if="groupId === 'tags' && tagsExpanded"
           class="ml-1.5 space-y-0.5 border-l border-[var(--ws-border-subtle)] pl-1"
         >
-          <button
+          <div
             v-for="tag in userTags"
             :key="tag.id"
-            type="button"
-            class="workspace-list-item flex w-full items-center gap-1.5 px-1.5 py-1 text-left text-xs"
+            class="group/tag workspace-list-item flex w-full items-center gap-0.5 px-0.5 py-0.5"
             :data-active="isSelectedTag(tag.id) ? 'true' : undefined"
-            @click="selectTag(tag.id)"
           >
-            <UIcon
-              name="i-lucide-tag"
-              class="size-3 shrink-0"
-              :class="isSelectedTag(tag.id) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-1 text-left text-xs"
+              @click="selectTag(tag.id)"
+            >
+              <UIcon
+                name="i-lucide-tag"
+                class="size-3 shrink-0"
+                :class="isSelectedTag(tag.id) ? 'text-[var(--ui-primary)]' : 'text-[var(--ws-text-muted)]'"
+              />
+              <span class="min-w-0 truncate">{{ tag.name }}</span>
+            </button>
+            <UButton
+              icon="i-lucide-trash-2"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              class="!size-5 shrink-0 opacity-0 group-hover/tag:opacity-100"
+              :aria-label="`删除标签 ${tag.name}`"
+              @click.stop="confirmDeleteTag(tag)"
             />
-            <span class="min-w-0 truncate">{{ tag.name }}</span>
-          </button>
+          </div>
           <p v-if="userTags.length === 0" class="px-1.5 py-1 text-[11px] text-[var(--ws-text-muted)]">
             暂无标签
           </p>

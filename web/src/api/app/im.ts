@@ -577,12 +577,18 @@ export function markInboxUnread(conversationId: string): Promise<void> {
 export interface ImUserTagItem {
   id: string
   name: string
+  /** Conversations currently assigned this tag. */
+  conversationCount?: number
 }
 
 type RawImUserTagItem = Omit<ImUserTagItem, 'id'> & { id: number | string }
 
 function normalizeUserTag(item: RawImUserTagItem): ImUserTagItem {
-  return { id: String(item.id), name: item.name }
+  return {
+    id: String(item.id),
+    name: item.name,
+    conversationCount: item.conversationCount != null ? Number(item.conversationCount) : 0
+  }
 }
 
 export function getUserTags(): Promise<ImUserTagItem[]> {
@@ -595,6 +601,14 @@ export function createUserTag(name: string): Promise<ImUserTagItem> {
 
 export function assignUserTag(conversationId: string, tagId: string): Promise<void> {
   return post<void>('/app-api/im/tag/assign', { conversationId, tagId })
+}
+
+export function unassignUserTag(conversationId: string, tagId: string): Promise<void> {
+  return post<void>('/app-api/im/tag/unassign', { conversationId, tagId })
+}
+
+export function deleteUserTag(tagId: string): Promise<void> {
+  return post<void>('/app-api/im/tag/delete', { tagId })
 }
 
 export function createAndAssignUserTag(conversationId: string, name: string): Promise<ImUserTagItem> {

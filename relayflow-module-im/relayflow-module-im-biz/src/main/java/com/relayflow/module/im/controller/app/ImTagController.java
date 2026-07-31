@@ -4,7 +4,9 @@ import com.relayflow.common.pojo.CommonResult;
 import com.relayflow.module.im.controller.app.vo.ImUserTagAssignReqVO;
 import com.relayflow.module.im.controller.app.vo.ImUserTagCreateAndAssignReqVO;
 import com.relayflow.module.im.controller.app.vo.ImUserTagCreateReqVO;
+import com.relayflow.module.im.controller.app.vo.ImUserTagDeleteReqVO;
 import com.relayflow.module.im.controller.app.vo.ImUserTagItemRespVO;
+import com.relayflow.module.im.controller.app.vo.ImUserTagUnassignReqVO;
 import com.relayflow.module.im.service.tag.ImUserTagService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,18 @@ public class ImTagController {
     @PostMapping("/assign")
     public CommonResult<Void> assignTag(@Valid @RequestBody ImUserTagAssignReqVO request) {
         userTagService.assignTag(request.getConversationId(), request.getTagId());
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/unassign")
+    public CommonResult<Void> unassignTag(@Valid @RequestBody ImUserTagUnassignReqVO request) {
+        userTagService.unassignTag(request.getConversationId(), request.getTagId());
+        return CommonResult.success(null);
+    }
+
+    @PostMapping("/delete")
+    public CommonResult<Void> deleteTag(@Valid @RequestBody ImUserTagDeleteReqVO request) {
+        userTagService.deleteTag(request.getTagId());
         return CommonResult.success(null);
     }
 

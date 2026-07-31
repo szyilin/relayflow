@@ -7,6 +7,7 @@ import {
   createAndAssignUserTag as createAndAssignUserTagRequest,
   createGroup as createGroupRequest,
   createUserTag as createUserTagRequest,
+  deleteUserTag as deleteUserTagRequest,
   editMessage as editMessageRequest,
   exportGroupMembers as exportGroupMembersRequest,
   flagConversation as flagConversationRequest,
@@ -37,6 +38,7 @@ import {
   searchPublicGroups as searchPublicGroupsRequest,
   sendMessage,
   toggleMessageReaction,
+  unassignUserTag as unassignUserTagRequest,
   updateGroupPublic as updateGroupPublicRequest,
   type ContentBlock,
   type ConversationItem,
@@ -554,16 +556,94 @@ export const useImStore = defineStore('im', () => {
       return
     }
     const prevTagIds = [...(item.tagIds ?? [])]
-    const tagIds = new Set(prevTagIds)
-    tagIds.add(tagId)
-    patchConversation(conversationId, { tagIds: [...tagIds] })
+    if (prevTagIds.includes(tagId)) {
+      return
+    }
+    const tagIds = [...prevTagIds, tagId]
+    patchConversation(conversationId, { tagIds })
+    bumpTagConversationCount(tagId, 1)
     try {
       await assignUserTagRequest(conversationId, tagId)
     } catch (error) {
       patchConversation(conversationId, { tagIds: prevTagIds })
+      bumpTagConversationCount(tagId, -1)
       lastError.value = error instanceof ApiError ? error.message : '打标失败'
       throw error
     }
+  }
+
+  async function unassignTagFromConversation(conversationId: string, tagId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    const prevTagIds = [...(item.tagIds ?? [])]
+    if (!prevTagIds.includes(tagId)) {
+      return
+    }
+    patchConversation(conversationId, { tagIds: prevTagIds.filter(id => id !== tagId) })
+    bumpTagConversationCount(tagId, -1)
+    try {
+      await unassignUserTagRequest(conversationId, tagId)
+    } catch (error) {
+      patchConversation(conversationId, { tagIds: prevTagIds })
+      bumpTagConversationCount(tagId, 1)
+      lastError.value = error instanceof ApiError ? error.message : '取消标签失败'
+      throw error
+    }
+  }
+
+  async function toggleTagOnConversation(conversationId: string, tagId: string) {
+    const item = conversations.value.find(conv => conv.id === conversationId)
+    if (!item) {
+      return
+    }
+    if ((item.tagIds ?? []).includes(tagId)) {
+      await unassignTagFromConversation(conversationId, tagId)
+      return
+    }
+    await assignTagToConversation(conversationId, tagId)
+  }
+
+  async function deleteUserTag(tagId: string) {
+    const prevTags = [...userTags.value]
+    const prevConversations = conversations.value.map(item => ({
+      id: item.id,
+      tagIds: [...(item.tagIds ?? [])]
+    }))
+    userTags.value = userTags.value.filter(tag => tag.id !== tagId)
+    for (const item of conversations.value) {
+      if (!(item.tagIds ?? []).includes(tagId)) {
+        continue
+      }
+      item.tagIds = (item.tagIds ?? []).filter(id => id !== tagId)
+    }
+    if (sidebarSelection.value.kind === 'tag' && sidebarSelection.value.tagId === tagId) {
+      sidebarSelection.value = { kind: 'group', groupId: 'all' }
+    }
+    try {
+      await deleteUserTagRequest(tagId)
+    } catch (error) {
+      userTags.value = prevTags
+      for (const prev of prevConversations) {
+        const item = conversations.value.find(conv => conv.id === prev.id)
+        if (item) {
+          item.tagIds = prev.tagIds
+        }
+      }
+      lastError.value = error instanceof ApiError ? error.message : '删除标签失败'
+      throw error
+    }
+  }
+
+  function bumpTagConversationCount(tagId: string, delta: number) {
+    userTags.value = userTags.value.map((tag) => {
+      if (tag.id !== tagId) {
+        return tag
+      }
+      const next = Math.max(0, (tag.conversationCount ?? 0) + delta)
+      return { ...tag, conversationCount: next }
+    })
   }
 
   async function createAndAssignTag(conversationId: string, name: string): Promise<ImUserTag | null> {
@@ -577,6 +657,8 @@ export const useImStore = defineStore('im', () => {
         userTags.value = [...userTags.value, tag]
       } else if (!userTags.value.some(item => item.id === tag.id)) {
         userTags.value = userTags.value.map(item => (item.name === tag.name ? tag : item))
+      } else {
+        bumpTagConversationCount(tag.id, 1)
       }
       const item = conversations.value.find(conv => conv.id === conversationId)
       if (item) {
@@ -1618,6 +1700,9 @@ export const useImStore = defineStore('im', () => {
     fetchUserTags,
     createUserTag,
     assignTagToConversation,
+    unassignTagFromConversation,
+    toggleTagOnConversation,
+    deleteUserTag,
     createAndAssignTag,
     selectConversation,
     openDirectChat,

@@ -70,11 +70,11 @@ async function submitNewTag() {
   close()
 }
 
-async function assignTag(tagId: string) {
+async function toggleTag(tagId: string) {
   if (!props.conversation) {
     return
   }
-  await im.assignTagToConversation(props.conversation.id, tagId)
+  await im.toggleTagOnConversation(props.conversation.id, tagId)
   close()
 }
 
@@ -184,14 +184,18 @@ onBeforeUnmount(() => {
             :key="tag.id"
             type="button"
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-[var(--ws-list-hover)]"
-            @click="assignTag(tag.id)"
+            @click="toggleTag(tag.id)"
           >
             <UIcon
               :name="assignedTagIds.has(tag.id) ? 'i-lucide-check' : 'i-lucide-tag'"
               class="size-3.5 shrink-0"
               :class="assignedTagIds.has(tag.id) ? 'text-[var(--ui-primary)]' : ''"
             />
-            <span class="truncate">{{ tag.name }}</span>
+            <span class="min-w-0 flex-1 truncate">{{ tag.name }}</span>
+            <span
+              v-if="assignedTagIds.has(tag.id)"
+              class="shrink-0 text-[11px] text-[var(--ws-text-muted)]"
+            >取消</span>
           </button>
         </div>
 

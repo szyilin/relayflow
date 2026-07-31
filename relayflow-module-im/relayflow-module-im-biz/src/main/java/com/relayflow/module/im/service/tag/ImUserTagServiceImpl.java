@@ -34,13 +34,16 @@ public class ImUserTagServiceImpl implements ImUserTagService {
     @Override
     public List<ImUserTagItemRespVO> listMyTags() {
         LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
-        return userTagMapper.selectList(
-                        Wrappers.<ImUserTagDO>lambdaQuery()
-                                .eq(ImUserTagDO::getTenantId, loginUser.getTenantId())
-                                .eq(ImUserTagDO::getUserId, loginUser.getUserId())
-                                .orderByAsc(ImUserTagDO::getName))
-                .stream()
-                .map(this::toItem)
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        List<ImUserTagDO> tags = userTagMapper.selectList(
+                Wrappers.<ImUserTagDO>lambdaQuery()
+                        .eq(ImUserTagDO::getTenantId, tenantId)
+                        .eq(ImUserTagDO::getUserId, userId)
+                        .orderByAsc(ImUserTagDO::getName));
+        Map<Long, Integer> usageByTag = countAssignmentsByTag(tenantId, userId);
+        return tags.stream()
+                .map(tag -> toItem(tag, usageByTag.getOrDefault(tag.getId(), 0)))
                 .toList();
     }
 
@@ -48,7 +51,7 @@ public class ImUserTagServiceImpl implements ImUserTagService {
     @Transactional
     public ImUserTagItemRespVO createTag(String name) {
         LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
-        return toItem(createTagInternal(loginUser.getTenantId(), loginUser.getUserId(), name));
+        return toItem(createTagInternal(loginUser.getTenantId(), loginUser.getUserId(), name), 0);
     }
 
     @Override
@@ -64,6 +67,41 @@ public class ImUserTagServiceImpl implements ImUserTagService {
 
     @Override
     @Transactional
+    public void unassignTag(Long conversationId, Long tagId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        conversationService.requireMembership(tenantId, conversationId, userId);
+        requireOwnedTag(tenantId, userId, tagId);
+        conversationUserTagMapper.delete(
+                Wrappers.<ImConversationUserTagDO>lambdaQuery()
+                        .eq(ImConversationUserTagDO::getTenantId, tenantId)
+                        .eq(ImConversationUserTagDO::getUserId, userId)
+                        .eq(ImConversationUserTagDO::getConversationId, conversationId)
+                        .eq(ImConversationUserTagDO::getTagId, tagId));
+    }
+
+    @Override
+    @Transactional
+    public void deleteTag(Long tagId) {
+        LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
+        Long tenantId = loginUser.getTenantId();
+        Long userId = loginUser.getUserId();
+        requireOwnedTag(tenantId, userId, tagId);
+        conversationUserTagMapper.delete(
+                Wrappers.<ImConversationUserTagDO>lambdaQuery()
+                        .eq(ImConversationUserTagDO::getTenantId, tenantId)
+                        .eq(ImConversationUserTagDO::getUserId, userId)
+                        .eq(ImConversationUserTagDO::getTagId, tagId));
+        userTagMapper.delete(
+                Wrappers.<ImUserTagDO>lambdaQuery()
+                        .eq(ImUserTagDO::getTenantId, tenantId)
+                        .eq(ImUserTagDO::getUserId, userId)
+                        .eq(ImUserTagDO::getId, tagId));
+    }
+
+    @Override
+    @Transactional
     public ImUserTagItemRespVO createAndAssign(Long conversationId, String name) {
         LoginUser loginUser = SecurityFrameworkUtils.requireLoginUser();
         Long tenantId = loginUser.getTenantId();
@@ -71,7 +109,7 @@ public class ImUserTagServiceImpl implements ImUserTagService {
         conversationService.requireMembership(tenantId, conversationId, userId);
         ImUserTagDO tag = createTagInternal(tenantId, userId, name);
         insertAssignmentIdempotent(tenantId, userId, conversationId, tag.getId());
-        return toItem(tag);
+        return toItem(tag, 1);
     }
 
     @Override
@@ -162,10 +200,27 @@ public class ImUserTagServiceImpl implements ImUserTagService {
         }
     }
 
-    private ImUserTagItemRespVO toItem(ImUserTagDO tag) {
+    private Map<Long, Integer> countAssignmentsByTag(Long tenantId, Long userId) {
+        List<ImConversationUserTagDO> rows = conversationUserTagMapper.selectList(
+                Wrappers.<ImConversationUserTagDO>lambdaQuery()
+                        .select(ImConversationUserTagDO::getTagId)
+                        .eq(ImConversationUserTagDO::getTenantId, tenantId)
+                        .eq(ImConversationUserTagDO::getUserId, userId));
+        Map<Long, Integer> counts = new HashMap<>();
+        for (ImConversationUserTagDO row : rows) {
+            if (row.getTagId() == null) {
+                continue;
+            }
+            counts.merge(row.getTagId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private ImUserTagItemRespVO toItem(ImUserTagDO tag, int conversationCount) {
         ImUserTagItemRespVO vo = new ImUserTagItemRespVO();
         vo.setId(tag.getId());
         vo.setName(tag.getName());
+        vo.setConversationCount(conversationCount);
         return vo;
     }
 }

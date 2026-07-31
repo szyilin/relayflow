@@ -15,6 +15,10 @@ public interface ImUserTagService {
 
     void assignTag(Long conversationId, Long tagId);
 
+    void unassignTag(Long conversationId, Long tagId);
+
+    void deleteTag(Long tagId);
+
     ImUserTagItemRespVO createAndAssign(Long conversationId, String name);
 
     /** tagId list per conversation for the given user (only assigned tags). */

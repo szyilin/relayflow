@@ -24,9 +24,11 @@
 | POST | `/app-api/im/conversation/mute` | `{ conversationId, muted }` or `muteUntil` | |
 | POST | `/app-api/im/conversation/inbox/mark-read` | `{ conversationId }` | advances `badge_seq` only → unread 0 |
 | POST | `/app-api/im/conversation/inbox/mark-unread` | `{ conversationId }` | sets inbox so badge shows **exactly 1**; MUST NOT change `read_seq` |
-| GET | `/app-api/im/tag/list` | — | current user tag library |
+| GET | `/app-api/im/tag/list` | — | current user tag library (+ `conversationCount`) |
 | POST | `/app-api/im/tag/create` | `{ name }` | create in library |
 | POST | `/app-api/im/tag/assign` | `{ conversationId, tagId }` | idempotent assign |
+| POST | `/app-api/im/tag/unassign` | `{ conversationId, tagId }` | remove from one conversation |
+| POST | `/app-api/im/tag/delete` | `{ tagId }` | delete library tag + all assignments |
 | POST | `/app-api/im/tag/create-and-assign` | `{ conversationId, name }` | optional merge |
 
 ## Preference `settings.im`
