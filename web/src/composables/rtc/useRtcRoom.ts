@@ -19,6 +19,8 @@ export interface RtcConnectOptions {
   token: string
   audio?: boolean
   video?: boolean
+  audioDeviceId?: string
+  videoDeviceId?: string
 }
 
 export type RtcConnectPhase = 'idle' | 'connecting' | 'publishing' | 'connected' | 'error'
@@ -68,6 +70,7 @@ export function useRtcRoom() {
   let speakerBumpTimer: ReturnType<typeof setTimeout> | null = null
   /** Monotonic id so a remount / rapid re-connect cannot finish on a stale attempt. */
   let connectGen = 0
+  let lastConnectOpts: RtcConnectOptions | null = null
 
   const participants = computed(() => {
     revision.value
@@ -127,6 +130,17 @@ export function useRtcRoom() {
       })
   }
 
+  function micCaptureOptions(deviceId?: string) {
+    return deviceId ? { deviceId } : undefined
+  }
+
+  function camCaptureOptions(deviceId?: string) {
+    return {
+      resolution: VideoPresets.h360.resolution,
+      ...(deviceId ? { deviceId } : {})
+    }
+  }
+
   async function connect(opts: RtcConnectOptions) {
     error.value = null
     if (!opts.url || !opts.token) {
@@ -136,6 +150,7 @@ export function useRtcRoom() {
       throw new Error('入会凭证不完整')
     }
     const gen = ++connectGen
+    lastConnectOpts = { ...opts }
     connecting.value = true
     phase.value = 'connecting'
     // Optimistic UI: reflect join intent immediately (footer), tiles catch up via tracks.
@@ -179,7 +194,7 @@ export function useRtcRoom() {
       if (opts.audio !== false) {
         pubTasks.push(
           withTimeout(
-            r.localParticipant.setMicrophoneEnabled(true),
+            r.localParticipant.setMicrophoneEnabled(true, micCaptureOptions(opts.audioDeviceId)),
             DEVICE_ENABLE_TIMEOUT_MS,
             '开启麦克风'
           ).catch((e) => {
@@ -193,9 +208,7 @@ export function useRtcRoom() {
       if (opts.video === true) {
         pubTasks.push(
           withTimeout(
-            r.localParticipant.setCameraEnabled(true, {
-              resolution: VideoPresets.h360.resolution
-            }),
+            r.localParticipant.setCameraEnabled(true, camCaptureOptions(opts.videoDeviceId)),
             DEVICE_ENABLE_TIMEOUT_MS,
             '开启摄像头'
           ).catch((e) => {
@@ -226,6 +239,23 @@ export function useRtcRoom() {
         connecting.value = false
       }
     }
+  }
+
+  /** Soft reconnect with a fresh token while preserving mic/cam intent. */
+  async function refreshToken(token: string, url?: string) {
+    const prev = lastConnectOpts
+    if (!prev) {
+      throw new Error('尚未入会，无法刷新凭证')
+    }
+    const audio = room.value?.localParticipant.isMicrophoneEnabled ?? prev.audio !== false
+    const video = room.value?.localParticipant.isCameraEnabled ?? prev.video === true
+    await connect({
+      ...prev,
+      url: url || prev.url,
+      token,
+      audio,
+      video
+    })
   }
 
   async function disconnect(opts?: { preservePhase?: boolean, skipGenBump?: boolean }) {
@@ -265,7 +295,10 @@ export function useRtcRoom() {
     micEnabled.value = enabled
     try {
       await withTimeout(
-        r.localParticipant.setMicrophoneEnabled(enabled),
+        r.localParticipant.setMicrophoneEnabled(
+          enabled,
+          enabled ? micCaptureOptions(lastConnectOpts?.audioDeviceId) : undefined
+        ),
         DEVICE_ENABLE_TIMEOUT_MS,
         enabled ? '开启麦克风' : '关闭麦克风'
       )
@@ -287,7 +320,7 @@ export function useRtcRoom() {
       await withTimeout(
         r.localParticipant.setCameraEnabled(
           enabled,
-          enabled ? { resolution: VideoPresets.h360.resolution } : undefined
+          enabled ? camCaptureOptions(lastConnectOpts?.videoDeviceId) : undefined
         ),
         DEVICE_ENABLE_TIMEOUT_MS,
         enabled ? '开启摄像头' : '关闭摄像头'
@@ -347,6 +380,7 @@ export function useRtcRoom() {
     micEnabled,
     camEnabled,
     connect,
+    refreshToken,
     disconnect,
     setMicEnabled,
     setCameraEnabled,

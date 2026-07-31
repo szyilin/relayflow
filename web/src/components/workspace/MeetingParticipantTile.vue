@@ -2,9 +2,15 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { LocalTrack, RemoteTrack } from 'livekit-client'
 import type { RtcTileParticipant } from '../../composables/rtc'
+import {
+  meetingAudioOutputId,
+  meetingSpeakerVolume
+} from '../../composables/rtc/meetingMediaPrefs'
 
 const props = defineProps<{
   participant: RtcTileParticipant
+  /** Optional override; defaults to shared meetingSpeakerVolume */
+  speakerVolume?: number
 }>()
 
 const videoRef = ref<HTMLVideoElement | null>(null)
@@ -29,12 +35,25 @@ function bindMediaMuteHandler(track: LocalTrack | RemoteTrack) {
   if (!media) {
     return
   }
-  // Browser may fire transient mute during device startup; force a re-sync attach.
   mediaMuteHandler = () => {
     void syncMedia()
   }
   media.addEventListener('mute', mediaMuteHandler)
   media.addEventListener('unmute', mediaMuteHandler)
+}
+
+function applyAudioOutput() {
+  const el = audioRef.value
+  if (!el || props.participant.isLocal) {
+    return
+  }
+  const vol = props.speakerVolume ?? meetingSpeakerVolume.value
+  el.volume = Math.min(1, Math.max(0, vol))
+  const sinkId = meetingAudioOutputId.value
+  const elWithSink = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }
+  if (sinkId && typeof elWithSink.setSinkId === 'function') {
+    void elWithSink.setSinkId(sinkId).catch(() => {})
+  }
 }
 
 function attachVideo() {
@@ -44,7 +63,6 @@ function attachVideo() {
     return
   }
   if (track === attachedVideo && el.srcObject) {
-    // Ensure playback after transient browser mute/unmute.
     if (el.paused) {
       void el.play().catch(() => {})
     }
@@ -68,7 +86,6 @@ function attachVideo() {
 }
 
 function attachAudio() {
-  // Local audio must not be played back (echo).
   if (props.participant.isLocal) {
     return
   }
@@ -81,6 +98,7 @@ function attachAudio() {
     if (el.paused) {
       void el.play().catch(() => {})
     }
+    applyAudioOutput()
     return
   }
   if (attachedAudio && attachedAudio !== track) {
@@ -94,6 +112,7 @@ function attachAudio() {
   if (track && typeof track.attach === 'function') {
     track.attach(el)
     attachedAudio = track
+    applyAudioOutput()
     void el.play().catch(() => {})
   }
 }
@@ -139,6 +158,13 @@ watch(
   { flush: 'post' }
 )
 
+watch(
+  () => [props.speakerVolume, meetingSpeakerVolume.value, meetingAudioOutputId.value] as const,
+  () => {
+    applyAudioOutput()
+  }
+)
+
 onMounted(() => {
   void syncMedia()
 })
@@ -151,7 +177,6 @@ onUnmounted(detachAll)
     class="relative aspect-video overflow-hidden rounded-xl bg-neutral-900 text-white shadow-sm ring-1 ring-white/10"
     :class="participant.isSpeaking ? 'ring-2 ring-emerald-400' : ''"
   >
-    <!-- Keep <video> mounted; toggling v-show/v-if tears down attach and causes flicker. -->
     <video
       ref="videoRef"
       class="absolute inset-0 size-full object-cover"

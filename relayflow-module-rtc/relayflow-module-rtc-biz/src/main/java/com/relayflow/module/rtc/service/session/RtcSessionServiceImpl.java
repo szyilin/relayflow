@@ -17,13 +17,18 @@ import io.livekit.server.CanPublish;
 import io.livekit.server.CanSubscribe;
 import io.livekit.server.RoomJoin;
 import io.livekit.server.RoomName;
+import io.livekit.server.RoomServiceClient;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RtcSessionServiceImpl implements RtcSessionService {
@@ -43,12 +48,7 @@ public class RtcSessionServiceImpl implements RtcSessionService {
             throw new ServiceException(ErrorCodeConstants.RTC_PURPOSE_INVALID.getCode(), "ownerType/ownerId 必填");
         }
 
-        RtcSessionDO existing = rtcSessionMapper.selectOne(new LambdaQueryWrapper<RtcSessionDO>()
-                .eq(RtcSessionDO::getOwnerType, request.getOwnerType())
-                .eq(RtcSessionDO::getOwnerId, request.getOwnerId())
-                .eq(RtcSessionDO::getPurpose, purpose)
-                .eq(RtcSessionDO::getStatus, STATUS_ACTIVE)
-                .last("LIMIT 1"));
+        RtcSessionDO existing = findActive(request.getOwnerType().trim(), request.getOwnerId(), purpose);
         if (existing != null) {
             return toResp(existing);
         }
@@ -62,8 +62,16 @@ public class RtcSessionServiceImpl implements RtcSessionService {
         row.setRoomName("rf_" + id);
         row.setStatus(STATUS_ACTIVE);
         row.setParticipantCount(0);
-        rtcSessionMapper.insert(row);
-        return toResp(row);
+        try {
+            rtcSessionMapper.insert(row);
+            return toResp(row);
+        } catch (DataIntegrityViolationException ex) {
+            RtcSessionDO raced = findActive(request.getOwnerType().trim(), request.getOwnerId(), purpose);
+            if (raced != null) {
+                return toResp(raced);
+            }
+            throw ex;
+        }
     }
 
     @Override
@@ -120,6 +128,7 @@ public class RtcSessionServiceImpl implements RtcSessionService {
         if (STATUS_ENDED.equals(session.getStatus())) {
             return;
         }
+        deleteLiveKitRoomBestEffort(session.getRoomName());
         session.setStatus(STATUS_ENDED);
         rtcSessionMapper.updateById(session);
     }
@@ -137,13 +146,10 @@ public class RtcSessionServiceImpl implements RtcSessionService {
     @Override
     @Transactional
     public void applyParticipantDelta(String roomName, int delta) {
-        RtcSessionDO session = findByRoomName(roomName);
-        if (session == null || STATUS_ENDED.equals(session.getStatus())) {
+        if (!StringUtils.hasText(roomName) || delta == 0) {
             return;
         }
-        int next = Math.max(0, (session.getParticipantCount() == null ? 0 : session.getParticipantCount()) + delta);
-        session.setParticipantCount(next);
-        rtcSessionMapper.updateById(session);
+        rtcSessionMapper.applyParticipantDelta(roomName.trim(), delta);
     }
 
     @Override
@@ -155,6 +161,36 @@ public class RtcSessionServiceImpl implements RtcSessionService {
         }
         session.setStatus(STATUS_ENDED);
         rtcSessionMapper.updateById(session);
+    }
+
+    private void deleteLiveKitRoomBestEffort(String roomName) {
+        if (!liveKitProperties.isRoomServiceEnabled() || !StringUtils.hasText(roomName)) {
+            return;
+        }
+        String apiUrl = liveKitProperties.resolveApiUrl();
+        if (!StringUtils.hasText(apiUrl)) {
+            log.warn("LiveKit Room Service skipped: api url empty room={}", roomName);
+            return;
+        }
+        try {
+            RoomServiceClient client = RoomServiceClient.createClient(
+                    apiUrl,
+                    liveKitProperties.getApiKey(),
+                    liveKitProperties.getApiSecret()
+            );
+            client.deleteRoom(roomName).execute();
+        } catch (IOException | RuntimeException ex) {
+            log.warn("LiveKit DeleteRoom failed room={}: {}", roomName, ex.toString());
+        }
+    }
+
+    private RtcSessionDO findActive(String ownerType, Long ownerId, String purpose) {
+        return rtcSessionMapper.selectOne(new LambdaQueryWrapper<RtcSessionDO>()
+                .eq(RtcSessionDO::getOwnerType, ownerType)
+                .eq(RtcSessionDO::getOwnerId, ownerId)
+                .eq(RtcSessionDO::getPurpose, purpose)
+                .eq(RtcSessionDO::getStatus, STATUS_ACTIVE)
+                .last("LIMIT 1"));
     }
 
     private void requireConfigured() {

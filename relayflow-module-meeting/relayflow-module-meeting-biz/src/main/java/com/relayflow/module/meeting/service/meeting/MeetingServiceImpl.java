@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.relayflow.common.exception.ServiceException;
 import com.relayflow.framework.security.core.SecurityFrameworkUtils;
 import com.relayflow.module.calendar.api.event.CalEventApi;
+import com.relayflow.module.calendar.api.event.dto.CalEventLinkedCreateReqDTO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingInstantReqVO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingJoinCredentialsReqVO;
 import com.relayflow.module.meeting.controller.app.vo.MeetingJoinCredentialsRespVO;
@@ -93,6 +94,18 @@ public class MeetingServiceImpl implements MeetingService {
                 request.getScheduledStart(), request.getScheduledEnd(), now);
         mtgMeetingMapper.insert(meeting);
         upsertParticipant(meeting, userId, MeetingParticipantRole.HOST, now, false);
+
+        CalEventLinkedCreateReqDTO linked = new CalEventLinkedCreateReqDTO();
+        linked.setTenantId(tenantId);
+        linked.setOrganizerUserId(userId);
+        linked.setTitle(meeting.getTitle());
+        linked.setStartTime(request.getScheduledStart());
+        linked.setEndTime(request.getScheduledEnd());
+        linked.setMeetingId(meeting.getId());
+        Long eventId = calEventApi.createLinkedEvent(linked);
+        meeting.setCalendarEventId(eventId);
+        meeting.setUpdateTime(OffsetDateTime.now());
+        mtgMeetingMapper.updateById(meeting);
         return toSummary(meeting);
     }
 
@@ -155,10 +168,12 @@ public class MeetingServiceImpl implements MeetingService {
         resp.setMeetingId(meeting.getId());
         resp.setMeetingCode(meeting.getMeetingCode());
         resp.setTitle(meeting.getTitle());
+        resp.setHostUserId(meeting.getHostUserId());
         resp.setLivekitUrl(token.getLivekitUrl());
         resp.setToken(token.getToken());
         resp.setRoomName(token.getRoomName());
         resp.setIdentity(token.getIdentity());
+        resp.setExpiresAtEpochSeconds(token.getExpiresAtEpochSeconds());
         return resp;
     }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { setMeetingMediaPrefs } from '../../composables/rtc/meetingMediaPrefs'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -18,12 +19,26 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'update:meetingCode': [value: string]
-  confirm: [opts: { audio: boolean, video: boolean, meetingCode: string }]
+  confirm: [opts: {
+    audio: boolean
+    video: boolean
+    meetingCode: string
+    audioDeviceId?: string
+    videoDeviceId?: string
+    audioOutputId?: string
+    speakerVolume: number
+  }]
 }>()
 
 const audioEnabled = ref(true)
 const videoEnabled = ref(false)
 const speakerVolume = ref(80)
+const audioDeviceId = ref('')
+const videoDeviceId = ref('')
+const audioOutputId = ref('')
+const audioInputs = ref<MediaDeviceInfo[]>([])
+const videoInputs = ref<MediaDeviceInfo[]>([])
+const audioOutputs = ref<MediaDeviceInfo[]>([])
 const previewEl = ref<HTMLVideoElement | null>(null)
 let previewStream: MediaStream | null = null
 let previewGen = 0
@@ -38,6 +53,53 @@ const codeModel = computed({
   set: (v: string) => emit('update:meetingCode', v)
 })
 
+const audioSelectItems = computed(() =>
+  audioInputs.value.map(d => ({
+    label: d.label || `麦克风 ${d.deviceId.slice(0, 6)}`,
+    value: d.deviceId
+  }))
+)
+const videoSelectItems = computed(() =>
+  videoInputs.value.map(d => ({
+    label: d.label || `摄像头 ${d.deviceId.slice(0, 6)}`,
+    value: d.deviceId
+  }))
+)
+const outputSelectItems = computed(() =>
+  audioOutputs.value.map(d => ({
+    label: d.label || `扬声器 ${d.deviceId.slice(0, 6)}`,
+    value: d.deviceId
+  }))
+)
+
+async function refreshDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    return
+  }
+  try {
+    // Warm permission so labels populate.
+    if (props.open) {
+      const warm = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }).catch(() => null)
+      warm?.getTracks().forEach(t => t.stop())
+    }
+    const list = await navigator.mediaDevices.enumerateDevices()
+    audioInputs.value = list.filter(d => d.kind === 'audioinput')
+    videoInputs.value = list.filter(d => d.kind === 'videoinput')
+    audioOutputs.value = list.filter(d => d.kind === 'audiooutput')
+    if (!audioDeviceId.value && audioInputs.value[0]) {
+      audioDeviceId.value = audioInputs.value[0].deviceId
+    }
+    if (!videoDeviceId.value && videoInputs.value[0]) {
+      videoDeviceId.value = videoInputs.value[0].deviceId
+    }
+    if (!audioOutputId.value && audioOutputs.value[0]) {
+      audioOutputId.value = audioOutputs.value[0].deviceId
+    }
+  } catch {
+    // ignore
+  }
+}
+
 async function startPreview() {
   const gen = ++previewGen
   stopPreviewTracksOnly()
@@ -46,7 +108,7 @@ async function startPreview() {
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: videoDeviceId.value ? { deviceId: { exact: videoDeviceId.value } } : true,
       audio: false
     })
     if (gen !== previewGen || !props.open || !videoEnabled.value) {
@@ -84,7 +146,7 @@ function stopPreview() {
   stopPreviewTracksOnly()
 }
 
-watch([() => props.open, videoEnabled], () => {
+watch([() => props.open, videoEnabled, videoDeviceId], () => {
   if (props.open && videoEnabled.value) {
     void startPreview()
   } else {
@@ -93,7 +155,9 @@ watch([() => props.open, videoEnabled], () => {
 })
 
 watch(() => props.open, (open) => {
-  if (!open) {
+  if (open) {
+    void refreshDevices()
+  } else {
     stopPreview()
     audioEnabled.value = true
     videoEnabled.value = false
@@ -104,13 +168,23 @@ onUnmounted(stopPreview)
 
 async function onConfirm() {
   // Release preview tracks before entering room so mic/cam aren't double-held.
-  // Await a microtask so Chrome finishes stopping the device before room getUserMedia.
   stopPreview()
   await Promise.resolve()
+  const vol = Math.min(1, Math.max(0, speakerVolume.value / 100))
+  setMeetingMediaPrefs({
+    audioDeviceId: audioDeviceId.value || undefined,
+    videoDeviceId: videoDeviceId.value || undefined,
+    audioOutputId: audioOutputId.value || undefined,
+    speakerVolume: vol
+  })
   emit('confirm', {
     audio: audioEnabled.value,
     video: videoEnabled.value,
-    meetingCode: codeModel.value.trim()
+    meetingCode: codeModel.value.trim(),
+    audioDeviceId: audioDeviceId.value || undefined,
+    videoDeviceId: videoDeviceId.value || undefined,
+    audioOutputId: audioOutputId.value || undefined,
+    speakerVolume: vol
   })
 }
 </script>
@@ -156,6 +230,30 @@ async function onConfirm() {
           </div>
         </div>
 
+        <div class="grid gap-2 sm:grid-cols-3">
+          <USelect
+            v-if="audioSelectItems.length"
+            v-model="audioDeviceId"
+            :items="audioSelectItems"
+            placeholder="麦克风"
+            size="sm"
+          />
+          <USelect
+            v-if="videoSelectItems.length"
+            v-model="videoDeviceId"
+            :items="videoSelectItems"
+            placeholder="摄像头"
+            size="sm"
+          />
+          <USelect
+            v-if="outputSelectItems.length"
+            v-model="audioOutputId"
+            :items="outputSelectItems"
+            placeholder="扬声器"
+            size="sm"
+          />
+        </div>
+
         <div class="flex flex-wrap items-center gap-3">
           <UButton
             :color="audioEnabled ? 'primary' : 'error'"
@@ -185,6 +283,7 @@ async function onConfirm() {
               max="100"
               class="w-full accent-[var(--ui-primary)]"
               aria-label="扬声器音量"
+              @input="setMeetingMediaPrefs({ speakerVolume: speakerVolume / 100 })"
             >
           </div>
           <UButton color="primary" class="ml-auto" @click="onConfirm">

@@ -11,6 +11,8 @@ public class MeetingJoinCredentialsRespVO {
 
     private String title;
 
+    private Long hostUserId;
+
     private String livekitUrl;
 
     private String token;
@@ -18,4 +20,7 @@ public class MeetingJoinCredentialsRespVO {
     private String roomName;
 
     private String identity;
+
+    /** LiveKit JWT expiry (unix epoch seconds). */
+    private Long expiresAtEpochSeconds;
 }

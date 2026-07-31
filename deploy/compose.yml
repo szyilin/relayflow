@@ -118,8 +118,12 @@ services:
       start_period: 50s
 
   # LiveKit SFU — media plane for video meetings / future IM calls.
-  # Browser connects to ws://localhost:7880 directly; Java only issues join tokens.
-  # Production: configure public IP / TURN (coturn). See docs/dev/rtc-livekit.md
+  # Browser connects to RELAYFLOW_LIVEKIT_URL directly; Java only issues join tokens + DeleteRoom.
+  # RELAYFLOW_LIVEKIT_URL must be reachable from the participant browser (not only from Java).
+  # LIVEKIT_NODE_IP is for ICE/media advertisement — distinct from the browser WebSocket URL.
+  # Webhook: default --dev does NOT POST to RelayFlow; see docs/dev/rtc-livekit.md
+  #   (e.g. http://host.docker.internal:<api-port>/app-api/rtc/webhook + Bearer secret).
+  # Production: configure public IP / TURN (coturn).
   livekit:
     image: livekit/livekit-server:v1.8.4
     container_name: relayflow-livekit

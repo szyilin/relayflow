@@ -326,6 +326,7 @@ async function handleSave() {
   try {
     const rrule = buildRrule(form.recurrence, start, form.recurrenceCount)
     let meetingId = form.meetingId
+    let linkedCalendarEventId: string | null = null
     if (form.videoMeetingKind === 'RELAYFLOW' && !meetingId) {
       const scheduled = await scheduleMeeting({
         title: form.title.trim() || '(无主题)',
@@ -334,9 +335,12 @@ async function handleSave() {
       })
       meetingId = scheduled.id
       form.meetingId = scheduled.id
+      // schedule API creates the calendar event — bind it, do not create a second row.
+      linkedCalendarEventId = scheduled.calendarEventId ?? null
     }
     if (form.videoMeetingKind !== 'RELAYFLOW') {
       meetingId = null
+      linkedCalendarEventId = null
     }
     const payload = {
       calendarId: form.calendarId,
@@ -364,6 +368,13 @@ async function handleSave() {
       })
       toast.add({ title: '日程已更新', color: 'success' })
       emit('saved', props.event.id)
+    } else if (linkedCalendarEventId) {
+      await calendarStore.updateEvent({
+        id: linkedCalendarEventId,
+        ...payload
+      })
+      toast.add({ title: '日程已创建', color: 'success' })
+      emit('saved', linkedCalendarEventId)
     } else {
       const id = await calendarStore.createEvent(payload)
       toast.add({ title: '日程已创建', color: 'success' })

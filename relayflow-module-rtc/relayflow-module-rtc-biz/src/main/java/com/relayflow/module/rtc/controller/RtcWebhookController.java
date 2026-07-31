@@ -22,6 +22,9 @@ import static com.relayflow.common.pojo.CommonResult.success;
 /**
  * LiveKit webhook — no user JWT; verified via shared secret Bearer token.
  * Updates rtc_* only; never writes mtg_*.
+ * Wire LiveKit to POST /app-api/rtc/webhook (see docs/dev/rtc-livekit.md).
+ * Default Compose --dev does not deliver webhooks until configured;
+ * containers may need host.docker.internal or a host LAN IP to reach Java.
  */
 @Slf4j
 @RestController

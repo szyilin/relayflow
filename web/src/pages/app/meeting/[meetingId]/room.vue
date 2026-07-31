@@ -3,9 +3,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MeetingParticipantTile from '../../../../components/workspace/MeetingParticipantTile.vue'
 import { useRtcRoom } from '../../../../composables/rtc'
+import {
+  meetingAudioDeviceId,
+  meetingSpeakerVolume,
+  meetingVideoDeviceId
+} from '../../../../composables/rtc/meetingMediaPrefs'
 import { useMeetingStore } from '../../../../stores/meeting'
 import { useAuthStore } from '../../../../stores/auth'
 import { useToast } from '../../../../composables/useToast'
+import { endMeeting, leaveMeeting, leaveMeetingKeepalive } from '../../../../api/app/meeting'
+import { idsEqual } from '../../../../utils/id'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +32,7 @@ const {
   micEnabled,
   camEnabled,
   connect,
+  refreshToken,
   disconnect,
   setMicEnabled,
   setCameraEnabled,
@@ -37,7 +45,9 @@ const chatInput = ref('')
 const chatMessages = ref<{ id: string, from: string, text: string }[]>([])
 const title = ref('视频会议')
 const meetingCode = ref('')
+const hostUserId = ref('')
 const joining = ref(false)
+const ending = ref(false)
 const statusHint = computed(() => {
   if (error.value) return error.value
   if (phase.value === 'connecting') return '信令连接中…'
@@ -45,16 +55,67 @@ const statusHint = computed(() => {
   if (connecting.value || joining.value) return '连接中…'
   return ''
 })
+const isHost = computed(() => idsEqual(auth.userId, hostUserId.value))
 let offChat: (() => void) | undefined
 let leftReported = false
 let joinGen = 0
+let tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
 const tiles = computed(() => participants.value)
+
+function clearTokenRefreshTimer() {
+  if (tokenRefreshTimer != null) {
+    clearTimeout(tokenRefreshTimer)
+    tokenRefreshTimer = null
+  }
+}
+
+function scheduleTokenRefresh(expiresAtEpochSeconds: number | null | undefined) {
+  clearTokenRefreshTimer()
+  if (expiresAtEpochSeconds == null || !Number.isFinite(expiresAtEpochSeconds)) {
+    return
+  }
+  const nowSec = Math.floor(Date.now() / 1000)
+  // Refresh at 80% of remaining TTL, at least 30s before expiry, capped wait.
+  const remaining = expiresAtEpochSeconds - nowSec
+  if (remaining <= 60) {
+    void doTokenRefresh()
+    return
+  }
+  const waitMs = Math.max(5_000, Math.min(remaining * 0.8, remaining - 30) * 1000)
+  tokenRefreshTimer = setTimeout(() => {
+    void doTokenRefresh()
+  }, waitMs)
+}
+
+async function doTokenRefresh() {
+  const gen = joinGen
+  try {
+    const cred = await meetingStore.getJoinCredentials(meetingId.value)
+    if (gen !== joinGen || leftReported) {
+      return
+    }
+    await refreshToken(cred.token, cred.livekitUrl)
+    if (gen !== joinGen) {
+      return
+    }
+    scheduleTokenRefresh(cred.expiresAtEpochSeconds)
+  } catch (e) {
+    console.warn('meeting token refresh failed', e)
+    // Retry once after 60s if still in room
+    if (gen === joinGen && !leftReported) {
+      tokenRefreshTimer = setTimeout(() => {
+        void doTokenRefresh()
+      }, 60_000)
+    }
+  }
+}
 
 async function joinRoom() {
   const gen = ++joinGen
   joining.value = true
   leftReported = false
+  clearTokenRefreshTimer()
   try {
     const cred = await meetingStore.getJoinCredentials(meetingId.value)
     if (gen !== joinGen) {
@@ -62,6 +123,7 @@ async function joinRoom() {
     }
     title.value = cred.title
     meetingCode.value = cred.meetingCode
+    hostUserId.value = cred.hostUserId || ''
     if (!cred.livekitUrl || !cred.token) {
       throw new Error('入会凭证不完整')
     }
@@ -69,11 +131,14 @@ async function joinRoom() {
       url: cred.livekitUrl,
       token: cred.token,
       audio: wantAudio.value,
-      video: wantVideo.value
+      video: wantVideo.value,
+      audioDeviceId: meetingAudioDeviceId.value,
+      videoDeviceId: meetingVideoDeviceId.value
     })
     if (gen !== joinGen) {
       return
     }
+    scheduleTokenRefresh(cred.expiresAtEpochSeconds)
     offChat?.()
     offChat = onChat((msg) => {
       chatMessages.value.push({
@@ -97,23 +162,28 @@ async function joinRoom() {
   }
 }
 
-async function reportLeave() {
+function reportLeave(opts?: { keepalive?: boolean }) {
   if (leftReported) {
     return
   }
   leftReported = true
-  try {
-    const { leaveMeeting } = await import('../../../../api/app/meeting')
-    await leaveMeeting(meetingId.value)
-  } catch {
-    // best-effort
+  clearTokenRefreshTimer()
+  const id = meetingId.value
+  if (!id) {
+    return
   }
+  if (opts?.keepalive) {
+    leaveMeetingKeepalive(id)
+    return
+  }
+  void leaveMeeting(id).catch(() => {
+    // best-effort
+  })
 }
 
 function onPageLeave() {
-  // Explicit leave only when the tab is really going away — not on Vue remount / HMR.
   void disconnect()
-  void reportLeave()
+  reportLeave({ keepalive: true })
 }
 
 onMounted(() => {
@@ -128,9 +198,10 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', onPageLeave)
   offChat?.()
   offChat = undefined
-  // Tear down media on remount, but do NOT call leaveMeeting here —
-  // Vue HMR / brief remounts were racing leave↔rejoin and ending sessions.
+  clearTokenRefreshTimer()
   void disconnect()
+  // SPA route leave: must report leave (design D2). Keepalive for teardown races.
+  reportLeave({ keepalive: true })
 })
 
 watch(meetingId, (next, prev) => {
@@ -141,8 +212,40 @@ watch(meetingId, (next, prev) => {
 
 async function hangup() {
   joinGen += 1
+  clearTokenRefreshTimer()
   await disconnect()
-  await reportLeave()
+  if (!leftReported) {
+    leftReported = true
+    try {
+      await leaveMeeting(meetingId.value)
+    } catch {
+      // best-effort
+    }
+  }
+  await router.push('/app/meeting')
+}
+
+async function endForAll() {
+  if (!isHost.value || ending.value) {
+    return
+  }
+  ending.value = true
+  joinGen += 1
+  clearTokenRefreshTimer()
+  leftReported = true
+  try {
+    await endMeeting(meetingId.value)
+  } catch (e) {
+    leftReported = false
+    ending.value = false
+    toast.add({
+      title: e instanceof Error ? e.message : '结束会议失败',
+      color: 'error'
+    })
+    return
+  }
+  await disconnect()
+  ending.value = false
   await router.push('/app/meeting')
 }
 
@@ -224,6 +327,7 @@ async function onSendChat() {
             v-for="p in tiles"
             :key="p.identity"
             :participant="p"
+            :speaker-volume="meetingSpeakerVolume"
           />
         </div>
       </div>
@@ -280,8 +384,17 @@ async function onSendChat() {
         :disabled="phase === 'connecting' || joining"
         @click="toggleCam"
       />
-      <UButton color="error" icon="i-lucide-phone-off" @click="hangup">
+      <UButton color="error" variant="soft" icon="i-lucide-phone-off" @click="hangup">
         离开
+      </UButton>
+      <UButton
+        v-if="isHost"
+        color="error"
+        icon="i-lucide-circle-stop"
+        :loading="ending"
+        @click="endForAll"
+      >
+        结束会议
       </UButton>
     </footer>
   </div>

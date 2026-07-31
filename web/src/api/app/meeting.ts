@@ -4,6 +4,7 @@
  */
 
 import { get, post } from '../request'
+import { getAccessToken } from '../../utils/session-storage'
 import { normalizeId } from '../../utils/id'
 
 export type MeetingStatus = 'SCHEDULED' | 'LIVE' | 'ENDED'
@@ -25,10 +26,13 @@ export interface MeetingJoinCredentials {
   meetingId: string
   meetingCode: string
   title: string
+  hostUserId: string
   livekitUrl: string
   token: string
   roomName: string
   identity: string
+  /** Unix epoch seconds when the LiveKit JWT expires */
+  expiresAtEpochSeconds?: number | null
 }
 
 export interface MeetingInstantPayload {
@@ -74,14 +78,24 @@ function normalizeSummary(raw: MeetingSummary & Record<string, unknown>): Meetin
 }
 
 function normalizeCredentials(raw: MeetingJoinCredentials & Record<string, unknown>): MeetingJoinCredentials {
+  const expiresRaw = raw.expiresAtEpochSeconds
+  let expiresAtEpochSeconds: number | null = null
+  if (typeof expiresRaw === 'number' && Number.isFinite(expiresRaw)) {
+    expiresAtEpochSeconds = expiresRaw
+  } else if (expiresRaw != null && String(expiresRaw).trim() !== '') {
+    const n = Number(expiresRaw)
+    expiresAtEpochSeconds = Number.isFinite(n) ? n : null
+  }
   return {
     meetingId: asId(raw.meetingId),
     meetingCode: String(raw.meetingCode ?? ''),
     title: String(raw.title ?? ''),
+    hostUserId: asId(raw.hostUserId),
     livekitUrl: String(raw.livekitUrl ?? ''),
     token: String(raw.token ?? ''),
     roomName: String(raw.roomName ?? ''),
-    identity: String(raw.identity ?? '')
+    identity: String(raw.identity ?? ''),
+    expiresAtEpochSeconds
   }
 }
 
@@ -112,6 +126,35 @@ export async function fetchJoinCredentials(body: { meetingId?: string, meetingCo
 
 export function leaveMeeting(meetingId: string) {
   return post<boolean>('/app-api/meeting/leave', { meetingId })
+}
+
+/**
+ * Best-effort leave for page teardown / SPA unmount (keepalive fetch).
+ * Does not throw; ignores network failures.
+ */
+export function leaveMeetingKeepalive(meetingId: string): void {
+  if (!meetingId) {
+    return
+  }
+  const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+  const token = getAccessToken()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+  try {
+    void fetch(`${base}/app-api/meeting/leave`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ meetingId }),
+      keepalive: true,
+      credentials: 'same-origin'
+    })
+  } catch {
+    // ignore
+  }
 }
 
 export function endMeeting(meetingId: string) {
