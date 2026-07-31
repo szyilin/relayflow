@@ -51,7 +51,7 @@ const isPeer = computed(() => props.mode === 'peer')
 const coverUrl = computed(() => resolveAvatarUrl(coverFileId.value))
 
 const resolvedAvatarUrl = computed(() =>
-  resolveAvatarUrl(remoteAvatar.value) || props.avatarUrl || undefined)
+  resolveAvatarUrl(remoteAvatar.value) || resolveAvatarUrl(props.avatarUrl) || undefined)
 
 const displayAvatarText = computed(() =>
   props.avatarText

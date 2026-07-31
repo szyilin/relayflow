@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { ConversationItem } from '../../api/app/im'
+import WorkspaceAvatar from '../workspace/WorkspaceAvatar.vue'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -41,18 +42,27 @@ function close() {
   open.value = false
 }
 
-function pick(id: string) {
-  emit('select', id)
+function pick(conversationId: string) {
+  emit('select', conversationId)
   close()
+}
+
+function conversationIcon(type: string) {
+  if (type === 'group') {
+    return 'i-lucide-users'
+  }
+  if (type === 'bot_dm') {
+    return 'i-lucide-bot'
+  }
+  return undefined
 }
 </script>
 
 <template>
   <UModal
     v-model:open="open"
-    title="转发到"
-    description="选择目标会话"
-    :ui="{ content: 'max-w-md' }"
+    title="转发到会话"
+    :ui="{ content: 'sm:max-w-md' }"
   >
     <template #body>
       <UInput
@@ -70,9 +80,13 @@ function pick(id: string) {
           class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-[var(--ws-input-bar-bg)]"
           @click="pick(item.id)"
         >
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-medium text-primary">
-            {{ item.avatarText || item.title.slice(0, 1) }}
-          </span>
+          <WorkspaceAvatar
+            :src="item.avatar"
+            :text="item.avatarText || item.title.slice(0, 1)"
+            :seed="item.peerUserId || item.botId || item.id"
+            :icon="conversationIcon(item.type)"
+            size="sm"
+          />
           <span class="min-w-0 flex-1 truncate text-[var(--ws-text)]">{{ item.title }}</span>
           <span class="shrink-0 text-[10px] text-[var(--ws-text-muted)]">{{ item.type }}</span>
         </button>
@@ -89,9 +103,10 @@ function pick(id: string) {
         <UButton
           color="neutral"
           variant="ghost"
-          label="取消"
           @click="close"
-        />
+        >
+          取消
+        </UButton>
       </div>
     </template>
   </UModal>

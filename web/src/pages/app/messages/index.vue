@@ -26,8 +26,18 @@ import { useImStore } from '../../../stores/im'
 import { usePresenceStore } from '../../../stores/presence'
 import { useTypingStore } from '../../../stores/typing'
 import { useUserPreferenceStore } from '../../../stores/userPreference'
+import {
+  MESSAGES_IDLE_ILLUSTRATIONS,
+  pickRandomIllustration,
+  type WorkspaceIllustration
+} from '../../../utils/workspaceIllustrations'
 
 const im = useImStore()
+
+/** Picked once per visit when main pane has no selection (do not reshuffle on re-render). */
+const messagesIdleIllustration = ref<WorkspaceIllustration>(
+  pickRandomIllustration(MESSAGES_IDLE_ILLUSTRATIONS)
+)
 const presence = usePresenceStore()
 const typing = useTypingStore()
 const preference = useUserPreferenceStore()
@@ -461,13 +471,13 @@ onMounted(async () => {
     syncPresenceWatch()
     return
   }
+  // Restore prior in-session selection (SPA leave/return). Never auto-pick first
+  // conversation — opening a chat reports read and would mark unread as seen.
   if (im.pendingDirectChat || im.activeConversationId) {
     syncPresenceWatch()
     return
   }
-  if (im.filteredConversations.length > 0) {
-    await im.selectConversation(im.filteredConversations[0].id)
-  }
+  messagesIdleIllustration.value = pickRandomIllustration(MESSAGES_IDLE_ILLUSTRATIONS)
   syncPresenceWatch()
 })
 
@@ -769,12 +779,9 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
   actions.push({
     label: '回应',
     icon: 'i-lucide-smile-plus',
-    onSelect: () => {
-      if (contextMenu.value.open) {
-        openReactionQuickBar(msg.id, contextMenu.value.x, contextMenu.value.y)
-      } else {
-        openReactionQuickBar(msg.id)
-      }
+    onSelect: (point) => {
+      // Context menu passes the click point; dropdown falls back to message bubble rect.
+      openReactionQuickBar(msg.id, point?.x, point?.y)
     }
   })
   actions.push({
@@ -820,9 +827,32 @@ function buildMessageActions(msg: MessageItem): ImMessageMenuAction[] {
   return actions
 }
 
+function resolveReactionAnchor(
+  messageId: string,
+  x?: number,
+  y?: number
+): { x: number, y: number } | null {
+  if (x != null && y != null && Number.isFinite(x) && Number.isFinite(y) && (x > 0 || y > 0)) {
+    return { x, y }
+  }
+  const row = document.querySelector(`[data-msg-id="${CSS.escape(messageId)}"]`)
+  if (!(row instanceof HTMLElement)) {
+    return null
+  }
+  const bubble = row.querySelector('.ws-msg-bubble')
+  const el = bubble instanceof HTMLElement ? bubble : row
+  const rect = el.getBoundingClientRect()
+  if (rect.width <= 0 && rect.height <= 0) {
+    return null
+  }
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top
+  }
+}
+
 function openReactionQuickBar(messageId: string, x?: number, y?: number) {
-  const hasAnchor = x != null && y != null && (x > 0 || y > 0)
-  reactionPickerAnchor.value = hasAnchor ? { x: x!, y: y! } : null
+  reactionPickerAnchor.value = resolveReactionAnchor(messageId, x, y)
   reactionPickerMsgId.value = messageId
 }
 
@@ -958,7 +988,13 @@ function messageActionItems(msg: MessageItem): DropdownMenuItem[][] {
   return [actions.map(action => ({
     label: action.label,
     icon: action.icon,
-    onSelect: action.onSelect
+    onSelect: (event: Event) => {
+      if (event instanceof MouseEvent) {
+        action.onSelect({ x: event.clientX, y: event.clientY })
+        return
+      }
+      action.onSelect()
+    }
   }))]
 }
 
@@ -1377,6 +1413,7 @@ meta:
           @click="handleSelect(thread.id)"
         >
           <WorkspaceAvatar
+            :src="thread.avatar"
             :text="thread.avatarText ?? thread.title.slice(0, 1)"
             :seed="thread.peerUserId || thread.botId || thread.id"
             :icon="conversationAvatarIcon(thread.type)"
@@ -1420,6 +1457,7 @@ meta:
     <div v-if="active" class="flex h-full flex-col">
       <header class="flex items-center gap-3 border-b border-[var(--ws-border-subtle)] px-5 py-3">
         <WorkspaceAvatar
+          :src="active.avatar"
           :text="active.avatarText ?? active.title.slice(0, 1)"
           :seed="active.peerUserId || active.botId || active.id"
           :icon="conversationAvatarIcon(active.type)"
@@ -1916,10 +1954,19 @@ meta:
 
     <div v-else class="flex h-full items-center justify-center p-8">
       <WorkspaceEmptyState
-        icon="i-lucide-message-circle"
-        title="选择会话"
+        variant="hero"
+        :title="messagesIdleIllustration.caption"
         description="从左侧列表选择会话开始聊天"
-      />
+      >
+        <template #illustration>
+          <img
+            :src="messagesIdleIllustration.src"
+            alt=""
+            class="h-auto w-full select-none object-contain"
+            draggable="false"
+          >
+        </template>
+      </WorkspaceEmptyState>
     </div>
   </WorkspaceShell>
 
@@ -2009,6 +2056,7 @@ meta:
             class="flex items-center gap-3 rounded-md px-3 py-2"
           >
             <WorkspaceAvatar
+              :src="member.avatar"
               :text="member.avatarText"
               :seed="member.userId || member.botId || member.nickname"
               :icon="member.subjectType === 'bot' ? 'i-lucide-bot' : undefined"
@@ -2162,6 +2210,7 @@ meta:
     :items="contextMenu.items"
     @close="closeMessageContextMenu"
   />
+
 
   <ImMediaLightbox
     :open="mediaLightbox.open"

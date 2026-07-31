@@ -56,7 +56,8 @@ Rail 项通过 `--ws-module-tint` 注入；图标 class `.workspace-rail-icon`�
 ### 默认字母头像渐变
 
 - util：`avatarGradientFromId` / `letterAvatarStyle`（`web/src/utils/avatar.ts`）
-- 组件：`WorkspaceAvatar`（有 `src` 用图；无图则双色 135° 渐变 + 首字）
+- 组件：`WorkspaceAvatar`（有 `src` 用图；无图则柔和同色相渐变 + 首字）
+- 做法：浅色柔和 pastel（两端都偏亮，色差小）；三档对角渐变；**禁止**底部沉到藏青/炭灰 + 白色高光罩（易显老气）
 - seed 优先 `userId`，否则名称；同 seed 跨页同色
 
 ## 语义用法
@@ -79,4 +80,5 @@ Rail 项通过 `--ws-module-tint` 注入；图标 class `.workspace-rail-icon`�
 ## 参考
 
 - [workspace-ui-patterns.md](workspace-ui-patterns.md) — 页面模式
+- [workspace-illustrations.md](workspace-illustrations.md) — 空态等插画：Storyset 取图、落仓与官网调整
 - [admin-ui-tokens.md](admin-ui-tokens.md) — 管理端 token（勿混用）

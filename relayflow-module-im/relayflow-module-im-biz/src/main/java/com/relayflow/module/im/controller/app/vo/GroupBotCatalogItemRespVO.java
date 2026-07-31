@@ -9,5 +9,6 @@ public class GroupBotCatalogItemRespVO {
     private String botCode;
     private String name;
     private String avatarText;
+    private String avatar;
     private boolean alreadyMember;
 }

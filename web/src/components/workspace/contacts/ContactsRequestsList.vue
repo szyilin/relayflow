@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ContactRequestItem } from '../../../stores/contacts'
+import { resolveAvatarUrl } from '../../../utils/avatar'
 import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 
 defineProps<{
@@ -52,6 +53,7 @@ function statusLabel(status: ContactRequestItem['status']) {
           class="workspace-list-item flex w-full items-center gap-3 px-3 py-2.5"
         >
           <WorkspaceAvatar
+            :src="resolveAvatarUrl(item.avatar)"
             :text="item.avatarText"
             :seed="item.fromUserId || item.id"
             size="md"

@@ -98,6 +98,7 @@ export const useImStore = defineStore('im', () => {
         type: 'direct' as const,
         title: pendingDirectChat.value.title,
         avatarText: pendingDirectChat.value.avatarText,
+        avatar: pendingDirectChat.value.avatar,
         peerUserId: pendingDirectChat.value.peerUserId,
         unreadCount: 0
       }
@@ -611,7 +612,10 @@ export const useImStore = defineStore('im', () => {
       && member.role === 'owner')
   }
 
-  function openDirectChat(peerUserId: string, meta?: { title?: string, avatarText?: string }) {
+  function openDirectChat(
+    peerUserId: string,
+    meta?: { title?: string, avatarText?: string, avatar?: string | null }
+  ) {
     const existing = conversations.value.find(item =>
       item.type === 'direct' && item.peerUserId === peerUserId)
     if (existing) {
@@ -629,7 +633,8 @@ export const useImStore = defineStore('im', () => {
     pendingDirectChat.value = {
       peerUserId,
       title: meta?.title ?? meta?.avatarText ?? '会话',
-      avatarText: meta?.avatarText
+      avatarText: meta?.avatarText,
+      avatar: meta?.avatar ?? null
     }
   }
 

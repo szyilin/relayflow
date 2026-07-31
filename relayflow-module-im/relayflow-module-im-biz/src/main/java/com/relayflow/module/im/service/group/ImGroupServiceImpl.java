@@ -242,12 +242,14 @@ public class ImGroupServiceImpl implements ImGroupService {
                 item.setBotCode(bot.getCode());
                 item.setNickname(bot.getName());
                 item.setAvatarText(firstAvatarChar(bot.getName()));
+                item.setAvatar(bot.getAvatarFileId() != null ? String.valueOf(bot.getAvatarFileId()) : null);
             } else {
                 UserBasicDTO user = userApi.getUserBasic(member.getSubjectId());
                 item.setSubjectType(ImMemberSubjectType.USER);
                 item.setUserId(member.getSubjectId());
                 item.setNickname(user.getNickname());
                 item.setAvatarText(firstAvatarChar(user.getNickname()));
+                item.setAvatar(user.getAvatarFileId());
             }
             items.add(item);
         }
@@ -277,6 +279,7 @@ public class ImGroupServiceImpl implements ImGroupService {
             item.setBotCode(bot.getCode());
             item.setName(bot.getName());
             item.setAvatarText(firstAvatarChar(bot.getName()));
+            item.setAvatar(bot.getAvatarFileId() != null ? String.valueOf(bot.getAvatarFileId()) : null);
             item.setAlreadyMember(memberBotIds.contains(bot.getId()));
             items.add(item);
         }

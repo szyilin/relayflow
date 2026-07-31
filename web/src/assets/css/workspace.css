@@ -505,6 +505,18 @@ body.workspace-resizing * {
   cursor: col-resize !important;
 }
 
+/* Letter avatar: force soft pastel gradient over theme `bg-*` */
+.workspace-letter-avatar {
+  background-color: var(--ws-avatar-base) !important;
+  background-image: linear-gradient(
+    135deg,
+    var(--ws-avatar-lift) 0%,
+    var(--ws-avatar-mid) 46%,
+    var(--ws-avatar-base) 100%
+  ) !important;
+  color: #fff !important;
+}
+
 .workspace-shell .admin-page-header,
 .workspace-shell [data-admin-shell] {
   display: none !important;

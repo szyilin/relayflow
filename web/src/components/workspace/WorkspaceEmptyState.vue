@@ -3,15 +3,34 @@ withDefaults(defineProps<{
   title: string
   description?: string
   icon?: string
+  /** `hero`：大插画空态（无小色块底）；`compact`：默认图标/小插画 */
+  variant?: 'compact' | 'hero'
 }>(), {
   description: undefined,
-  icon: 'i-lucide-inbox'
+  icon: 'i-lucide-inbox',
+  variant: 'compact'
 })
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+  <div
+    class="flex flex-col items-center justify-center text-center"
+    :class="variant === 'hero' ? 'gap-4 px-8 py-12' : 'gap-3 px-6 py-10'"
+  >
     <div
+      v-if="variant === 'hero'"
+      class="flex w-[min(100%,14rem)] items-center justify-center sm:w-56"
+      aria-hidden="true"
+    >
+      <slot name="illustration">
+        <UIcon
+          :name="icon"
+          class="size-16 text-[var(--ui-primary)] opacity-90"
+        />
+      </slot>
+    </div>
+    <div
+      v-else
       class="workspace-empty-illust flex size-16 items-center justify-center rounded-2xl"
       aria-hidden="true"
     >
@@ -23,7 +42,10 @@ withDefaults(defineProps<{
       </slot>
     </div>
     <div class="space-y-1">
-      <p class="text-sm font-semibold text-[var(--ws-text)]">
+      <p
+        class="font-semibold text-[var(--ws-text)]"
+        :class="variant === 'hero' ? 'text-sm' : 'text-sm'"
+      >
         {{ title }}
       </p>
       <p

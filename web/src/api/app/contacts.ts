@@ -14,6 +14,8 @@ export interface ContactItem {
   deptId: string
   deptName: string
   avatarText: string
+  /** File id or URL; omit when unset. */
+  avatar?: string | null
 }
 
 export interface ExternalContactItem {
@@ -22,6 +24,7 @@ export interface ExternalContactItem {
   displayName: string
   orgLabel: string
   avatarText: string
+  avatar?: string | null
   sortLetter?: string
 }
 
@@ -33,6 +36,7 @@ export interface ContactRequestItem {
   displayName: string
   subtitle: string
   avatarText: string
+  avatar?: string | null
   status: ContactRequestStatus
   createTime?: string
 }
@@ -43,6 +47,7 @@ export interface StarredContactItem {
   displayName: string
   orgLabel: string
   avatarText: string
+  avatar?: string | null
   username?: string
 }
 
@@ -54,21 +59,25 @@ type RawDeptTreeItem = Omit<DeptTreeItem, 'id' | 'parentId'> & {
 type RawContactItem = Omit<ContactItem, 'id' | 'deptId'> & {
   id: number | string
   deptId: number | string
+  avatar?: string | null
 }
 
 type RawExternalContactItem = Omit<ExternalContactItem, 'id' | 'userId'> & {
   id: number | string
   userId: number | string
+  avatar?: string | null
 }
 
 type RawContactRequestItem = Omit<ContactRequestItem, 'id' | 'fromUserId'> & {
   id: number | string
   fromUserId: number | string
+  avatar?: string | null
 }
 
 type RawStarredContactItem = Omit<StarredContactItem, 'id' | 'userId'> & {
   id: number | string
   userId: number | string
+  avatar?: string | null
 }
 
 function normalizeDept(item: RawDeptTreeItem): DeptTreeItem {
@@ -83,7 +92,8 @@ function normalizeContact(item: RawContactItem): ContactItem {
   return {
     ...item,
     id: String(item.id),
-    deptId: String(item.deptId)
+    deptId: String(item.deptId),
+    avatar: item.avatar ?? null
   }
 }
 
@@ -94,6 +104,7 @@ function normalizeExternal(item: RawExternalContactItem): ExternalContactItem {
     displayName: item.displayName ?? '',
     orgLabel: item.orgLabel ?? '',
     avatarText: item.avatarText || (item.displayName?.slice(0, 1) || '?'),
+    avatar: item.avatar ?? null,
     sortLetter: item.sortLetter
   }
 }
@@ -105,6 +116,7 @@ function normalizeRequest(item: RawContactRequestItem): ContactRequestItem {
     displayName: item.displayName ?? '',
     subtitle: item.subtitle ?? '',
     avatarText: item.avatarText || (item.displayName?.slice(0, 1) || '?'),
+    avatar: item.avatar ?? null,
     status: item.status,
     createTime: item.createTime
   }
@@ -117,6 +129,7 @@ function normalizeStarred(item: RawStarredContactItem): StarredContactItem {
     displayName: item.displayName ?? '',
     orgLabel: item.orgLabel ?? '',
     avatarText: item.avatarText || (item.displayName?.slice(0, 1) || '?'),
+    avatar: item.avatar ?? null,
     username: item.username
   }
 }
@@ -164,6 +177,7 @@ export interface ContactAccountSearchHit {
   displayName: string
   orgLabel: string
   avatarText: string
+  avatar?: string | null
   alreadyAdded: boolean
 }
 
@@ -175,6 +189,7 @@ export interface CreateContactRequestPayload {
 type RawContactAccountSearchHit = Omit<ContactAccountSearchHit, 'userId' | 'alreadyAdded'> & {
   userId: number | string
   alreadyAdded?: boolean
+  avatar?: string | null
 }
 
 function normalizeSearchHit(item: RawContactAccountSearchHit): ContactAccountSearchHit {
@@ -183,6 +198,7 @@ function normalizeSearchHit(item: RawContactAccountSearchHit): ContactAccountSea
     displayName: item.displayName ?? '',
     orgLabel: item.orgLabel ?? '',
     avatarText: item.avatarText || (item.displayName?.slice(0, 1) || '?'),
+    avatar: item.avatar ?? null,
     alreadyAdded: item.alreadyAdded === true
   }
 }

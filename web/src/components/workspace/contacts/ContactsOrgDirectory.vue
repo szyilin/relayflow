@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContactItem } from '../../../api/app/contacts'
 import type { DeptTreeItem } from '../../../api/app/contacts'
+import { resolveAvatarUrl } from '../../../utils/avatar'
 import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 
 defineProps<{
@@ -106,6 +107,7 @@ const emit = defineEmits<{
             @click="emit('contactClick', person, $event)"
           >
             <WorkspaceAvatar
+              :src="resolveAvatarUrl(person.avatar)"
               :text="person.avatarText"
               :seed="person.id"
               size="md"

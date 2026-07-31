@@ -93,11 +93,14 @@ web/src/
 | 项 | 规范 |
 |----|------|
 | 边界 | 色用在人/态/空；画布、列卡片、正文、多数工具图标保持冷静（见 `workspace-ui-tokens.md`） |
-| 字母头像 | `WorkspaceAvatar` + `avatarGradientFromId`；IM/通讯录/名片/Rail 等同规则 |
+| 字母头像 | `WorkspaceAvatar` + `avatarGradientFromId`；IM/通讯录/名片/Rail 等同规则；有头像时传 `src`（fileId 亦可，组件内 `resolveAvatarUrl`） |
+| 会话/联系人头像字段 | API 须返回 `avatar`（fileId）；前端禁止只渲染 `avatarText` 而忽略已有图 |
 | 语义标签 | `WorkspaceSemanticBadge`：`kind` = official/bot/agent/external/role/comingSoon/info/success/warning/danger |
 | 「即将推出」 | MUST 用 `comingSoon` soft 标签，禁止 muted 纯文字冒充 |
 | Rail 模块 tint | `useWorkspaceNav` 的 `tintVar` → `--ws-module-*`；未选中可辨、选中靠 active 底 |
-| 空态 | `WorkspaceEmptyState`（插画区 + 标题 + 可选描述/CTA）；设置占位、列表空、主区无选等优先接入 |
+| 空态 | `WorkspaceEmptyState`（`compact` 小图标 / `hero` 大插画）；设置占位、列表空、主区无选等优先接入 |
+| 插画资源 | **Storyset** → 官网调色/裁层后落 `web/src/assets/illustrations/`；登记 `workspaceIllustrations.ts`；约定见 [`workspace-illustrations.md`](workspace-illustrations.md) |
+| 消息未选会话 | 主区 `hero` + idle 插画池随机一张；**禁止**自动选中首条会话（已读） |
 | Change | [`workspace-visual-polish-web`](../../openspec/changes/workspace-visual-polish-web/proposal.md) |
 
 ## 工作台设置窗

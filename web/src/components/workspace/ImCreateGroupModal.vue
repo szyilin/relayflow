@@ -83,7 +83,8 @@ async function handleSubmit() {
     .map(member => ({
       userId: member.id,
       nickname: member.nickname,
-      avatarText: member.avatarText
+      avatarText: member.avatarText,
+      avatar: member.avatar
     }))
 
   submitting.value = true
@@ -153,6 +154,7 @@ async function handleSubmit() {
                 @update:model-value="toggleMember(member.id, $event === true)"
               />
               <WorkspaceAvatar
+                :src="member.avatar"
                 :text="member.avatarText"
                 :seed="member.id"
                 size="sm"

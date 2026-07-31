@@ -10,6 +10,7 @@ export interface PickerMember {
   userId: string
   displayName: string
   avatarText: string
+  avatar?: string | null
   subtitle?: string
   external?: boolean
 }
@@ -234,6 +235,7 @@ function selectableMembersOf(groupId: string) {
       userId: m.userId,
       displayName: m.displayName,
       avatarText: m.avatarText,
+      avatar: m.avatar,
       subtitle: group.title,
       external: false
     }))
@@ -384,10 +386,11 @@ defineExpose({
                   userId: member.id,
                   displayName: member.nickname,
                   avatarText: member.avatarText,
+                  avatar: member.avatar,
                   subtitle: member.deptName
                 }, $event === true)"
               />
-              <WorkspaceAvatar :text="member.avatarText" :seed="member.id" size="sm" />
+              <WorkspaceAvatar :src="member.avatar" :text="member.avatarText" :seed="member.id" size="sm" />
               <span class="truncate text-sm">{{ member.nickname }}</span>
             </label>
             <UEmpty
@@ -428,11 +431,12 @@ defineExpose({
                   userId: person.userId,
                   displayName: person.displayName,
                   avatarText: person.avatarText,
+                  avatar: person.avatar,
                   subtitle: person.orgLabel,
                   external: true
                 }, $event === true)"
               />
-              <WorkspaceAvatar :text="person.avatarText" :seed="person.userId" size="sm" />
+              <WorkspaceAvatar :src="person.avatar" :text="person.avatarText" :seed="person.userId" size="sm" />
               <span class="truncate text-sm">{{ person.displayName }}</span>
               <WorkspaceSemanticBadge kind="external" size="sm">外部</WorkspaceSemanticBadge>
             </label>
@@ -520,10 +524,11 @@ defineExpose({
               @update:model-value="toggleMember({
                 userId: member.userId,
                 displayName: member.displayName,
-                avatarText: member.avatarText
+                avatarText: member.avatarText,
+                avatar: member.avatar
               }, $event === true)"
             />
-            <WorkspaceAvatar :text="member.avatarText" :seed="member.userId" size="sm" />
+            <WorkspaceAvatar :src="member.avatar" :text="member.avatarText" :seed="member.userId" size="sm" />
             <span class="truncate text-sm">{{ member.displayName }}</span>
           </label>
           <UEmpty
@@ -550,7 +555,7 @@ defineExpose({
             :key="person.userId"
             class="flex items-center gap-2 rounded-md px-2 py-1.5"
           >
-            <WorkspaceAvatar :text="person.avatarText" :seed="person.userId" size="sm" />
+            <WorkspaceAvatar :src="person.avatar" :text="person.avatarText" :seed="person.userId" size="sm" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm">
                 {{ person.displayName }}

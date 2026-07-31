@@ -96,6 +96,7 @@ async function handleSubmit() {
                 @update:model-value="selectedCode = $event === true ? bot.botCode : null"
               />
               <WorkspaceAvatar
+                :src="bot.avatar"
                 :text="bot.avatarText"
                 :seed="bot.botId || bot.botCode"
                 icon="i-lucide-bot"

@@ -15,5 +15,7 @@ public class AppContactStarredItemRespVO {
 
     private String avatarText;
 
+    private String avatar;
+
     private String username;
 }

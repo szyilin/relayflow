@@ -13,5 +13,7 @@ public class AppContactAccountSearchHitRespVO {
 
     private String avatarText;
 
+    private String avatar;
+
     private Boolean alreadyAdded;
 }

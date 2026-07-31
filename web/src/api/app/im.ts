@@ -104,6 +104,8 @@ export interface ConversationItem {
   type: ConversationType
   title: string
   avatarText?: string
+  /** File id or URL; omit when unset. */
+  avatar?: string | null
   lastMsgPreview?: string
   lastMsgAt?: string
   unreadCount: number
@@ -126,6 +128,7 @@ export interface GroupMemberItem {
   botCode?: string
   nickname: string
   avatarText: string
+  avatar?: string | null
   role: GroupMemberRole
 }
 
@@ -134,6 +137,7 @@ export interface GroupBotCatalogItem {
   botCode: string
   name: string
   avatarText: string
+  avatar?: string | null
   alreadyMember: boolean
 }
 
@@ -303,7 +307,8 @@ function normalizeConversation(item: RawConversationItem): ConversationItem {
     ...item,
     id: String(item.id),
     peerUserId: item.peerUserId != null ? String(item.peerUserId) : undefined,
-    botId: item.botId != null ? String(item.botId) : undefined
+    botId: item.botId != null ? String(item.botId) : undefined,
+    avatar: item.avatar ?? null
   }
 }
 
@@ -546,6 +551,7 @@ function normalizeGroupMember(item: RawGroupMemberItem): GroupMemberItem {
     botCode: item.botCode,
     nickname: item.nickname,
     avatarText: item.avatarText,
+    avatar: item.avatar ?? null,
     role: item.role
   }
 }
@@ -563,7 +569,8 @@ type RawGroupBotCatalogItem = Omit<GroupBotCatalogItem, 'botId'> & {
 function normalizeGroupBotCatalogItem(item: RawGroupBotCatalogItem): GroupBotCatalogItem {
   return {
     ...item,
-    botId: String(item.botId)
+    botId: String(item.botId),
+    avatar: item.avatar ?? null
   }
 }
 

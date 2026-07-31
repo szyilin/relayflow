@@ -8,6 +8,7 @@ export interface ManagedGroupMember {
   userId: string
   displayName: string
   avatarText: string
+  avatar?: string | null
 }
 
 export interface ManagedGroupItem {
@@ -66,7 +67,8 @@ export const useMemberPickerStore = defineStore('memberPicker', () => {
             .map(m => ({
               userId: m.userId!,
               displayName: m.nickname,
-              avatarText: m.avatarText || m.nickname.slice(0, 1) || '?'
+              avatarText: m.avatarText || m.nickname.slice(0, 1) || '?',
+              avatar: m.avatar
             }))
           results.push({
             id: conv.id,

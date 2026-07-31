@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
@@ -13,6 +13,8 @@ const require = createRequire(import.meta.url)
 const rootDir = dirname(fileURLToPath(import.meta.url))
 const nuxtUiUseToast = join(rootDir, 'node_modules/@nuxt/ui/dist/runtime/composables/useToast.js')
 const appUseToast = join(rootDir, 'src/composables/useToast.ts')
+/** Virtual id so the real Nuxt UI module is never re-resolved through the wrapper alias. */
+const NUXT_UI_TOAST_RAW = '\0relayflow-nuxt-use-toast'
 
 /**
  * TipTap / Nuxt UI: ProseMirror uses `instanceof` across modules.
@@ -69,8 +71,8 @@ function relayflowToastWrapper(): Plugin {
     name: 'relayflow-toast-wrapper',
     enforce: 'pre',
     resolveId(id) {
-      if (id === 'relayflow-nuxt-use-toast') {
-        return nuxtUiUseToast
+      if (id === 'relayflow-nuxt-use-toast' || id === NUXT_UI_TOAST_RAW) {
+        return NUXT_UI_TOAST_RAW
       }
       if (
         id.includes('@nuxt/ui')
@@ -80,6 +82,11 @@ function relayflowToastWrapper(): Plugin {
         return appUseToast
       }
       return null
+    },
+    load(id) {
+      if (id === NUXT_UI_TOAST_RAW) {
+        return readFileSync(nuxtUiUseToast, 'utf-8')
+      }
     }
   }
 }

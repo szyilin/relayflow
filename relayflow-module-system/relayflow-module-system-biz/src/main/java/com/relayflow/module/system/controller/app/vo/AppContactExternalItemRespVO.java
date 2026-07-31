@@ -15,5 +15,7 @@ public class AppContactExternalItemRespVO {
 
     private String avatarText;
 
+    private String avatar;
+
     private String sortLetter;
 }

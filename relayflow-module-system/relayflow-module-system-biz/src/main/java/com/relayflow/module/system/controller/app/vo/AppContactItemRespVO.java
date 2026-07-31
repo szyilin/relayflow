@@ -11,4 +11,6 @@ public class AppContactItemRespVO {
     private Long deptId;
     private String deptName;
     private String avatarText;
+    /** Tenant-member or user avatar file id / URL; null when unset. */
+    private String avatar;
 }

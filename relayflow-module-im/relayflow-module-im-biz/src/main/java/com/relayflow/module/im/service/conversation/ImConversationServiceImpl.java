@@ -105,6 +105,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setType(conversation.getType());
             item.setTitle(title);
             item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setAvatar(peer.getAvatarFileId());
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
@@ -126,6 +127,9 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setType(conversation.getType());
             item.setTitle(title);
             item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setAvatar(conversation.getAvatarFileId() != null
+                    ? String.valueOf(conversation.getAvatarFileId())
+                    : null);
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);
@@ -149,6 +153,7 @@ public class ImConversationServiceImpl implements ImConversationService {
             item.setType(conversation.getType());
             item.setTitle(title);
             item.setAvatarText(contentHelper.firstAvatarChar(title));
+            item.setAvatar(bot.getAvatarFileId() != null ? String.valueOf(bot.getAvatarFileId()) : null);
             item.setLastMsgPreview(conversation.getLastMsgPreview());
             item.setLastMsgAt(conversation.getLastMsgAt());
             item.setUnreadCount(membership != null && membership.getUnreadCount() != null ? membership.getUnreadCount() : 0);

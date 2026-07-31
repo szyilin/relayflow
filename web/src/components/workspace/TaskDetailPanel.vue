@@ -806,7 +806,13 @@ async function handleAddComment() {
                   class="pointer-events-none"
                   tabindex="-1"
                 />
-                <WorkspaceAvatar :alt="nicknameFor(String(auth.userId))" :text="nicknameFor(String(auth.userId)).slice(0, 1)" :seed="auth.userId" size="xs" />
+                <WorkspaceAvatar
+                  :src="auth.user?.avatar"
+                  :alt="nicknameFor(String(auth.userId))"
+                  :text="nicknameFor(String(auth.userId)).slice(0, 1)"
+                  :seed="auth.userId"
+                  size="xs"
+                />
                 <span class="font-medium">{{ nicknameFor(String(auth.userId)) }}</span>
                 <span class="text-xs text-[var(--ws-text-muted)]">我</span>
               </button>
@@ -825,7 +831,13 @@ async function handleAddComment() {
                   class="pointer-events-none"
                   tabindex="-1"
                 />
-                <WorkspaceAvatar :alt="m.nickname" :text="m.nickname.slice(0, 1)" :seed="m.id" size="xs" />
+                <WorkspaceAvatar
+                  :src="m.avatar"
+                  :alt="m.nickname"
+                  :text="m.nickname.slice(0, 1)"
+                  :seed="m.id"
+                  size="xs"
+                />
                 <span class="font-medium">{{ m.nickname }}</span>
                 <span class="text-xs text-[var(--ws-text-muted)]">{{ m.username }}</span>
               </button>

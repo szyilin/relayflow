@@ -4,7 +4,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 export type ImMessageMenuAction = {
   label: string
   icon?: string
-  onSelect: () => void
+  onSelect: (point?: { x: number, y: number }) => void
 }
 
 const props = defineProps<{
@@ -59,8 +59,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
 })
 
-function run(action: ImMessageMenuAction) {
-  action.onSelect()
+function run(action: ImMessageMenuAction, event: MouseEvent) {
+  action.onSelect({ x: event.clientX, y: event.clientY })
   emit('close')
 }
 </script>
@@ -86,7 +86,7 @@ function run(action: ImMessageMenuAction) {
           type="button"
           class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-[var(--ws-text)] hover:bg-[var(--ws-input-bar-bg)]"
           role="menuitem"
-          @click="run(action)"
+          @click="run(action, $event)"
         >
           <UIcon
             v-if="action.icon"

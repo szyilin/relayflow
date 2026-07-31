@@ -270,7 +270,13 @@ public class UserServiceImpl implements UserService {
         dto.setId(user.getId());
         dto.setUsername(user.getUsername());
         dto.setNickname(resolveMemberNickname(member, user));
-        dto.setAvatarFileId(StringUtils.hasText(member.getAvatar()) ? member.getAvatar().trim() : null);
+        if (StringUtils.hasText(member.getAvatar())) {
+            dto.setAvatarFileId(member.getAvatar().trim());
+        } else if (StringUtils.hasText(user.getAvatar())) {
+            dto.setAvatarFileId(user.getAvatar().trim());
+        } else {
+            dto.setAvatarFileId(null);
+        }
         dto.setMobile(StringUtils.hasText(user.getMobile()) ? user.getMobile().trim() : null);
         return dto;
     }
@@ -449,7 +455,18 @@ public class UserServiceImpl implements UserService {
         item.setDeptId(deptId);
         item.setDeptName(deptName);
         item.setAvatarText(resolveAvatarText(item.getNickname(), item.getUsername()));
+        item.setAvatar(resolveContactAvatar(member, user));
         return item;
+    }
+
+    private static String resolveContactAvatar(SysTenantUserDO member, SysUserDO user) {
+        if (member != null && StringUtils.hasText(member.getAvatar())) {
+            return member.getAvatar().trim();
+        }
+        if (user != null && StringUtils.hasText(user.getAvatar())) {
+            return user.getAvatar().trim();
+        }
+        return null;
     }
 
     private String resolveAvatarText(String nickname, String username) {

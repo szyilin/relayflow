@@ -14,6 +14,8 @@ public class ConversationListItem {
     private String type;
     private String title;
     private String avatarText;
+    /** Peer / bot / group avatar file id (string), nullable. */
+    private String avatar;
     private String lastMsgPreview;
     private OffsetDateTime lastMsgAt;
     private Integer unreadCount;

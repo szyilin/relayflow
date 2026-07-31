@@ -63,7 +63,7 @@ const resolvedAvatarUrl = computed(() => {
   if (props.avatarUrl) {
     return resolveAvatarUrl(props.avatarUrl) || undefined
   }
-  return undefined
+  return resolveAvatarUrl(contact.value?.avatar) || undefined
 })
 
 const avatarText = computed(() =>

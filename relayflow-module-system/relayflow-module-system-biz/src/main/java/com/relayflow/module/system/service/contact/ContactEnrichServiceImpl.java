@@ -79,6 +79,7 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
                     vo.setDisplayName(profile.displayName());
                     vo.setOrgLabel(profile.orgLabel());
                     vo.setAvatarText(profile.avatarText());
+                    vo.setAvatar(profile.avatar());
                     vo.setSortLetter(sortLetter(profile.displayName()));
                     return vo;
                 })
@@ -204,6 +205,7 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
                     vo.setDisplayName(profile.displayName());
                     vo.setOrgLabel(profile.orgLabel());
                     vo.setAvatarText(profile.avatarText());
+                    vo.setAvatar(profile.avatar());
                     vo.setAlreadyAdded(related.contains(user.getId()));
                     return vo;
                 })
@@ -280,6 +282,7 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
                     vo.setDisplayName(profile.displayName());
                     vo.setOrgLabel(profile.orgLabel());
                     vo.setAvatarText(profile.avatarText());
+                    vo.setAvatar(profile.avatar());
                     vo.setUsername(profile.username());
                     return vo;
                 })
@@ -433,6 +436,7 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
                     displayName,
                     orgLabel,
                     avatarText(displayName, user.getUsername()),
+                    resolveAvatar(preferred, user),
                     user.getUsername()));
         }
         return result;
@@ -445,6 +449,7 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
         vo.setDisplayName(profile.displayName());
         vo.setSubtitle(row.getSubtitle() == null ? "" : row.getSubtitle());
         vo.setAvatarText(profile.avatarText());
+        vo.setAvatar(profile.avatar());
         vo.setStatus(row.getStatus());
         vo.setCreateTime(row.getCreateTime());
         return vo;
@@ -458,6 +463,16 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
         return source.substring(0, 1);
     }
 
+    private static String resolveAvatar(SysTenantUserDO member, SysUserDO user) {
+        if (member != null && StringUtils.hasText(member.getAvatar())) {
+            return member.getAvatar().trim();
+        }
+        if (user != null && StringUtils.hasText(user.getAvatar())) {
+            return user.getAvatar().trim();
+        }
+        return null;
+    }
+
     static String sortLetter(String displayName) {
         if (!StringUtils.hasText(displayName)) {
             return "#";
@@ -469,9 +484,15 @@ public class ContactEnrichServiceImpl implements ContactEnrichService {
         return "#";
     }
 
-    private record DisplayProfile(String displayName, String orgLabel, String avatarText, String username) {
+    private record DisplayProfile(
+            String displayName,
+            String orgLabel,
+            String avatarText,
+            String avatar,
+            String username
+    ) {
         static DisplayProfile unknown() {
-            return new DisplayProfile("未知用户", "", "?", "");
+            return new DisplayProfile("未知用户", "", "?", null, "");
         }
     }
 }

@@ -17,6 +17,8 @@ public class AppContactRequestItemRespVO {
 
     private String avatarText;
 
+    private String avatar;
+
     /** pending | accepted | rejected */
     private String status;
 

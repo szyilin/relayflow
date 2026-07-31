@@ -48,6 +48,7 @@ const {
   username: string
   orgLabel: string
   avatarText: string
+  avatar?: string | null
 }>()
 
 const activeContactId = ref<string>()
@@ -62,6 +63,7 @@ const groupRows = computed<ContactsGroupRow[]>(() =>
       id: item.id,
       title: item.title,
       avatarText: item.avatarText || item.title.slice(0, 1) || '群',
+      avatar: item.avatar,
       memberCount: item.memberCount
     }))
 )
@@ -189,7 +191,8 @@ function handleContactClick(person: ContactItem, event: MouseEvent) {
     nickname: person.nickname,
     username: person.username,
     orgLabel: person.deptName,
-    avatarText: person.avatarText
+    avatarText: person.avatarText,
+    avatar: person.avatar
   }, event)
 }
 
@@ -200,7 +203,8 @@ function handleExternalClick(person: ExternalContactItem, event: MouseEvent) {
     nickname: person.displayName,
     username: person.displayName,
     orgLabel: person.orgLabel,
-    avatarText: person.avatarText
+    avatarText: person.avatarText,
+    avatar: person.avatar
   }, event)
 }
 
@@ -211,7 +215,8 @@ function handleStarredClick(person: StarredContactItem, event: MouseEvent) {
     nickname: person.displayName,
     username: person.username ?? person.displayName,
     orgLabel: person.orgLabel,
-    avatarText: person.avatarText
+    avatarText: person.avatarText,
+    avatar: person.avatar
   }, event)
 }
 
@@ -231,7 +236,8 @@ function openMessage() {
   activeContactId.value = undefined
   im.openDirectChat(contact.id, {
     title: contact.nickname,
-    avatarText: contact.avatarText
+    avatarText: contact.avatarText,
+    avatar: contact.avatar
   })
   void router.push('/app/messages')
 }
@@ -398,6 +404,7 @@ meta:
             :nickname="profileContact.nickname"
             :username="profileContact.username"
             :org-label="profileContact.orgLabel"
+            :avatar-url="profileContact.avatar"
             :avatar-text="profileContact.avatarText"
             @message="openMessage"
           />

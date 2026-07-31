@@ -302,6 +302,7 @@ export const useContactsStore = defineStore('contacts', () => {
       displayName: member.nickname,
       orgLabel: member.deptName,
       avatarText: member.avatarText,
+      avatar: member.avatar,
       username: member.username
     })
   }
@@ -312,6 +313,7 @@ export const useContactsStore = defineStore('contacts', () => {
     displayName: string
     orgLabel?: string
     avatarText: string
+    avatar?: string | null
     username?: string
   }): Promise<boolean> {
     lastError.value = null

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StarredContactItem } from '../../../stores/contacts'
+import { resolveAvatarUrl } from '../../../utils/avatar'
 import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 
 defineProps<{
@@ -47,6 +48,7 @@ const emit = defineEmits<{
             @click="emit('contactClick', person, $event)"
           >
             <WorkspaceAvatar
+              :src="resolveAvatarUrl(person.avatar)"
               :text="person.avatarText"
               :seed="person.userId"
               size="md"

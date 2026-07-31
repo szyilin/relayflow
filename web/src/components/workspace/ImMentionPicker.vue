@@ -97,8 +97,10 @@ function onSelect(member: GroupMemberItem) {
         @mouseenter="emit('update:activeIndex', index)"
       >
         <WorkspaceAvatar
+          :src="member.avatar"
           :text="member.avatarText || member.nickname.slice(0, 1)"
           :seed="member.userId || member.botId || member.nickname"
+          :icon="member.subjectType === 'bot' ? 'i-lucide-bot' : undefined"
           size="xs"
         />
         <span class="min-w-0 flex-1 truncate font-medium">

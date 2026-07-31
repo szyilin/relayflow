@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExternalContactItem } from '../../../stores/contacts'
 import type { LetterGroup } from '../../../utils/contactSort'
+import { resolveAvatarUrl } from '../../../utils/avatar'
 import WorkspaceAvatar from '../WorkspaceAvatar.vue'
 import WorkspaceSemanticBadge from '../WorkspaceSemanticBadge.vue'
 
@@ -66,6 +67,7 @@ const emit = defineEmits<{
               @click="emit('contactClick', person, $event)"
             >
               <WorkspaceAvatar
+                :src="resolveAvatarUrl(person.avatar)"
                 :text="person.avatarText"
                 :seed="person.userId"
                 size="md"

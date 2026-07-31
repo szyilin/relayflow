@@ -19,5 +19,7 @@ public class GroupMemberItemRespVO {
 
     private String nickname;
     private String avatarText;
+    /** User or bot avatar file id (string), nullable. */
+    private String avatar;
     private String role;
 }

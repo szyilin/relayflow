@@ -5,6 +5,7 @@ export interface ContactsGroupRow {
   id: string
   title: string
   avatarText: string
+  avatar?: string | null
   memberCount?: number
   subtitle?: string
   isPlaceholder?: boolean
@@ -55,8 +56,10 @@ const emit = defineEmits<{
           @click="emit('open', group)"
         >
           <WorkspaceAvatar
+            :src="group.avatar"
             :text="group.avatarText"
             :seed="group.id"
+            icon="i-lucide-users"
             size="md"
           />
           <div class="min-w-0 flex-1">
