@@ -1,0 +1,12 @@
+# Local / Compose LiveKit config.
+# Critical for Docker Desktop (esp. macOS): multiplex RTC over the single mapped UDP port.
+# Without `udp_port`, the server may pick ports outside the published 7882 mapping → ICE stalls ~15s,
+# publishTrack waits on engine connect, then reconnect storms unpublish local camera/mic.
+port: 7880
+rtc:
+  tcp_port: 7881
+  udp_port: 7882
+  use_external_ip: false
+  # node_ip still comes from CLI --node-ip (Compose LIVEKIT_NODE_IP).
+logging:
+  level: info

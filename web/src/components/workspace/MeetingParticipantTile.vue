@@ -6,6 +6,7 @@ import {
   meetingAudioOutputId,
   meetingSpeakerVolume
 } from '../../composables/rtc/meetingMediaPrefs'
+import { rtcDiagNoteFirstFrame } from '../../composables/rtc/rtcDiag'
 
 const props = defineProps<{
   participant: RtcTileParticipant
@@ -18,6 +19,33 @@ const audioRef = ref<HTMLAudioElement | null>(null)
 let attachedVideo: LocalTrack | RemoteTrack | null = null
 let attachedAudio: LocalTrack | RemoteTrack | null = null
 let mediaMuteHandler: (() => void) | null = null
+let firstFrameLogged = false
+let framePollTimer: ReturnType<typeof setInterval> | null = null
+
+function clearFramePoll() {
+  if (framePollTimer != null) {
+    clearInterval(framePollTimer)
+    framePollTimer = null
+  }
+}
+
+function watchFirstFrame(el: HTMLVideoElement) {
+  if (firstFrameLogged || !props.participant.isLocal) {
+    return
+  }
+  clearFramePoll()
+  const check = () => {
+    if (el.videoWidth > 0) {
+      firstFrameLogged = true
+      clearFramePoll()
+      rtcDiagNoteFirstFrame('videoWidth')
+    }
+  }
+  check()
+  if (!firstFrameLogged) {
+    framePollTimer = setInterval(check, 200)
+  }
+}
 
 function clearMediaMuteHandler() {
   if (!mediaMuteHandler || !attachedVideo?.mediaStreamTrack) {
@@ -82,6 +110,7 @@ function attachVideo() {
     attachedVideo = track
     bindMediaMuteHandler(track)
     void el.play().catch(() => {})
+    watchFirstFrame(el)
   }
 }
 
@@ -118,6 +147,7 @@ function attachAudio() {
 }
 
 function detachAll() {
+  clearFramePoll()
   clearMediaMuteHandler()
   const videoEl = videoRef.value
   const audioEl = audioRef.value
@@ -137,6 +167,7 @@ function detachAll() {
   }
   attachedVideo = null
   attachedAudio = null
+  firstFrameLogged = false
 }
 
 async function syncMedia() {
@@ -182,7 +213,7 @@ onUnmounted(detachAll)
       class="absolute inset-0 size-full object-cover"
       :class="[
         participant.isLocal ? 'scale-x-[-1]' : '',
-        participant.hasVideo ? 'opacity-100' : 'opacity-0'
+        participant.videoTrack ? 'opacity-100' : 'opacity-0'
       ]"
       playsinline
       autoplay
@@ -202,11 +233,22 @@ onUnmounted(detachAll)
       </div>
     </div>
     <div class="absolute bottom-2 left-2 flex max-w-[90%] items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-xs backdrop-blur-sm">
-      <UIcon
-        :name="participant.isMuted ? 'i-lucide-mic-off' : 'i-lucide-mic'"
-        class="size-3.5 shrink-0"
-        :class="participant.isMuted ? 'text-red-400' : 'text-emerald-300'"
-      />
+      <span class="relative flex size-3.5 shrink-0 items-end justify-center">
+        <UIcon
+          :name="participant.isMuted ? 'i-lucide-mic-off' : 'i-lucide-mic'"
+          class="size-3.5"
+          :class="participant.isMuted ? 'text-red-400' : 'text-emerald-300'"
+        />
+        <span
+          v-if="!participant.isMuted"
+          class="pointer-events-none absolute -right-0.5 bottom-0 w-0.5 rounded-full bg-emerald-400 transition-[height,opacity] duration-75"
+          :style="{
+            height: `${Math.max(2, Math.round(2 + participant.audioLevel * 12))}px`,
+            opacity: 0.35 + participant.audioLevel * 0.65
+          }"
+          aria-hidden="true"
+        />
+      </span>
       <span class="truncate">{{ participant.name }}{{ participant.isLocal ? '（我）' : '' }}</span>
     </div>
   </div>

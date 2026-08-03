@@ -121,6 +121,7 @@ services:
   # Browser connects to RELAYFLOW_LIVEKIT_URL directly; Java only issues join tokens + DeleteRoom.
   # RELAYFLOW_LIVEKIT_URL must be reachable from the participant browser (not only from Java).
   # LIVEKIT_NODE_IP is for ICE/media advertisement — distinct from the browser WebSocket URL.
+  # rtc.udp_port in livekit.yaml MUST match the single published UDP port (Docker Desktop Mac).
   # Webhook: default --dev does NOT POST to RelayFlow; see docs/dev/rtc-livekit.md
   #   (e.g. http://host.docker.internal:<api-port>/app-api/rtc/webhook + Bearer secret).
   # Production: configure public IP / TURN (coturn).
@@ -128,11 +129,20 @@ services:
     image: livekit/livekit-server:v1.8.4
     container_name: relayflow-livekit
     restart: unless-stopped
-    command: ["--dev", "--bind", "0.0.0.0", "--node-ip", "${LIVEKIT_NODE_IP:-127.0.0.1}"]
+    command:
+      - --dev
+      - --bind
+      - "0.0.0.0"
+      - --node-ip
+      - "${LIVEKIT_NODE_IP:-127.0.0.1}"
+      - --config
+      - /etc/livekit.yaml
     ports:
       - "${LIVEKIT_PORT:-7880}:7880"
       - "${LIVEKIT_RTC_PORT:-7881}:7881"
       - "${LIVEKIT_UDP_PORT:-7882}:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
     environment:
       LIVEKIT_KEYS: "${RELAYFLOW_LIVEKIT_API_KEY:-devkey}: ${RELAYFLOW_LIVEKIT_API_SECRET:-secret}"
 

@@ -205,6 +205,14 @@ public class MeetingServiceImpl implements MeetingService {
                     .eq(MtgParticipantDO::getMeetingId, meeting.getId())
                     .isNotNull(MtgParticipantDO::getJoinedAt));
             if (everJoined != null && everJoined > 0) {
+                // Guard SPA remount / keepalive races: joinCredentials then immediate leave
+                // would DeleteRoom while the client is still publishing (video flash → gone).
+                OffsetDateTime joinedAt = row.getJoinedAt();
+                if (joinedAt != null && joinedAt.isAfter(OffsetDateTime.now().minusSeconds(20))) {
+                    log.warn("skip auto-end meetingId={} userId={}: left within 20s of join (likely remount/keepalive race)",
+                            meeting.getId(), userId);
+                    return;
+                }
                 endMeetingInternal(meeting);
             }
         }

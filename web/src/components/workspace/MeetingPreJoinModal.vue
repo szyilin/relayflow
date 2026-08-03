@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import {
+  createLocalTracks,
+  Track,
+  VideoPresets,
+  type LocalTrack,
+  type LocalVideoTrack
+} from 'livekit-client'
 import { setMeetingMediaPrefs } from '../../composables/rtc/meetingMediaPrefs'
+import { setMeetingTrackHandoff, clearMeetingTrackHandoff, peekMeetingTrackHandoff } from '../../composables/rtc/meetingTrackHandoff'
+import { rtcDiagEvent } from '../../composables/rtc/rtcDiag'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -40,7 +49,8 @@ const audioInputs = ref<MediaDeviceInfo[]>([])
 const videoInputs = ref<MediaDeviceInfo[]>([])
 const audioOutputs = ref<MediaDeviceInfo[]>([])
 const previewEl = ref<HTMLVideoElement | null>(null)
-let previewStream: MediaStream | null = null
+const confirming = ref(false)
+let previewVideo: LocalVideoTrack | null = null
 let previewGen = 0
 
 const dialogOpen = computed({
@@ -100,24 +110,57 @@ async function refreshDevices() {
   }
 }
 
+function detachPreviewVideo() {
+  if (previewVideo && previewEl.value) {
+    try {
+      previewVideo.detach(previewEl.value)
+    } catch {
+      // ignore
+    }
+  }
+  if (previewEl.value) {
+    previewEl.value.srcObject = null
+  }
+}
+
+function stopPreviewTrack() {
+  detachPreviewVideo()
+  if (previewVideo) {
+    try {
+      previewVideo.stop()
+    } catch {
+      // ignore
+    }
+  }
+  previewVideo = null
+}
+
 async function startPreview() {
   const gen = ++previewGen
-  stopPreviewTracksOnly()
+  stopPreviewTrack()
   if (!videoEnabled.value || !props.open) {
     return
   }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: videoDeviceId.value ? { deviceId: { exact: videoDeviceId.value } } : true,
-      audio: false
+    const tracks = await createLocalTracks({
+      audio: false,
+      video: {
+        resolution: VideoPresets.h360.resolution,
+        ...(videoDeviceId.value ? { deviceId: { exact: videoDeviceId.value } } : {})
+      }
     })
     if (gen !== previewGen || !props.open || !videoEnabled.value) {
-      stream.getTracks().forEach(t => t.stop())
+      tracks.forEach(t => t.stop())
       return
     }
-    previewStream = stream
+    const video = tracks.find(t => t.kind === Track.Kind.Video) as LocalVideoTrack | undefined
+    if (!video) {
+      tracks.forEach(t => t.stop())
+      return
+    }
+    previewVideo = video
     if (previewEl.value) {
-      previewEl.value.srcObject = previewStream
+      video.attach(previewEl.value)
       await previewEl.value.play().catch(() => {})
     }
   } catch {
@@ -127,23 +170,9 @@ async function startPreview() {
   }
 }
 
-function stopPreviewTracksOnly() {
-  previewStream?.getTracks().forEach((t) => {
-    try {
-      t.stop()
-    } catch {
-      // ignore
-    }
-  })
-  previewStream = null
-  if (previewEl.value) {
-    previewEl.value.srcObject = null
-  }
-}
-
 function stopPreview() {
   previewGen += 1
-  stopPreviewTracksOnly()
+  stopPreviewTrack()
 }
 
 watch([() => props.open, videoEnabled, videoDeviceId], () => {
@@ -156,36 +185,125 @@ watch([() => props.open, videoEnabled, videoDeviceId], () => {
 
 watch(() => props.open, (open) => {
   if (open) {
+    // Fresh pre-join: drop any abandoned handoff from a cancelled prior attempt.
+    clearMeetingTrackHandoff({ stop: true })
     void refreshDevices()
   } else {
     stopPreview()
+    // Do NOT stop handoff tracks here — room page will take() them after navigate.
+    // Only abandon when user dismissed without a successful confirm (no pending handoff).
+    if (!confirming.value && !peekMeetingTrackHandoff()?.length) {
+      clearMeetingTrackHandoff({ stop: true })
+    }
     audioEnabled.value = true
     videoEnabled.value = false
+    // Keep confirming true until unmount if handoff is pending (avoid unmount stop race).
+    if (!peekMeetingTrackHandoff()?.length) {
+      confirming.value = false
+    }
   }
 })
 
-onUnmounted(stopPreview)
+onUnmounted(() => {
+  stopPreview()
+  // Never stop pending handoff on unmount — navigation unmounts this modal
+  // right after confirm; stopping here was wiping tracks (handoffTrackCount: 0).
+  if (!peekMeetingTrackHandoff()?.length) {
+    clearMeetingTrackHandoff({ stop: false })
+  }
+})
 
 async function onConfirm() {
-  // Release preview tracks before entering room so mic/cam aren't double-held.
-  stopPreview()
-  await Promise.resolve()
-  const vol = Math.min(1, Math.max(0, speakerVolume.value / 100))
-  setMeetingMediaPrefs({
-    audioDeviceId: audioDeviceId.value || undefined,
-    videoDeviceId: videoDeviceId.value || undefined,
-    audioOutputId: audioOutputId.value || undefined,
-    speakerVolume: vol
-  })
-  emit('confirm', {
-    audio: audioEnabled.value,
-    video: videoEnabled.value,
-    meetingCode: codeModel.value.trim(),
-    audioDeviceId: audioDeviceId.value || undefined,
-    videoDeviceId: videoDeviceId.value || undefined,
-    audioOutputId: audioOutputId.value || undefined,
-    speakerVolume: vol
-  })
+  confirming.value = true
+  const wantAudio = audioEnabled.value
+  const wantVideo = videoEnabled.value
+  const tracks: LocalTrack[] = []
+
+  try {
+    // Reuse preview video track when possible (avoid second getUserMedia).
+    const previewLive = previewVideo?.mediaStreamTrack?.readyState === 'live'
+    if (wantVideo && previewVideo && previewLive) {
+      detachPreviewVideo()
+      tracks.push(previewVideo)
+      previewVideo = null
+      previewGen += 1
+    } else {
+      stopPreview()
+    }
+
+    const needAudio = wantAudio
+    const needVideo = wantVideo && !tracks.some(t => t.kind === Track.Kind.Video)
+    if (needAudio || needVideo) {
+      const created = await createLocalTracks({
+        audio: needAudio
+          ? (audioDeviceId.value ? { deviceId: { exact: audioDeviceId.value } } : true)
+          : false,
+        video: needVideo
+          ? {
+              resolution: VideoPresets.h360.resolution,
+              ...(videoDeviceId.value ? { deviceId: { exact: videoDeviceId.value } } : {})
+            }
+          : false
+      })
+      tracks.push(...created)
+    }
+
+    // If user wanted video but we only got audio, keep going with audio.
+    setMeetingTrackHandoff(tracks)
+    rtcDiagEvent('prejoin.handoff', {
+      count: tracks.length,
+      kinds: tracks.map(t => t.kind),
+      wantAudio,
+      wantVideo
+    })
+
+    const vol = Math.min(1, Math.max(0, speakerVolume.value / 100))
+    setMeetingMediaPrefs({
+      audioDeviceId: audioDeviceId.value || undefined,
+      videoDeviceId: videoDeviceId.value || undefined,
+      audioOutputId: audioOutputId.value || undefined,
+      speakerVolume: vol
+    })
+    emit('confirm', {
+      audio: wantAudio,
+      video: wantVideo,
+      meetingCode: codeModel.value.trim(),
+      audioDeviceId: audioDeviceId.value || undefined,
+      videoDeviceId: videoDeviceId.value || undefined,
+      audioOutputId: audioOutputId.value || undefined,
+      speakerVolume: vol
+    })
+  } catch (e) {
+    confirming.value = false
+    for (const t of tracks) {
+      try {
+        t.stop()
+      } catch {
+        // ignore
+      }
+    }
+    clearMeetingTrackHandoff({ stop: true })
+    rtcDiagEvent('prejoin.handoff.failed', {
+      message: e instanceof Error ? e.message : String(e)
+    })
+    // Fall back: room will set*Enabled
+    const vol = Math.min(1, Math.max(0, speakerVolume.value / 100))
+    setMeetingMediaPrefs({
+      audioDeviceId: audioDeviceId.value || undefined,
+      videoDeviceId: videoDeviceId.value || undefined,
+      audioOutputId: audioOutputId.value || undefined,
+      speakerVolume: vol
+    })
+    emit('confirm', {
+      audio: wantAudio,
+      video: wantVideo,
+      meetingCode: codeModel.value.trim(),
+      audioDeviceId: audioDeviceId.value || undefined,
+      videoDeviceId: videoDeviceId.value || undefined,
+      audioOutputId: audioOutputId.value || undefined,
+      speakerVolume: vol
+    })
+  }
 }
 </script>
 
@@ -216,7 +334,7 @@ async function onConfirm() {
           <video
             v-show="videoEnabled"
             ref="previewEl"
-            class="size-full object-cover"
+            class="size-full object-cover scale-x-[-1]"
             playsinline
             muted
             autoplay
@@ -259,6 +377,7 @@ async function onConfirm() {
             :color="audioEnabled ? 'primary' : 'error'"
             :variant="audioEnabled ? 'soft' : 'solid'"
             :icon="audioEnabled ? 'i-lucide-mic' : 'i-lucide-mic-off'"
+            :disabled="confirming"
             @click="audioEnabled = !audioEnabled"
           >
             麦克风
@@ -267,6 +386,7 @@ async function onConfirm() {
             :color="videoEnabled ? 'primary' : 'error'"
             :variant="videoEnabled ? 'soft' : 'solid'"
             :icon="videoEnabled ? 'i-lucide-video' : 'i-lucide-video-off'"
+            :disabled="confirming"
             @click="videoEnabled = !videoEnabled"
           >
             摄像头
@@ -286,7 +406,12 @@ async function onConfirm() {
               @input="setMeetingMediaPrefs({ speakerVolume: speakerVolume / 100 })"
             >
           </div>
-          <UButton color="primary" class="ml-auto" @click="onConfirm">
+          <UButton
+            color="primary"
+            class="ml-auto"
+            :loading="confirming"
+            @click="onConfirm"
+          >
             {{ primaryLabel || '开始会议' }}
           </UButton>
         </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import MeetingParticipantTile from '../../../../components/workspace/MeetingParticipantTile.vue'
 import { useRtcRoom } from '../../../../composables/rtc'
 import {
@@ -8,6 +8,15 @@ import {
   meetingSpeakerVolume,
   meetingVideoDeviceId
 } from '../../../../composables/rtc/meetingMediaPrefs'
+import { clearMeetingTrackHandoff } from '../../../../composables/rtc/meetingTrackHandoff'
+import {
+  rtcDiagCopyToClipboard,
+  rtcDiagEnd,
+  rtcDiagEvent,
+  rtcDiagMark,
+  rtcDiagReset,
+  rtcDiagSetMeta
+} from '../../../../composables/rtc/rtcDiag'
 import { useMeetingStore } from '../../../../stores/meeting'
 import { useAuthStore } from '../../../../stores/auth'
 import { useToast } from '../../../../composables/useToast'
@@ -23,6 +32,9 @@ const toast = useToast()
 const meetingId = computed(() => String(route.params.meetingId || ''))
 const wantAudio = computed(() => route.query.audio !== '0')
 const wantVideo = computed(() => route.query.video === '1')
+const rtcDebug = computed(
+  () => import.meta.env.DEV || route.query.rtcDebug === '1' || route.query.rtcDebug === 'true'
+)
 
 const {
   connecting,
@@ -31,6 +43,7 @@ const {
   participants,
   micEnabled,
   camEnabled,
+  mediaControlsLocked,
   connect,
   refreshToken,
   disconnect,
@@ -47,15 +60,24 @@ const title = ref('视频会议')
 const meetingCode = ref('')
 const hostUserId = ref('')
 const joining = ref(false)
+const joinStep = ref<'idle' | 'credentials' | 'media'>('idle')
 const ending = ref(false)
+const copyingDiag = ref(false)
 const statusHint = computed(() => {
   if (error.value) return error.value
+  if (joinStep.value === 'credentials' || (joining.value && phase.value === 'idle')) {
+    return '正在获取入会凭证…'
+  }
   if (phase.value === 'connecting') return '信令连接中…'
-  if (phase.value === 'publishing') return '正在开启设备…'
-  if (connecting.value || joining.value) return '连接中…'
+  if (connecting.value || (joining.value && phase.value !== 'connected')) return '连接中…'
   return ''
 })
 const isHost = computed(() => idsEqual(auth.userId, hostUserId.value))
+const toolbarLocked = computed(
+  () => mediaControlsLocked.value
+    || joinStep.value === 'credentials'
+    || (joining.value && phase.value !== 'connected')
+)
 let offChat: (() => void) | undefined
 let leftReported = false
 let joinGen = 0
@@ -78,6 +100,7 @@ function scheduleTokenRefresh(expiresAtEpochSeconds: number | null | undefined) 
   const nowSec = Math.floor(Date.now() / 1000)
   // Refresh at 80% of remaining TTL, at least 30s before expiry, capped wait.
   const remaining = expiresAtEpochSeconds - nowSec
+  rtcDiagSetMeta({ tokenExpiresAt: expiresAtEpochSeconds, tokenRemainingSec: remaining })
   if (remaining <= 60) {
     void doTokenRefresh()
     return
@@ -102,6 +125,9 @@ async function doTokenRefresh() {
     scheduleTokenRefresh(cred.expiresAtEpochSeconds)
   } catch (e) {
     console.warn('meeting token refresh failed', e)
+    rtcDiagEvent('tokenRefresh.failed', {
+      message: e instanceof Error ? e.message : String(e)
+    })
     // Retry once after 60s if still in room
     if (gen === joinGen && !leftReported) {
       tokenRefreshTimer = setTimeout(() => {
@@ -114,19 +140,34 @@ async function doTokenRefresh() {
 async function joinRoom() {
   const gen = ++joinGen
   joining.value = true
+  joinStep.value = 'credentials'
   leftReported = false
   clearTokenRefreshTimer()
   try {
+    rtcDiagReset({
+      meetingId: meetingId.value,
+      wantAudio: wantAudio.value,
+      wantVideo: wantVideo.value
+    })
+    rtcDiagMark('credentials')
     const cred = await meetingStore.getJoinCredentials(meetingId.value)
+    rtcDiagEnd('credentials', 'credentialsMs')
     if (gen !== joinGen) {
       return
     }
     title.value = cred.title
     meetingCode.value = cred.meetingCode
     hostUserId.value = cred.hostUserId || ''
+    rtcDiagSetMeta({
+      meetingId: meetingId.value,
+      roomName: cred.roomName,
+      identity: cred.identity,
+      livekitUrl: cred.livekitUrl
+    })
     if (!cred.livekitUrl || !cred.token) {
       throw new Error('入会凭证不完整')
     }
+    joinStep.value = 'media'
     await connect({
       url: cred.livekitUrl,
       token: cred.token,
@@ -151,6 +192,7 @@ async function joinRoom() {
     if (gen !== joinGen) {
       return
     }
+    clearMeetingTrackHandoff({ stop: true })
     toast.add({
       title: e instanceof Error ? e.message : '进入会议失败',
       color: 'error'
@@ -158,17 +200,24 @@ async function joinRoom() {
   } finally {
     if (gen === joinGen) {
       joining.value = false
+      joinStep.value = 'idle'
     }
   }
 }
 
-function reportLeave(opts?: { keepalive?: boolean }) {
+function reportLeave(opts?: { keepalive?: boolean, reason?: string }) {
   if (leftReported) {
+    rtcDiagEvent('leave.skipped', { reason: 'alreadyReported', via: opts?.reason })
     return
   }
   leftReported = true
   clearTokenRefreshTimer()
   const id = meetingId.value
+  rtcDiagEvent('leave.report', {
+    via: opts?.reason || (opts?.keepalive ? 'keepalive' : 'api'),
+    meetingId: id,
+    keepalive: !!opts?.keepalive
+  })
   if (!id) {
     return
   }
@@ -183,13 +232,45 @@ function reportLeave(opts?: { keepalive?: boolean }) {
 
 function onPageLeave() {
   void disconnect()
-  reportLeave({ keepalive: true })
+  reportLeave({ keepalive: true, reason: 'pagehide' })
+}
+
+async function copyDiag() {
+  copyingDiag.value = true
+  try {
+    await rtcDiagCopyToClipboard({
+      ui: {
+        phase: phase.value,
+        micEnabled: micEnabled.value,
+        camEnabled: camEnabled.value,
+        tileCount: tiles.value.length,
+        wantAudio: wantAudio.value,
+        wantVideo: wantVideo.value,
+        toolbarLocked: toolbarLocked.value,
+        joinStep: joinStep.value,
+        leftReported
+      }
+    })
+    toast.add({ title: '已复制 RTC 诊断信息', color: 'success' })
+  } catch {
+    toast.add({ title: '复制失败', color: 'error' })
+  } finally {
+    copyingDiag.value = false
+  }
 }
 
 onMounted(() => {
   window.addEventListener('pagehide', onPageLeave)
   window.addEventListener('beforeunload', onPageLeave)
   void joinRoom()
+})
+
+/** Real SPA navigation away — report leave. Do NOT leave on bare onUnmounted (remount race → DeleteRoom). */
+onBeforeRouteLeave(() => {
+  joinGen += 1
+  clearTokenRefreshTimer()
+  void disconnect()
+  reportLeave({ keepalive: true, reason: 'routeLeave' })
 })
 
 onUnmounted(() => {
@@ -199,9 +280,11 @@ onUnmounted(() => {
   offChat?.()
   offChat = undefined
   clearTokenRefreshTimer()
+  clearMeetingTrackHandoff({ stop: true })
   void disconnect()
-  // SPA route leave: must report leave (design D2). Keepalive for teardown races.
-  reportLeave({ keepalive: true })
+  // Intentionally no reportLeave here: Vue remount would mark leftAt + auto-end + DeleteRoom
+  // while publish is still in flight (diag: LocalTrackPublished → Unpublished flash).
+  rtcDiagEvent('room.unmount', { leftReported })
 })
 
 watch(meetingId, (next, prev) => {
@@ -216,6 +299,7 @@ async function hangup() {
   await disconnect()
   if (!leftReported) {
     leftReported = true
+    rtcDiagEvent('leave.report', { via: 'hangup', meetingId: meetingId.value })
     try {
       await leaveMeeting(meetingId.value)
     } catch {
@@ -250,6 +334,9 @@ async function endForAll() {
 }
 
 async function toggleMic() {
+  if (toolbarLocked.value) {
+    return
+  }
   const next = !micEnabled.value
   try {
     await setMicEnabled(next)
@@ -262,6 +349,9 @@ async function toggleMic() {
 }
 
 async function toggleCam() {
+  if (toolbarLocked.value) {
+    return
+  }
   const next = !camEnabled.value
   try {
     await setCameraEnabled(next)
@@ -305,12 +395,25 @@ async function onSendChat() {
           <span v-if="statusHint" class="ml-2" :class="error ? 'text-red-400' : ''">{{ statusHint }}</span>
         </p>
       </div>
-      <UButton
-        color="neutral"
-        variant="ghost"
-        :icon="chatOpen ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
-        @click="chatOpen = !chatOpen"
-      />
+      <div class="flex items-center gap-1">
+        <UButton
+          v-if="rtcDebug"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-clipboard-list"
+          :loading="copyingDiag"
+          @click="copyDiag"
+        >
+          诊断
+        </UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :icon="chatOpen ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
+          @click="chatOpen = !chatOpen"
+        />
+      </div>
     </header>
 
     <div class="flex min-h-0 flex-1">
@@ -374,14 +477,14 @@ async function onSendChat() {
         :color="micEnabled ? 'neutral' : 'error'"
         :variant="micEnabled ? 'soft' : 'solid'"
         :icon="micEnabled ? 'i-lucide-mic' : 'i-lucide-mic-off'"
-        :disabled="phase === 'connecting' || joining"
+        :disabled="toolbarLocked"
         @click="toggleMic"
       />
       <UButton
         :color="camEnabled ? 'neutral' : 'error'"
         :variant="camEnabled ? 'soft' : 'solid'"
         :icon="camEnabled ? 'i-lucide-video' : 'i-lucide-video-off'"
-        :disabled="phase === 'connecting' || joining"
+        :disabled="toolbarLocked"
         @click="toggleCam"
       />
       <UButton color="error" variant="soft" icon="i-lucide-phone-off" @click="hangup">

@@ -6,6 +6,7 @@ import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import { getMeeting } from '../../../api/app/meeting'
 import { useMeetingStore } from '../../../stores/meeting'
 import { useToast } from '../../../composables/useToast'
+import { clearMeetingTrackHandoff } from '../../../composables/rtc/meetingTrackHandoff'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,6 +88,7 @@ async function onPreJoinConfirm(opts: { audio: boolean, video: boolean, meetingC
       const code = opts.meetingCode.trim()
       if (!code) {
         toast.add({ title: '请输入会议号', color: 'warning' })
+        clearMeetingTrackHandoff({ stop: true })
         return
       }
       const m = await meetingStore.resolveByCode(code)
@@ -103,6 +105,7 @@ async function onPreJoinConfirm(opts: { audio: boolean, video: boolean, meetingC
       }
     })
   } catch (e) {
+    clearMeetingTrackHandoff({ stop: true })
     toast.add({ title: e instanceof Error ? e.message : '加入失败', color: 'error' })
   } finally {
     busy.value = false
