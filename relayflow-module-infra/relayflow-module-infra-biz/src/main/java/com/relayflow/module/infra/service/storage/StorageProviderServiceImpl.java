@@ -247,7 +247,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
             if (!StringUtils.hasText(request.getSecretKey())) {
                 throw new ServiceException(ErrorCodeConstants.STORAGE_TEST_CONNECTION_FAILED);
             }
-            return StorageProviderConfig.builder()
+            return storageProperties.resolveRuntimeConfig(StorageProviderConfig.builder()
                     .providerType(ObjectStorageProviderType.MINIO)
                     .endpoint(request.getEndpoint().trim())
                     .accessKey(request.getAccessKey().trim())
@@ -255,7 +255,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                     .bucket(request.getBucket().trim())
                     .useSsl(Boolean.TRUE.equals(request.getUseSsl()))
                     .pathPrefix(normalizePathPrefix(request.getPathPrefix()))
-                    .build();
+                    .build());
         }
 
         InfraStorageProviderDO saved = requireProvider(tenantId, provider);
@@ -314,7 +314,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
     }
 
     private StorageProviderConfig toRuntimeConfig(StorageProviderConfigJson configJson, String plainSecret) {
-        return StorageProviderConfig.builder()
+        return storageProperties.resolveRuntimeConfig(StorageProviderConfig.builder()
                 .providerType(ObjectStorageProviderType.MINIO)
                 .endpoint(configJson.getEndpoint())
                 .accessKey(configJson.getAccessKey())
@@ -322,7 +322,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                 .bucket(configJson.getBucket())
                 .useSsl(Boolean.TRUE.equals(configJson.getUseSsl()))
                 .pathPrefix(normalizePathPrefix(configJson.getPathPrefix()))
-                .build();
+                .build());
     }
 
     private boolean hasInlineConnectionParams(StorageTestConnectionReqVO request) {

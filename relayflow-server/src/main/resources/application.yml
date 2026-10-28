@@ -47,6 +47,8 @@ relayflow:
     validate-on-startup: true
     minio:
       endpoint: ${RELAYFLOW_MINIO_ENDPOINT:http://127.0.0.1:9000}
+      public-endpoint: ${RELAYFLOW_MINIO_PUBLIC_ENDPOINT:}
+      region: ${RELAYFLOW_MINIO_REGION:}
       access-key: ${MINIO_ROOT_USER:minioadmin}
       secret-key: ${MINIO_ROOT_PASSWORD:minioadmin}
       bucket: relayflow

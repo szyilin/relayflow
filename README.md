@@ -63,9 +63,27 @@ relayflow/                          # Git 根 = Java Maven 父工程
 
 每个业务模块拆分为 `*-api`（跨域契约）与 `*-biz`（实现）。**跨域只走 `*-api`**，禁止 `*-biz` 互依赖；V1 单进程部署，Phase 2 可拆为 Gateway + 多 `*-server`（见 [`docs/dev/architecture.md`](docs/dev/architecture.md)）。
 
+## 一键本地体验
+
+安装并启动 Docker（Compose 2.24+），在仓库根目录运行：
+
+```bash
+./scripts/start-local.sh
+```
+
+等待脚本输出“已就绪”，打开 **http://localhost:18080/app/login**，使用 **`19988888888` / `123456`** 登录。前端、后端和基础设施均在容器内运行，无需本机 Java、Node 或 pnpm；首次需要联网拉取镜像、下载依赖并编译。
+
+```bash
+./scripts/local-status.sh --logs  # 查看脱敏状态与日志
+./scripts/stop-local.sh          # 停止，保留配置、密钥和数据卷
+./scripts/start-local.sh --no-build  # 复用已有镜像，不构建或拉取
+```
+
+首次生成的 **`.relayflow/local.env` 必须与数据卷一起备份**。再次启动不会重新生成密钥，也不会重灌已有调度设置。本入口供同机浏览器体验，默认端口、配置方式、网络故障和离线复用边界见 [完整本地启动说明](docs/user/local-start.md)。模型凭证可在登录后配置，不阻塞基础功能启动。
+
 ## 开发（日常）
 
-与多数开源项目一致：**Docker 只跑依赖，应用在宿主机跑**（HMR、断点、本机代理均可用）。
+需要 HMR 或断点调试时，使用原开发入口：**Docker 跑依赖，应用在宿主机跑**。本机需 Java 21、Node 和与 `web/package.json` 一致的 pnpm。
 
 ```bash
 # 1. 基础设施（PostgreSQL / Redis / MinIO / XXL-JOB Admin）
@@ -102,9 +120,9 @@ RELAYFLOW_TENANT_DEFAULT_ID=1          # 种子租户，不可删
 
 `compose.prod.yml` 会将上述变量传入 `relayflow-server` 容器。详见 [`docs/dev/product-permission-model.md`](docs/dev/product-permission-model.md) §2.4。
 
-## 部署（Docker 后端 · 可选）
+## 旧 Docker 后端入口
 
-机器上无 Java 时，可用 Docker 跑 **基础设施 + relayflow-server**；**前端始终在宿主机** `pnpm dev`：
+原 `compose.prod.yml` 保留兼容用途，运行 **基础设施 + relayflow-server**，前端在宿主机 `pnpm dev`。完整本地体验使用上面的一键入口；这些 Compose 文件尚不是生产 TLS / 域名 / 备份方案。
 
 ```bash
 # 基础设施（开发/部署均需要）
@@ -136,7 +154,7 @@ docker compose -f deploy/compose.prod.yml up -d --build server
 - [ ] relayflow-framework / relayflow-server
 - [ ] system / infra / im 业务实现
 - [ ] 前端 `web/` 脚手架
-- [ ] Docker Compose 编排
+- [x] Docker 完整本地体验入口（见 [启动说明](docs/user/local-start.md)）
 
 ## 许可证
 

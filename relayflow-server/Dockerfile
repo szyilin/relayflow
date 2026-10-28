@@ -1,41 +1,53 @@
 # syntax=docker/dockerfile:1
 
-# 构建耗时主要在：
-#   1. 拉取基础镜像 temurin（靠 Docker registry-mirrors）
-#   2. Maven 下载依赖（靠 deploy/maven/settings.xml 阿里云）
-#   3. Java 编译（CPU，无法加速）
-#
-# 推荐：
-#   cp deploy/docker-daemon.json.example → ~/.docker/daemon.json 后重启 Docker Desktop
-#   DOCKER_BUILDKIT=1 docker compose -f deploy/compose.yml build server
-
-FROM eclipse-temurin:21-jdk-alpine AS build
+# Build from the repository root:
+# docker build -f relayflow-server/Dockerfile -t relayflow-server:local .
+# Optional Maven settings: --secret id=maven_settings,src=/path/to/settings.xml
+# Fixed multi-architecture Java 21 images; no daemon or global mirror changes needed.
+ARG JDK_IMAGE=eclipse-temurin@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76
+ARG JRE_IMAGE=eclipse-temurin@sha256:b48e02e0ea88d7bfb305335df94923bdef394905f4147dccd52e873cf17b1088
+FROM ${JDK_IMAGE} AS build
 
 WORKDIR /workspace
 
-RUN apk add --no-cache bash \
-    && sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-
-COPY deploy/maven/settings.xml /root/.m2/settings.xml
-
-COPY . .
+COPY pom.xml mvnw lombok.config ./
+COPY .mvn/ .mvn/
+COPY relayflow-dependencies/ relayflow-dependencies/
+COPY relayflow-framework/ relayflow-framework/
+COPY relayflow-module-system/ relayflow-module-system/
+COPY relayflow-module-infra/ relayflow-module-infra/
+COPY relayflow-module-im/ relayflow-module-im/
+COPY relayflow-module-task/ relayflow-module-task/
+COPY relayflow-module-calendar/ relayflow-module-calendar/
+COPY relayflow-module-docs/ relayflow-module-docs/
+COPY relayflow-module-rtc/ relayflow-module-rtc/
+COPY relayflow-module-meeting/ relayflow-module-meeting/
+COPY relayflow-module-agent/ relayflow-module-agent/
+COPY relayflow-server/ relayflow-server/
+COPY relayflow-tools/ relayflow-tools/
 
 RUN --mount=type=cache,target=/root/.m2/repository \
+    --mount=type=cache,target=/root/.m2/wrapper \
+    --mount=type=secret,id=maven_settings,target=/root/.m2/settings.xml \
     chmod +x mvnw \
-    && ./mvnw -pl relayflow-server -am package -DskipTests -B -q
+    && ./mvnw -pl relayflow-server -am package -DskipTests -B -ntp -U
 
-FROM eclipse-temurin:21-jre-alpine
+FROM ${JRE_IMAGE} AS runtime
 
 WORKDIR /app
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
-    && apk add --no-cache wget
+RUN addgroup -g 10001 relayflow \
+    && adduser -D -u 10001 -G relayflow relayflow \
+    && mkdir -p /app/logs/xxl-job/jobhandler \
+    && chown -R relayflow:relayflow /app
 
-COPY --from=build /workspace/relayflow-server/target/relayflow-server-*.jar /app/app.jar
+COPY --from=build --chown=relayflow:relayflow /workspace/relayflow-server/target/relayflow-server-*.jar /app/app.jar
 
-EXPOSE 8080
+USER relayflow
+EXPOSE 8080 9999
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=10 \
-  CMD wget -qO- http://127.0.0.1:8080/admin-api/system/tenant/default > /dev/null || exit 1
+  CMD body="$(wget -q -T 4 -O- http://127.0.0.1:8080/admin-api/system/tenant/default)" \
+    && printf '%s' "$body" | grep -Eq '"code"[[:space:]]*:[[:space:]]*0[[:space:]]*[,}]' || exit 1
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

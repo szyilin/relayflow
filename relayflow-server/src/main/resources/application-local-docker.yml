@@ -1,0 +1,43 @@
+# Full local experience. Activate explicitly with SPRING_PROFILES_ACTIVE=local-docker.
+# Credentials must come from the persisted local env; no development-secret fallback.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/${POSTGRES_DB:relayflow}}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:redis}
+      port: ${SPRING_REDIS_PORT:6379}
+
+relayflow:
+  tenant:
+    enabled: ${RELAYFLOW_TENANT_ENABLED:false}
+    default-id: ${RELAYFLOW_TENANT_DEFAULT_ID:1}
+    allow-open-register: ${RELAYFLOW_TENANT_ALLOW_OPEN_REGISTER:false}
+  security:
+    jwt:
+      secret: ${RELAYFLOW_JWT_SECRET}
+  encrypt:
+    aes-key: ${RELAYFLOW_ENCRYPT_AES_KEY}
+  storage:
+    minio:
+      endpoint: ${RELAYFLOW_MINIO_ENDPOINT:http://minio:9000}
+      public-endpoint: ${RELAYFLOW_MINIO_PUBLIC_ENDPOINT:http://localhost:${MINIO_API_PORT:19000}}
+      region: ${RELAYFLOW_MINIO_REGION:us-east-1}
+      access-key: ${MINIO_ROOT_USER}
+      secret-key: ${MINIO_ROOT_PASSWORD}
+  rtc:
+    livekit:
+      url: ${RELAYFLOW_LIVEKIT_URL:ws://localhost:${LIVEKIT_PORT:7880}}
+      api-url: ${RELAYFLOW_LIVEKIT_API_URL:http://livekit:7880}
+      api-key: ${RELAYFLOW_LIVEKIT_API_KEY}
+      api-secret: ${RELAYFLOW_LIVEKIT_API_SECRET}
+  job:
+    enabled: ${RELAYFLOW_JOB_ENABLED:true}
+    admin-addresses: ${RELAYFLOW_JOB_ADMIN_ADDRESSES:http://xxl-job-admin:8080/xxl-job-admin}
+    access-token: ${RELAYFLOW_JOB_ACCESS_TOKEN:${XXL_JOB_ACCESS_TOKEN}}
+    executor:
+      address: ${RELAYFLOW_JOB_EXECUTOR_ADDRESS:http://server:${RELAYFLOW_JOB_EXECUTOR_PORT:9999}/}
+      ip: ${RELAYFLOW_JOB_EXECUTOR_IP:}
+      log-path: ${RELAYFLOW_JOB_EXECUTOR_LOG_PATH:/app/logs/xxl-job/jobhandler}

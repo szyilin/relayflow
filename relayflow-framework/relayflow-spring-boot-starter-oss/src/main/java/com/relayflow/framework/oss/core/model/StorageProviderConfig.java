@@ -8,11 +8,13 @@ import lombok.Data;
  * Runtime storage provider settings, decoupled from DB JSON or Spring properties shape.
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 public class StorageProviderConfig {
 
     private ObjectStorageProviderType providerType;
     private String endpoint;
+    private String publicEndpoint;
+    private String region;
     private String accessKey;
     private String secretKey;
     private String bucket;

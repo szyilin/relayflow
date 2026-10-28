@@ -5,5 +5,11 @@
 **/.pnpm-store
 web/dist
 .relayflow
+**/.env
+**/.env.*
+!**/.env.example
+**/local.env
+**/local.env.*
+!deploy/local.env.example
 research
 openspec/changes/archive

@@ -6,3 +6,6 @@ dist
 .env.*
 .vscode
 .idea
+.npmrc
+.pnpm-store
+*.tsbuildinfo

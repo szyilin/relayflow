@@ -1,0 +1,9 @@
+# Optional build-only override selected by the startup helper.
+services:
+  server:
+    build:
+      secrets:
+        - maven_settings
+secrets:
+  maven_settings:
+    file: ${RELAYFLOW_MAVEN_SETTINGS_FILE:?Specify a readable Maven settings file}

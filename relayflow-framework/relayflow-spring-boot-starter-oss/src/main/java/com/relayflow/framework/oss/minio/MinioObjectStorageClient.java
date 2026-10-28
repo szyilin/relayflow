@@ -38,7 +38,7 @@ public class MinioObjectStorageClient implements ObjectStorageClient {
     @Override
     public PresignedUpload createPresignedPut(StorageProviderConfig config, String objectKey, String contentType, Duration ttl) {
         try {
-            MinioClient client = buildClient(config);
+            MinioClient client = buildSigningClient(config);
             String resolvedKey = resolveObjectKey(config, objectKey);
             int expirySeconds = toExpirySeconds(ttl);
             String uploadUrl = client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
@@ -100,7 +100,7 @@ public class MinioObjectStorageClient implements ObjectStorageClient {
     @Override
     public String createPresignedGet(StorageProviderConfig config, String objectKey, Duration ttl) {
         try {
-            MinioClient client = buildClient(config);
+            MinioClient client = buildSigningClient(config);
             return client.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET)
                     .bucket(requireBucket(config))
@@ -113,11 +113,28 @@ public class MinioObjectStorageClient implements ObjectStorageClient {
     }
 
     private MinioClient buildClient(StorageProviderConfig config) {
+        return buildClient(config, config.getEndpoint());
+    }
+
+    private MinioClient buildSigningClient(StorageProviderConfig config) {
+        if (isBlank(config.getPublicEndpoint())) {
+            return buildClient(config);
+        }
+        if (isBlank(config.getRegion())) {
+            throw new IllegalStateException("MinIO region is required when signing with a public endpoint");
+        }
+        return buildClient(config, config.getPublicEndpoint());
+    }
+
+    private MinioClient buildClient(StorageProviderConfig config, String endpoint) {
         validateConfig(config);
-        return MinioClient.builder()
-                .endpoint(config.getEndpoint())
-                .credentials(config.getAccessKey(), config.getSecretKey())
-                .build();
+        MinioClient.Builder builder = MinioClient.builder()
+                .endpoint(endpoint)
+                .credentials(config.getAccessKey(), config.getSecretKey());
+        if (!isBlank(config.getRegion())) {
+            builder.region(config.getRegion().trim());
+        }
+        return builder.build();
     }
 
     private void validateConfig(StorageProviderConfig config) {
