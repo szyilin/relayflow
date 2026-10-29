@@ -45,27 +45,24 @@ class StorageProviderServiceImplTest {
         properties.getMinio().setSecretKey("bootstrap-secret");
         properties.getMinio().setBucket("bootstrap-bucket");
         service = new StorageProviderServiceImpl(providerMapper, fileMapper, clientFactory, properties,
-                encryptor, mapper, new TenantProperties());
+                encryptor, mapper, new TenantProperties(), mock(StorageLocationService.class), mock(com.relayflow.module.infra.dal.mapper.StorageRevisionExtMapper.class));
     }
 
     @Test
-    void bootstrapUploadAndHistoricalDownloadUseDualAddresses() {
+    void bootstrapTargetUsesDualAddresses() {
         when(providerMapper.selectList(any())).thenReturn(List.of());
-        when(providerMapper.selectOne(any())).thenReturn(null);
         assertManaged(service.resolveEffectiveProviderConfig(), "bootstrap-bucket", "bootstrap-access");
-        assertManaged(service.resolveProviderConfig("minio"), "bootstrap-bucket", "bootstrap-access");
         verify(providerMapper, never()).insert(any(InfraStorageProviderDO.class));
     }
 
     @Test
-    void tenantUploadAndHistoricalDownloadMapBothManagedOriginsWithoutRewritingJson() throws Exception {
+    void tenantTargetMapsBothManagedOriginsWithoutRewritingJson() throws Exception {
         for (String endpoint : List.of("http://MINIO:9000/", "http://localhost:19000/")) {
             InfraStorageProviderDO row = tenantRow(endpoint);
             String originalJson = row.getConfigJson();
             when(providerMapper.selectList(any())).thenReturn(List.of(row));
             when(providerMapper.selectOne(any())).thenReturn(row);
             assertManaged(service.resolveEffectiveProviderConfig(), "tenant-bucket", "tenant-access");
-            assertManaged(service.resolveProviderConfig("minio"), "tenant-bucket", "tenant-access");
             assertEquals(originalJson, row.getConfigJson());
         }
         verify(providerMapper, never()).updateById(any(InfraStorageProviderDO.class));
@@ -76,7 +73,7 @@ class StorageProviderServiceImplTest {
         InfraStorageProviderDO row = tenantRow("https://independent.example");
         when(providerMapper.selectList(any())).thenReturn(List.of(row));
         when(providerMapper.selectOne(any())).thenReturn(row);
-        for (StorageProviderConfig config : List.of(service.resolveEffectiveProviderConfig(), service.resolveProviderConfig("minio"))) {
+        for (StorageProviderConfig config : List.of(service.resolveEffectiveProviderConfig())) {
             assertEquals("https://independent.example", config.getEndpoint());
             assertNull(config.getPublicEndpoint());
             assertNull(config.getRegion());

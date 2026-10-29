@@ -57,8 +57,9 @@ public class FileUploadSessionServiceImpl implements FileUploadSessionService {
 
         Long tenantId = resolveTenantId();
         String provider = storageProviderService.resolveEffectiveProvider();
-        StorageProviderConfig providerConfig = storageProviderService.resolveEffectiveProviderConfig();
-        String objectKey = buildObjectKey(tenantId, request.getFilename());
+        var pinned = storageProviderService.resolveEffectiveLocation();
+        StorageProviderConfig providerConfig = pinned.config();
+        String objectKey = pinned.pathPrefix() + buildObjectKey(tenantId, request.getFilename());
 
         ObjectStorageClient client = clientFactory.getClient(ObjectStorageProviderType.MINIO);
         PresignedUpload presignedUpload = client.createPresignedPut(
@@ -71,6 +72,7 @@ public class FileUploadSessionServiceImpl implements FileUploadSessionService {
         session.setTenantId(tenantId);
         session.setStatus(STATUS_PENDING);
         session.setProvider(provider);
+        session.setStorageConfigRevisionId(pinned.revisionId());
         session.setObjectKey(objectKey);
         session.setOriginalName(request.getFilename().trim());
         session.setMimeType(request.getMimeType().trim());
@@ -108,7 +110,7 @@ public class FileUploadSessionServiceImpl implements FileUploadSessionService {
             throw new ServiceException(ErrorCodeConstants.FILE_UPLOAD_SESSION_INVALID_STATUS);
         }
 
-        StorageProviderConfig providerConfig = storageProviderService.resolveEffectiveProviderConfig();
+        StorageProviderConfig providerConfig = storageProviderService.resolveLocation(tenantId, session.getStorageConfigRevisionId());
         ObjectStorageClient client = clientFactory.getClient(ObjectStorageProviderType.MINIO);
         StorageObjectMeta objectMeta = client.headObject(providerConfig, session.getObjectKey());
         if (objectMeta == null) {

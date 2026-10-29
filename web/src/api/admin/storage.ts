@@ -17,10 +17,27 @@ export interface StorageProviderItem {
   accessKey?: string
   useSsl?: boolean
   pathPrefix?: string
+  revisionId?: string
+  activeRevisionId?: string
   secretKeyConfigured?: boolean
 }
 
+export interface StorageRevision {
+  id: string
+  source: StorageEffectiveSource
+  endpoint: string
+  bucket: string
+  region?: string
+  pathPrefix?: string
+  legacyRelativeKeys?: boolean
+  fileReferences: number
+  sessionReferences: number
+}
+
 export interface StorageConfigResponse {
+  revisions?: StorageRevision[]
+  unresolvedFiles?: number
+  unresolvedSessions?: number
   effectiveSource: StorageEffectiveSource
   bootstrap: StorageBootstrapSummary
   providers: StorageProviderItem[]
@@ -28,9 +45,14 @@ export interface StorageConfigResponse {
 
 export interface StorageProviderSavePayload {
   provider: string
-  endpoint: string
-  bucket: string
+  endpoint?: string
+  bucket?: string
   accessKey: string
+  operation?: 'save' | 'rotate_credentials' | 'register_history'
+  revisionId?: string
+  createNewLocation?: boolean
+  historySource?: StorageEffectiveSource
+  legacyRelativeKeys?: boolean
   secretKey?: string
   useSsl?: boolean
   pathPrefix?: string

@@ -49,6 +49,8 @@ public class StorageProviderServiceImpl implements StorageProviderService {
     private final AesGcmEncryptor encryptor;
     private final ObjectMapper objectMapper;
     private final TenantProperties tenantProperties;
+    private final StorageLocationService locations;
+    private final com.relayflow.module.infra.dal.mapper.StorageRevisionExtMapper revisionMapper;
 
     @Override
     public StorageConfigRespVO getConfig() {
@@ -64,6 +66,9 @@ public class StorageProviderServiceImpl implements StorageProviderService {
         response.setBootstrap(buildBootstrapSummary());
         response.setEffectiveSource(resolveEffectiveSource(rows));
         response.setProviders(providers);
+        response.setRevisions(locations.list(tenantId));
+        response.setUnresolvedFiles(revisionMapper.unresolvedFiles(tenantId));
+        response.setUnresolvedSessions(revisionMapper.unresolvedSessions(tenantId));
         return response;
     }
 
@@ -77,56 +82,71 @@ public class StorageProviderServiceImpl implements StorageProviderService {
             return;
         }
 
-        InfraStorageProviderDO tenantProvider = findProvider(tenantId, PROVIDER_MINIO);
+        InfraStorageProviderDO tenantProvider = lockProvider(tenantId, PROVIDER_MINIO);
         if (tenantProvider == null) {
             throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_NOT_FOUND);
         }
         clearDefaultFlags(tenantId);
-        tenantProvider.setIsDefault(1);
-        tenantProvider.setStatus(STATUS_ACTIVE);
-        providerMapper.updateById(tenantProvider);
+        Long revisionId=tenantProvider.getStorageConfigRevisionId();
+        if(revisionId==null) {
+            var config=parseConfigJson(tenantProvider.getConfigJson());
+            var revision=locations.ensure(tenantId,SOURCE_TENANT,toRuntimeConfig(config,encryptor.decrypt(config.getSecretKeyEnc())),false);
+            revisionId=revision.getId();
+            revisionMapper.saveDraft(tenantId,tenantProvider.getId(),tenantProvider.getConfigJson(),revisionId);
+        }
+        locations.pin(tenantId,revisionId);
+        revisionMapper.activate(tenantId,tenantProvider.getId(),revisionId);
     }
 
     @Override
     @Transactional
     public void saveConfig(StorageProviderSaveReqVO request) {
-        String provider = normalizeProvider(request.getProvider());
-        validateSupportedProvider(provider);
-        Long tenantId = resolveTenantId();
-
-        InfraStorageProviderDO existing = findProvider(tenantId, provider);
-        StorageProviderConfigJson configJson = existing != null
-                ? parseConfigJson(existing.getConfigJson())
-                : new StorageProviderConfigJson();
-
-        configJson.setEndpoint(request.getEndpoint().trim());
-        configJson.setBucket(request.getBucket().trim());
-        configJson.setAccessKey(request.getAccessKey().trim());
-        configJson.setUseSsl(Boolean.TRUE.equals(request.getUseSsl()));
-        configJson.setPathPrefix(normalizePathPrefix(request.getPathPrefix()));
-
-        if (StringUtils.hasText(request.getSecretKey())) {
-            configJson.setSecretKeyEnc(encryptor.encrypt(request.getSecretKey().trim()));
-        } else if (existing == null || !StringUtils.hasText(configJson.getSecretKeyEnc())) {
+        String provider=normalizeProvider(request.getProvider());validateSupportedProvider(provider);
+        Long tenantId=resolveTenantId();
+        String operation=StringUtils.hasText(request.getOperation())?request.getOperation():"save";
+        if("rotate_credentials".equals(operation)) {
+            if(StringUtils.hasText(request.getEndpoint())||StringUtils.hasText(request.getBucket())||StringUtils.hasText(request.getPathPrefix()))
+                throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+            locations.rotate(tenantId,request.getRevisionId(),request.getAccessKey(),request.getSecretKey());
+            // Keep editable draft credentials aligned only when the draft points at this exact location.
+            var saved=lockProvider(tenantId,provider);
+            if(saved!=null && java.util.Objects.equals(saved.getStorageConfigRevisionId(),request.getRevisionId())) {
+                var value=locations.require(tenantId,request.getRevisionId());
+                revisionMapper.saveDraft(tenantId,saved.getId(),value.getConfigJson(),value.getId());
+            }
+            return;
+        }
+        if(!"save".equals(operation)&&!"register_history".equals(operation)) throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+        if(!StringUtils.hasText(request.getEndpoint())||!StringUtils.hasText(request.getBucket())||!StringUtils.hasText(request.getAccessKey()))
             throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+        InfraStorageProviderDO existing=lockProvider(tenantId,provider);
+        StorageProviderConfigJson previous=existing==null?null:parseConfigJson(existing.getConfigJson());
+        String secret=request.getSecretKey();
+        if(!StringUtils.hasText(secret) && "save".equals(operation) && previous!=null) secret=encryptor.decrypt(previous.getSecretKeyEnc());
+        if(!StringUtils.hasText(secret)) throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
+        var input=StorageProviderConfig.builder().providerType(ObjectStorageProviderType.MINIO)
+                .endpoint(request.getEndpoint().trim()).bucket(request.getBucket().trim()).accessKey(request.getAccessKey().trim())
+                .secretKey(secret.trim()).region(request.getRegion()).useSsl(Boolean.TRUE.equals(request.getUseSsl()))
+                .pathPrefix(normalizePathPrefix(request.getPathPrefix())).build();
+        // Normalize a known managed public origin before recording its internal identity.
+
+        if("register_history".equals(operation)) {
+            locations.ensure(tenantId,normalizeSource(request.getHistorySource()),input,request.isLegacyRelativeKeys());return;
         }
-
-        List<InfraStorageProviderDO> tenantRows = providerMapper.selectList(Wrappers.<InfraStorageProviderDO>lambdaQuery()
-                .eq(InfraStorageProviderDO::getTenantId, tenantId));
-        boolean tenantEffective = SOURCE_TENANT.equals(resolveEffectiveSource(tenantRows));
-
-        InfraStorageProviderDO row = existing != null ? existing : new InfraStorageProviderDO();
-        row.setTenantId(tenantId);
-        row.setProvider(provider);
-        row.setStatus(STATUS_ACTIVE);
-        row.setIsDefault(tenantEffective ? 1 : 0);
-        row.setConfigJson(writeConfigJson(configJson));
-
-        if (existing == null) {
-            providerMapper.insert(row);
-        } else {
-            providerMapper.updateById(row);
+        if(existing!=null && Integer.valueOf(1).equals(existing.getIsDefault()) && existing.getActiveStorageConfigRevisionId()==null) {
+            var old=locations.ensure(tenantId,SOURCE_TENANT,toRuntimeConfig(previous,encryptor.decrypt(previous.getSecretKeyEnc())),false);
+            revisionMapper.activate(tenantId,existing.getId(),old.getId());
+            existing.setActiveStorageConfigRevisionId(old.getId());
         }
+        var revision=locations.ensure(tenantId,SOURCE_TENANT,input,false);
+        if(existing!=null && existing.getStorageConfigRevisionId()!=null
+                && !java.util.Objects.equals(existing.getStorageConfigRevisionId(),revision.getId())
+                && locations.referenced(tenantId,existing.getStorageConfigRevisionId()) && !request.isCreateNewLocation())
+            throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_REFERENCED);
+        if(existing==null) {
+            var row=new InfraStorageProviderDO();row.setTenantId(tenantId);row.setProvider(provider);row.setStatus(STATUS_ACTIVE);
+            row.setIsDefault(0);row.setConfigJson(revision.getConfigJson());row.setStorageConfigRevisionId(revision.getId());providerMapper.insert(row);
+        } else revisionMapper.saveDraft(tenantId,existing.getId(),revision.getConfigJson(),revision.getId());
     }
 
     @Override
@@ -135,14 +155,13 @@ public class StorageProviderServiceImpl implements StorageProviderService {
         String normalizedProvider = normalizeProvider(provider);
         validateSupportedProvider(normalizedProvider);
         Long tenantId = resolveTenantId();
-        InfraStorageProviderDO existing = requireProvider(tenantId, normalizedProvider);
+        InfraStorageProviderDO existing = lockProvider(tenantId, normalizedProvider);
+        if(existing==null)throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_NOT_FOUND);
 
-        Long referenceCount = fileMapper.selectCount(Wrappers.<InfraFileDO>lambdaQuery()
-                .eq(InfraFileDO::getTenantId, tenantId)
-                .eq(InfraFileDO::getProvider, normalizedProvider));
-        if (referenceCount != null && referenceCount > 0) {
+        boolean referenced=locations.list(tenantId).stream().anyMatch(row -> SOURCE_TENANT.equals(row.getSource())
+                && (row.getFileReferences()>0 || row.getSessionReferences()>0));
+        if(referenced || revisionMapper.unresolvedFiles(tenantId)>0 || revisionMapper.unresolvedSessions(tenantId)>0)
             throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_REFERENCED);
-        }
 
         providerMapper.deleteById(existing.getId());
     }
@@ -175,6 +194,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                 .eq(InfraStorageProviderDO::getTenantId, tenantId));
         if (SOURCE_TENANT.equals(resolveEffectiveSource(rows))) {
             InfraStorageProviderDO saved = requireProvider(tenantId, PROVIDER_MINIO);
+            if(saved.getActiveStorageConfigRevisionId()!=null) return locations.resolve(tenantId,saved.getActiveStorageConfigRevisionId());
             StorageProviderConfigJson configJson = parseConfigJson(saved.getConfigJson());
             if (!StringUtils.hasText(configJson.getSecretKeyEnc())) {
                 throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_CONFIG_INVALID);
@@ -185,26 +205,25 @@ public class StorageProviderServiceImpl implements StorageProviderService {
     }
 
     @Override
-    public StorageProviderConfig resolveProviderConfig(String provider) {
-        String normalizedProvider = normalizeProvider(provider);
-        if (!StringUtils.hasText(normalizedProvider)) {
-            normalizedProvider = PROVIDER_MINIO;
-        }
-        validateSupportedProvider(normalizedProvider);
-
-        Long tenantId = resolveTenantId();
-        InfraStorageProviderDO saved = findProvider(tenantId, normalizedProvider);
-        if (saved != null) {
-            StorageProviderConfigJson configJson = parseConfigJson(saved.getConfigJson());
-            if (StringUtils.hasText(configJson.getSecretKeyEnc())) {
-                return toRuntimeConfig(configJson, encryptor.decrypt(configJson.getSecretKeyEnc()));
+    @Transactional
+    public StorageLocationService.Pinned resolveEffectiveLocation() {
+        Long tenantId=resolveTenantId();
+        var row=lockProvider(tenantId,PROVIDER_MINIO);
+        if(row!=null && Integer.valueOf(1).equals(row.getIsDefault())) {
+            Long id=row.getActiveStorageConfigRevisionId();
+            if(id==null) {
+                var config=parseConfigJson(row.getConfigJson());
+                var revision=locations.ensure(tenantId,SOURCE_TENANT,toRuntimeConfig(config,encryptor.decrypt(config.getSecretKeyEnc())),false);
+                id=revision.getId();revisionMapper.saveDraft(tenantId,row.getId(),row.getConfigJson(),id);revisionMapper.activate(tenantId,row.getId(),id);
             }
+            return locations.pin(tenantId,id);
         }
-        if (PROVIDER_MINIO.equals(normalizedProvider)) {
-            return storageProperties.toBootstrapConfig();
-        }
-        throw new ServiceException(ErrorCodeConstants.STORAGE_PROVIDER_NOT_FOUND);
+        var revision=locations.ensureBootstrap(tenantId,storageProperties.toBootstrapConfig());
+        return locations.pin(tenantId,revision.getId());
     }
+
+    @Override
+    public StorageProviderConfig resolveLocation(Long tenantId,Long revisionId) { return locations.resolve(tenantId,revisionId); }
 
     private StorageBootstrapSummaryVO buildBootstrapSummary() {
         StorageBootstrapSummaryVO summary = new StorageBootstrapSummaryVO();
@@ -305,6 +324,11 @@ public class StorageProviderServiceImpl implements StorageProviderService {
                 .last("LIMIT 1"));
     }
 
+    private InfraStorageProviderDO lockProvider(Long tenantId,String provider) {
+        return providerMapper.selectOne(Wrappers.<InfraStorageProviderDO>lambdaQuery()
+                .eq(InfraStorageProviderDO::getTenantId,tenantId).eq(InfraStorageProviderDO::getProvider,provider).last("LIMIT 1 FOR UPDATE"));
+    }
+
     private InfraStorageProviderDO requireProvider(Long tenantId, String provider) {
         InfraStorageProviderDO row = findProvider(tenantId, provider);
         if (row == null) {
@@ -317,6 +341,7 @@ public class StorageProviderServiceImpl implements StorageProviderService {
         return storageProperties.resolveRuntimeConfig(StorageProviderConfig.builder()
                 .providerType(ObjectStorageProviderType.MINIO)
                 .endpoint(configJson.getEndpoint())
+                .region(configJson.getRegion())
                 .accessKey(configJson.getAccessKey())
                 .secretKey(plainSecret)
                 .bucket(configJson.getBucket())

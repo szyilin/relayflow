@@ -6,6 +6,8 @@ import lombok.Data;
 public class StorageProviderRespVO {
 
     private String provider;
+    private Long revisionId;
+    private Long activeRevisionId;
 
     private String status;
 

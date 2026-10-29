@@ -127,6 +127,7 @@ public class FileServiceImpl implements FileService {
         InfraFileDO file = new InfraFileDO();
         file.setTenantId(session.getTenantId());
         file.setProvider(session.getProvider());
+        file.setStorageConfigRevisionId(session.getStorageConfigRevisionId());
         file.setStorageUri(buildStorageUri(providerConfig.getBucket(), session.getObjectKey()));
         file.setObjectKey(session.getObjectKey());
         file.setOriginalName(session.getOriginalName());

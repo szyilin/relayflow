@@ -16,6 +16,7 @@ public class StorageProviderConfig {
     private String publicEndpoint;
     private String region;
     private String accessKey;
+    @lombok.ToString.Exclude
     private String secretKey;
     private String bucket;
     private boolean useSsl;

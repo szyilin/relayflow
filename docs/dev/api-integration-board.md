@@ -31,6 +31,7 @@
 | admin-dept | **ready** | **done** | `GET/POST/PUT/DELETE …/dept/*` · `/admin/system/dept` | [contract](../../openspec/lanes/admin-dept/contract.md) | store 无 Mock；部门树 CRUD |
 | admin-role | **ready** | **done** | `GET/POST/PUT/DELETE …/role/*` + members · `/admin/system/role` | [contract](../../openspec/lanes/admin-role/contract.md) | 管理员角色；功能权限 + 成员；无 data_scope（见 `admin-roles-simplify`） |
 | admin-user-mutate | **ready** | **done** | user create/update · `/admin/system/user` | [contract](../../openspec/lanes/admin-user-mutate/contract.md) | store 无 Mock；新建 + 编辑 + 启停 |
+| storage-history-binding-hardening | **ready** | **done** | `/admin/infra/storage` · 位置版本与显式轮换 | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；A/B/C 真读写与重启通过；历史映射默认预演，副本分批续跑通过 |
 | infra-storage-config | **archived** | **done** | `GET/PUT/DELETE …/storage/config` · `/admin/infra/storage` | [contract](../../openspec/lanes/infra-storage-config/contract.md) | store 无 Mock；MinIO 配置 + 测试连接 |
 | infra-file | **archived** | **done** | 列表/上传/删除/下载 · `/admin/infra/file` | [contract](../../openspec/lanes/infra-file/contract.md) | Presigned 直传 + 302 下载；⑧ integrate 完成 |
 | im-direct-chat | **ready** | **done** | `GET/POST /app-api/im/*` · `/app/messages` | [contract](../../openspec/lanes/im-direct-chat/contract.md) | store 无 Mock；REST + WS `message.new` |
@@ -71,6 +72,7 @@
 | **workspace-task-list** | **archived** | **done** | `/app-api/task/list/*` · `/app/tasks?listId=` | [contract](../../openspec/lanes/workspace-task-list/contract.md) | integrate 完成；store 无本地临时清单 |
 | **workspace-task-board** | **archived** | **done** | status 二态 · `PUT …/board-move` · `/app/tasks` 看板 | [contract](../../openspec/lanes/workspace-task-board/contract.md) | 母 change；P1；store 无本地拖拽暂存；**将被 view-model 字段分组演进** |
 | **workspace-task-view-model-v1** | **archived** | **done** | 快速访问 · ViewConfig · 字段分组 · 分配人 · 我负责的个人组 · 多负责人 · 多清单 · 清单内组 · 自定义字段 | [archive](../../openspec/changes/archive/2026-07-20-workspace-task-view-model-v1/proposal.md) | 母 change；P0–P8 已交付；specs 已同步 `openspec/specs/task` |
+| docs-save-consistency-hardening | ready | done | `/app/docs` · 既有正文 CAS | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | 修订隔离与串行保存；慢响应/冲突/离开/身份切换验收通过 |
 | **workspace-docs-library** | **ready** | **done** | `/app-api/docs/*` · `/app/docs` 我的文档库 | [contract](../../openspec/lanes/workspace-docs-library/contract.md) | integrate 完成；store 无 Mock；E2E `/app/docs` |
 | **workspace-docs-drive** | **archived** | **done** | `/app-api/docs/drive/*` · `/app/docs` 云盘 | [contract](../../openspec/lanes/workspace-docs-drive/contract.md) | 母 change 已归档；integrate + 跨容器 move；store 无 Mock；知识库暂缓 |
 | **workspace-docs-share-star** | **archived** | **done** | share / shared / star / recent visit · `/app/docs` | [contract](../../openspec/lanes/workspace-docs-share-star/contract.md) | 母 change 已归档；store 无临时协作层 |

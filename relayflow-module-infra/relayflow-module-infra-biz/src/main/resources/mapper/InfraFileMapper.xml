@@ -19,6 +19,7 @@
         <result column="size" property="size" />
         <result column="sha256" property="sha256" />
         <result column="access_level" property="accessLevel" />
+        <result column="storage_config_revision_id" property="storageConfigRevisionId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -30,7 +31,7 @@
         updater,
         update_time,
         deleted,
-        provider, storage_uri, object_key, original_name, mime_type, size, sha256, access_level
+        provider, storage_uri, object_key, original_name, mime_type, size, sha256, access_level, storage_config_revision_id
     </sql>
 
 </mapper>

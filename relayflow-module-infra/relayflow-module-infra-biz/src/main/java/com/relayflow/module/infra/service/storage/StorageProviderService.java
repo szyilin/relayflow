@@ -28,8 +28,7 @@ public interface StorageProviderService {
      */
     StorageProviderConfig resolveEffectiveProviderConfig();
 
-    /**
-     * Resolve storage config for reading an existing file by its persisted provider name.
-     */
-    StorageProviderConfig resolveProviderConfig(String provider);
+    StorageLocationService.Pinned resolveEffectiveLocation();
+
+    StorageProviderConfig resolveLocation(Long tenantId, Long revisionId);
 }

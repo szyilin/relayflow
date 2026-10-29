@@ -9,10 +9,8 @@ public class StorageProviderSaveReqVO {
     @NotBlank
     private String provider;
 
-    @NotBlank
     private String endpoint;
 
-    @NotBlank
     private String bucket;
 
     @NotBlank
@@ -21,7 +19,15 @@ public class StorageProviderSaveReqVO {
     /**
      * Blank on update keeps the existing encrypted secret.
      */
+    @lombok.ToString.Exclude
     private String secretKey;
+
+    private String operation;
+    private Long revisionId;
+    private String historySource;
+    private String region;
+    private boolean createNewLocation;
+    private boolean legacyRelativeKeys;
 
     private Boolean useSsl;
 

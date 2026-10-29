@@ -53,7 +53,7 @@ public class FileDownloadServiceImpl implements FileDownloadService {
     }
 
     private String createPresignedGetUrl(InfraFileDO file) {
-        StorageProviderConfig providerConfig = storageProviderService.resolveProviderConfig(file.getProvider());
+        StorageProviderConfig providerConfig = storageProviderService.resolveLocation(file.getTenantId(), file.getStorageConfigRevisionId());
         ObjectStorageClient client = clientFactory.getClient(ObjectStorageProviderType.MINIO);
         Duration ttl = ACCESS_PUBLIC.equalsIgnoreCase(file.getAccessLevel())
                 ? PUBLIC_PRESIGNED_TTL

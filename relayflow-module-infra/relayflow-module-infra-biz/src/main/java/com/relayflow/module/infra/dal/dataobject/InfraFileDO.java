@@ -1,6 +1,7 @@
 package com.relayflow.module.infra.dal.dataobject;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.TenantBaseDO;
 import lombok.Getter;
@@ -47,4 +48,7 @@ public class InfraFileDO extends TenantBaseDO {
 
     @TableField("access_level")
     private String accessLevel;
+
+    @TableField(value = "storage_config_revision_id", updateStrategy = FieldStrategy.NEVER)
+    private Long storageConfigRevisionId;
 }

@@ -1,5 +1,7 @@
 # 本地后端容器契约
 
+已有文件升级到位置版本绑定前，先按[存储历史升级说明](storage-history-upgrade.md)完成备份、副本预演与明确映射；旧二进制不能直接回退后继续写入。
+
 完整本地栈显式注入 `SPRING_PROFILES_ACTIVE=local-docker`，使用 `application-local-docker.yml`；旧宿主开发入口仍使用 `dev`。镜像本身不强制修改 profile，调用方必须选择正确模式。
 
 ## 配置注入

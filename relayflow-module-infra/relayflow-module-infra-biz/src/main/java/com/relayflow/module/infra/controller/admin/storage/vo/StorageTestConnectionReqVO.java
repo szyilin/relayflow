@@ -18,6 +18,7 @@ public class StorageTestConnectionReqVO {
 
     private String accessKey;
 
+    @lombok.ToString.Exclude
     private String secretKey;
 
     private Boolean useSsl;

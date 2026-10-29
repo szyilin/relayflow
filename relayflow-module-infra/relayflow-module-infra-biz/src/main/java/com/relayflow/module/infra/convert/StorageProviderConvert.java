@@ -12,6 +12,8 @@ public interface StorageProviderConvert {
 
     StorageProviderConvert INSTANCE = Mappers.getMapper(StorageProviderConvert.class);
 
+    @Mapping(target = "revisionId", source = "row.storageConfigRevisionId")
+    @Mapping(target = "activeRevisionId", source = "row.activeStorageConfigRevisionId")
     @Mapping(target = "isDefault", expression = "java(Integer.valueOf(1).equals(row.getIsDefault()))")
     @Mapping(target = "endpoint", source = "configJson.endpoint")
     @Mapping(target = "bucket", source = "configJson.bucket")

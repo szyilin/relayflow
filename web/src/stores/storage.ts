@@ -7,6 +7,7 @@ import {
   setStorageEffectiveSource,
   testStorageConnection,
   type StorageBootstrapSummary,
+  type StorageRevision,
   type StorageEffectiveSource,
   type StorageProviderItem,
   type StorageProviderSavePayload,
@@ -18,6 +19,9 @@ const DEFAULT_PROVIDER = 'minio'
 
 export const useStorageStore = defineStore('storage', () => {
   const providers = ref<StorageProviderItem[]>([])
+  const revisions = ref<StorageRevision[]>([])
+  const unresolvedFiles = ref(0)
+  const unresolvedSessions = ref(0)
   const effectiveSource = ref<StorageEffectiveSource>('bootstrap')
   const bootstrap = ref<StorageBootstrapSummary>({
     available: false,
@@ -38,10 +42,16 @@ export const useStorageStore = defineStore('storage', () => {
     try {
       const response = await getStorageConfig()
       providers.value = response.providers ?? []
+      revisions.value = response.revisions ?? []
+      unresolvedFiles.value = Number(response.unresolvedFiles ?? 0)
+      unresolvedSessions.value = Number(response.unresolvedSessions ?? 0)
       effectiveSource.value = response.effectiveSource ?? 'bootstrap'
       bootstrap.value = response.bootstrap ?? { available: false, credentialsConfigured: false }
     } catch (error) {
       providers.value = []
+      revisions.value = []
+      unresolvedFiles.value = 0
+      unresolvedSessions.value = 0
       effectiveSource.value = 'bootstrap'
       bootstrap.value = { available: false, credentialsConfigured: false }
       lastError.value = error instanceof ApiError
@@ -73,6 +83,7 @@ export const useStorageStore = defineStore('storage', () => {
   }
 
   return {
+    revisions, unresolvedFiles, unresolvedSessions,
     providers,
     effectiveSource,
     bootstrap,

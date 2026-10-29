@@ -35,4 +35,10 @@ public class InfraStorageProviderDO extends TenantBaseDO {
 
     @TableField("config_json")
     private String configJson;
+
+    @TableField("storage_config_revision_id")
+    private Long storageConfigRevisionId;
+
+    @TableField("active_storage_config_revision_id")
+    private Long activeStorageConfigRevisionId;
 }

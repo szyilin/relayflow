@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import type { StorageEffectiveSource } from '../../../../api/admin/storage'
+import type { StorageEffectiveSource, StorageRevision } from '../../../../api/admin/storage'
 import AdminNavbar from '../../../../components/admin/AdminNavbar.vue'
 import AdminPageHeader from '../../../../components/admin/AdminPageHeader.vue'
 import { usePermission } from '../../../../composables/usePermission'
@@ -16,6 +16,22 @@ const saving = ref(false)
 const deleting = ref(false)
 const switchingSource = ref(false)
 const deleteOpen = ref(false)
+const createNewLocation = ref(false)
+const rotating = ref(false)
+const rotation = reactive({ open: false, revisionId: '', accessKey: '', secretKey: '' })
+function openRotation(revision: StorageRevision) {
+  rotation.revisionId = revision.id; rotation.accessKey = ''; rotation.secretKey = ''; rotation.open = true
+}
+async function rotateCredentials() {
+  if (!rotation.accessKey.trim() || !rotation.secretKey.trim()) return
+  rotating.value = true
+  try {
+    await storageStore.save({ provider: 'minio', operation: 'rotate_credentials', revisionId: rotation.revisionId, accessKey: rotation.accessKey.trim(), secretKey: rotation.secretKey.trim() })
+    rotation.secretKey = ''; rotation.open = false; applyProviderToForm()
+    toast.add({ title: '该位置凭据已轮换', color: 'success' })
+  } catch (error) { toast.add({ title: '轮换失败，原凭据已保留', description: error instanceof Error ? error.message : '操作失败', color: 'error' }) }
+  finally { rotating.value = false }
+}
 
 const form = reactive({
   endpoint: '',
@@ -81,7 +97,7 @@ async function loadConfig() {
 }
 
 async function handleEffectiveSourceChange(source: StorageEffectiveSource) {
-  if (source === storageStore.effectiveSource) {
+  if (source === storageStore.effectiveSource && (source === 'bootstrap' || minioProvider.value?.revisionId === minioProvider.value?.activeRevisionId)) {
     return
   }
 
@@ -116,6 +132,7 @@ async function handleEffectiveSourceChange(source: StorageEffectiveSource) {
 function buildSavePayload() {
   return {
     provider: 'minio',
+    createNewLocation: createNewLocation.value,
     endpoint: form.endpoint.trim(),
     bucket: form.bucket.trim(),
     accessKey: form.accessKey.trim(),
@@ -207,7 +224,8 @@ async function handleSave() {
   try {
     await storageStore.save(buildSavePayload())
     applyProviderToForm()
-    toast.add({ title: '租户配置已保存', color: 'success' })
+    createNewLocation.value = false
+    toast.add({ title: '草稿已保存，请显式启用该位置', color: 'success' })
   } catch (error) {
     toast.add({
       title: '保存失败',
@@ -282,6 +300,19 @@ meta:
           </div>
 
           <div v-else class="max-w-3xl space-y-4">
+            <UAlert v-if="storageStore.unresolvedFiles || storageStore.unresolvedSessions" color="warning" title="历史位置尚未解析"
+              :description="`${storageStore.unresolvedFiles} 个文件、${storageStore.unresolvedSessions} 个上传会话需要确认原位置。管理员完成映射后恢复读取；未解析的上传请重新发起。`" />
+            <UCard>
+              <template #header><h3 class="text-sm font-medium">历史存储位置</h3></template>
+              <p class="mb-3 text-sm text-muted">历史位置保留对象原址。凭据轮换影响该位置全部历史文件及在途上传；验证失败会保留原凭据。</p>
+              <div v-if="!storageStore.revisions.length" class="text-sm text-muted">尚无已记录的位置，首次上传时自动记录当前目标。</div>
+              <div v-for="revision in storageStore.revisions" :key="revision.id" class="flex flex-wrap items-center justify-between gap-2 border-t border-default py-3 text-sm">
+                <div><div class="font-medium">{{ revision.bucket }} · {{ revision.source === 'bootstrap' ? '系统默认' : '租户自定义' }}</div>
+                  <div class="text-xs text-muted">位置 {{ revision.id }} · {{ revision.fileReferences }} 个文件 · {{ revision.sessionReferences }} 个在途会话</div>
+                </div>
+                <UButton v-if="canUpdate" size="xs" color="neutral" variant="soft" @click="openRotation(revision)">轮换此位置凭据</UButton>
+              </div>
+            </UCard>
             <UCard>
               <div class="space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -290,7 +321,7 @@ meta:
                       当前生效配置
                     </h3>
                     <p class="mt-1 text-sm text-muted">
-                      新文件上传将使用此来源的连接信息
+                      切换只影响新上传；已有文件和在途上传继续使用原位置
                     </p>
                   </div>
                   <UBadge :color="storageStore.isTenantEffective ? 'primary' : 'success'" variant="subtle">
@@ -316,7 +347,7 @@ meta:
                       :disabled="!canUpdate || !hasSavedConfig"
                       @click="handleEffectiveSourceChange('tenant')"
                     >
-                      租户自定义
+                      启用已保存的租户位置
                     </UButton>
                   </div>
                 </UFormField>
@@ -381,10 +412,14 @@ meta:
                     租户自定义 MinIO
                   </h3>
                   <p class="mt-1 text-sm text-muted">
-                    仅保存到当前租户数据库；与系统默认相互独立
+                    保存草稿与启用分开；更改位置须另存，轮换凭据请在历史位置中操作
                   </p>
                 </div>
 
+                <UCheckbox v-model="createNewLocation" label="明确另存为新位置（保留旧文件位置）" :disabled="!canUpdate" />
+                <p v-if="minioProvider?.revisionId" class="text-xs text-muted">
+                  草稿位置 {{ minioProvider.revisionId }} · 当前上传位置 {{ storageStore.isTenantEffective ? (minioProvider.activeRevisionId ?? '待确认') : '系统默认' }}
+                </p>
                 <div class="space-y-4">
                   <UFormField label="Endpoint" required>
                     <UInput
@@ -496,5 +531,14 @@ meta:
         </template>
       </UModal>
     </template>
+
   </UDashboardPanel>
+    <UModal v-model:open="rotation.open" title="轮换同一位置的凭据">
+      <template #body><div class="space-y-4">
+        <p class="text-sm text-muted">仅替换位置 {{ rotation.revisionId }} 的凭据，影响它的全部历史引用。位置、桶和对象路径保持不变，连接验证成功后才保存。</p>
+        <UFormField label="新 Access Key"><UInput v-model="rotation.accessKey" /></UFormField>
+        <UFormField label="新 Secret Key"><UInput v-model="rotation.secretKey" type="password" autocomplete="new-password" /></UFormField>
+      </div></template>
+      <template #footer><UButton :loading="rotating" :disabled="!rotation.accessKey || !rotation.secretKey" @click="rotateCredentials">验证并轮换</UButton></template>
+    </UModal>
 </template>

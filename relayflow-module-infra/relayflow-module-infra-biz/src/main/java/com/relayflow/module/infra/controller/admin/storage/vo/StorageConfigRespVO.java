@@ -11,6 +11,9 @@ public class StorageConfigRespVO {
      * {@code bootstrap} or {@code tenant}.
      */
     private String effectiveSource;
+    private List<StorageRevisionRespVO> revisions;
+    private long unresolvedFiles;
+    private long unresolvedSessions;
 
     private StorageBootstrapSummaryVO bootstrap;
 

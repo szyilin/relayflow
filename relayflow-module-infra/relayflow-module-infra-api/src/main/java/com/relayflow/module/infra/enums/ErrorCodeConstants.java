@@ -14,6 +14,9 @@ public enum ErrorCodeConstants implements ErrorCode {
     STORAGE_PROVIDER_UNSUPPORTED(2_002_001_004, "不支持的存储 provider 类型"),
     STORAGE_PROVIDER_CONFIG_INVALID(2_002_001_005, "存储配置不完整"),
 
+    STORAGE_LOCATION_UNRESOLVED(2_002_001_006, "存储位置未解析，请联系管理员；历史上传会话请重新上传"),
+    STORAGE_CREDENTIAL_ROTATION_REQUIRED(2_002_001_007, "该位置凭据已存在，请使用显式凭据轮换"),
+
     FILE_UPLOAD_SESSION_NOT_FOUND(2_002_002_001, "上传会话不存在"),
     FILE_UPLOAD_SESSION_EXPIRED(2_002_002_002, "上传会话已过期"),
     FILE_UPLOAD_SESSION_INVALID_STATUS(2_002_002_003, "上传会话状态无效"),

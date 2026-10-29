@@ -7,6 +7,9 @@ import lombok.Data;
 public class StorageProviderConfigJson {
 
     private String endpoint;
+    private String region;
+    private boolean managed;
+    private boolean legacyRelativeKeys;
 
     private String bucket;
 
@@ -14,6 +17,7 @@ public class StorageProviderConfigJson {
     private String accessKey;
 
     @JsonProperty("secret_key_enc")
+    @lombok.ToString.Exclude
     private String secretKeyEnc;
 
     @JsonProperty("use_ssl")

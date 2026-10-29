@@ -15,6 +15,8 @@
         <result column="status" property="status" />
         <result column="is_default" property="isDefault" />
         <result column="config_json" property="configJson" />
+        <result column="storage_config_revision_id" property="storageConfigRevisionId" />
+        <result column="active_storage_config_revision_id" property="activeStorageConfigRevisionId" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -26,7 +28,7 @@
         updater,
         update_time,
         deleted,
-        provider, status, is_default, config_json
+        provider, status, is_default, config_json, storage_config_revision_id, active_storage_config_revision_id
     </sql>
 
 </mapper>
