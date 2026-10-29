@@ -1,6 +1,7 @@
 package com.relayflow.module.system.dal.dataobject;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.TenantBaseDO;
 import com.relayflow.module.system.enums.TenantUserStatus;
@@ -28,7 +29,7 @@ public class SysTenantUserDO extends TenantBaseDO {
     @TableField("user_id")
     private Long userId;
 
-    @TableField("status")
+    @TableField(value = "status", updateStrategy = FieldStrategy.NEVER)
     private TenantUserStatus status;
 
     /** Display nickname within this tenant; null falls back to sys_user. */
@@ -44,4 +45,8 @@ public class SysTenantUserDO extends TenantBaseDO {
 
     @TableField("cover_file_id")
     private String coverFileId;
+
+    /** Persistent member session version; changed only by atomic status SQL. */
+    @TableField(value = "auth_version", updateStrategy = FieldStrategy.NEVER)
+    private Long authVersion;
 }

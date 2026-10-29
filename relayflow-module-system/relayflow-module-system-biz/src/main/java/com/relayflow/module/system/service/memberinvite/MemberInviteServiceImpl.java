@@ -12,6 +12,7 @@ import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
@@ -33,6 +34,7 @@ public class MemberInviteServiceImpl implements MemberInviteService {
 
     private final SysUserMapper userMapper;
     private final SysTenantUserMapper tenantUserMapper;
+    private final SysTenantUserExtMapper tenantUserExtMapper;
     private final TenantService tenantService;
     private final TenantProperties tenantProperties;
     private final PasswordEncoder passwordEncoder;
@@ -67,8 +69,10 @@ public class MemberInviteServiceImpl implements MemberInviteService {
         user.setPassword(passwordEncoder.encode(password.trim()));
         userMapper.updateById(user);
 
-        tenantUser.setStatus(TenantUserStatus.ACTIVE);
-        tenantUserMapper.updateById(tenantUser);
+        if (tenantUserExtMapper.updateStatus(tenantId, user.getId(),
+                TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED) != 1) {
+            throw new ServiceException(ErrorCodeConstants.MEMBER_INVITE_NOT_FOUND);
+        }
         imBotApi.ensureUserEnablementsOnActive(tenantId, user.getId());
 
         TenantContextHolder.set(tenantId);

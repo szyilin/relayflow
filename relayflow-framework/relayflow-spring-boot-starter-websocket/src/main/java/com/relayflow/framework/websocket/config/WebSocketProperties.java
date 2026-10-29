@@ -22,6 +22,9 @@ public class WebSocketProperties {
     /** Redis 在线状态 key TTL（秒） */
     private int heartbeatTtlSeconds = 60;
 
+    /** Idle identity cleanup only; send/receive authorization always runs immediately. */
+    private long identityScanIntervalMillis = 30_000;
+
     /** 握手 query 参数名 */
     private String tokenQueryParam = "token";
 

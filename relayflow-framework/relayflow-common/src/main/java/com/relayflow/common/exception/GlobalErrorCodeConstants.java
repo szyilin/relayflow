@@ -13,6 +13,8 @@ public enum GlobalErrorCodeConstants implements ErrorCode {
     INTERNAL_SERVER_ERROR(2_000_001_001, "系统异常"),
     UNAUTHORIZED(2_000_001_002, "未登录或 Token 无效"),
     FORBIDDEN(2_000_001_003, "无访问权限"),
+    MEMBERSHIP_INACTIVE(2_000_001_004, "当前企业成员身份已失效"),
+    IDENTITY_STATE_UNAVAILABLE(2_000_001_005, "身份状态服务暂不可用，请稍后重试"),
     ;
 
     private final Integer code;

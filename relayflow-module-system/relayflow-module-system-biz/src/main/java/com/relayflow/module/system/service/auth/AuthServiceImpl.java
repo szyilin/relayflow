@@ -20,6 +20,8 @@ import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.permission.PermissionCacheEvictor;
 import com.relayflow.module.system.service.tenant.TenantService;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import com.relayflow.framework.security.core.IdentityValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -65,18 +67,28 @@ public class AuthServiceImpl implements AuthService {
         if (!StringUtils.hasText(accessToken)) {
             return;
         }
+        Claims claims;
         try {
-            Claims claims = jwtTokenService.parseClaims(accessToken);
-            String jti = claims.getId();
-            Long tenantId = claims.get(LoginUser.CLAIM_TENANT_ID, Long.class);
-            Duration ttl = jwtTokenService.remainingLifetime(claims);
-            TokenRevocationStore store = tokenRevocationStore.getIfAvailable();
-            if (store != null) {
-                store.revoke(jti, tenantId, ttl);
+            claims = jwtTokenService.parseClaims(accessToken);
+            if (!StringUtils.hasText(claims.getId()) || claims.getExpiration() == null
+                    || claims.get(LoginUser.CLAIM_TENANT_ID, Long.class) == null) {
+                return;
             }
-        } catch (Exception ex) {
-            // 登出幂等：无效 token 也视为成功
-            log.warn("Logout revoke skipped (idempotent): token invalid or store unavailable", ex);
+        } catch (JwtException | IllegalArgumentException ex) {
+            return; // Invalid/expired tokens have nothing left to revoke. Never log bearer/parser data.
+        }
+        Duration ttl = jwtTokenService.remainingLifetime(claims);
+        if (ttl.isZero() || ttl.isNegative()) {
+            return;
+        }
+        try {
+            TokenRevocationStore store = tokenRevocationStore.getIfAvailable();
+            if (store == null) {
+                throw IdentityValidationException.unavailable();
+            }
+            store.revoke(claims.getId(), claims.get(LoginUser.CLAIM_TENANT_ID, Long.class), ttl);
+        } catch (RuntimeException ex) {
+            throw IdentityValidationException.unavailable();
         }
     }
 

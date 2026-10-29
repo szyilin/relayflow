@@ -8,6 +8,7 @@ import com.relayflow.framework.websocket.core.WebSocketSessionRegistry;
 import com.relayflow.framework.websocket.core.RealtimeEnvelope;
 import com.relayflow.module.infra.api.realtime.dto.RealtimeSessionContext;
 import com.relayflow.module.infra.websocket.router.DomainMessageRouter;
+import com.relayflow.framework.websocket.security.WebSocketSessionGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,27 +27,30 @@ public class InfraWebSocketHandler extends TextWebSocketHandler {
     private final WebSocketOnlineService onlineService;
     private final WebSocketInstanceIdProvider instanceIdProvider;
     private final DomainMessageRouter domainMessageRouter;
+    private final WebSocketSessionGuard guard;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         Long tenantId = (Long) session.getAttributes().get(WebSocketSessionAttributes.TENANT_ID);
         Long userId = (Long) session.getAttributes().get(WebSocketSessionAttributes.USER_ID);
         sessionRegistry.register(session, tenantId, userId);
+        if (!guard.isValid(session)) {
+            return;
+        }
         onlineService.markOnline(tenantId, userId, instanceIdProvider.getInstanceId());
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        Long tenantId = (Long) session.getAttributes().get(WebSocketSessionAttributes.TENANT_ID);
-        Long userId = (Long) session.getAttributes().get(WebSocketSessionAttributes.USER_ID);
         sessionRegistry.unregister(session.getId());
-        if (tenantId != null && userId != null) {
-            onlineService.markOfflineIfNoLocalSessions(tenantId, userId);
-        }
+        guard.cleanupOnline(session);
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        if (!guard.isValid(session)) {
+            return;
+        }
         Long tenantId = (Long) session.getAttributes().get(WebSocketSessionAttributes.TENANT_ID);
         Long userId = (Long) session.getAttributes().get(WebSocketSessionAttributes.USER_ID);
         if (tenantId == null || userId == null) {

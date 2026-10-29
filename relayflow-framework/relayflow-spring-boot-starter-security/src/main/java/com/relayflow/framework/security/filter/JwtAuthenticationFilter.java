@@ -1,94 +1,87 @@
 package com.relayflow.framework.security.filter;
 
-import com.relayflow.framework.security.core.JwtTokenService;
+import com.relayflow.framework.security.core.AnonymousEndpoints;
+import com.relayflow.framework.security.core.IdentityValidationException;
+import com.relayflow.framework.security.core.IdentityValidityService;
 import com.relayflow.framework.security.core.LoginUser;
 import com.relayflow.framework.security.core.PermissionAuthoritiesLoader;
-import com.relayflow.framework.security.core.TokenRevocationStore;
+import com.relayflow.framework.security.core.SessionIdentity;
 import com.relayflow.framework.tenant.core.TenantContextHolder;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.util.StringUtils;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-
-    private final JwtTokenService jwtTokenService;
+    private final IdentityValidityService identityValidityService;
     private final ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader;
-    private final ObjectProvider<TokenRevocationStore> tokenRevocationStore;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        AntPathMatcher matcher = new AntPathMatcher();
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        for (String pattern : AnonymousEndpoints.PATHS) {
+            if (matcher.match(pattern, path)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authorization != null && authorization.startsWith("Bearer ")) {
-            String token = authorization.substring(7).trim();
-            if (!token.isEmpty()) {
-                authenticate(token);
-            }
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            reject(response, IdentityValidationException.unauthorized());
+            return;
+        }
+        try {
+            authenticate(authorization.substring(7).trim());
+        } catch (IdentityValidationException ex) {
+            reject(response, ex);
+            return;
+        } catch (RuntimeException ex) {
+            reject(response, IdentityValidationException.unavailable());
+            return;
         }
         filterChain.doFilter(request, response);
     }
 
     private void authenticate(String token) {
-        try {
-            Claims claims = jwtTokenService.parseClaims(token);
-            Long userId = Long.valueOf(claims.getSubject());
-            Long tenantId = claims.get(LoginUser.CLAIM_TENANT_ID, Long.class);
-            String userType = claims.get(LoginUser.CLAIM_USER_TYPE, String.class);
-            String jti = claims.getId();
-
-            if (isTokenRevoked(jti, tenantId)) {
-                SecurityContextHolder.clearContext();
-                return;
-            }
-
-            if (tenantId != null) {
-                TenantContextHolder.set(tenantId);
-            }
-
-            Set<String> permissionCodes = Collections.emptySet();
-            PermissionAuthoritiesLoader loader = permissionAuthoritiesLoader.getIfAvailable();
-            if (loader != null && tenantId != null) {
-                permissionCodes = loader.loadPermissionCodes(userId, tenantId);
-            }
-
-            LoginUser loginUser = new LoginUser(
-                    userId,
-                    claims.getSubject(),
-                    tenantId,
-                    userType,
-                    LoginUser.toAuthorities(permissionCodes));
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(loginUser, null, loginUser.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        } catch (Exception ex) {
-            log.debug("JWT authentication skipped (token invalid or expired)", ex);
-            SecurityContextHolder.clearContext();
+        SessionIdentity identity = identityValidityService.authenticate(token);
+        TenantContextHolder.set(identity.tenantId());
+        PermissionAuthoritiesLoader loader = permissionAuthoritiesLoader.getIfAvailable();
+        if (loader == null) {
+            throw IdentityValidationException.unavailable();
         }
+        Set<String> permissionCodes = loader.loadPermissionCodes(identity.userId(), identity.tenantId());
+        LoginUser loginUser = new LoginUser(identity.userId(), String.valueOf(identity.userId()),
+                identity.tenantId(), identity.userType(), LoginUser.toAuthorities(permissionCodes));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                loginUser, null, loginUser.getAuthorities()));
     }
 
-    private boolean isTokenRevoked(String jti, Long tenantId) {
-        if (!StringUtils.hasText(jti) || tenantId == null) {
-            return false;
-        }
-        TokenRevocationStore store = tokenRevocationStore.getIfAvailable();
-        return store != null && store.isRevoked(jti, tenantId);
+    private void reject(HttpServletResponse response, IdentityValidationException ex) throws IOException {
+        SecurityContextHolder.clearContext();
+        TenantContextHolder.clear();
+        response.setStatus(ex.getHttpStatus());
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType("application/json");
+        response.getWriter().write(String.format("{\"code\":%d,\"msg\":\"%s\",\"data\":null}",
+                ex.getCode(), ex.getMessage()));
     }
 }

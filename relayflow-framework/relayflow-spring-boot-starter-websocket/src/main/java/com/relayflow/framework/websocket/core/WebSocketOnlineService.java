@@ -1,6 +1,8 @@
 package com.relayflow.framework.websocket.core;
 
 import com.relayflow.framework.redis.core.TenantRedisKeyBuilder;
+import com.relayflow.framework.security.core.IdentityValidityService;
+import com.relayflow.framework.security.core.SessionIdentity;
 import com.relayflow.framework.websocket.config.WebSocketProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,6 +19,7 @@ public class WebSocketOnlineService {
     private final StringRedisTemplate stringRedisTemplate;
     private final WebSocketProperties webSocketProperties;
     private final WebSocketSessionRegistry sessionRegistry;
+    private final IdentityValidityService identityValidityService;
 
     public void markOnline(Long tenantId, Long userId, String instanceId) {
         String key = onlineKey(tenantId, userId);
@@ -29,9 +32,22 @@ public class WebSocketOnlineService {
     }
 
     public void markOfflineIfNoLocalSessions(Long tenantId, Long userId) {
-        if (!sessionRegistry.hasSessions(tenantId, userId)) {
+        if (!hasValidLocalSessions(tenantId, userId)) {
             stringRedisTemplate.delete(onlineKey(tenantId, userId));
         }
+    }
+
+    private boolean hasValidLocalSessions(Long tenantId, Long userId) {
+        for (var session : sessionRegistry.getSessions(tenantId, userId)) {
+            Object value = session.getAttributes().get(WebSocketSessionAttributes.IDENTITY);
+            try {
+                identityValidityService.validate(value instanceof SessionIdentity identity ? identity : null);
+                return true;
+            } catch (RuntimeException ex) {
+                // Unverifiable connections must not keep the user online until the next scan.
+            }
+        }
+        return false;
     }
 
     public boolean isOnline(Long tenantId, Long userId) {

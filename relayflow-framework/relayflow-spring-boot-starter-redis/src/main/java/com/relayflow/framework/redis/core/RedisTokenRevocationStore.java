@@ -1,35 +1,40 @@
 package com.relayflow.framework.redis.core;
 
-import com.relayflow.framework.redis.config.CacheProperties;
 import com.relayflow.framework.security.core.TokenRevocationStore;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 
+/** Security state must remain authoritative even when the optional business cache is disabled. */
 @RequiredArgsConstructor
 public class RedisTokenRevocationStore implements TokenRevocationStore {
 
-    private static final String NAMESPACE = "auth:blacklist";
-
-    private final RelayflowRedisCache redisCache;
-    private final CacheProperties cacheProperties;
+    private final StringRedisTemplate redis;
 
     @Override
     public void revoke(String jti, Long tenantId, Duration ttl) {
-        if (!cacheProperties.isEnabled() || !StringUtils.hasText(jti) || tenantId == null || ttl == null || ttl.isZero()) {
+        requireIdentity(jti, tenantId);
+        if (ttl == null || ttl.isZero() || ttl.isNegative()) {
             return;
         }
-        String key = TenantRedisKeyBuilder.build(tenantId, NAMESPACE, jti);
-        redisCache.put(key, "1", ttl);
+        redis.opsForValue().set(TenantRedisKeyBuilder.build(tenantId, "auth:blacklist", jti), "1", ttl);
     }
 
     @Override
     public boolean isRevoked(String jti, Long tenantId) {
-        if (!cacheProperties.isEnabled() || !StringUtils.hasText(jti) || tenantId == null) {
-            return false;
+        requireIdentity(jti, tenantId);
+        Boolean revoked = redis.hasKey(TenantRedisKeyBuilder.build(tenantId, "auth:blacklist", jti));
+        if (revoked == null) {
+            throw new IllegalStateException("Revocation result unavailable");
         }
-        String key = TenantRedisKeyBuilder.build(tenantId, NAMESPACE, jti);
-        return redisCache.hasKey(key);
+        return revoked;
+    }
+
+    private void requireIdentity(String jti, Long tenantId) {
+        if (!StringUtils.hasText(jti) || tenantId == null) {
+            throw new IllegalArgumentException("Revocation identity required");
+        }
     }
 }

@@ -17,6 +17,7 @@ public class LoginUser implements UserDetails {
 
     public static final String CLAIM_TENANT_ID = "tenant_id";
     public static final String CLAIM_USER_TYPE = "user_type";
+    public static final String CLAIM_MEMBER_VERSION = "member_ver";
 
     private final Long userId;
     private final String username;

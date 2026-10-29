@@ -16,27 +16,32 @@ public class WebSocketSessionRegistry {
     private final Map<String, WebSocketSessionInfo> sessionsById = new ConcurrentHashMap<>();
     private final Map<UserKey, Set<String>> sessionIdsByUser = new ConcurrentHashMap<>();
 
-    public void register(WebSocketSession session, Long tenantId, Long userId) {
+    public synchronized void register(WebSocketSession session, Long tenantId, Long userId) {
         WebSocketSessionInfo info = new WebSocketSessionInfo(session.getId(), tenantId, userId, session);
         sessionsById.put(session.getId(), info);
         sessionIdsByUser.computeIfAbsent(new UserKey(tenantId, userId), ignored -> ConcurrentHashMap.newKeySet())
                 .add(session.getId());
     }
 
-    public void unregister(String sessionId) {
+    public synchronized boolean unregister(String sessionId) {
         WebSocketSessionInfo info = sessionsById.remove(sessionId);
         if (info == null) {
-            return;
+            return false;
         }
         UserKey key = new UserKey(info.getTenantId(), info.getUserId());
         Set<String> sessionIds = sessionIdsByUser.get(key);
         if (sessionIds == null) {
-            return;
+            return true;
         }
         sessionIds.remove(sessionId);
         if (sessionIds.isEmpty()) {
             sessionIdsByUser.remove(key);
         }
+        return true;
+    }
+
+    public Collection<WebSocketSession> getAllSessions() {
+        return sessionsById.values().stream().map(WebSocketSessionInfo::getSession).toList();
     }
 
     public boolean hasSessions(Long tenantId, Long userId) {

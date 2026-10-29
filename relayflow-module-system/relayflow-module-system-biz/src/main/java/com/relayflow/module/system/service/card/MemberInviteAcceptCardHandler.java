@@ -9,6 +9,7 @@ import com.relayflow.module.im.api.card.CardActionResult;
 import com.relayflow.module.system.dal.dataobject.SysTenantDO;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class MemberInviteAcceptCardHandler implements CardActionHandler {
 
     private final SysTenantUserMapper tenantUserMapper;
+    private final SysTenantUserExtMapper tenantUserExtMapper;
     private final TenantService tenantService;
     /** Breaks CardHandler → ImBotApi → ConversationService → UserApi cycle. */
     @Lazy
@@ -65,8 +67,10 @@ public class MemberInviteAcceptCardHandler implements CardActionHandler {
             throw new ServiceException(ErrorCodeConstants.MEMBER_INVITE_NOT_FOUND);
         }
 
-        membership.setStatus(TenantUserStatus.ACTIVE);
-        tenantUserMapper.updateById(membership);
+        if (tenantUserExtMapper.updateStatus(invitingTenantId, context.getUserId(),
+                TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED) != 1) {
+            throw new ServiceException(ErrorCodeConstants.MEMBER_INVITE_NOT_FOUND);
+        }
         imBotApi.ensureUserEnablementsOnActive(invitingTenantId, context.getUserId());
 
         return CardActionResult.builder()

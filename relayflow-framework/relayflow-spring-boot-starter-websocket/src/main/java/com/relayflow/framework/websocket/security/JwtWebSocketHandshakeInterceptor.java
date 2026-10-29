@@ -1,10 +1,10 @@
 package com.relayflow.framework.websocket.security;
 
-import com.relayflow.framework.security.core.JwtTokenService;
-import com.relayflow.framework.security.core.LoginUser;
+import com.relayflow.framework.security.core.IdentityValidityService;
+import com.relayflow.framework.security.core.IdentityValidationException;
+import com.relayflow.framework.security.core.SessionIdentity;
 import com.relayflow.framework.websocket.config.WebSocketProperties;
 import com.relayflow.framework.websocket.core.WebSocketSessionAttributes;
-import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -20,7 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class JwtWebSocketHandshakeInterceptor implements HandshakeInterceptor {
 
-    private final JwtTokenService jwtTokenService;
+    private final IdentityValidityService identityValidityService;
     private final WebSocketProperties webSocketProperties;
 
     @Override
@@ -35,15 +35,16 @@ public class JwtWebSocketHandshakeInterceptor implements HandshakeInterceptor {
             return false;
         }
         try {
-            Claims claims = jwtTokenService.parseClaims(token);
-            Long userId = Long.valueOf(claims.getSubject());
-            Object tenantClaim = claims.get(LoginUser.CLAIM_TENANT_ID);
-            Long tenantId = tenantClaim instanceof Number number ? number.longValue() : Long.valueOf(tenantClaim.toString());
-            attributes.put(WebSocketSessionAttributes.TENANT_ID, tenantId);
-            attributes.put(WebSocketSessionAttributes.USER_ID, userId);
+            SessionIdentity identity = identityValidityService.authenticate(token);
+            attributes.put(WebSocketSessionAttributes.TENANT_ID, identity.tenantId());
+            attributes.put(WebSocketSessionAttributes.USER_ID, identity.userId());
+            attributes.put(WebSocketSessionAttributes.IDENTITY, identity);
             return true;
+        } catch (IdentityValidationException ex) {
+            response.setStatusCode(HttpStatus.valueOf(ex.getHttpStatus()));
+            return false;
         } catch (Exception ex) {
-            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
             return false;
         }
     }

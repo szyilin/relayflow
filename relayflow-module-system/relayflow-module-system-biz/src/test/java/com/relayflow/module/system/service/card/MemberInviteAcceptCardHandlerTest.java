@@ -5,6 +5,7 @@ import com.relayflow.module.im.api.card.CardActionContext;
 import com.relayflow.module.im.api.card.CardActionResult;
 import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.enums.TenantUserStatus;
 import com.relayflow.module.system.service.tenant.TenantService;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,8 @@ class MemberInviteAcceptCardHandlerTest {
     @Mock
     private SysTenantUserMapper tenantUserMapper;
     @Mock
+    private SysTenantUserExtMapper tenantUserExtMapper;
+    @Mock
     private TenantService tenantService;
     @Mock
     private ImBotApi imBotApi;
@@ -43,6 +46,7 @@ class MemberInviteAcceptCardHandlerTest {
         pending.setUserId(200L);
         pending.setStatus(TenantUserStatus.NOT_JOINED);
         when(tenantUserMapper.selectOne(any())).thenReturn(pending);
+        when(tenantUserExtMapper.updateStatus(42L, 200L, TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED)).thenReturn(1);
 
         CardActionResult result = handler.handle(CardActionContext.builder()
                 .userId(200L)
@@ -50,9 +54,7 @@ class MemberInviteAcceptCardHandlerTest {
                 .payload(Map.of("tenantId", "42", "tenantName", "Acme"))
                 .build());
 
-        ArgumentCaptor<SysTenantUserDO> captor = ArgumentCaptor.forClass(SysTenantUserDO.class);
-        verify(tenantUserMapper).updateById(captor.capture());
-        assertEquals(TenantUserStatus.ACTIVE, captor.getValue().getStatus());
+        verify(tenantUserExtMapper).updateStatus(42L, 200L, TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED);
         verify(imBotApi).ensureUserEnablementsOnActive(42L, 200L);
 
         assertNotNull(result.getToast());

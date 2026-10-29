@@ -11,6 +11,7 @@ import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
@@ -50,6 +51,8 @@ class AuthRegisterServiceImplTest {
     private SysTenantMapper tenantMapper;
     @Mock
     private SysTenantUserMapper tenantUserMapper;
+    @Mock
+    private SysTenantUserExtMapper tenantUserExtMapper;
     @Mock
     private TenantService tenantService;
     @Mock
@@ -171,8 +174,7 @@ class AuthRegisterServiceImplTest {
 
         verify(userMapper, never()).insert(any(SysUserDO.class));
         verify(userMapper).updateById(invited);
-        verify(tenantUserMapper).updateById(org.mockito.ArgumentMatchers.<SysTenantUserDO>argThat(relation ->
-                TenantUserStatus.ACTIVE == relation.getStatus() && Long.valueOf(1L).equals(relation.getTenantId())));
+        verify(tenantUserExtMapper).updateStatus(1L, 100L, TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED);
     }
 
     private void stubSuccessfulRegisterFlow() {

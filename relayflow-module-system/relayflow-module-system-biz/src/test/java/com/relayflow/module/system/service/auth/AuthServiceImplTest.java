@@ -59,6 +59,34 @@ class AuthServiceImplTest {
     @InjectMocks
     private AuthServiceImpl authService;
 
+    @Test
+    void logoutStorageFailureIsUnavailableAndNeverPretendsSuccess() {
+        io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.claims().id("jti").subject("100")
+                .add("tenant_id", 1L).expiration(new java.util.Date(System.currentTimeMillis() + 60000)).build();
+        when(jwtTokenService.parseClaims("valid")).thenReturn(claims);
+        when(jwtTokenService.remainingLifetime(claims)).thenReturn(java.time.Duration.ofMinutes(1));
+        var store = org.mockito.Mockito.mock(com.relayflow.framework.security.core.TokenRevocationStore.class);
+        when(tokenRevocationStore.getIfAvailable()).thenReturn(store);
+        org.mockito.Mockito.doThrow(new IllegalStateException("Redis down"))
+                .when(store).revoke(org.mockito.ArgumentMatchers.eq("jti"), org.mockito.ArgumentMatchers.eq(1L), any());
+        var exception = assertThrows(com.relayflow.framework.security.core.IdentityValidationException.class,
+                () -> authService.logout("valid"));
+        assertEquals(503, exception.getHttpStatus());
+    }
+
+    @Test
+    void invalidLogoutIsIdempotentButMissingRevocationStoreIsUnavailable() {
+        when(jwtTokenService.parseClaims("invalid")).thenThrow(new io.jsonwebtoken.MalformedJwtException("invalid"));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> authService.logout("invalid"));
+        org.mockito.Mockito.verifyNoInteractions(tokenRevocationStore);
+        io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.claims().id("jti").subject("100")
+                .add("tenant_id", 1L).expiration(new java.util.Date(System.currentTimeMillis() + 60000)).build();
+        when(jwtTokenService.parseClaims("valid")).thenReturn(claims);
+        when(jwtTokenService.remainingLifetime(claims)).thenReturn(java.time.Duration.ofMinutes(1));
+        assertEquals(503, assertThrows(com.relayflow.framework.security.core.IdentityValidationException.class,
+                () -> authService.logout("valid")).getHttpStatus());
+    }
+
     private SysUserDO user;
 
     @BeforeEach

@@ -8,6 +8,8 @@ import com.relayflow.framework.websocket.core.WebSocketSessionRegistry;
 import com.relayflow.framework.websocket.sender.LocalWebSocketMessageSender;
 import com.relayflow.framework.websocket.sender.RedisWebSocketMessageSender;
 import com.relayflow.framework.websocket.security.JwtWebSocketHandshakeInterceptor;
+import com.relayflow.framework.websocket.security.WebSocketSessionGuard;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,18 +21,21 @@ import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "relayflow.websocket", name = "enable", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(WebSocketProperties.class)
+@EnableScheduling
 @Import({
         WebSocketSessionRegistry.class,
         WebSocketOnlineService.class,
         WebSocketInstanceIdProvider.class,
+        WebSocketSessionGuard.class,
         JwtWebSocketHandshakeInterceptor.class
 })
 public class WebSocketAutoConfiguration {
 
     @Bean
     public LocalWebSocketMessageSender localWebSocketMessageSender(WebSocketSessionRegistry sessionRegistry,
-                                                                   ObjectMapper objectMapper) {
-        return new LocalWebSocketMessageSender(sessionRegistry, objectMapper);
+                                                                   ObjectMapper objectMapper,
+                                                                   WebSocketSessionGuard guard) {
+        return new LocalWebSocketMessageSender(sessionRegistry, objectMapper, guard);
     }
 
     @Bean

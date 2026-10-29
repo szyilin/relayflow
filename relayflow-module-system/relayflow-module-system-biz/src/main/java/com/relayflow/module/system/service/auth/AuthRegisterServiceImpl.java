@@ -15,6 +15,7 @@ import com.relayflow.module.system.dal.dataobject.SysTenantUserDO;
 import com.relayflow.module.system.dal.dataobject.SysUserDO;
 import com.relayflow.module.system.dal.mapper.SysTenantMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
 import com.relayflow.module.system.enums.TenantUserStatus;
@@ -41,6 +42,7 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
     private final SysUserMapper userMapper;
     private final SysTenantMapper tenantMapper;
     private final SysTenantUserMapper tenantUserMapper;
+    private final SysTenantUserExtMapper tenantUserExtMapper;
     private final TenantProperties tenantProperties;
     private final TenantService tenantService;
     private final TenantBootstrapService tenantBootstrapService;
@@ -176,8 +178,8 @@ public class AuthRegisterServiceImpl implements AuthRegisterService {
                         .eq(SysTenantUserDO::getUserId, userId)
                         .eq(SysTenantUserDO::getStatus, TenantUserStatus.NOT_JOINED));
         for (SysTenantUserDO tenantUser : pendingMemberships) {
-            tenantUser.setStatus(TenantUserStatus.ACTIVE);
-            tenantUserMapper.updateById(tenantUser);
+            tenantUserExtMapper.updateStatus(tenantUser.getTenantId(), userId,
+                    TenantUserStatus.ACTIVE, TenantUserStatus.NOT_JOINED);
             imBotApi.ensureUserEnablementsOnActive(tenantUser.getTenantId(), userId);
         }
     }

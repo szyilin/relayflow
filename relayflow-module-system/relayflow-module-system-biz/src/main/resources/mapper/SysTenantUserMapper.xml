@@ -13,6 +13,11 @@
         <result column="deleted" property="deleted" />
         <result column="user_id" property="userId" />
         <result column="status" property="status" />
+        <result column="nickname" property="nickname" />
+        <result column="avatar" property="avatar" />
+        <result column="signature" property="signature" />
+        <result column="cover_file_id" property="coverFileId" />
+        <result column="auth_version" property="authVersion" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
@@ -24,7 +29,7 @@
         updater,
         update_time,
         deleted,
-        user_id, status
+        user_id, status, nickname, avatar, signature, cover_file_id, auth_version
     </sql>
 
 </mapper>

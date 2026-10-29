@@ -33,8 +33,7 @@ public class RedisAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(TokenRevocationStore.class)
-    public TokenRevocationStore tokenRevocationStore(RelayflowRedisCache relayflowRedisCache,
-                                                     CacheProperties cacheProperties) {
-        return new RedisTokenRevocationStore(relayflowRedisCache, cacheProperties);
+    public TokenRevocationStore tokenRevocationStore(StringRedisTemplate stringRedisTemplate) {
+        return new RedisTokenRevocationStore(stringRedisTemplate);
     }
 }

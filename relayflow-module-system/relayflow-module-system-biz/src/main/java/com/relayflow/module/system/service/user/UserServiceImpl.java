@@ -37,6 +37,7 @@ import com.relayflow.module.system.dal.dataobject.SysUserRoleDO;
 import com.relayflow.module.system.dal.mapper.SysDeptMapper;
 import com.relayflow.module.system.dal.mapper.SysRoleMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.dal.mapper.SysUserRoleMapper;
@@ -76,6 +77,7 @@ public class UserServiceImpl implements UserService {
 
     private final SysUserMapper userMapper;
     private final SysTenantUserMapper tenantUserMapper;
+    private final SysTenantUserExtMapper tenantUserExtMapper;
     private final SysUserDeptMapper userDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysDeptMapper deptMapper;
@@ -127,23 +129,28 @@ public class UserServiceImpl implements UserService {
         SysTenantUserDO member = requireActiveTenantUser(userId, tenantId);
         SysUserDO user = requireUser(userId);
 
+        Map<String, Object> changes = new java.util.HashMap<>();
         if (request.getNickname() != null) {
             String nickname = request.getNickname().trim();
             if (!StringUtils.hasText(nickname)) {
                 throw new ServiceException(ErrorCodeConstants.USER_NICKNAME_REQUIRED);
             }
             member.setNickname(nickname);
+            changes.put("nickname", nickname);
         }
         if (request.getAvatar() != null) {
             member.setAvatar(trimToNull(request.getAvatar()));
+            changes.put("avatar", member.getAvatar());
         }
         if (request.getSignature() != null) {
             member.setSignature(request.getSignature().trim());
+            changes.put("signature", member.getSignature());
         }
         if (request.getCoverFileId() != null) {
             member.setCoverFileId(trimToNull(request.getCoverFileId()));
+            changes.put("coverFileId", member.getCoverFileId());
         }
-        tenantUserMapper.updateById(member);
+        tenantUserExtMapper.updateProfile(tenantId, userId, changes);
 
         SysTenantDO tenant = tenantService.getTenant(tenantId);
         return buildProfileResponse(user, member, tenant, userId, tenantId);
@@ -291,7 +298,7 @@ public class UserServiceImpl implements UserService {
         if (request.getNickname() != null) {
             String nickname = request.getNickname().trim();
             member.setNickname(nickname);
-            tenantUserMapper.updateById(member);
+            tenantUserExtMapper.updateProfile(tenantId, request.getId(), Map.of("nickname", nickname));
             // Keep global nickname as fallback for memberships without member nickname.
             user.setNickname(nickname);
         }
@@ -308,9 +315,9 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void updateUserStatus(UserUpdateStatusReqVO request) {
         Long tenantId = resolveTenantId();
-        SysTenantUserDO tenantUser = requireTenantUser(request.getId(), tenantId);
-        tenantUser.setStatus(UserConvert.INSTANCE.toMemberStatus(request.getStatus()));
-        tenantUserMapper.updateById(tenantUser);
+        requireTenantUser(request.getId(), tenantId);
+        tenantUserExtMapper.updateStatus(tenantId, request.getId(),
+                UserConvert.INSTANCE.toMemberStatus(request.getStatus()), null);
     }
 
     @Override

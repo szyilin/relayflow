@@ -19,6 +19,7 @@ public class RealtimeSessionSenderImpl implements RealtimeSessionSender {
 
     private final WebSocketSessionRegistry sessionRegistry;
     private final ObjectMapper objectMapper;
+    private final LocalWebSocketMessageSender localSender;
 
     @Override
     public void send(RealtimeSessionContext session, RealtimeEnvelopeDTO envelope) {
@@ -28,7 +29,7 @@ public class RealtimeSessionSenderImpl implements RealtimeSessionSender {
         }
         try {
             String json = objectMapper.writeValueAsString(RealtimeEnvelopeConverter.toFramework(envelope));
-            LocalWebSocketMessageSender.writeSafely(webSocketSession, new TextMessage(json));
+            localSender.writeSafely(webSocketSession, new TextMessage(json));
         } catch (Exception ex) {
             log.warn("Realtime session send failed (best-effort): sessionId={}", session.sessionId(), ex);
         }

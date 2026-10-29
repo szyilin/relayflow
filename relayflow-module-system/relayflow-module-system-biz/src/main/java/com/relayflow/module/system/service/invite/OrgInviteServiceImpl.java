@@ -21,6 +21,7 @@ import com.relayflow.module.system.dal.dataobject.SysUserDeptDO;
 import com.relayflow.module.system.dal.mapper.SysOrgInviteMapper;
 import com.relayflow.module.system.dal.mapper.SysOrgInvitePublicMapper;
 import com.relayflow.module.system.dal.mapper.SysTenantUserMapper;
+import com.relayflow.module.system.dal.mapper.SysTenantUserExtMapper;
 import com.relayflow.module.system.dal.mapper.SysUserDeptMapper;
 import com.relayflow.module.system.dal.mapper.SysUserMapper;
 import com.relayflow.module.system.enums.ErrorCodeConstants;
@@ -59,6 +60,7 @@ public class OrgInviteServiceImpl implements OrgInviteService {
     private final SysOrgInviteMapper orgInviteMapper;
     private final SysOrgInvitePublicMapper orgInvitePublicMapper;
     private final SysTenantUserMapper tenantUserMapper;
+    private final SysTenantUserExtMapper tenantUserExtMapper;
     private final SysUserDeptMapper userDeptMapper;
     private final SysUserMapper userMapper;
     private final InviteSettingsService inviteSettingsService;
@@ -238,11 +240,12 @@ public class OrgInviteServiceImpl implements OrgInviteService {
             row.setSignature("");
             tenantUserMapper.insert(row);
         } else {
-            existing.setStatus(TenantUserStatus.ACTIVE);
-            if (!StringUtils.hasText(existing.getNickname())) {
-                existing.setNickname(nickname);
+            if (tenantUserExtMapper.updateStatus(tenantId, userId, TenantUserStatus.ACTIVE, existing.getStatus()) != 1) {
+                throw new ServiceException(ErrorCodeConstants.MEMBER_INVITE_NOT_FOUND);
             }
-            tenantUserMapper.updateById(existing);
+            if (!StringUtils.hasText(existing.getNickname())) {
+                tenantUserExtMapper.updateProfile(tenantId, userId, java.util.Map.of("nickname", nickname));
+            }
         }
 
         Long deptCount = userDeptMapper.selectCount(Wrappers.<SysUserDeptDO>lambdaQuery()

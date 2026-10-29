@@ -3,6 +3,9 @@ package com.relayflow.framework.security.config;
 import com.relayflow.framework.security.core.JwtTokenService;
 import com.relayflow.framework.security.core.PermissionAuthoritiesLoader;
 import com.relayflow.framework.security.core.TokenRevocationStore;
+import com.relayflow.framework.security.core.AnonymousEndpoints;
+import com.relayflow.framework.security.core.IdentityValidityService;
+import com.relayflow.framework.security.core.MemberIdentityProvider;
 import com.relayflow.framework.security.filter.AdminPortalAuthorizationFilter;
 import com.relayflow.framework.security.filter.JwtAuthenticationFilter;
 import com.relayflow.framework.security.handler.RelayflowAccessDeniedHandler;
@@ -34,11 +37,16 @@ public class SecurityAutoConfiguration {
     }
 
     @Bean
+    public IdentityValidityService identityValidityService(JwtTokenService tokenService,
+            ObjectProvider<TokenRevocationStore> stores, ObjectProvider<MemberIdentityProvider> members) {
+        return new IdentityValidityService(tokenService, stores, members);
+    }
+
+    @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(
-            JwtTokenService jwtTokenService,
-            ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader,
-            ObjectProvider<TokenRevocationStore> tokenRevocationStore) {
-        return new JwtAuthenticationFilter(jwtTokenService, permissionAuthoritiesLoader, tokenRevocationStore);
+            IdentityValidityService identityValidityService,
+            ObjectProvider<PermissionAuthoritiesLoader> permissionAuthoritiesLoader) {
+        return new JwtAuthenticationFilter(identityValidityService, permissionAuthoritiesLoader);
     }
 
     @Bean
@@ -59,14 +67,7 @@ public class SecurityAutoConfiguration {
                         .authenticationEntryPoint(new RelayflowAuthenticationEntryPoint())
                         .accessDeniedHandler(new RelayflowAccessDeniedHandler()))
                 .authorizeHttpRequests(registry -> registry
-                        .requestMatchers(
-                                "/admin-api/system/auth/login",
-                                "/admin-api/system/tenant/default",
-                                "/app-api/system/auth/register",
-                                "/app-api/infra/file/public/**",
-                                "/app-api/rtc/webhook",
-                                "/infra/ws"
-                        ).permitAll()
+                        .requestMatchers(AnonymousEndpoints.PATHS).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(adminPortalAuthorizationFilter, JwtAuthenticationFilter.class);
