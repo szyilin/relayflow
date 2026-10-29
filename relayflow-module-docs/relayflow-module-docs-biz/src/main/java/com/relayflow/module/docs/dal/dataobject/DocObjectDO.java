@@ -1,6 +1,7 @@
 package com.relayflow.module.docs.dal.dataobject;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.relayflow.framework.mybatis.typehandler.JsonbTypeHandler;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.relayflow.common.dal.TenantBaseDO;
@@ -32,13 +33,13 @@ public class DocObjectDO extends TenantBaseDO {
     @TableField("title")
     private String title;
 
-    @TableField(value = "body", typeHandler = JsonbTypeHandler.class)
+    @TableField(value = "body", typeHandler = JsonbTypeHandler.class, updateStrategy = FieldStrategy.NEVER)
     private String body;
 
     @TableField("body_format")
     private String bodyFormat;
 
-    @TableField("content_version")
+    @TableField(value = "content_version", updateStrategy = FieldStrategy.NEVER)
     private Integer contentVersion;
 
     @TableField("owner_user_id")

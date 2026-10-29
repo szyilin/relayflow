@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class DocDocumentServiceImpl implements DocDocumentService {
 
     private final DocObjectMapper docObjectMapper;
+    private final com.relayflow.module.docs.dal.mapper.DocObjectExtMapper docObjectExtMapper;
     private final DocUserVisitMapper docUserVisitMapper;
     private final DocStarMapper docStarMapper;
     private final DocAccessService docAccessService;
@@ -65,7 +66,7 @@ public class DocDocumentServiceImpl implements DocDocumentService {
             row.setLastOpenedAt(now);
             row.setUpdater(userId);
             row.setUpdateTime(now);
-            docObjectMapper.updateById(row);
+            docObjectExtMapper.touchOpened(tenantId, objectId, userId, now);
         }
         docVisitService.upsertVisit(tenantId, userId, row, access.isOwner());
 
@@ -93,17 +94,8 @@ public class DocDocumentServiceImpl implements DocDocumentService {
         OffsetDateTime now = OffsetDateTime.now();
         int nextVersion = row.getContentVersion() + 1;
 
-        DocObjectDO patch = new DocObjectDO();
-        patch.setBody(bodyJson);
-        patch.setContentVersion(nextVersion);
-        patch.setUpdater(userId);
-        patch.setUpdateTime(now);
-
-        int updated = docObjectMapper.update(
-                patch,
-                Wrappers.<DocObjectDO>lambdaUpdate()
-                        .eq(DocObjectDO::getId, objectId)
-                        .eq(DocObjectDO::getContentVersion, expectedVersion));
+        int updated = docObjectExtMapper.saveBody(SecurityFrameworkUtils.requireLoginTenantId(),
+                objectId, expectedVersion, bodyJson, userId, now);
         if (updated == 0) {
             throw new ServiceException(ErrorCodeConstants.DOC_VERSION_CONFLICT);
         }

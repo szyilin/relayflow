@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onScopeDispose } from 'vue'
 import {
   createDocumentShare,
   createLibraryNode,
@@ -31,6 +31,7 @@ import {
   type TipTapDocJson
 } from '../api/app/docs'
 import { ApiError } from '../api/request'
+import { DocumentSaveQueue } from '../utils/documentSaveQueue'
 import { useAuthStore } from './auth'
 import { useDocsDriveStore } from './docsDrive'
 import { useProfileStore } from './profile'
@@ -108,7 +109,41 @@ export const useDocsStore = defineStore('docs', () => {
   const panel = ref<DocsPanel>('home')
   const homeTab = ref<DocsHomeTab>('recent')
   const loading = ref(false)
-  const saving = ref(false)
+  const draftTick = ref(0)
+  let loadGeneration = 0
+  let scopeGeneration = 0
+  let leaveGuard: (() => Promise<boolean>) | undefined
+  const queue = new DocumentSaveQueue<TipTapDocJson>(async (objectId, body, contentVersion, signal) => {
+    const token = useAuthStore().token
+    if (!token || signal.aborted) throw new Error('登录身份已变更')
+    const response = await saveDocumentBody(objectId, { body, contentVersion }, {
+      signal, headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!signal.aborted && activeDocument.value?.objectId === objectId) {
+      activeDocument.value = { ...activeDocument.value, contentVersion: response.contentVersion }
+    }
+    return response.contentVersion
+  }, () => { draftTick.value++ }, error => error instanceof ApiError && error.code === DOC_VERSION_CONFLICT)
+  onScopeDispose(() => queue.cancel())
+  watch(() => [useAuthStore().userId, useAuthStore().tenantId, useAuthStore().token], identity => {
+    scopeGeneration++; loadGeneration++
+    queue.cancel()
+    queue.scope(identity.slice(0, 2).join(':'))
+    activeObjectId.value = null; activeDocument.value = null
+  }, { flush: 'sync' })
+  const activeDraft = computed(() => {
+    draftTick.value
+    const value = activeObjectId.value ? queue.get(activeObjectId.value) : undefined
+    return value ? { ...value } : null
+  })
+  const saving = computed(() => activeDraft.value?.status === 'saving')
+  const hasUnsavedDrafts = computed(() => { draftTick.value; return queue.hasUnsaved() })
+  function setLeaveGuard(guard?: () => Promise<boolean>) { leaveGuard = guard }
+  function editBody(objectId: string, body: TipTapDocJson) { queue.edit(objectId, body) }
+  async function flushActive() { if (activeObjectId.value) await queue.flush(activeObjectId.value) }
+  async function retryActive() { if (activeObjectId.value) await queue.retry(activeObjectId.value) }
+  function discardActive() { if (activeObjectId.value) queue.discard(activeObjectId.value) }
+
   const error = ref<string | null>(null)
   const hydrated = ref(false)
 
@@ -152,32 +187,44 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function loadTree() {
+    const scope = scopeGeneration
     const resp = await listLibraryTree()
-    treeRoots.value = resp.nodes ?? []
+    if (scope !== scopeGeneration) return
+      treeRoots.value = resp.nodes ?? []
   }
 
   async function loadRecent(limit = 20) {
+    const scope = scopeGeneration
     try {
-      recentItems.value = await listRecentDocuments(limit)
+      const rows = await listRecentDocuments(limit)
+      if (scope !== scopeGeneration) return
+      recentItems.value = rows
     } catch {
+      if (scope !== scopeGeneration) return
       recentItems.value = []
     }
   }
 
   async function loadShared(limit = 50) {
+    const scope = scopeGeneration
     try {
       const resp = await listSharedWithMe(limit)
+      if (scope !== scopeGeneration) return
       sharedItems.value = resp.items ?? []
     } catch {
+      if (scope !== scopeGeneration) return
       sharedItems.value = []
     }
   }
 
   async function loadStarred(limit = 50) {
+    const scope = scopeGeneration
     try {
       const resp = await listStarredDocuments(limit)
+      if (scope !== scopeGeneration) return
       starredItems.value = resp.items ?? []
     } catch {
+      if (scope !== scopeGeneration) return
       starredItems.value = []
     }
   }
@@ -238,6 +285,7 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function createPage(parentId: string | null = null, title = '未命名文档') {
+    if (leaveGuard && !await leaveGuard()) throw new Error('已保留当前草稿')
     await ensureHydrated()
     const created = await createLibraryNode({ parentId, title })
     await loadTree()
@@ -247,7 +295,9 @@ export const useDocsStore = defineStore('docs', () => {
 
   async function renameNode(nodeId: string, title: string) {
     const next = title.trim() || '未命名文档'
-    const updated = await updateLibraryNode(nodeId, { title: next })
+    const scope = scopeGeneration
+    const updated = await updateLibraryNode(nodeId, { title: next }, { headers: { Authorization: `Bearer ${useAuthStore().token}` } })
+    if (scope !== scopeGeneration) return
     treeRoots.value = patchTreeTitle(treeRoots.value, updated.objectId, updated.title)
     if (activeDocument.value?.objectId === updated.objectId) {
       activeDocument.value = { ...activeDocument.value, title: updated.title }
@@ -271,6 +321,7 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function removeNode(nodeId: string) {
+    if (leaveGuard && !await leaveGuard()) throw new Error('已保留当前草稿')
     const node = findNodeInTree(treeRoots.value, n => n.nodeId === nodeId)
     const removedObjectId = node?.objectId
     await deleteLibraryNode(nodeId)
@@ -282,6 +333,10 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function openDocument(objectId: string) {
+    if (leaveGuard && !await leaveGuard()) throw new Error('已保留当前草稿')
+    const generation = ++loadGeneration
+    const scope = scopeGeneration
+    const token = useAuthStore().token
     const tombstone = recentItems.value.find(i => i.objectId === objectId)
     if (tombstone?.accessState === 'DELETED') {
       throw new Error('文档已被删除，无法打开')
@@ -291,10 +346,13 @@ export const useDocsStore = defineStore('docs', () => {
     }
 
     try {
-      const doc = await getDocument(objectId)
+      const doc = await getDocument(objectId, { headers: { Authorization: `Bearer ${token}` } })
+      if (scope !== scopeGeneration || generation !== loadGeneration) return
+      const draft = queue.open(objectId, doc.body, doc.contentVersion)
       const enriched: DocsDocument = {
         ...doc,
-        body: cloneDoc(doc.body),
+        body: cloneDoc(draft.body),
+        contentVersion: draft.version,
         ownedByMe: doc.ownedByMe ?? findNodeByObjectId(objectId) != null,
         permission: doc.permission ?? 'EDIT',
         ownerUserId: doc.ownerUserId ?? myUserId()
@@ -308,6 +366,7 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function saveTitle(objectId: string, title: string) {
+    const scope = scopeGeneration
     if (activeDocument.value?.objectId === objectId && activeDocument.value.permission === 'VIEW') {
       throw new Error('无权重命名')
     }
@@ -321,6 +380,7 @@ export const useDocsStore = defineStore('docs', () => {
     if (item) {
       const next = title.trim() || '未命名文档'
       await drive.renameItem(item.itemId, next)
+      if (scope !== scopeGeneration) return
       if (activeDocument.value?.objectId === objectId) {
         activeDocument.value = { ...activeDocument.value, title: next }
       }
@@ -330,28 +390,11 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function saveBody(objectId: string, body: TipTapDocJson, contentVersion: number) {
-    saving.value = true
-    try {
-      if (activeDocument.value?.objectId === objectId && activeDocument.value.permission === 'VIEW') {
-        throw new Error('无权编辑')
-      }
-      const resp = await saveDocumentBody(objectId, { body, contentVersion })
-      if (activeDocument.value?.objectId === objectId) {
-        activeDocument.value = {
-          ...activeDocument.value,
-          body: cloneDoc(body),
-          contentVersion: resp.contentVersion
-        }
-      }
-      return resp.contentVersion
-    } catch (e) {
-      if (e instanceof ApiError && e.code === DOC_VERSION_CONFLICT) {
-        throw toStoreError(e, '文档已被更新，请刷新后重试')
-      }
-      throw toStoreError(e, '保存失败')
-    } finally {
-      saving.value = false
-    }
+    if (activeDocument.value?.objectId === objectId && activeDocument.value.permission === 'VIEW') throw new Error('无权编辑')
+    if (!queue.get(objectId)) queue.open(objectId, body, contentVersion)
+    queue.edit(objectId, body)
+    await queue.flush(objectId)
+    return queue.get(objectId)?.version
   }
 
   async function exportMarkdown(objectId: string): Promise<string> {
@@ -419,6 +462,7 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   async function leaveShare(objectId: string) {
+    if (activeObjectId.value === objectId && leaveGuard && !await leaveGuard()) throw new Error('已保留当前草稿')
     try {
       await leaveSharedDocument(objectId)
       if (activeObjectId.value === objectId) {
@@ -463,6 +507,7 @@ export const useDocsStore = defineStore('docs', () => {
   }
 
   function resetLocal() {
+    queue.cancel(); scopeGeneration++; loadGeneration++
     hydrated.value = false
     effectiveSettings.value = null
     treeRoots.value = []
@@ -473,12 +518,12 @@ export const useDocsStore = defineStore('docs', () => {
     clearActive()
     error.value = null
     loading.value = false
-    saving.value = false
     panel.value = 'home'
     homeTab.value = 'recent'
   }
 
   return {
+    activeDraft, hasUnsavedDrafts, setLeaveGuard, editBody, flushActive, retryActive, discardActive,
     panel,
     homeTab,
     loading,

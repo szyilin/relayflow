@@ -60,6 +60,7 @@ public class DocDriveServiceImpl implements DocDriveService {
     private final DocDriveItemMapper docDriveItemMapper;
     private final DocLibraryNodeMapper docLibraryNodeMapper;
     private final DocObjectMapper docObjectMapper;
+    private final com.relayflow.module.docs.dal.mapper.DocObjectExtMapper docObjectExtMapper;
     private final DocAccessService docAccessService;
     private final DocProductSettingsService docProductSettingsService;
     private final DocObjectLifecycleService docObjectLifecycleService;
@@ -263,7 +264,7 @@ public class DocDriveServiceImpl implements DocDriveService {
                 object.setTitle(title);
                 object.setUpdater(userId);
                 object.setUpdateTime(now);
-                docObjectMapper.updateById(object);
+                docObjectExtMapper.rename(SecurityFrameworkUtils.requireLoginTenantId(), object.getId(), title, userId, now);
             }
         }
 
@@ -426,11 +427,11 @@ public class DocDriveServiceImpl implements DocDriveService {
         }
         FileRespDTO file;
         try {
-            file = fileApi.getFile(fileId);
+            file = fileApi.requireReadable(SecurityFrameworkUtils.requireLoginTenantId(), userId, fileId);
         } catch (ServiceException ex) {
             throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_FILE_INVALID);
         }
-        if (file == null || file.getId() == null || !Objects.equals(file.getCreator(), userId)) {
+        if (file == null || file.getId() == null) {
             throw new ServiceException(ErrorCodeConstants.DOC_STORAGE_FILE_INVALID);
         }
         return file;

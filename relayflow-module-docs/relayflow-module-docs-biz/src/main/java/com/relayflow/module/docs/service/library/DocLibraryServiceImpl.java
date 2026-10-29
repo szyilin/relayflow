@@ -42,6 +42,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
 
     private final DocLibraryNodeMapper docLibraryNodeMapper;
     private final DocObjectMapper docObjectMapper;
+    private final com.relayflow.module.docs.dal.mapper.DocObjectExtMapper docObjectExtMapper;
     private final DocUserVisitMapper docUserVisitMapper;
     private final DocAccessService docAccessService;
     private final DocObjectLifecycleService docObjectLifecycleService;
@@ -147,7 +148,7 @@ public class DocLibraryServiceImpl implements DocLibraryService {
                 object.setTitle(title);
                 object.setUpdater(userId);
                 object.setUpdateTime(now);
-                docObjectMapper.updateById(object);
+                docObjectExtMapper.rename(SecurityFrameworkUtils.requireLoginTenantId(), object.getId(), title, userId, now);
             }
             changed = true;
         }

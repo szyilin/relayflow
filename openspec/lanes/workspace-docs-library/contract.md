@@ -215,3 +215,18 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8080/app-api/docs/recent?limit=20"
 ```
+
+## 保存一致性增量（docs-save-consistency-hardening）
+
+路由与 GET/PUT API 不变；草稿键为 userId/tenantId/objectId，每次编辑增加本地 revision，单文档最多一个请求在途。防抖捕获原文档，合并最新待保存快照；返回只确认 sentRevision 并推进 CAS，不覆盖更晚输入。加载 generation、身份 generation 与草稿 revision 分开。
+
+| 状态/事件 | 行为 |
+|---|---|
+| 待保存/保存中 | 1200ms 防抖；切文档/返回/SPA 离开 flush 并等待队列排空 |
+| 保存失败 | 保留草稿与原 CAS；显式重试，或明确放弃后离开 |
+| 版本冲突 | 保留本地草稿，复制/导出；明确确认后才加载服务器正文，不自动换新版本强存 |
+| 未保存刷新/关闭 | beforeunload 标准提示；不承诺异步保存完成 |
+| logout/账号/租户切换 | 取消旧客户端请求、定时器和队列派发，忽略旧响应；不使用新身份提交旧草稿 |
+| 已保存 | acknowledgedRevision 等于 currentRevision，且没有排队/在途请求 |
+
+元数据更新只能写目标字段与 audit；body/contentVersion 仍只由原子 CAS 正文接口更新。发布前用户先保存再刷新；内存草稿不保证设备崩溃恢复。

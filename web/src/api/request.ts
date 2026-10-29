@@ -69,6 +69,8 @@ function redirectToForbidden(): void {
 }
 
 function handleAuthFailure(error: ApiError, config?: AxiosRequestConfig): void {
+  const authorization = config?.headers?.Authorization
+  if (typeof authorization === 'string' && authorization !== `Bearer ${getAccessToken() ?? ''}`) return
   if (isAuthEndpoint(config)) {
     return
   }

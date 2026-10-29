@@ -1,4 +1,5 @@
 import { del, get, post, put } from '../request'
+import type { AxiosRequestConfig } from 'axios'
 
 export const DOCS_BODY_FORMAT = 'tiptap_json_v1' as const
 
@@ -154,24 +155,26 @@ export function createLibraryNode(payload: {
 
 export function updateLibraryNode(
   nodeId: string,
-  payload: { title?: string, parentId?: string | null, sortOrder?: number }
+  payload: { title?: string, parentId?: string | null, sortOrder?: number },
+  config?: AxiosRequestConfig
 ): Promise<DocsNodeCreateResp> {
-  return put<DocsNodeCreateResp>(`/app-api/docs/library/nodes/${nodeId}`, payload)
+  return put<DocsNodeCreateResp>(`/app-api/docs/library/nodes/${nodeId}`, payload, config)
 }
 
 export function deleteLibraryNode(nodeId: string): Promise<void> {
   return del<void>(`/app-api/docs/library/nodes/${nodeId}`)
 }
 
-export function getDocument(objectId: string): Promise<DocsDocument> {
-  return get<DocsDocument>(`/app-api/docs/documents/${objectId}`)
+export function getDocument(objectId: string, config?: AxiosRequestConfig): Promise<DocsDocument> {
+  return get<DocsDocument>(`/app-api/docs/documents/${objectId}`, config)
 }
 
 export function saveDocumentBody(
   objectId: string,
-  payload: { body: TipTapDocJson, contentVersion: number }
+  payload: { body: TipTapDocJson, contentVersion: number },
+  config?: AxiosRequestConfig
 ): Promise<DocsBodySaveResp> {
-  return put<DocsBodySaveResp>(`/app-api/docs/documents/${objectId}/body`, payload)
+  return put<DocsBodySaveResp>(`/app-api/docs/documents/${objectId}/body`, payload, config)
 }
 
 export function exportDocumentMarkdown(objectId: string): Promise<DocsExportMdResp> {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useDebounceFn } from '@vueuse/core'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import WorkspaceShell from '../../../components/workspace/WorkspaceShell.vue'
 import DocsDriveBrowser from '../../../components/workspace/DocsDriveBrowser.vue'
 import DocsDriveFolderTree from '../../../components/workspace/DocsDriveFolderTree.vue'
@@ -48,7 +47,49 @@ const driveFolderTreeItems = ref<AppTreeSelectItem[]>([
 
 const draftBody = ref<TipTapDocJson>(emptyTipTapDoc())
 const draftTitle = ref('')
-const saveHint = ref('')
+const saveHint = computed(() => {
+  const draft = docs.activeDraft
+  if (!draft) return ''
+  return { saved: '已保存', pending: '待保存', saving: '保存中…', failed: '保存失败，草稿已保留', conflict: '版本冲突，草稿已保留' }[draft.status]
+})
+const saveProblem = computed(() => ['failed', 'conflict'].includes(docs.activeDraft?.status ?? ''))
+async function settleDraft() {
+  try { await docs.flushActive(); return true }
+  catch {
+    const discard = await appConfirm({ title: '草稿尚未保存', description: '保存失败或存在版本冲突。留在当前文档可重试、复制或导出草稿；继续离开将放弃本地未保存内容。', confirmLabel: '放弃草稿并离开', cancelLabel: '留在文档' })
+    if (discard) docs.discardActive()
+    return discard
+  }
+}
+docs.setLeaveGuard(settleDraft)
+onBeforeRouteLeave(() => settleDraft())
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (docs.hasUnsavedDrafts) { event.preventDefault(); event.returnValue = '' }
+}
+window.addEventListener('beforeunload', beforeUnload)
+onBeforeUnmount(() => { docs.setLeaveGuard(); window.removeEventListener('beforeunload', beforeUnload) })
+async function retrySave() {
+  try { await docs.retryActive() } catch { toast.add({ title: '保存失败，草稿仍保留', color: 'error' }) }
+}
+async function copyLocalDraft() {
+  try { await navigator.clipboard.writeText(JSON.stringify(draftBody.value, null, 2)); toast.add({ title: '已复制本地草稿', color: 'success' }) }
+  catch { toast.add({ title: '复制失败，可导出本地草稿', color: 'error' }) }
+}
+function exportLocalDraft() {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(draftBody.value, null, 2)], { type: 'application/json' }))
+  const link = document.createElement('a'); link.href = url; link.download = 'document-draft.json'; link.click(); URL.revokeObjectURL(url)
+}
+async function loadServerVersion() {
+  if (!await appConfirm({ title: '加载服务端版本', description: '这会放弃当前本地草稿。请先复制或导出需要保留的内容。', confirmLabel: '放弃草稿并加载', cancelLabel: '保留草稿' })) return
+  const id = docs.activeObjectId
+  docs.discardActive()
+  if (id) {
+    try {
+      await docs.openDocument(id)
+      if (docs.activeDocument?.objectId === id) { draftBody.value = docs.activeDocument.body; draftTitle.value = docs.activeDocument.title }
+    } catch { toast.add({ title: '加载服务端版本失败', color: 'error' }) }
+  }
+}
 /** Where the open document was launched from (for back / path bar). */
 const docOpenSource = ref<'library' | 'recent' | 'drive' | 'shared' | 'starred' | 'home' | null>(null)
 
@@ -200,8 +241,9 @@ onMounted(async () => {
 })
 
 watch(
-  () => docs.activeDocument,
-  (doc) => {
+  () => docs.activeObjectId,
+  () => {
+    const doc = docs.activeDocument
     if (!doc) {
       draftBody.value = emptyTipTapDoc()
       draftTitle.value = ''
@@ -227,33 +269,10 @@ watch(
   }
 )
 
-const persistBody = useDebounceFn(async () => {
-  const doc = docs.activeDocument
-  if (!doc || doc.permission === 'VIEW') {
-    return
-  }
-  try {
-    await docs.saveBody(doc.objectId, draftBody.value, doc.contentVersion)
-    saveHint.value = '已保存'
-    window.setTimeout(() => {
-      if (saveHint.value === '已保存') {
-        saveHint.value = ''
-      }
-    }, 1500)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : '保存失败'
-    saveHint.value = msg
-    toast.add({ title: msg, color: 'error' })
-  }
-}, 1200)
-
-async function onBodyUpdate(value: TipTapDocJson) {
-  if (!docEditable.value) {
-    return
-  }
+function onBodyUpdate(value: TipTapDocJson) {
+  if (!docEditable.value || !docs.activeObjectId) return
   draftBody.value = value
-  saveHint.value = '保存中…'
-  await persistBody()
+  docs.editBody(docs.activeObjectId, value)
 }
 
 async function onTitleBlur() {
@@ -269,6 +288,7 @@ async function onTitleBlur() {
 }
 
 async function enterDriveExplorer(options?: { upload?: boolean }) {
+  if (!await settleDraft()) return
   navMode.value = 'driveExplorer'
   docs.panel = 'drive'
   docs.clearActive()
@@ -286,7 +306,8 @@ async function enterDriveExplorer(options?: { upload?: boolean }) {
   }
 }
 
-function leaveDriveExplorer() {
+async function leaveDriveExplorer() {
+  if (!await settleDraft()) return
   navMode.value = 'root'
   docs.panel = 'home'
   docs.homeTab = 'recent'
@@ -295,6 +316,7 @@ function leaveDriveExplorer() {
 }
 
 async function selectPanel(key: PanelKey) {
+  if (!await settleDraft()) return
   const item = panelNav.find(p => p.type === 'item' && p.key === key)
   if (!item || item.type !== 'item') {
     return
@@ -318,6 +340,7 @@ async function selectPanel(key: PanelKey) {
 }
 
 async function selectHomeTab(tab: DocsHomeTab) {
+  if (!await settleDraft()) return
   docs.panel = 'home'
   docs.homeTab = tab
   docs.clearActive()
@@ -340,6 +363,7 @@ function onHomeTemplate() {
 }
 
 async function onOpenDriveRichDoc(objectId: string) {
+  if (!await settleDraft()) return
   try {
     docOpenSource.value = 'drive'
     docs.panel = 'drive'
@@ -363,6 +387,7 @@ async function onCreate(parentId: string | null = null) {
 }
 
 async function onOpen(objectId: string) {
+  if (!await settleDraft()) return
   try {
     if (docs.panel === 'home') {
       docOpenSource.value = docs.homeTab
@@ -377,7 +402,8 @@ async function onOpen(objectId: string) {
   }
 }
 
-function backFromDocument() {
+async function backFromDocument() {
+  if (!await settleDraft()) return
   const source = docOpenSource.value
   docs.clearActive()
   if (source === 'drive') {
@@ -501,6 +527,7 @@ async function onToggleStar(objectId: string) {
 }
 
 async function onRemoveRecent(objectId: string) {
+  if (!await settleDraft()) return
   try {
     await docs.removeFromRecent(objectId)
     if (docs.activeObjectId === objectId) {
@@ -558,6 +585,7 @@ async function onExportMdFor(objectId: string) {
 }
 
 async function onDriveCrumbClick(folderId: string | null) {
+  if (!await settleDraft()) return
   docs.clearActive()
   docs.panel = 'drive'
   navMode.value = 'driveExplorer'
@@ -657,6 +685,7 @@ async function openMoveToDrive(node: DocsLibraryNode) {
 }
 
 async function confirmMoveToDrive() {
+  if (!await settleDraft()) return
   if (!moveToDriveObjectId.value) {
     return
   }
@@ -1020,7 +1049,7 @@ meta:
           :disabled="!docEditable"
           @blur="onTitleBlur"
         />
-        <span class="shrink-0 text-xs text-[var(--ws-text-muted)]">{{ saveHint }}</span>
+        <span role="status" class="shrink-0 text-xs text-[var(--ws-text-muted)]">{{ saveHint }}</span>
         <UDropdownMenu :items="docMoreItems">
           <UButton
             size="sm"
@@ -1030,6 +1059,13 @@ meta:
             aria-label="更多"
           />
         </UDropdownMenu>
+      </div>
+      <div v-if="saveProblem" role="alert" class="flex flex-wrap items-center gap-2 border-b border-[var(--ws-border-subtle)] px-4 py-2 text-sm">
+        <span>{{ docs.activeDraft?.error instanceof Error ? docs.activeDraft.error.message : saveHint }}</span>
+        <UButton size="xs" color="neutral" @click="retrySave">重试保存</UButton>
+        <UButton size="xs" color="neutral" variant="soft" @click="copyLocalDraft">复制本地草稿</UButton>
+        <UButton size="xs" color="neutral" variant="soft" @click="exportLocalDraft">导出本地草稿</UButton>
+        <UButton size="xs" color="warning" variant="soft" @click="loadServerVersion">加载服务端版本</UButton>
       </div>
       <DocsRichEditor
         :model-value="draftBody"

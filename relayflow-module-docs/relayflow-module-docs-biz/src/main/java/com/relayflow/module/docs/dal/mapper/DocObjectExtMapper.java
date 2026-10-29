@@ -15,6 +15,30 @@ import java.util.List;
 @Mapper
 public interface DocObjectExtMapper {
 
+    @org.apache.ibatis.annotations.Update("""
+        UPDATE doc_object SET last_opened_at=#{now}, updater=#{userId}, update_time=#{now}
+        WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0 AND lifecycle='ACTIVE'
+        """)
+    int touchOpened(@Param("tenantId") Long tenantId, @Param("id") Long id,
+                    @Param("userId") Long userId, @Param("now") OffsetDateTime now);
+
+    @org.apache.ibatis.annotations.Update("""
+        UPDATE doc_object SET title=#{title}, updater=#{userId}, update_time=#{now}
+        WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0 AND lifecycle='ACTIVE'
+        """)
+    int rename(@Param("tenantId") Long tenantId, @Param("id") Long id, @Param("title") String title,
+               @Param("userId") Long userId, @Param("now") OffsetDateTime now);
+
+    @org.apache.ibatis.annotations.Update("""
+        UPDATE doc_object SET body=CAST(#{body} AS jsonb), content_version=content_version+1,
+                              updater=#{userId}, update_time=#{now}
+        WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0 AND lifecycle='ACTIVE'
+          AND type='RICH_DOC' AND content_version=#{version}
+        """)
+    int saveBody(@Param("tenantId") Long tenantId, @Param("id") Long id, @Param("version") int version,
+                 @Param("body") String body, @Param("userId") Long userId, @Param("now") OffsetDateTime now);
+
+
     List<DocObjectDO> selectAdminPage(
             @Param("tenantId") Long tenantId,
             @Param("keyword") String keyword,
