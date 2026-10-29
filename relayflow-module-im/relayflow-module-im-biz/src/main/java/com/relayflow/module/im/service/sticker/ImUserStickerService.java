@@ -185,13 +185,16 @@ public class ImUserStickerService {
         row.setUpdater(loginUser.getUserId());
         row.setUpdateTime(now);
         userStickerMapper.insert(row);
+        var binding = new com.relayflow.module.infra.api.file.dto.FileBindReqDTO();
+        binding.setFileId(fileId); binding.setBizId(row.getId()); binding.setBizType("im_user_sticker");
+        fileApi.bindFile(binding);
         return toItem(row);
     }
 
     private void requireImageFile(Long fileId) {
         FileRespDTO file;
         try {
-            file = fileApi.getFile(fileId);
+            file = fileApi.requireReadable(SecurityFrameworkUtils.requireLoginTenantId(), SecurityFrameworkUtils.requireLoginUserId(), fileId);
         } catch (ServiceException ex) {
             throw new ServiceException(ErrorCodeConstants.MESSAGE_FILE_NOT_FOUND);
         }

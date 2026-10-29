@@ -15,5 +15,7 @@ public interface FileApi {
      */
     Map<Long, FileRespDTO> getFiles(Collection<Long> fileIds);
 
+    FileRespDTO requireReadable(Long tenantId, Long userId, Long fileId);
+
     void bindFile(FileBindReqDTO request);
 }

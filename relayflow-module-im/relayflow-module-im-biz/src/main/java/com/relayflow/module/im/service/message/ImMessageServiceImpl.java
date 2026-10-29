@@ -368,6 +368,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         if (ImContentHelper.MESSAGE_TYPE_STICKER.equals(messageType)) {
             request.setContent(stickerService.resolveSendContent(request.getContent(), contentHelper));
         }
+        contentHelper.requireReferences(tenantId, userId, request.getContent());
         contentHelper.validateUserMessage(request.getType(), request.getContent());
         contentHelper.enrichDownloadUrls(request.getContent());
 
@@ -412,6 +413,7 @@ public class ImMessageServiceImpl implements ImMessageService {
             return response;
         }
 
+        contentHelper.bindReferences(message.getId(), request.getContent());
         ImConversationDO conversation = conversationMapper.selectById(conversationId);
         conversation.setLastMsgId(message.getId());
         conversation.setLastMsgAt(now);
@@ -508,6 +510,7 @@ public class ImMessageServiceImpl implements ImMessageService {
         }
         forwardedFrom.setPreview(contentHelper.buildPreview(source.getType(), sourceContent));
         forwardedContent.setForwardedFrom(forwardedFrom);
+        contentHelper.requireReferences(tenantId, userId, forwardedContent);
         contentHelper.enrichDownloadUrls(forwardedContent);
 
         long nextSeq = nextSeq(tenantId, targetConversationId);
@@ -534,6 +537,7 @@ public class ImMessageServiceImpl implements ImMessageService {
             return toMessageItem(raced, loadSenderNicknames(List.of(raced)));
         }
 
+        contentHelper.bindReferences(message.getId(), forwardedContent);
         String preview = contentHelper.buildPreview(source.getType(), forwardedContent);
         if (StringUtils.hasText(preview) && !preview.startsWith("[")) {
             preview = "[转发] " + preview;
@@ -559,7 +563,12 @@ public class ImMessageServiceImpl implements ImMessageService {
                 .build();
         List<Long> recipients = conversationService.listMemberUserIds(tenantId, targetConversationId);
         if (!recipients.isEmpty()) {
-            realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCommit() { realtimeTransportApi.sendToUsers(tenantId, recipients, envelope); }
+                        });
+            } else realtimeTransportApi.sendToUsers(tenantId, recipients, envelope);
         }
         return payload;
     }
@@ -887,6 +896,18 @@ public class ImMessageServiceImpl implements ImMessageService {
     }
 
     private void dispatchRealtime(ImMessageDO message, MessageContentVO content, Long senderId, Long tenantId,
+                                  RealtimeSendContext realtimeContext, boolean idempotentReplay) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() {
+                            dispatchCommittedRealtime(message, content, senderId, tenantId, realtimeContext, idempotentReplay);
+                        }
+                    });
+        } else dispatchCommittedRealtime(message, content, senderId, tenantId, realtimeContext, idempotentReplay);
+    }
+
+    private void dispatchCommittedRealtime(ImMessageDO message, MessageContentVO content, Long senderId, Long tenantId,
                                   RealtimeSendContext realtimeContext, boolean idempotentReplay) {
         if (realtimeContext != null) {
             SendMessageRespVO ackPayload = toSendResponse(message);

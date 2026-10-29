@@ -42,6 +42,7 @@ public class FileServiceImpl implements FileService {
     private final InfraFileMapper fileMapper;
     private final InfraFilePublicMapper filePublicMapper;
     private final InfraFileBindingMapper bindingMapper;
+    private final com.relayflow.module.infra.dal.mapper.InfraFileBindingExtMapper bindingExtMapper;
     private final TenantProperties tenantProperties;
 
     @Override
@@ -174,7 +175,8 @@ public class FileServiceImpl implements FileService {
         binding.setFileId(request.getFileId());
         binding.setBizType(bizType);
         binding.setBizId(request.getBizId());
-        bindingMapper.insert(binding);
+        binding.setId(com.baomidou.mybatisplus.core.toolkit.IdWorker.getId());
+        bindingExtMapper.bind(binding);
     }
 
     static String buildStorageUri(String bucket, String objectKey) {

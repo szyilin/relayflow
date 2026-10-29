@@ -163,6 +163,27 @@ public class ImContentHelper {
         }
     }
 
+    public Set<Long> fileIds(MessageContentVO content) {
+        Set<Long> ids = new java.util.LinkedHashSet<>();
+        if (content != null && content.getBlocks() != null) for (var block : content.getBlocks()) {
+            if (block == null) throw new ServiceException(ErrorCodeConstants.MESSAGE_CONTENT_INVALID);
+            if (StringUtils.hasText(block.getFileId())) ids.add(parseFileId(block.getFileId()));
+        }
+        return ids;
+    }
+
+    public void requireReferences(Long tenantId, Long userId, MessageContentVO content) {
+        for (Long fileId : fileIds(content)) fileApi.requireReadable(tenantId, userId, fileId);
+    }
+
+    public void bindReferences(Long messageId, MessageContentVO content) {
+        for (Long fileId : fileIds(content)) {
+            var bind = new com.relayflow.module.infra.api.file.dto.FileBindReqDTO();
+            bind.setFileId(fileId); bind.setBizId(messageId); bind.setBizType("im_message");
+            fileApi.bindFile(bind);
+        }
+    }
+
     public String toJson(MessageContentVO content) {
         try {
             return objectMapper.writeValueAsString(content);

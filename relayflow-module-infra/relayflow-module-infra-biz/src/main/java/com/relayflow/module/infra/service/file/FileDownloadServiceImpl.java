@@ -22,6 +22,7 @@ public class FileDownloadServiceImpl implements FileDownloadService {
     private static final Duration PUBLIC_PRESIGNED_TTL = Duration.ofMinutes(60);
 
     private final FileService fileService;
+    private final FileAuthorizationService authorization;
     private final StorageProviderService storageProviderService;
     private final ObjectStorageClientFactory clientFactory;
 
@@ -46,7 +47,9 @@ public class FileDownloadServiceImpl implements FileDownloadService {
 
     @Override
     public FileDownloadRedirect resolveMemberDownload(Long fileId) {
-        return resolveAdminDownload(fileId);
+        var user = com.relayflow.framework.security.core.SecurityFrameworkUtils.requireLoginUser();
+        InfraFileDO file = authorization.requireReadable(user.getTenantId(), user.getUserId(), fileId);
+        return FileDownloadRedirect.builder().url(createPresignedGetUrl(file)).build();
     }
 
     private String createPresignedGetUrl(InfraFileDO file) {

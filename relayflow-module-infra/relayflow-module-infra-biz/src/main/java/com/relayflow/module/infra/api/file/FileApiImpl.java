@@ -14,6 +14,14 @@ import java.util.Map;
 public class FileApiImpl implements FileApi {
 
     private final FileService fileService;
+    private final org.springframework.beans.factory.ObjectProvider<com.relayflow.module.infra.service.file.FileAuthorizationService> authorization;
+
+    @Override
+    public FileRespDTO requireReadable(Long tenantId, Long userId, Long fileId) {
+        return com.relayflow.module.infra.convert.FileConvert.INSTANCE.toDto(
+                authorization.getObject().requireReadable(tenantId, userId, fileId));
+    }
+
 
     @Override
     public FileRespDTO getFile(Long fileId) {
